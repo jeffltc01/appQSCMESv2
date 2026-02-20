@@ -3,6 +3,8 @@ import { useAuth } from './auth/AuthContext.tsx';
 import { LoginScreen } from './components/login/LoginScreen.tsx';
 import { TabletSetupScreen } from './components/tabletSetup/TabletSetupScreen.tsx';
 import { OperatorLayout } from './components/layout/OperatorLayout.tsx';
+import { MenuScreen } from './features/menu/MenuScreen.tsx';
+import { AdminRoutes } from './features/admin/AdminRoutes.tsx';
 
 export function App() {
   const { isAuthenticated, user } = useAuth();
@@ -18,6 +20,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginScreen />} />
+      <Route path="/menu" element={<MenuScreen />} />
+      <Route path="/menu/*" element={<AdminRoutes />} />
       <Route path="/tablet-setup" element={<TabletSetupScreen />} />
       <Route path="/operator/*" element={<OperatorLayout />} />
       <Route
@@ -30,9 +34,12 @@ export function App() {
   );
 }
 
-function DefaultRoute({ roleTier: _roleTier }: { roleTier: number }) {
-  const cachedWcId = localStorage.getItem('cachedWorkCenterId');
+function DefaultRoute({ roleTier }: { roleTier: number }) {
+  if (roleTier < 6) {
+    return <Navigate to="/menu" replace />;
+  }
 
+  const cachedWcId = localStorage.getItem('cachedWorkCenterId');
   if (cachedWcId) {
     return <Navigate to="/operator" replace />;
   }

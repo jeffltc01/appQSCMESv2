@@ -95,11 +95,15 @@ export function LoginScreen() {
       setAuthToken(response.token);
       login(response.token, response.user, isWelder);
 
-      const cache = getTabletCache();
-      if (cache) {
-        navigate('/operator');
+      if (response.user.roleTier < 6) {
+        navigate('/menu');
       } else {
-        navigate('/tablet-setup');
+        const cache = getTabletCache();
+        if (cache) {
+          navigate('/operator');
+        } else {
+          navigate('/tablet-setup');
+        }
       }
     } catch {
       setError('Login failed. Check your employee number and PIN.');

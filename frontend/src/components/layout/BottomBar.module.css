@@ -26,6 +26,19 @@
   color: #ffffff;
 }
 
+.toggle label,
+.toggle span {
+  color: #ffffff !important;
+}
+
+/* Switch thumb: white circle in both states */
+.toggle :global(.fui-Switch__indicator) circle {
+  fill: #ffffff !important;
+}
+.toggle :global(.fui-Switch__indicator) svg {
+  color: #ffffff !important;
+}
+
 .status {
   display: flex;
   align-items: center;

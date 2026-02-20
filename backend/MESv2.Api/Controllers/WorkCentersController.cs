@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using MESv2.Api.Data;
 using MESv2.Api.DTOs;
 using MESv2.Api.Services;
 
@@ -9,10 +11,12 @@ namespace MESv2.Api.Controllers;
 public class WorkCentersController : ControllerBase
 {
     private readonly IWorkCenterService _workCenterService;
+    private readonly MesDbContext _db;
 
-    public WorkCentersController(IWorkCenterService workCenterService)
+    public WorkCentersController(IWorkCenterService workCenterService, MesDbContext db)
     {
         _workCenterService = workCenterService;
+        _db = db;
     }
 
     [HttpGet]
@@ -163,5 +167,59 @@ public class WorkCentersController : ControllerBase
     {
         var list = await _workCenterService.GetBarcodeCardsAsync(siteCode, cancellationToken);
         return Ok(list);
+    }
+
+    [HttpGet("admin")]
+    public async Task<ActionResult<IEnumerable<AdminWorkCenterDto>>> GetAllAdmin(CancellationToken cancellationToken)
+    {
+        var list = await _db.WorkCenters
+            .Include(w => w.WorkCenterType)
+            .Include(w => w.Plant)
+            .OrderBy(w => w.Plant.Code).ThenBy(w => w.Name)
+            .Select(w => new AdminWorkCenterDto
+            {
+                Id = w.Id,
+                Name = w.Name,
+                WorkCenterTypeName = w.WorkCenterType.Name,
+                PlantName = w.Plant.Name,
+                NumberOfWelders = w.NumberOfWelders,
+                DataEntryType = w.DataEntryType,
+                MaterialQueueForWCId = w.MaterialQueueForWCId,
+                MaterialQueueForWCName = w.MaterialQueueForWC != null ? w.MaterialQueueForWC.Name : null
+            })
+            .ToListAsync(cancellationToken);
+        return Ok(list);
+    }
+
+    [HttpPut("{id:guid}/config")]
+    public async Task<ActionResult<AdminWorkCenterDto>> UpdateConfig(Guid id, [FromBody] UpdateWorkCenterConfigDto dto, CancellationToken cancellationToken)
+    {
+        var wc = await _db.WorkCenters
+            .Include(w => w.WorkCenterType)
+            .Include(w => w.Plant)
+            .FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
+        if (wc == null) return NotFound();
+
+        wc.NumberOfWelders = dto.NumberOfWelders;
+        wc.DataEntryType = dto.DataEntryType;
+        wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        string? mqName = null;
+        if (wc.MaterialQueueForWCId.HasValue)
+        {
+            mqName = (await _db.WorkCenters.FindAsync(new object[] { wc.MaterialQueueForWCId.Value }, cancellationToken))?.Name;
+        }
+
+        return Ok(new AdminWorkCenterDto
+        {
+            Id = wc.Id, Name = wc.Name,
+            WorkCenterTypeName = wc.WorkCenterType.Name,
+            PlantName = wc.Plant.Name,
+            NumberOfWelders = wc.NumberOfWelders,
+            DataEntryType = wc.DataEntryType,
+            MaterialQueueForWCId = wc.MaterialQueueForWCId,
+            MaterialQueueForWCName = mqName
+        });
     }
 }

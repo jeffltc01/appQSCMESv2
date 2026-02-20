@@ -213,7 +213,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
         <h3 className={styles.queueTitle}>Material Queue for: Rolls</h3>
         <div className={styles.headerActions}>
           <Button appearance="primary" size="large" onClick={openAdd}>Add Material to Queue</Button>
-          <Button appearance="subtle" onClick={loadQueue}>Refresh</Button>
+          <Button appearance="outline" size="large" onClick={loadQueue}>Refresh</Button>
         </div>
       </div>
       {queue.length === 0 ? (
@@ -223,11 +223,11 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
           <div key={item.id} className={styles.queueCard}>
             <div className={styles.queueInfo}>
               <span className={styles.queueDesc}>{item.productDescription}</span>
-              <span className={styles.queueMeta}>Qty: {item.quantity} | {new Date(item.createdAt ?? '').toLocaleTimeString()}</span>
+              <span className={styles.queueMeta}>Qty: {item.quantity}{item.createdAt ? ` | ${new Date(item.createdAt).toLocaleTimeString()}` : ''}</span>
             </div>
             <div className={styles.queueActions}>
-              <Button appearance="subtle" size="small" onClick={() => openEdit(item)}>✏</Button>
-              <Button appearance="subtle" size="small" onClick={() => handleDelete(item.id)}>🗑</Button>
+              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => openEdit(item)}>✏️ Edit</Button>
+              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => handleDelete(item.id)}>🗑️ Delete</Button>
             </div>
           </div>
         ))

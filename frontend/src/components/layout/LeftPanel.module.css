@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100px;
-  min-width: 100px;
+  width: 75px;
+  min-width: 75px;
   padding: 8px 0;
   gap: 6px;
   background: #f0f0f0;
@@ -11,10 +11,37 @@
 }
 
 .iconBtn {
-  width: 88px !important;
-  height: 72px !important;
-  min-width: 88px !important;
-  border-radius: 0 !important;
+  width: 65px !important;
+  height: 65px !important;
+  min-width: 65px !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  border: 1px solid #c0c0c0 !important;
+  overflow: visible !important;
+}
+
+.iconBtn :global(span) {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+.iconBtn :global(span) svg {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+.iconBtn :global(svg) {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+.gearLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #343a40;
+  text-align: center;
+  padding: 8px 4px;
+  line-height: 1.2;
 }
 
 .spacer {

@@ -47,6 +47,7 @@ public class MaterialQueueItemDto
     public int Quantity { get; set; }
     public string? CardId { get; set; }
     public string? CardColor { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class DefectCodeDto

@@ -20,6 +20,24 @@ import type {
   CreateNameplateRecordRequest,
   CreateHydroRecordRequest,
   HydroRecordResponse,
+  CreateProductRequest,
+  UpdateProductRequest,
+  CreateUserRequest,
+  UpdateUserRequest,
+  CreateVendorRequest,
+  UpdateVendorRequest,
+  CreateDefectCodeRequest,
+  UpdateDefectCodeRequest,
+  CreateDefectLocationRequest,
+  UpdateDefectLocationRequest,
+  UpdateWorkCenterConfigRequest,
+  UpdateCharacteristicRequest,
+  UpdateControlPlanRequest,
+  CreateAssetRequest,
+  UpdateAssetRequest,
+  CreateBarcodeCardRequest,
+  SetPlantGearRequest,
+  CreateActiveSessionRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -40,6 +58,20 @@ import type {
   AssemblyLookup,
   NameplateRecordInfo,
   BarcodeCardInfo,
+  AdminProduct,
+  ProductType,
+  AdminUser,
+  RoleOption,
+  AdminVendor,
+  AdminDefectCode,
+  AdminDefectLocation,
+  AdminWorkCenter,
+  AdminCharacteristic,
+  AdminControlPlan,
+  AdminAsset,
+  AdminBarcodeCard,
+  PlantWithGear,
+  ActiveSession,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -193,4 +225,82 @@ export const barcodeCardApi = {
     const params = siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : '';
     return api.get<BarcodeCardInfo[]>(`/workcenters/${wcId}/barcode-cards${params}`);
   },
+};
+
+// ---- Admin APIs ----
+
+export const adminProductApi = {
+  getAll: () => api.get<AdminProduct[]>('/products/admin'),
+  getTypes: () => api.get<ProductType[]>('/products/types'),
+  create: (req: CreateProductRequest) => api.post<AdminProduct>('/products', req),
+  update: (id: string, req: UpdateProductRequest) => api.put<AdminProduct>(`/products/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/products/${id}`),
+};
+
+export const adminUserApi = {
+  getAll: () => api.get<AdminUser[]>('/users/admin'),
+  getRoles: () => api.get<RoleOption[]>('/users/roles'),
+  create: (req: CreateUserRequest) => api.post<AdminUser>('/users', req),
+  update: (id: string, req: UpdateUserRequest) => api.put<AdminUser>(`/users/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/users/${id}`),
+};
+
+export const adminVendorApi = {
+  getAll: () => api.get<AdminVendor[]>('/vendors/admin'),
+  create: (req: CreateVendorRequest) => api.post<AdminVendor>('/vendors', req),
+  update: (id: string, req: UpdateVendorRequest) => api.put<AdminVendor>(`/vendors/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/vendors/${id}`),
+};
+
+export const adminDefectCodeApi = {
+  getAll: () => api.get<AdminDefectCode[]>('/defect-codes'),
+  create: (req: CreateDefectCodeRequest) => api.post<AdminDefectCode>('/defect-codes', req),
+  update: (id: string, req: UpdateDefectCodeRequest) => api.put<AdminDefectCode>(`/defect-codes/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/defect-codes/${id}`),
+};
+
+export const adminDefectLocationApi = {
+  getAll: () => api.get<AdminDefectLocation[]>('/defect-locations'),
+  create: (req: CreateDefectLocationRequest) => api.post<AdminDefectLocation>('/defect-locations', req),
+  update: (id: string, req: UpdateDefectLocationRequest) => api.put<AdminDefectLocation>(`/defect-locations/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/defect-locations/${id}`),
+};
+
+export const adminWorkCenterApi = {
+  getAll: () => api.get<AdminWorkCenter[]>('/workcenters/admin'),
+  updateConfig: (id: string, req: UpdateWorkCenterConfigRequest) => api.put<AdminWorkCenter>(`/workcenters/${id}/config`, req),
+};
+
+export const adminCharacteristicApi = {
+  getAll: () => api.get<AdminCharacteristic[]>('/characteristics/admin'),
+  update: (id: string, req: UpdateCharacteristicRequest) => api.put<AdminCharacteristic>(`/characteristics/${id}`, req),
+};
+
+export const adminControlPlanApi = {
+  getAll: () => api.get<AdminControlPlan[]>('/control-plans'),
+  update: (id: string, req: UpdateControlPlanRequest) => api.put<AdminControlPlan>(`/control-plans/${id}`, req),
+};
+
+export const adminAssetApi = {
+  getAll: () => api.get<AdminAsset[]>('/assets/admin'),
+  create: (req: CreateAssetRequest) => api.post<AdminAsset>('/assets', req),
+  update: (id: string, req: UpdateAssetRequest) => api.put<AdminAsset>(`/assets/${id}`, req),
+};
+
+export const adminKanbanCardApi = {
+  getAll: () => api.get<AdminBarcodeCard[]>('/kanban-cards'),
+  create: (req: CreateBarcodeCardRequest) => api.post<AdminBarcodeCard>('/kanban-cards', req),
+  remove: (id: string) => api.delete<void>(`/kanban-cards/${id}`),
+};
+
+export const adminPlantGearApi = {
+  getAll: () => api.get<PlantWithGear[]>('/plant-gear'),
+  setGear: (plantId: string, req: SetPlantGearRequest) => api.put<void>(`/plant-gear/${plantId}`, req),
+};
+
+export const activeSessionApi = {
+  getBySite: (siteCode: string) => api.get<ActiveSession[]>(`/active-sessions?siteCode=${encodeURIComponent(siteCode)}`),
+  upsert: (req: CreateActiveSessionRequest) => api.post<void>('/active-sessions', req),
+  heartbeat: () => api.put<void>('/active-sessions/heartbeat'),
+  endSession: () => api.delete<void>('/active-sessions'),
 };

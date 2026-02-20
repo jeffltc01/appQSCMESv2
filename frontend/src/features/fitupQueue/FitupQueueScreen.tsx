@@ -216,7 +216,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
         <h3 className={styles.queueTitle}>Material Queue for: Fitup</h3>
         <div className={styles.headerActions}>
           <Button appearance="primary" size="large" onClick={openAdd}>Add Material to Queue</Button>
-          <Button appearance="subtle" onClick={loadQueue}>Refresh</Button>
+          <Button appearance="outline" size="large" onClick={loadQueue}>Refresh</Button>
         </div>
       </div>
       {queue.length === 0 ? (
@@ -229,12 +229,12 @@ export function FitupQueueScreen(props: WorkCenterProps) {
               <div className={styles.queueMeta}>
                 {item.cardColor && <span className={styles.colorSwatch} style={{ backgroundColor: item.cardColor }} />}
                 <span>{item.cardId ?? ''}</span>
-                <span>{new Date(item.createdAt ?? '').toLocaleTimeString()}</span>
+                {item.createdAt && <span>{new Date(item.createdAt).toLocaleTimeString()}</span>}
               </div>
             </div>
             <div className={styles.queueActions}>
-              <Button appearance="subtle" size="small" onClick={() => { setForm({ productId: '', vendorHeadId: '', lotNumber: '', heatNumber: item.heatNumber, coilSlabNumber: '', cardCode: item.cardId ?? '', cardColor: item.cardColor ?? '' }); setEditingId(item.id); setShowForm(true); }}>✏</Button>
-              <Button appearance="subtle" size="small" onClick={() => handleDelete(item.id)}>🗑</Button>
+              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => { setForm({ productId: '', vendorHeadId: '', lotNumber: '', heatNumber: item.heatNumber, coilSlabNumber: '', cardCode: item.cardId ?? '', cardColor: item.cardColor ?? '' }); setEditingId(item.id); setShowForm(true); }}>✏️ Edit</Button>
+              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => handleDelete(item.id)}>🗑️ Delete</Button>
             </div>
           </div>
         ))

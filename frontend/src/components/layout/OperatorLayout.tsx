@@ -5,6 +5,7 @@ import { DismissRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { getTabletCache } from '../../hooks/useLocalStorage.ts';
 import { useBarcode } from '../../hooks/useBarcode.ts';
+import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import type { Welder, WCHistoryData } from '../../types/domain.ts';
 import { workCenterApi } from '../../api/endpoints.ts';
@@ -31,6 +32,8 @@ export function OperatorLayout() {
   const { user, isWelder } = useAuth();
   const navigate = useNavigate();
   const cache = getTabletCache();
+
+  useHeartbeat(!!cache?.cachedWorkCenterId);
 
   const [numberOfWelders, setNumberOfWelders] = useState(cache?.cachedNumberOfWelders ?? 0);
 
@@ -211,6 +214,14 @@ export function OperatorLayout() {
     navigate('/tablet-setup');
   }, [navigate]);
 
+  const wcName = cache?.cachedWorkCenterName?.toLowerCase() ?? '';
+  const supportsExternalInput = !(
+    wcName.includes('rolls material') || wcName.includes('rolls mat') ||
+    wcName.includes('fitup queue') || wcName.includes('fit-up queue') || wcName.includes('fit up queue') ||
+    wcName.includes('nameplate') || wcName.includes('data plate') ||
+    (wcName.includes('spot') && wcName.includes('xray')) || wcName.includes('spot x-ray')
+  );
+
   const wcProps = {
     workCenterId: cache?.cachedWorkCenterId ?? '',
     assetId: cache?.cachedAssetId ?? '',
@@ -259,6 +270,7 @@ export function OperatorLayout() {
         plantCode={user?.plantCode ?? ''}
         externalInput={externalInput}
         onToggleExternalInput={() => setExternalInput((v) => !v)}
+        showToggle={supportsExternalInput}
       />
 
       {externalInput && (

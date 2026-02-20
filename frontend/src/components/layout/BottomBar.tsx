@@ -6,9 +6,10 @@ interface BottomBarProps {
   plantCode: string;
   externalInput: boolean;
   onToggleExternalInput: () => void;
+  showToggle?: boolean;
 }
 
-export function BottomBar({ plantCode, externalInput, onToggleExternalInput }: BottomBarProps) {
+export function BottomBar({ plantCode, externalInput, onToggleExternalInput, showToggle = true }: BottomBarProps) {
   const clock = useClock();
 
   return (
@@ -17,14 +18,23 @@ export function BottomBar({ plantCode, externalInput, onToggleExternalInput }: B
         {plantCode} - {clock}
       </div>
 
-      <div className={styles.toggleArea}>
-        <Switch
-          checked={externalInput}
-          onChange={onToggleExternalInput}
-          label="External Input"
-          className={styles.toggle}
-        />
-      </div>
+      {showToggle && (
+        <div className={styles.toggleArea}>
+          <Switch
+            checked={externalInput}
+            onChange={onToggleExternalInput}
+            label="External Input"
+            className={styles.toggle}
+            indicator={{
+              style: {
+                background: externalInput ? '#0078d4' : '#6c757d',
+                borderColor: externalInput ? '#0078d4' : '#adb5bd',
+                color: '#ffffff',
+              },
+            }}
+          />
+        </div>
+      )}
 
       <div className={styles.status}>
         <span className={styles.onlineDot} />

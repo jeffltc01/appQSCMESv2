@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
+using MESv2.Api.Models;
 
 namespace MESv2.Api.Controllers;
 
@@ -25,5 +26,55 @@ public class AssetsController : ControllerBase
             .Select(a => new AssetDto { Id = a.Id, Name = a.Name, WorkCenterId = a.WorkCenterId })
             .ToListAsync(cancellationToken);
         return Ok(list);
+    }
+
+    [HttpGet("admin")]
+    public async Task<ActionResult<IEnumerable<AdminAssetDto>>> GetAllAssets(CancellationToken cancellationToken)
+    {
+        var list = await _db.Assets
+            .Include(a => a.WorkCenter)
+            .OrderBy(a => a.WorkCenter.Name).ThenBy(a => a.Name)
+            .Select(a => new AdminAssetDto
+            {
+                Id = a.Id,
+                Name = a.Name,
+                WorkCenterId = a.WorkCenterId,
+                WorkCenterName = a.WorkCenter.Name,
+                LimbleIdentifier = a.LimbleIdentifier
+            })
+            .ToListAsync(cancellationToken);
+        return Ok(list);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<AdminAssetDto>> CreateAsset([FromBody] CreateAssetDto dto, CancellationToken cancellationToken)
+    {
+        var asset = new Asset
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            WorkCenterId = dto.WorkCenterId,
+            LimbleIdentifier = dto.LimbleIdentifier
+        };
+        _db.Assets.Add(asset);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var wcName = (await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken))?.Name ?? "";
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wcName, LimbleIdentifier = asset.LimbleIdentifier });
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<AdminAssetDto>> UpdateAsset(Guid id, [FromBody] UpdateAssetDto dto, CancellationToken cancellationToken)
+    {
+        var asset = await _db.Assets.FindAsync(new object[] { id }, cancellationToken);
+        if (asset == null) return NotFound();
+
+        asset.Name = dto.Name;
+        asset.WorkCenterId = dto.WorkCenterId;
+        asset.LimbleIdentifier = dto.LimbleIdentifier;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var wcName = (await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken))?.Name ?? "";
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wcName, LimbleIdentifier = asset.LimbleIdentifier });
     }
 }

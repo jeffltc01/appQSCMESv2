@@ -1,0 +1,33 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { ProductMaintenanceScreen } from './ProductMaintenanceScreen.tsx';
+import { UserMaintenanceScreen } from './UserMaintenanceScreen.tsx';
+import { VendorMaintenanceScreen } from './VendorMaintenanceScreen.tsx';
+import { WorkCenterConfigScreen } from './WorkCenterConfigScreen.tsx';
+import { DefectCodesScreen } from './DefectCodesScreen.tsx';
+import { DefectLocationsScreen } from './DefectLocationsScreen.tsx';
+import { AssetManagementScreen } from './AssetManagementScreen.tsx';
+import { KanbanCardScreen } from './KanbanCardScreen.tsx';
+import { CharacteristicsScreen } from './CharacteristicsScreen.tsx';
+import { ControlPlansScreen } from './ControlPlansScreen.tsx';
+import { PlantGearScreen } from './PlantGearScreen.tsx';
+import { WhosOnFloorScreen } from './WhosOnFloorScreen.tsx';
+
+export function AdminRoutes() {
+  return (
+    <Routes>
+      <Route path="products" element={<ProductMaintenanceScreen />} />
+      <Route path="users" element={<UserMaintenanceScreen />} />
+      <Route path="vendors" element={<VendorMaintenanceScreen />} />
+      <Route path="workcenters" element={<WorkCenterConfigScreen />} />
+      <Route path="defect-codes" element={<DefectCodesScreen />} />
+      <Route path="defect-locations" element={<DefectLocationsScreen />} />
+      <Route path="assets" element={<AssetManagementScreen />} />
+      <Route path="kanban-cards" element={<KanbanCardScreen />} />
+      <Route path="characteristics" element={<CharacteristicsScreen />} />
+      <Route path="control-plans" element={<ControlPlansScreen />} />
+      <Route path="plant-gear" element={<PlantGearScreen />} />
+      <Route path="whos-on-floor" element={<WhosOnFloorScreen />} />
+      <Route path="*" element={<Navigate to="/menu" replace />} />
+    </Routes>
+  );
+}

@@ -10,8 +10,7 @@ export function WCHistory({ data }: WCHistoryProps) {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span className={styles.headerTitle}>History</span>
-        <span className={styles.headerCount}>(Today&apos;s Count: {data.dayCount})</span>
+        <span className={styles.headerCount}>Today&apos;s Count: {data.dayCount}</span>
       </div>
 
       <div className={styles.tableHeader}>

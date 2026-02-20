@@ -6,7 +6,9 @@ public class Plant
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string TimeZoneId { get; set; } = "America/Chicago";
+    public Guid? CurrentPlantGearId { get; set; }
 
+    public PlantGear? CurrentPlantGear { get; set; }
     public ICollection<ProductionLine> ProductionLines { get; set; } = new List<ProductionLine>();
     public ICollection<WorkCenter> WorkCenters { get; set; } = new List<WorkCenter>();
     public ICollection<User> Users { get; set; } = new List<User>();

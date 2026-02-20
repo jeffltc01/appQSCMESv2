@@ -20,7 +20,7 @@
 
 .headerCount {
   font-size: 18px;
-  color: #868686;
+  color: #212529;
   font-weight: 400;
 }
 
@@ -62,7 +62,7 @@
 
 .colDateTime {
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .colSerial {

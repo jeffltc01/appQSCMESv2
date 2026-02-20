@@ -52,7 +52,15 @@
 
 .queueActions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  min-width: 90px;
+  min-height: 48px;
+  font-size: 16px;
+  padding: 8px 16px;
 }
 
 .emptyQueue {

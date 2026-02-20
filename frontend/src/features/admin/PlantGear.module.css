@@ -1,0 +1,10 @@
+.gearRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gearBtn {
+  min-width: 44px;
+  font-weight: 600;
+}

@@ -39,10 +39,43 @@ public class MesDbContext : DbContext
     public DbSet<RoundSeamSetup> RoundSeamSetups => Set<RoundSeamSetup>();
     public DbSet<NameplateRecord> NameplateRecords => Set<NameplateRecord>();
     public DbSet<HydroRecord> HydroRecords => Set<HydroRecord>();
+    public DbSet<ActiveSession> ActiveSessions => Set<ActiveSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // ----- Relationships -----
+
+        modelBuilder.Entity<Plant>()
+            .HasOne(p => p.CurrentPlantGear)
+            .WithMany()
+            .HasForeignKey(p => p.CurrentPlantGearId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ActiveSession>()
+            .HasOne(s => s.User)
+            .WithMany()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ActiveSession>()
+            .HasOne(s => s.WorkCenter)
+            .WithMany()
+            .HasForeignKey(s => s.WorkCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ActiveSession>()
+            .HasOne(s => s.ProductionLine)
+            .WithMany()
+            .HasForeignKey(s => s.ProductionLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ActiveSession>()
+            .HasOne(s => s.Asset)
+            .WithMany()
+            .HasForeignKey(s => s.AssetId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ActiveSession>()
+            .HasIndex(s => s.UserId);
+        modelBuilder.Entity<ActiveSession>()
+            .HasIndex(s => s.SiteCode);
+
         modelBuilder.Entity<ProductionLine>()
             .HasOne(p => p.Plant)
             .WithMany(p => p.ProductionLines)

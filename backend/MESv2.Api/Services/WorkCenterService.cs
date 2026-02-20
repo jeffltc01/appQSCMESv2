@@ -141,19 +141,7 @@ public class WorkCenterService : IWorkCenterService
             .OrderBy(m => m.Position)
             .ToListAsync(cancellationToken);
 
-        return items.Select(m => new MaterialQueueItemDto
-        {
-            Id = m.Id,
-            Position = m.Position,
-            Status = m.Status,
-            ProductDescription = m.ProductDescription,
-            ShellSize = m.ShellSize,
-            HeatNumber = m.HeatNumber,
-            CoilNumber = m.CoilNumber,
-            Quantity = m.Quantity,
-            CardId = m.CardId,
-            CardColor = m.CardColor
-        }).ToList();
+        return items.Select(MapQueueItem).ToList();
     }
 
     public async Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default)
@@ -433,7 +421,8 @@ public class WorkCenterService : IWorkCenterService
         CoilNumber = m.CoilNumber,
         Quantity = m.Quantity,
         CardId = m.CardId,
-        CardColor = m.CardColor
+        CardColor = m.CardColor,
+        CreatedAt = m.CreatedAt
     };
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneForWorkCenterAsync(Guid wcId, CancellationToken cancellationToken)

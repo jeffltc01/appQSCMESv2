@@ -1,0 +1,19 @@
+.surface {
+  max-width: 560px;
+  width: 90vw;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.error {
+  color: #d13438;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: #fde7e9;
+  border-radius: 4px;
+}

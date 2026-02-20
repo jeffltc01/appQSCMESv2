@@ -180,3 +180,139 @@ export interface ApiError {
   message: string;
   code?: string;
 }
+
+// ---- Admin request types ----
+
+export interface CreateProductRequest {
+  productNumber: string;
+  tankSize: number;
+  tankType: string;
+  sageItemNumber?: string;
+  nameplateNumber?: string;
+  productTypeId: string;
+}
+
+export interface UpdateProductRequest {
+  productNumber: string;
+  tankSize: number;
+  tankType: string;
+  sageItemNumber?: string;
+  nameplateNumber?: string;
+  productTypeId: string;
+}
+
+export interface CreateUserRequest {
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  roleTier: number;
+  roleName: string;
+  defaultSiteId: string;
+  isCertifiedWelder: boolean;
+  requirePinForLogin: boolean;
+}
+
+export interface UpdateUserRequest {
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  roleTier: number;
+  roleName: string;
+  defaultSiteId: string;
+  isCertifiedWelder: boolean;
+  requirePinForLogin: boolean;
+}
+
+export interface CreateVendorRequest {
+  name: string;
+  vendorType: string;
+  siteCode?: string;
+}
+
+export interface UpdateVendorRequest {
+  name: string;
+  vendorType: string;
+  siteCode?: string;
+  isActive: boolean;
+}
+
+export interface CreateDefectCodeRequest {
+  code: string;
+  name: string;
+  severity?: string;
+  systemType?: string;
+  workCenterIds: string[];
+}
+
+export interface UpdateDefectCodeRequest {
+  code: string;
+  name: string;
+  severity?: string;
+  systemType?: string;
+  workCenterIds: string[];
+}
+
+export interface CreateDefectLocationRequest {
+  code: string;
+  name: string;
+  defaultLocationDetail?: string;
+  characteristicId?: string;
+}
+
+export interface UpdateDefectLocationRequest {
+  code: string;
+  name: string;
+  defaultLocationDetail?: string;
+  characteristicId?: string;
+}
+
+export interface UpdateWorkCenterConfigRequest {
+  numberOfWelders: number;
+  dataEntryType?: string;
+  materialQueueForWCId?: string;
+}
+
+export interface UpdateCharacteristicRequest {
+  name: string;
+  specHigh?: number;
+  specLow?: number;
+  specTarget?: number;
+  productTypeId?: string;
+  workCenterIds: string[];
+}
+
+export interface UpdateControlPlanRequest {
+  isEnabled: boolean;
+  resultType: string;
+  isGateCheck: boolean;
+}
+
+export interface CreateAssetRequest {
+  name: string;
+  workCenterId: string;
+  limbleIdentifier?: string;
+}
+
+export interface UpdateAssetRequest {
+  name: string;
+  workCenterId: string;
+  limbleIdentifier?: string;
+}
+
+export interface CreateBarcodeCardRequest {
+  cardValue: string;
+  color?: string;
+  description?: string;
+}
+
+export interface SetPlantGearRequest {
+  plantGearId: string;
+}
+
+export interface CreateActiveSessionRequest {
+  workCenterId: string;
+  productionLineId: string;
+  assetId?: string;
+  siteCode: string;
+}

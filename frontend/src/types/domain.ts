@@ -236,3 +236,145 @@ export interface BarcodeCardInfo {
   colorName?: string;
   isAssigned: boolean;
 }
+
+// ---- Admin types ----
+
+export interface AdminProduct {
+  id: string;
+  productNumber: string;
+  tankSize: number;
+  tankType: string;
+  sageItemNumber?: string;
+  nameplateNumber?: string;
+  productTypeId: string;
+  productTypeName: string;
+}
+
+export interface ProductType {
+  id: string;
+  name: string;
+}
+
+export interface AdminUser {
+  id: string;
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  roleTier: number;
+  roleName: string;
+  defaultSiteId: string;
+  defaultSiteName: string;
+  isCertifiedWelder: boolean;
+  requirePinForLogin: boolean;
+}
+
+export interface RoleOption {
+  tier: number;
+  name: string;
+}
+
+export interface AdminVendor {
+  id: string;
+  name: string;
+  vendorType: string;
+  siteCode?: string;
+  isActive: boolean;
+}
+
+export interface AdminDefectCode {
+  id: string;
+  code: string;
+  name: string;
+  severity?: string;
+  systemType?: string;
+  workCenterIds: string[];
+}
+
+export interface AdminDefectLocation {
+  id: string;
+  code: string;
+  name: string;
+  defaultLocationDetail?: string;
+  characteristicId?: string;
+  characteristicName?: string;
+}
+
+export interface AdminWorkCenter {
+  id: string;
+  name: string;
+  workCenterTypeName: string;
+  plantName: string;
+  numberOfWelders: number;
+  dataEntryType?: string;
+  materialQueueForWCId?: string;
+  materialQueueForWCName?: string;
+}
+
+export interface AdminCharacteristic {
+  id: string;
+  name: string;
+  specHigh?: number;
+  specLow?: number;
+  specTarget?: number;
+  productTypeId?: string;
+  productTypeName?: string;
+  workCenterIds: string[];
+}
+
+export interface AdminControlPlan {
+  id: string;
+  characteristicId: string;
+  characteristicName: string;
+  workCenterId: string;
+  workCenterName: string;
+  isEnabled: boolean;
+  resultType: string;
+  isGateCheck: boolean;
+}
+
+export interface AdminAsset {
+  id: string;
+  name: string;
+  workCenterId: string;
+  workCenterName: string;
+  limbleIdentifier?: string;
+}
+
+export interface AdminBarcodeCard {
+  id: string;
+  cardValue: string;
+  color?: string;
+  description?: string;
+}
+
+export interface PlantWithGear {
+  plantId: string;
+  plantName: string;
+  plantCode: string;
+  currentPlantGearId?: string;
+  currentGearLevel?: number;
+  gears: PlantGearItem[];
+}
+
+export interface PlantGearItem {
+  id: string;
+  name: string;
+  level: number;
+  plantId: string;
+}
+
+export interface ActiveSession {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  employeeNumber: string;
+  siteCode: string;
+  productionLineId: string;
+  productionLineName: string;
+  workCenterId: string;
+  workCenterName: string;
+  loginDateTime: string;
+  lastHeartbeatDateTime: string;
+  isStale: boolean;
+}

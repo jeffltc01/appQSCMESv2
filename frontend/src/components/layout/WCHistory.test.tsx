@@ -7,7 +7,6 @@ describe('WCHistory', () => {
     render(
       <WCHistory data={{ dayCount: 42, recentRecords: [] }} />,
     );
-    expect(screen.getByText('History')).toBeInTheDocument();
     expect(screen.getByText(/Today's Count: 42/)).toBeInTheDocument();
   });
 
