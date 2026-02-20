@@ -4,7 +4,7 @@ public class CreateProductionRecordDto
 {
     public string SerialNumber { get; set; } = string.Empty;
     public Guid WorkCenterId { get; set; }
-    public Guid AssetId { get; set; }
+    public Guid? AssetId { get; set; }
     public Guid ProductionLineId { get; set; }
     public Guid OperatorId { get; set; }
     public List<Guid> WelderIds { get; set; } = new();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -40,10 +40,6 @@ export function RollsScreen(props: WorkCenterProps) {
     loadQueue();
   }, [workCenterId]);
 
-  useEffect(() => {
-    registerBarcodeHandler(handleBarcode);
-  }, [scanState, promptState, activeMaterial, label1Serial, thicknessInspectionRequired]);
-
   const loadQueue = useCallback(async () => {
     try {
       const items = await workCenterApi.getMaterialQueue(workCenterId);
@@ -75,11 +71,19 @@ export function RollsScreen(props: WorkCenterProps) {
 
   const createRecord = useCallback(
     async (serial: string, inspResult?: 'pass' | 'fail') => {
+      if (!serial) {
+        showScanResult({ type: 'error', message: 'No serial number — scan labels first' });
+        return;
+      }
+      if (!workCenterId || !productionLineId || !operatorId) {
+        showScanResult({ type: 'error', message: `Missing setup data (wc:${!!workCenterId} line:${!!productionLineId} op:${!!operatorId})` });
+        return;
+      }
       try {
         const resp = await productionRecordApi.create({
           serialNumber: serial,
           workCenterId,
-          assetId,
+          assetId: assetId || undefined,
           productionLineId,
           operatorId,
           welderIds: welders.map((w) => w.userId),
@@ -110,8 +114,11 @@ export function RollsScreen(props: WorkCenterProps) {
         if (activeMaterial && activeMaterial.materialRemaining - 1 <= 0) {
           setPromptState('advanceQueue');
         }
-      } catch {
-        showScanResult({ type: 'error', message: 'Failed to save production record. Please try again.' });
+      } catch (err: unknown) {
+        const msg = err && typeof err === 'object' && 'message' in err
+          ? (err as { message: string }).message
+          : JSON.stringify(err);
+        showScanResult({ type: 'error', message: `Record not saved: ${msg}` });
       }
     },
     [workCenterId, assetId, productionLineId, operatorId, welders, activeMaterial, showScanResult, refreshHistory],
@@ -124,6 +131,7 @@ export function RollsScreen(props: WorkCenterProps) {
         return;
       }
 
+      // When a prompt is active, only accept responses to that prompt
       if (promptState === 'advanceQueue') {
         if (bc.prefix === 'INP' && bc.value === '3') {
           advanceQueue();
@@ -134,6 +142,8 @@ export function RollsScreen(props: WorkCenterProps) {
           setScanState('scanLabel1');
           return;
         }
+        showScanResult({ type: 'error', message: 'Scan YES or NO to respond' });
+        return;
       }
 
       if (promptState === 'thicknessInspection') {
@@ -148,8 +158,11 @@ export function RollsScreen(props: WorkCenterProps) {
           createRecord(label1Serial, 'fail');
           return;
         }
+        showScanResult({ type: 'error', message: 'Scan PASS or FAIL to respond' });
+        return;
       }
 
+      // Normal flow — no prompt active
       if (bc.prefix === 'INP' && bc.value === '2') {
         advanceQueue();
         return;
@@ -207,6 +220,13 @@ export function RollsScreen(props: WorkCenterProps) {
     [scanState, promptState, label1Serial, activeMaterial, thicknessInspectionRequired, advanceQueue, createRecord, showScanResult, workCenterId],
   );
 
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
+  useEffect(() => {
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
+
   const handleManualSubmit = useCallback(() => {
     if (!manualSerial.trim() || !activeMaterial) return;
     if (thicknessInspectionRequired) {
@@ -233,7 +253,7 @@ export function RollsScreen(props: WorkCenterProps) {
                 className={styles.manualInput}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }}
               />
-              <Button appearance="primary" size="large" onClick={handleManualSubmit} disabled={!activeMaterial}>
+              <Button appearance="primary" size="large" onClick={handleManualSubmit} disabled={!activeMaterial || promptState !== 'none'}>
                 Submit
               </Button>
             </div>
@@ -310,8 +330,8 @@ export function RollsScreen(props: WorkCenterProps) {
             <button
               key={item.id}
               className={styles.queueCard}
-              onClick={() => { if (!props.externalInput) advanceQueue(); }}
-              disabled={props.externalInput}
+              onClick={() => { if (!props.externalInput && promptState === 'none') advanceQueue(); }}
+              disabled={props.externalInput || promptState !== 'none'}
             >
               <span className={styles.queueDesc}>{item.productDescription}</span>
               <span className={styles.queueQty}>{item.quantity}</span>

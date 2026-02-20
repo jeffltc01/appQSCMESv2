@@ -36,7 +36,7 @@ export interface TabletSetupRequest {
 export interface CreateProductionRecordRequest {
   serialNumber: string;
   workCenterId: string;
-  assetId: string;
+  assetId?: string;
   productionLineId: string;
   operatorId: string;
   welderIds: string[];

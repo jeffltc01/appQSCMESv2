@@ -32,6 +32,7 @@ export interface TabletCache {
   cachedProductionLineName: string;
   cachedAssetId: string;
   cachedAssetName: string;
+  cachedMaterialQueueForWCId?: string;
 }
 
 export function getTabletCache(): TabletCache | null {
@@ -45,6 +46,7 @@ export function getTabletCache(): TabletCache | null {
       cachedProductionLineName: localStorage.getItem('cachedProductionLineName') ?? '',
       cachedAssetId: localStorage.getItem('cachedAssetId') ?? '',
       cachedAssetName: localStorage.getItem('cachedAssetName') ?? '',
+      cachedMaterialQueueForWCId: localStorage.getItem('cachedMaterialQueueForWCId') ?? undefined,
     };
   } catch {
     return null;
@@ -58,4 +60,9 @@ export function setTabletCache(cache: TabletCache) {
   localStorage.setItem('cachedProductionLineName', cache.cachedProductionLineName);
   localStorage.setItem('cachedAssetId', cache.cachedAssetId);
   localStorage.setItem('cachedAssetName', cache.cachedAssetName);
+  if (cache.cachedMaterialQueueForWCId) {
+    localStorage.setItem('cachedMaterialQueueForWCId', cache.cachedMaterialQueueForWCId);
+  } else {
+    localStorage.removeItem('cachedMaterialQueueForWCId');
+  }
 }

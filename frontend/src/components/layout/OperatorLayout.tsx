@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { getTabletCache } from '../../hooks/useLocalStorage.ts';
@@ -32,7 +32,7 @@ export function OperatorLayout() {
   const [externalInput, setExternalInput] = useState(false);
   const [welders, setWelders] = useState<Welder[]>([]);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [barcodeHandler, setBarcodeHandler] = useState<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
+  const barcodeHandlerRef = useRef<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
   const [historyData, setHistoryData] = useState<WCHistoryData>({ dayCount: 0, recentRecords: [] });
   const [requiresWelder, setRequiresWelder] = useState(false);
 
@@ -90,13 +90,13 @@ export function OperatorLayout() {
 
   const handleScan = useCallback(
     (bc: ParsedBarcode | null, raw: string) => {
-      if (barcodeHandler) {
-        barcodeHandler(bc, raw);
+      if (barcodeHandlerRef.current) {
+        barcodeHandlerRef.current(bc, raw);
       } else if (!bc) {
         showScanResult({ type: 'error', message: 'Unknown barcode' });
       }
     },
-    [barcodeHandler, showScanResult],
+    [showScanResult],
   );
 
   const { inputRef, handleKeyDown } = useBarcode({
@@ -106,7 +106,7 @@ export function OperatorLayout() {
 
   const registerBarcodeHandler = useCallback(
     (handler: (bc: ParsedBarcode | null, raw: string) => void) => {
-      setBarcodeHandler(() => handler);
+      barcodeHandlerRef.current = handler;
     },
     [],
   );
@@ -145,6 +145,7 @@ export function OperatorLayout() {
     welders,
     requiresWelder,
     externalInput,
+    materialQueueForWCId: cache?.cachedMaterialQueueForWCId,
     showScanResult,
     refreshHistory,
     registerBarcodeHandler,
@@ -217,6 +218,7 @@ export interface WorkCenterProps {
   welders: Welder[];
   requiresWelder: boolean;
   externalInput: boolean;
+  materialQueueForWCId?: string;
   showScanResult: (result: ScanResult) => void;
   refreshHistory: () => void;
   registerBarcodeHandler: (handler: (bc: ParsedBarcode | null, raw: string) => void) => void;

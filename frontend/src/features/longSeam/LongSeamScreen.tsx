@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -24,7 +24,7 @@ export function LongSeamScreen(props: WorkCenterProps) {
         const resp = await productionRecordApi.create({
           serialNumber: serial,
           workCenterId,
-          assetId,
+          assetId: assetId || undefined,
           productionLineId,
           operatorId,
           welderIds: welders.map((w) => w.userId),
@@ -56,9 +56,12 @@ export function LongSeamScreen(props: WorkCenterProps) {
     [recordShell, showScanResult],
   );
 
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
   useEffect(() => {
-    registerBarcodeHandler(handleBarcode);
-  }, [handleBarcode, registerBarcodeHandler]);
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   const handleManualSubmit = useCallback(() => {
     if (!manualSerial.trim()) return;

@@ -19,6 +19,7 @@ export interface WorkCenter {
   requiresWelder: boolean;
   productionLineId?: string;
   dataEntryType?: string;
+  materialQueueForWCId?: string;
 }
 
 export interface Asset {

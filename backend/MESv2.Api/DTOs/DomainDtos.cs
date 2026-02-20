@@ -24,6 +24,7 @@ public class WorkCenterDto
     public bool RequiresWelder { get; set; }
     public Guid? ProductionLineId { get; set; }
     public string? DataEntryType { get; set; }
+    public Guid? MaterialQueueForWCId { get; set; }
 }
 
 public class AssetDto

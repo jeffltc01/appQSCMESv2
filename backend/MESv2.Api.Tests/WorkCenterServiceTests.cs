@@ -12,7 +12,7 @@ public class WorkCenterServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new WorkCenterService(db);
 
-        var result = await sut.GetWorkCentersAsync("PLT1");
+        var result = await sut.GetWorkCentersAsync("000");
 
         Assert.NotNull(result);
         Assert.All(result, wc => Assert.Equal(TestHelpers.PlantPlt1Id, wc.PlantId));

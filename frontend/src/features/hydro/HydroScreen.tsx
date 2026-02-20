@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -152,7 +152,12 @@ export function HydroScreen(props: WorkCenterProps) {
     [state, scanShell, scanNameplate, showScanResult],
   );
 
-  useEffect(() => { registerBarcodeHandler(handleBarcode); }, [handleBarcode, registerBarcodeHandler]);
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
+  useEffect(() => {
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   const handleManualSubmit = useCallback(() => {
     if (!manualInput.trim()) return;

@@ -18,7 +18,8 @@ public class ProductService : IProductService
         var query = _db.Products.Include(p => p.ProductType).AsQueryable();
 
         if (!string.IsNullOrEmpty(type))
-            query = query.Where(p => p.ProductType.SystemTypeName == type);
+            query = query.Where(p => p.ProductType.SystemTypeName != null
+                && p.ProductType.SystemTypeName.ToLower() == type.ToLower());
 
         var list = await query
             .OrderBy(p => p.TankSize)

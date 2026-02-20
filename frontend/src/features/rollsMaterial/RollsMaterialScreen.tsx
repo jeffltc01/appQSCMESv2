@@ -21,7 +21,8 @@ const emptyForm: FormData = {
 };
 
 export function RollsMaterialScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, setRequiresWelder } = props;
+  const { workCenterId, showScanResult, setRequiresWelder, materialQueueForWCId } = props;
+  const targetWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -40,10 +41,10 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
 
   const loadQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(workCenterId);
+      const items = await workCenterApi.getMaterialQueue(targetWCId);
       setQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
-  }, [workCenterId]);
+  }, [targetWCId]);
 
   const loadLookups = useCallback(async () => {
     try {
@@ -85,7 +86,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
     }
     try {
       if (editingId) {
-        await materialQueueApi.updateItem(workCenterId, editingId, {
+        await materialQueueApi.updateItem(targetWCId, editingId, {
           productId: form.productId,
           vendorMillId: form.vendorMillId || undefined,
           vendorProcessorId: form.vendorProcessorId || undefined,
@@ -96,7 +97,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
         });
         showScanResult({ type: 'success', message: 'Queue item updated' });
       } else {
-        await materialQueueApi.addItem(workCenterId, {
+        await materialQueueApi.addItem(targetWCId, {
           productId: form.productId,
           vendorMillId: form.vendorMillId || undefined,
           vendorProcessorId: form.vendorProcessorId || undefined,
@@ -112,17 +113,17 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Failed to save queue item' });
     }
-  }, [form, editingId, workCenterId, showScanResult, loadQueue]);
+  }, [form, editingId, targetWCId, showScanResult, loadQueue]);
 
   const handleDelete = useCallback(async (itemId: string) => {
     try {
-      await materialQueueApi.deleteItem(workCenterId, itemId);
+      await materialQueueApi.deleteItem(targetWCId, itemId);
       showScanResult({ type: 'success', message: 'Item removed from queue' });
       loadQueue();
     } catch {
       showScanResult({ type: 'error', message: 'Failed to remove item' });
     }
-  }, [workCenterId, showScanResult, loadQueue]);
+  }, [targetWCId, showScanResult, loadQueue]);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
   const selectedMill = mills.find((m) => m.id === form.vendorMillId);

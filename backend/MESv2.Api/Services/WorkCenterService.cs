@@ -35,7 +35,8 @@ public class WorkCenterService : IWorkCenterService
             WorkCenterTypeName = w.WorkCenterType.Name,
             RequiresWelder = w.RequiresWelder,
             ProductionLineId = w.ProductionLineId,
-            DataEntryType = w.DataEntryType
+            DataEntryType = w.DataEntryType,
+            MaterialQueueForWCId = w.MaterialQueueForWCId
         }).ToList();
     }
 

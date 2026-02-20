@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -22,7 +22,8 @@ const emptyForm: FormData = {
 };
 
 export function FitupQueueScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, registerBarcodeHandler, setRequiresWelder } = props;
+  const { workCenterId, showScanResult, registerBarcodeHandler, setRequiresWelder, materialQueueForWCId } = props;
+  const targetWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -41,10 +42,10 @@ export function FitupQueueScreen(props: WorkCenterProps) {
 
   const loadQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(workCenterId, 'heads');
+      const items = await workCenterApi.getMaterialQueue(targetWCId, 'heads');
       setQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
-  }, [workCenterId]);
+  }, [targetWCId]);
 
   const loadLookups = useCallback(async () => {
     try {
@@ -70,9 +71,12 @@ export function FitupQueueScreen(props: WorkCenterProps) {
     [showForm, showScanResult],
   );
 
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
   useEffect(() => {
-    registerBarcodeHandler(handleBarcode);
-  }, [handleBarcode, registerBarcodeHandler]);
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   const openAdd = useCallback(() => {
     setForm(emptyForm);
@@ -88,7 +92,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
     }
     try {
       if (editingId) {
-        await materialQueueApi.updateFitupItem(workCenterId, editingId, {
+        await materialQueueApi.updateFitupItem(targetWCId, editingId, {
           productId: form.productId,
           vendorHeadId: form.vendorHeadId,
           lotNumber: form.lotNumber || undefined,
@@ -98,7 +102,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
         });
         showScanResult({ type: 'success', message: 'Queue item updated' });
       } else {
-        await materialQueueApi.addFitupItem(workCenterId, {
+        await materialQueueApi.addFitupItem(targetWCId, {
           productId: form.productId,
           vendorHeadId: form.vendorHeadId,
           lotNumber: form.lotNumber || undefined,
@@ -113,15 +117,15 @@ export function FitupQueueScreen(props: WorkCenterProps) {
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save' });
     }
-  }, [form, editingId, workCenterId, showScanResult, loadQueue]);
+  }, [form, editingId, targetWCId, showScanResult, loadQueue]);
 
   const handleDelete = useCallback(async (itemId: string) => {
     try {
-      await materialQueueApi.deleteFitupItem(workCenterId, itemId);
+      await materialQueueApi.deleteFitupItem(targetWCId, itemId);
       showScanResult({ type: 'success', message: 'Item removed' });
       loadQueue();
     } catch { showScanResult({ type: 'error', message: 'Failed to remove' }); }
-  }, [workCenterId, showScanResult, loadQueue]);
+  }, [targetWCId, showScanResult, loadQueue]);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
   const selectedVendor = vendors.find((v) => v.id === form.vendorHeadId);

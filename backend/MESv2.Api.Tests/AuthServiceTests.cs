@@ -32,7 +32,7 @@ public class AuthServiceTests
         Assert.Equal(TestHelpers.PlantPlt1Id, result.DefaultSiteId);
         Assert.True(result.AllowSiteSelection);
         Assert.False(result.IsWelder);
-        Assert.Equal("Test User", result.UserName);
+        Assert.Equal("Jeff Thompson", result.UserName);
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class AuthServiceTests
         Assert.NotNull(result.User);
         Assert.Equal(TestHelpers.TestUserId, result.User.Id);
         Assert.Equal("EMP001", result.User.EmployeeNumber);
-        Assert.Equal("Test User", result.User.DisplayName);
+        Assert.Equal("Jeff Thompson", result.User.DisplayName);
         Assert.Equal(TestHelpers.PlantPlt1Id, result.User.DefaultSiteId);
     }
 

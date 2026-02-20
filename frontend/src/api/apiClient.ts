@@ -29,7 +29,11 @@ async function request<T>(
   if (!response.ok) {
     let error: ApiError;
     try {
-      error = await response.json();
+      const body = await response.json();
+      error = {
+        message: body.message ?? body.title ?? `Request failed with status ${response.status}`,
+        code: body.code ?? body.status?.toString(),
+      };
     } catch {
       error = { message: `Request failed with status ${response.status}` };
     }

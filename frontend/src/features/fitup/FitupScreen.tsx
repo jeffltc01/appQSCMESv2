@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label, Dropdown, Option, type OptionOnSelectData } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -247,9 +247,12 @@ export function FitupScreen(props: WorkCenterProps) {
     [reassemblyPrompt, addShell, applyHeadLot, swapHeads, resetAssembly, saveAssembly, updateTankSize, showScanResult],
   );
 
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
   useEffect(() => {
-    registerBarcodeHandler(handleBarcode);
-  }, [handleBarcode, registerBarcodeHandler]);
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   if (alphaCode) {
     return (

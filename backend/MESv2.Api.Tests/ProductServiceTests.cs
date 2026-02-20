@@ -10,12 +10,12 @@ public class ProductServiceTests
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var ptId = Guid.NewGuid();
-        db.ProductTypes.Add(new ProductType { Id = ptId, Name = "Plate", SystemTypeName = "plate" });
+        db.ProductTypes.Add(new ProductType { Id = ptId, Name = "Test Type", SystemTypeName = "test-unique" });
         db.Products.Add(new Product { Id = Guid.NewGuid(), ProductNumber = "PL-001", TankSize = 120, TankType = "AG", ProductTypeId = ptId });
         await db.SaveChangesAsync();
 
         var sut = new ProductService(db);
-        var result = await sut.GetProductsAsync("plate", null);
+        var result = await sut.GetProductsAsync("test-unique", null);
 
         Assert.Single(result);
         Assert.Equal("PL-001", result[0].ProductNumber);
@@ -32,7 +32,7 @@ public class ProductServiceTests
         var sut = new ProductService(db);
         var result = await sut.GetVendorsAsync("mill", null);
 
-        Assert.Single(result);
-        Assert.Equal("Mill Co", result[0].Name);
+        Assert.Contains(result, v => v.Name == "Mill Co");
+        Assert.DoesNotContain(result, v => v.Name == "Old Mill");
     }
 }

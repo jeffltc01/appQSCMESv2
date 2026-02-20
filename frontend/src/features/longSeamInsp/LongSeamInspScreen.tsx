@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label, Dropdown, Option, type OptionOnSelectData } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -233,9 +233,12 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
     [screenState, pending, defectCodes, defectLocations, characteristics, assumedCharacteristic, loadShell, tryCompletePending, saveInspection, showScanResult],
   );
 
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
   useEffect(() => {
-    registerBarcodeHandler(handleBarcode);
-  }, [handleBarcode, registerBarcodeHandler]);
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   const handleManualShellSubmit = useCallback(() => {
     if (manualSerial.trim()) {

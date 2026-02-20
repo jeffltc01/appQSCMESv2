@@ -112,6 +112,7 @@ export function TabletSetupScreen() {
         cachedProductionLineName: pl?.name ?? '',
         cachedAssetId: selectedAssetId,
         cachedAssetName: asset?.name ?? '',
+        cachedMaterialQueueForWCId: wc?.materialQueueForWCId,
       });
 
       navigate('/operator');

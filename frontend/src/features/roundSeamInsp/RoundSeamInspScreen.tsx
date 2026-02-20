@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label, Dropdown, Option, type OptionOnSelectData } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
@@ -145,7 +145,12 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
     [screenState, pending, defectCodes, defectLocations, characteristics, loadShell, tryCompletePending, saveInspection, showScanResult, addDefectEntry],
   );
 
-  useEffect(() => { registerBarcodeHandler(handleBarcode); }, [handleBarcode, registerBarcodeHandler]);
+  const handleBarcodeRef = useRef(handleBarcode);
+  handleBarcodeRef.current = handleBarcode;
+
+  useEffect(() => {
+    registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   const handleManualShellSubmit = useCallback(() => { if (manualSerial.trim()) { loadShell(manualSerial.trim()); setManualSerial(''); } }, [manualSerial, loadShell]);
   const handleManualDefectAdd = useCallback(() => {

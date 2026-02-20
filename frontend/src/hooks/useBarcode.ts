@@ -8,36 +8,48 @@ interface UseBarcodeOptions {
 
 export function useBarcode({ enabled, onScan }: UseBarcodeOptions) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const focusInput = useCallback(() => {
-    if (inputRef.current && enabled) {
-      inputRef.current.focus();
-    }
-  }, [enabled]);
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
 
   useEffect(() => {
-    if (enabled) {
-      focusInput();
-      const interval = setInterval(focusInput, 500);
-      return () => clearInterval(interval);
-    }
-  }, [enabled, focusInput]);
+    if (!enabled) return;
+
+    const input = inputRef.current;
+    if (!input) return;
+
+    input.focus();
+
+    const reclaim = () => {
+      if (document.activeElement !== input) {
+        input.focus();
+      }
+    };
+
+    const interval = setInterval(reclaim, 100);
+
+    document.addEventListener('focusin', reclaim, true);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('focusin', reclaim, true);
+    };
+  }, [enabled]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const raw = inputRef.current?.value ?? '';
-        if (raw.trim()) {
-          const parsed = parseBarcode(raw);
-          onScan(parsed, raw);
-        }
         if (inputRef.current) {
           inputRef.current.value = '';
         }
+        if (raw.trim()) {
+          const parsed = parseBarcode(raw);
+          onScanRef.current(parsed, raw);
+        }
       }
     },
-    [onScan],
+    [],
   );
 
   return { inputRef, handleKeyDown };
