@@ -22,18 +22,30 @@ public class ProductionRecordService : IProductionRecordService
             .Include(s => s.Product)
             .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken);
 
+        Guid? resolvedProductId = null;
+        if (!string.IsNullOrEmpty(dto.ShellSize) && int.TryParse(dto.ShellSize, out var parsedTankSize))
+        {
+            var product = await _db.Products
+                .FirstOrDefaultAsync(p => p.TankSize == parsedTankSize, cancellationToken);
+            resolvedProductId = product?.Id;
+        }
+
         if (serial == null)
         {
             serial = new SerialNumber
             {
                 Id = Guid.NewGuid(),
                 Serial = dto.SerialNumber,
-                ProductId = null,
+                ProductId = resolvedProductId,
                 CreatedAt = DateTime.UtcNow
             };
             _db.SerialNumbers.Add(serial);
             await _db.SaveChangesAsync(cancellationToken);
             warning = "Serial created (catch-up flow).";
+        }
+        else if (serial.ProductId == null && resolvedProductId != null)
+        {
+            serial.ProductId = resolvedProductId;
         }
 
         var duplicate = await _db.ProductionRecords

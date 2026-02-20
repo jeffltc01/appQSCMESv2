@@ -111,4 +111,71 @@ describe('RollsScreen', () => {
     expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
   });
 
+  it('shows both serials when labels do not match', async () => {
+    vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
+      shellSize: '120',
+      heatNumber: 'H1',
+      coilNumber: 'C1',
+      quantity: 10,
+      productDescription: 'PL .218',
+    });
+
+    const { props } = renderRolls();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+
+    handler!({ prefix: 'INP', value: '2', raw: 'INP;2' }, 'INP;2');
+    await waitFor(() => expect(screen.getByText(/Shell Count/)).toBeInTheDocument());
+
+    handler!({ prefix: 'SC', value: '022001/L1', raw: 'SC;022001/L1' }, 'SC;022001/L1');
+    await waitFor(() => expect(props.showScanResult).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('Label 1 scanned') }),
+    ));
+
+    handler!({ prefix: 'SC', value: '022999/L2', raw: 'SC;022999/L2' }, 'SC;022999/L2');
+    await waitFor(() => {
+      expect(props.showScanResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringContaining('022001'),
+        }),
+      );
+      expect(props.showScanResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('022999'),
+        }),
+      );
+    });
+  });
+
+  it('rejects scanning the same unlabeled barcode twice', async () => {
+    vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
+      shellSize: '120',
+      heatNumber: 'H1',
+      coilNumber: 'C1',
+      quantity: 10,
+      productDescription: 'PL .218',
+    });
+
+    const { props } = renderRolls();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+
+    handler!({ prefix: 'INP', value: '2', raw: 'INP;2' }, 'INP;2');
+    await waitFor(() => expect(screen.getByText(/Shell Count/)).toBeInTheDocument());
+
+    handler!({ prefix: 'SC', value: '022001', raw: 'SC;022001' }, 'SC;022001');
+    await waitFor(() => expect(props.showScanResult).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('Label 1 scanned') }),
+    ));
+
+    handler!({ prefix: 'SC', value: '022001', raw: 'SC;022001' }, 'SC;022001');
+    await waitFor(() => {
+      expect(props.showScanResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringContaining('Same label scanned twice'),
+        }),
+      );
+    });
+  });
+
 });

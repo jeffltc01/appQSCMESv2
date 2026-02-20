@@ -20,9 +20,9 @@
 }
 
 .rightPanel {
-  width: 300px;
-  min-width: 260px;
-  max-width: 320px;
+  width: 380px;
+  min-width: 340px;
+  max-width: 420px;
   display: flex;
   flex-direction: column;
   background: #f8f9fa;

@@ -19,20 +19,21 @@
 }
 
 .headerCount {
-  font-size: 12px;
+  font-size: 18px;
   color: #868686;
   font-weight: 400;
 }
 
 .tableHeader {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1.2fr) minmax(0, 1fr) 44px;
-  gap: 4px;
+  grid-template-columns: 44px minmax(0, 1.2fr) minmax(0, 1fr) 50px;
+  gap: 6px;
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 600;
   color: #495057;
   border-bottom: 2px solid #212529;
+  align-items: end;
 }
 
 .tableBody {
@@ -42,10 +43,10 @@
 
 .row {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1.2fr) minmax(0, 1fr) 44px;
-  gap: 4px;
+  grid-template-columns: 44px minmax(0, 1.2fr) minmax(0, 1fr) 50px;
+  gap: 6px;
   padding: 5px 8px;
-  font-size: 12px;
+  font-size: 16px;
   color: #212529;
   border-bottom: 1px solid #e9ecef;
   align-items: center;
@@ -61,7 +62,7 @@
 
 .colDateTime {
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .colSerial {
@@ -82,7 +83,7 @@
 }
 
 .noRecords {
-  font-size: 12px;
+  font-size: 16px;
   color: #868686;
   font-style: italic;
   text-align: center;

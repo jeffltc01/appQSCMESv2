@@ -122,6 +122,7 @@
   gap: 6px;
   overflow-y: auto;
   flex: 1;
+  align-content: start;
 }
 
 .selectionTile {

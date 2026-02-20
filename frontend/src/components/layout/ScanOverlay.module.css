@@ -29,6 +29,12 @@
   max-width: 600px;
 }
 
+.dismissHint {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin-top: 8px;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

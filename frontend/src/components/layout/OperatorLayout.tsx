@@ -37,6 +37,7 @@ export function OperatorLayout() {
   const [externalInput, setExternalInput] = useState(false);
   const [welders, setWelders] = useState<Welder[]>([]);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barcodeHandlerRef = useRef<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
   const [historyData, setHistoryData] = useState<WCHistoryData>({ dayCount: 0, recentRecords: [] });
   const [welderGateEmpNo, setWelderGateEmpNo] = useState('');
@@ -122,9 +123,16 @@ export function OperatorLayout() {
     }
   }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName, user?.plantCode]);
 
+  const dismissScanResult = useCallback(() => {
+    if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
+    setScanResult(null);
+  }, []);
+
   const showScanResult = useCallback((result: ScanResult) => {
+    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
     setScanResult(result);
-    setTimeout(() => setScanResult(null), 1800);
+    const delay = result.type === 'success' ? 1000 : 10000;
+    scanTimerRef.current = setTimeout(() => { scanTimerRef.current = null; setScanResult(null); }, delay);
   }, []);
 
   const refreshHistory = useCallback(() => {
@@ -263,7 +271,7 @@ export function OperatorLayout() {
       )}
 
       {scanResult && (
-        <ScanOverlay result={scanResult} onDismiss={() => setScanResult(null)} />
+        <ScanOverlay result={scanResult} onDismiss={dismissScanResult} />
       )}
 
       {showWelderGate && (

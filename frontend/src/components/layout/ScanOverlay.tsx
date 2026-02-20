@@ -29,6 +29,7 @@ export function ScanOverlay({ result, onDismiss }: ScanOverlayProps) {
           <DismissCircleRegular className={styles.icon} />
         )}
         {result.message && <span className={styles.message}>{result.message}</span>}
+        {!isSuccess && <span className={styles.dismissHint}>Tap to dismiss</span>}
       </div>
     </div>
   );

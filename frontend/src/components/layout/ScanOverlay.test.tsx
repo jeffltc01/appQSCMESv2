@@ -37,4 +37,14 @@ describe('ScanOverlay', () => {
     const overlay = screen.getByTestId('scan-overlay');
     expect(overlay).toBeInTheDocument();
   });
+
+  it('shows "Tap to dismiss" hint on error overlay', () => {
+    render(<ScanOverlay result={{ type: 'error', message: 'Something failed' }} onDismiss={() => {}} />);
+    expect(screen.getByText('Tap to dismiss')).toBeInTheDocument();
+  });
+
+  it('does not show "Tap to dismiss" on success overlay', () => {
+    render(<ScanOverlay result={{ type: 'success', message: 'Done' }} onDismiss={() => {}} />);
+    expect(screen.queryByText('Tap to dismiss')).not.toBeInTheDocument();
+  });
 });

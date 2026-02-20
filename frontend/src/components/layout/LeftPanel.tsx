@@ -31,7 +31,7 @@ export function LeftPanel({ externalInput }: LeftPanelProps) {
       <Tooltip content="Current Gear" relationship="label" positioning="after">
         <Button
           appearance="subtle"
-          icon={<TopSpeedRegular />}
+          icon={<TopSpeedRegular fontSize={32} />}
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Current Gear"
@@ -41,7 +41,7 @@ export function LeftPanel({ externalInput }: LeftPanelProps) {
       <Tooltip content="Maintenance Request" relationship="label" positioning="after">
         <Button
           appearance="subtle"
-          icon={<WrenchRegular />}
+          icon={<WrenchRegular fontSize={32} />}
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Maintenance Request"
@@ -51,7 +51,7 @@ export function LeftPanel({ externalInput }: LeftPanelProps) {
       <Tooltip content="Tablet Setup" relationship="label" positioning="after">
         <Button
           appearance="subtle"
-          icon={<TabletRegular />}
+          icon={<TabletRegular fontSize={32} />}
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Tablet Setup"
@@ -62,7 +62,7 @@ export function LeftPanel({ externalInput }: LeftPanelProps) {
       <Tooltip content="Schedule" relationship="label" positioning="after">
         <Button
           appearance="subtle"
-          icon={<CalendarRegular />}
+          icon={<CalendarRegular fontSize={32} />}
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Schedule"
@@ -72,7 +72,7 @@ export function LeftPanel({ externalInput }: LeftPanelProps) {
       <Tooltip content="Settings" relationship="label" positioning="after">
         <Button
           appearance="subtle"
-          icon={<SettingsRegular />}
+          icon={<SettingsRegular fontSize={32} />}
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Settings"
@@ -84,7 +84,7 @@ export function LeftPanel({ externalInput }: LeftPanelProps) {
       <Tooltip content="Logout" relationship="label" positioning="after">
         <Button
           appearance="subtle"
-          icon={<SignOutRegular />}
+          icon={<SignOutRegular fontSize={32} />}
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Logout"

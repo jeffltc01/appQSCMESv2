@@ -3,12 +3,12 @@ import { render, screen } from '@testing-library/react';
 import { WCHistory } from './WCHistory';
 
 describe('WCHistory', () => {
-  it('displays day count', () => {
+  it('displays day count in header', () => {
     render(
       <WCHistory data={{ dayCount: 42, recentRecords: [] }} />,
     );
-    expect(screen.getByText('42')).toBeInTheDocument();
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByText('History')).toBeInTheDocument();
+    expect(screen.getByText(/Today's Count: 42/)).toBeInTheDocument();
   });
 
   it('shows "No records today" when empty', () => {
@@ -18,7 +18,7 @@ describe('WCHistory', () => {
     expect(screen.getByText('No records today')).toBeInTheDocument();
   });
 
-  it('displays recent records', () => {
+  it('displays recent records with serial numbers and tank sizes', () => {
     render(
       <WCHistory
         data={{
@@ -32,6 +32,8 @@ describe('WCHistory', () => {
     );
     expect(screen.getByText('SH001')).toBeInTheDocument();
     expect(screen.getByText('SH002')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('120')).toBeInTheDocument();
+    expect(screen.getByText('250')).toBeInTheDocument();
+    expect(screen.getByText(/Today's Count: 3/)).toBeInTheDocument();
   });
 });

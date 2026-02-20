@@ -30,6 +30,7 @@ export function RollsScreen(props: WorkCenterProps) {
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [promptState, setPromptState] = useState<PromptState>('none');
   const [label1Serial, setLabel1Serial] = useState('');
+  const [label1Raw, setLabel1Raw] = useState('');
   const [activeMaterial, setActiveMaterial] = useState<ActiveMaterial | null>(null);
   const [thicknessInspectionRequired, setThicknessInspectionRequired] = useState(false);
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
@@ -109,6 +110,7 @@ export function RollsScreen(props: WorkCenterProps) {
         refreshHistory();
         setScanState('scanLabel1');
         setLabel1Serial('');
+        setLabel1Raw('');
 
         if (activeMaterial && activeMaterial.materialRemaining - 1 <= 0) {
           setPromptState('advanceQueue');
@@ -184,6 +186,7 @@ export function RollsScreen(props: WorkCenterProps) {
         if (scanState === 'scanLabel1' || scanState === 'idle') {
           if (parsed.labelSuffix === 'L1' || parsed.labelSuffix === null) {
             setLabel1Serial(parsed.serialNumber);
+            setLabel1Raw(bc.value);
             setScanState('scanLabel2');
             showScanResult({ type: 'success', message: 'Label 1 scanned — Scan Label 2' });
             return;
@@ -193,11 +196,16 @@ export function RollsScreen(props: WorkCenterProps) {
         if (scanState === 'scanLabel2') {
           if (parsed.labelSuffix === 'L1') {
             setLabel1Serial(parsed.serialNumber);
+            setLabel1Raw(bc.value);
             showScanResult({ type: 'success', message: 'Label 1 replaced — Scan Label 2' });
             return;
           }
 
           if (parsed.labelSuffix === 'L2' || parsed.labelSuffix === null) {
+            if (parsed.labelSuffix === null && bc.value === label1Raw) {
+              showScanResult({ type: 'error', message: 'Same label scanned twice — scan the other label' });
+              return;
+            }
             if (parsed.serialNumber === label1Serial) {
               if (thicknessInspectionRequired) {
                 setPromptState('thicknessInspection');
@@ -205,9 +213,10 @@ export function RollsScreen(props: WorkCenterProps) {
                 createRecord(parsed.serialNumber);
               }
             } else {
-              showScanResult({ type: 'error', message: 'Labels do not match' });
+              showScanResult({ type: 'error', message: `Labels do not match: Label 1 = ${label1Serial}, Label 2 = ${parsed.serialNumber}` });
               setScanState('scanLabel1');
               setLabel1Serial('');
+              setLabel1Raw('');
             }
             return;
           }
@@ -216,7 +225,7 @@ export function RollsScreen(props: WorkCenterProps) {
 
       showScanResult({ type: 'error', message: 'Invalid barcode in this context' });
     },
-    [scanState, promptState, label1Serial, activeMaterial, thicknessInspectionRequired, advanceQueue, createRecord, showScanResult, workCenterId],
+    [scanState, promptState, label1Serial, label1Raw, activeMaterial, thicknessInspectionRequired, advanceQueue, createRecord, showScanResult, workCenterId],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
