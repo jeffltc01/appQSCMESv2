@@ -32,7 +32,7 @@ export function OperatorLayout() {
   const navigate = useNavigate();
   const cache = getTabletCache();
 
-  const numberOfWelders = cache?.cachedNumberOfWelders ?? 0;
+  const [numberOfWelders, setNumberOfWelders] = useState(cache?.cachedNumberOfWelders ?? 0);
 
   const [externalInput, setExternalInput] = useState(false);
   const [welders, setWelders] = useState<Welder[]>([]);
@@ -50,6 +50,7 @@ export function OperatorLayout() {
     if (!cache?.cachedWorkCenterId) return;
     loadWelders();
     loadHistory();
+    loadNumberOfWelders();
   }, [cache?.cachedWorkCenterId]);
 
   useEffect(() => {
@@ -88,6 +89,20 @@ export function OperatorLayout() {
       // Keep stale data
     }
   }, [cache?.cachedWorkCenterId]);
+
+  const loadNumberOfWelders = useCallback(async () => {
+    if (!cache?.cachedWorkCenterId || !user?.plantCode) return;
+    try {
+      const wcs = await workCenterApi.getWorkCenters(user.plantCode);
+      const wc = wcs.find((w) => w.id === cache.cachedWorkCenterId);
+      if (wc) {
+        setNumberOfWelders(wc.numberOfWelders);
+        localStorage.setItem('cachedNumberOfWelders', String(wc.numberOfWelders));
+      }
+    } catch {
+      // Fall back to cached value
+    }
+  }, [cache?.cachedWorkCenterId, user?.plantCode]);
 
   const showScanResult = useCallback((result: ScanResult) => {
     setScanResult(result);
