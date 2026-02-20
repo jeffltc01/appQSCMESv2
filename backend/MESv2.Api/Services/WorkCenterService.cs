@@ -248,6 +248,191 @@ public class WorkCenterService : IWorkCenterService
         return list.Select(c => new CharacteristicDto { Id = c.Id, Name = c.Name }).ToList();
     }
 
+    public async Task<MaterialQueueItemDto> AddMaterialQueueItemAsync(Guid wcId, CreateMaterialQueueItemDto dto, CancellationToken cancellationToken = default)
+    {
+        var maxPos = await _db.MaterialQueueItems
+            .Where(m => m.WorkCenterId == wcId)
+            .Select(m => (int?)m.Position)
+            .MaxAsync(cancellationToken) ?? 0;
+
+        var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
+
+        var item = new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Position = maxPos + 1,
+            Status = "queued",
+            ProductDescription = product?.ProductNumber ?? "Unknown",
+            ShellSize = product?.TankSize.ToString(),
+            HeatNumber = dto.HeatNumber,
+            CoilNumber = dto.CoilNumber,
+            Quantity = dto.Quantity,
+            ProductId = dto.ProductId,
+            VendorMillId = dto.VendorMillId,
+            VendorProcessorId = dto.VendorProcessorId,
+            LotNumber = dto.LotNumber,
+            QueueType = "rolls",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.MaterialQueueItems.Add(item);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return MapQueueItem(item);
+    }
+
+    public async Task<MaterialQueueItemDto?> UpdateMaterialQueueItemAsync(Guid wcId, Guid itemId, UpdateMaterialQueueItemDto dto, CancellationToken cancellationToken = default)
+    {
+        var item = await _db.MaterialQueueItems
+            .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
+        if (item == null) return null;
+
+        if (dto.HeatNumber != null) item.HeatNumber = dto.HeatNumber;
+        if (dto.CoilNumber != null) item.CoilNumber = dto.CoilNumber;
+        if (dto.Quantity.HasValue) item.Quantity = dto.Quantity.Value;
+        if (dto.LotNumber != null) item.LotNumber = dto.LotNumber;
+        if (dto.ProductId.HasValue)
+        {
+            item.ProductId = dto.ProductId.Value;
+            var product = await _db.Products.FindAsync(new object[] { dto.ProductId.Value }, cancellationToken);
+            if (product != null) item.ProductDescription = product.ProductNumber;
+        }
+        if (dto.VendorMillId.HasValue) item.VendorMillId = dto.VendorMillId;
+        if (dto.VendorProcessorId.HasValue) item.VendorProcessorId = dto.VendorProcessorId;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return MapQueueItem(item);
+    }
+
+    public async Task<bool> DeleteMaterialQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default)
+    {
+        var item = await _db.MaterialQueueItems
+            .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
+        if (item == null) return false;
+        _db.MaterialQueueItems.Remove(item);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<MaterialQueueItemDto> AddFitupQueueItemAsync(Guid wcId, CreateFitupQueueItemDto dto, CancellationToken cancellationToken = default)
+    {
+        var existingCard = await _db.MaterialQueueItems
+            .AnyAsync(m => m.CardId == dto.CardCode && m.Status == "queued", cancellationToken);
+        if (existingCard)
+            throw new InvalidOperationException("This card is already assigned to an active queue entry");
+
+        var card = await _db.BarcodeCards
+            .FirstOrDefaultAsync(b => b.CardValue == dto.CardCode, cancellationToken);
+
+        var maxPos = await _db.MaterialQueueItems
+            .Where(m => m.WorkCenterId == wcId)
+            .Select(m => (int?)m.Position)
+            .MaxAsync(cancellationToken) ?? 0;
+
+        var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
+
+        var item = new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Position = maxPos + 1,
+            Status = "queued",
+            ProductDescription = product?.ProductNumber ?? "Unknown",
+            HeatNumber = dto.HeatNumber ?? string.Empty,
+            CoilNumber = string.Empty,
+            Quantity = 1,
+            CardId = dto.CardCode,
+            CardColor = card?.Color,
+            ProductId = dto.ProductId,
+            VendorHeadId = dto.VendorHeadId,
+            LotNumber = dto.LotNumber,
+            CoilSlabNumber = dto.CoilSlabNumber,
+            QueueType = "fitup",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.MaterialQueueItems.Add(item);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return MapQueueItem(item);
+    }
+
+    public async Task<MaterialQueueItemDto?> UpdateFitupQueueItemAsync(Guid wcId, Guid itemId, UpdateFitupQueueItemDto dto, CancellationToken cancellationToken = default)
+    {
+        var item = await _db.MaterialQueueItems
+            .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
+        if (item == null) return null;
+
+        if (dto.CardCode != null && dto.CardCode != item.CardId)
+        {
+            var existingCard = await _db.MaterialQueueItems
+                .AnyAsync(m => m.CardId == dto.CardCode && m.Status == "queued" && m.Id != itemId, cancellationToken);
+            if (existingCard)
+                throw new InvalidOperationException("This card is already assigned to an active queue entry");
+
+            var card = await _db.BarcodeCards.FirstOrDefaultAsync(b => b.CardValue == dto.CardCode, cancellationToken);
+            item.CardId = dto.CardCode;
+            item.CardColor = card?.Color;
+        }
+
+        if (dto.ProductId.HasValue)
+        {
+            item.ProductId = dto.ProductId.Value;
+            var product = await _db.Products.FindAsync(new object[] { dto.ProductId.Value }, cancellationToken);
+            if (product != null) item.ProductDescription = product.ProductNumber;
+        }
+        if (dto.VendorHeadId.HasValue) item.VendorHeadId = dto.VendorHeadId;
+        if (dto.LotNumber != null) item.LotNumber = dto.LotNumber;
+        if (dto.HeatNumber != null) item.HeatNumber = dto.HeatNumber;
+        if (dto.CoilSlabNumber != null) item.CoilSlabNumber = dto.CoilSlabNumber;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return MapQueueItem(item);
+    }
+
+    public async Task<bool> DeleteFitupQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default)
+    {
+        var item = await _db.MaterialQueueItems
+            .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
+        if (item == null) return false;
+        _db.MaterialQueueItems.Remove(item);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(string? siteCode, CancellationToken cancellationToken = default)
+    {
+        var cards = await _db.BarcodeCards.ToListAsync(cancellationToken);
+        var assignedCardIds = await _db.MaterialQueueItems
+            .Where(m => m.CardId != null && m.Status == "queued")
+            .Select(m => m.CardId)
+            .ToHashSetAsync(cancellationToken);
+
+        return cards.Select(c => new BarcodeCardDto
+        {
+            Id = c.Id,
+            CardValue = c.CardValue,
+            Color = c.Color,
+            ColorName = c.Description,
+            IsAssigned = assignedCardIds.Contains(c.CardValue)
+        }).ToList();
+    }
+
+    private static MaterialQueueItemDto MapQueueItem(MaterialQueueItem m) => new()
+    {
+        Id = m.Id,
+        Position = m.Position,
+        Status = m.Status,
+        ProductDescription = m.ProductDescription,
+        ShellSize = m.ShellSize,
+        HeatNumber = m.HeatNumber,
+        CoilNumber = m.CoilNumber,
+        Quantity = m.Quantity,
+        CardId = m.CardId,
+        CardColor = m.CardColor
+    };
+
     public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)
     {
         var queueItem = await _db.MaterialQueueItems

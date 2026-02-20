@@ -1,0 +1,42 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+  width: 100%;
+  background: #f8f9fa;
+  padding: 32px;
+  border: 1px solid #e5e5e5;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dropdown {
+  min-height: 48px;
+}
+
+.input {
+  min-height: 56px;
+}
+
+.submitBtn {
+  min-height: 56px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: 0 !important;
+  margin-top: 8px;
+}

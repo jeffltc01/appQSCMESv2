@@ -78,6 +78,15 @@ public class InspectionRecordResponseDto
     public List<DefectEntryResponseDto> Defects { get; set; } = new();
 }
 
+public class BarcodeCardDto
+{
+    public Guid Id { get; set; }
+    public string CardValue { get; set; } = string.Empty;
+    public string? Color { get; set; }
+    public string? ColorName { get; set; }
+    public bool IsAssigned { get; set; }
+}
+
 public class DefectEntryResponseDto
 {
     public Guid DefectCodeId { get; set; }

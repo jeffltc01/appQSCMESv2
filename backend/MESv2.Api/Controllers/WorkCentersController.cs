@@ -97,4 +97,71 @@ public class WorkCentersController : ControllerBase
         var list = await _workCenterService.GetCharacteristicsAsync(id, cancellationToken);
         return Ok(list);
     }
+
+    [HttpPost("{id:guid}/material-queue")]
+    public async Task<ActionResult<MaterialQueueItemDto>> AddMaterialQueueItem(Guid id, [FromBody] CreateMaterialQueueItemDto dto, CancellationToken cancellationToken)
+    {
+        var result = await _workCenterService.AddMaterialQueueItemAsync(id, dto, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPut("{id:guid}/material-queue/{itemId:guid}")]
+    public async Task<ActionResult<MaterialQueueItemDto>> UpdateMaterialQueueItem(Guid id, Guid itemId, [FromBody] UpdateMaterialQueueItemDto dto, CancellationToken cancellationToken)
+    {
+        var result = await _workCenterService.UpdateMaterialQueueItemAsync(id, itemId, dto, cancellationToken);
+        if (result == null) return NotFound();
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/material-queue/{itemId:guid}")]
+    public async Task<ActionResult> DeleteMaterialQueueItem(Guid id, Guid itemId, CancellationToken cancellationToken)
+    {
+        var deleted = await _workCenterService.DeleteMaterialQueueItemAsync(id, itemId, cancellationToken);
+        if (!deleted) return NotFound();
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/fitup-queue")]
+    public async Task<ActionResult<MaterialQueueItemDto>> AddFitupQueueItem(Guid id, [FromBody] CreateFitupQueueItemDto dto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _workCenterService.AddFitupQueueItemAsync(id, dto, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/fitup-queue/{itemId:guid}")]
+    public async Task<ActionResult<MaterialQueueItemDto>> UpdateFitupQueueItem(Guid id, Guid itemId, [FromBody] UpdateFitupQueueItemDto dto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _workCenterService.UpdateFitupQueueItemAsync(id, itemId, dto, cancellationToken);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}/fitup-queue/{itemId:guid}")]
+    public async Task<ActionResult> DeleteFitupQueueItem(Guid id, Guid itemId, CancellationToken cancellationToken)
+    {
+        var deleted = await _workCenterService.DeleteFitupQueueItemAsync(id, itemId, cancellationToken);
+        if (!deleted) return NotFound();
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/barcode-cards")]
+    public async Task<ActionResult<IEnumerable<BarcodeCardDto>>> GetBarcodeCards(Guid id, [FromQuery] string? siteCode, CancellationToken cancellationToken)
+    {
+        var list = await _workCenterService.GetBarcodeCardsAsync(siteCode, cancellationToken);
+        return Ok(list);
+    }
 }

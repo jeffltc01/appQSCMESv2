@@ -12,6 +12,14 @@ import type {
   SerialNumberContextResponse,
   QueueAdvanceResponse,
   KanbanCardLookupResponse,
+  CreateMaterialQueueItemRequest,
+  CreateFitupQueueItemRequest,
+  AddXrayQueueItemRequest,
+  CreateRoundSeamSetupRequest,
+  CreateRoundSeamRecordRequest,
+  CreateNameplateRecordRequest,
+  CreateHydroRecordRequest,
+  HydroRecordResponse,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -25,6 +33,13 @@ import type {
   DefectLocation,
   Characteristic,
   InspectionRecord,
+  Vendor,
+  ProductListItem,
+  XrayQueueItem,
+  RoundSeamSetup,
+  AssemblyLookup,
+  NameplateRecordInfo,
+  BarcodeCardInfo,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -105,4 +120,77 @@ export const serialNumberApi = {
 export const materialQueueApi = {
   getCardLookup: (cardId: string) =>
     api.get<KanbanCardLookupResponse>(`/material-queue/card/${encodeURIComponent(cardId)}`),
+  addItem: (wcId: string, req: CreateMaterialQueueItemRequest) =>
+    api.post<MaterialQueueItem>(`/workcenters/${wcId}/material-queue`, req),
+  updateItem: (wcId: string, itemId: string, req: Partial<CreateMaterialQueueItemRequest>) =>
+    api.put<MaterialQueueItem>(`/workcenters/${wcId}/material-queue/${itemId}`, req),
+  deleteItem: (wcId: string, itemId: string) =>
+    api.delete<void>(`/workcenters/${wcId}/material-queue/${itemId}`),
+  addFitupItem: (wcId: string, req: CreateFitupQueueItemRequest) =>
+    api.post<MaterialQueueItem>(`/workcenters/${wcId}/fitup-queue`, req),
+  updateFitupItem: (wcId: string, itemId: string, req: Partial<CreateFitupQueueItemRequest>) =>
+    api.put<MaterialQueueItem>(`/workcenters/${wcId}/fitup-queue/${itemId}`, req),
+  deleteFitupItem: (wcId: string, itemId: string) =>
+    api.delete<void>(`/workcenters/${wcId}/fitup-queue/${itemId}`),
+};
+
+export const productApi = {
+  getProducts: (type?: string, siteCode?: string) => {
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    if (siteCode) params.set('siteCode', siteCode);
+    return api.get<ProductListItem[]>(`/products?${params}`);
+  },
+};
+
+export const vendorApi = {
+  getVendors: (type?: string, siteCode?: string) => {
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    if (siteCode) params.set('siteCode', siteCode);
+    return api.get<Vendor[]>(`/vendors?${params}`);
+  },
+};
+
+export const xrayQueueApi = {
+  getQueue: (wcId: string) =>
+    api.get<XrayQueueItem[]>(`/workcenters/${wcId}/xray-queue`),
+  addItem: (wcId: string, req: AddXrayQueueItemRequest) =>
+    api.post<XrayQueueItem>(`/workcenters/${wcId}/xray-queue`, req),
+  removeItem: (wcId: string, itemId: string) =>
+    api.delete<void>(`/workcenters/${wcId}/xray-queue/${itemId}`),
+};
+
+export const roundSeamApi = {
+  getSetup: (wcId: string) =>
+    api.get<RoundSeamSetup>(`/workcenters/${wcId}/round-seam-setup`),
+  saveSetup: (wcId: string, req: CreateRoundSeamSetupRequest) =>
+    api.post<RoundSeamSetup>(`/workcenters/${wcId}/round-seam-setup`, req),
+  createRecord: (req: CreateRoundSeamRecordRequest) =>
+    api.post<CreateProductionRecordResponse>('/production-records/round-seam', req),
+  getAssemblyByShell: (serial: string) =>
+    api.get<AssemblyLookup>(`/serial-numbers/${encodeURIComponent(serial)}/assembly`),
+};
+
+export const nameplateApi = {
+  create: (req: CreateNameplateRecordRequest) =>
+    api.post<NameplateRecordInfo>('/nameplate-records', req),
+  getBySerial: (serialNumber: string) =>
+    api.get<NameplateRecordInfo>(`/nameplate-records/${encodeURIComponent(serialNumber)}`),
+  reprint: (id: string) =>
+    api.post<void>(`/nameplate-records/${id}/reprint`),
+};
+
+export const hydroApi = {
+  create: (req: CreateHydroRecordRequest) =>
+    api.post<HydroRecordResponse>('/hydro-records', req),
+  getLocationsByCharacteristic: (charId: string) =>
+    api.get<DefectLocation[]>(`/characteristics/${charId}/locations`),
+};
+
+export const barcodeCardApi = {
+  getCards: (wcId: string, siteCode?: string) => {
+    const params = siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : '';
+    return api.get<BarcodeCardInfo[]>(`/workcenters/${wcId}/barcode-cards${params}`);
+  },
 };

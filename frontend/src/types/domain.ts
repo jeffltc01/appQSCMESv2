@@ -121,6 +121,7 @@ export interface MaterialQueueItem {
   quantity: number;
   cardId?: string;
   cardColor?: string;
+  createdAt?: string;
 }
 
 export interface Assembly {
@@ -181,4 +182,55 @@ export interface FaultEvent {
   description: string;
   timestamp: string;
   workCenterId: string;
+}
+
+export interface Vendor {
+  id: string;
+  name: string;
+  vendorType: string;
+}
+
+export interface ProductListItem {
+  id: string;
+  productNumber: string;
+  tankSize: number;
+  tankType: string;
+  nameplateNumber?: string;
+}
+
+export interface XrayQueueItem {
+  id: string;
+  serialNumber: string;
+  createdAt: string;
+}
+
+export interface RoundSeamSetup {
+  id?: string;
+  tankSize: number;
+  rs1WelderId?: string;
+  rs2WelderId?: string;
+  rs3WelderId?: string;
+  rs4WelderId?: string;
+  isComplete: boolean;
+}
+
+export interface AssemblyLookup {
+  alphaCode: string;
+  tankSize: number;
+  roundSeamCount: number;
+}
+
+export interface NameplateRecordInfo {
+  id: string;
+  serialNumber: string;
+  productId: string;
+  timestamp: string;
+}
+
+export interface BarcodeCardInfo {
+  id: string;
+  cardValue: string;
+  color?: string;
+  colorName?: string;
+  isAssigned: boolean;
 }

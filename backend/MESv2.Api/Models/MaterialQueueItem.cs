@@ -15,5 +15,14 @@ public class MaterialQueueItem
     public string? CardColor { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    public Guid? ProductId { get; set; }
+    public Guid? VendorMillId { get; set; }
+    public Guid? VendorProcessorId { get; set; }
+    public Guid? VendorHeadId { get; set; }
+    public string? LotNumber { get; set; }
+    public string? CoilSlabNumber { get; set; }
+    public Guid? OperatorId { get; set; }
+    public string? QueueType { get; set; } // rolls, fitup
+
     public WorkCenter WorkCenter { get; set; } = null!;
 }

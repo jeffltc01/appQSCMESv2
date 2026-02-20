@@ -12,9 +12,17 @@ import { LeftPanel } from './LeftPanel.tsx';
 import { WCHistory } from './WCHistory.tsx';
 import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { RollsScreen } from '../../features/rolls/RollsScreen.tsx';
+import { RollsMaterialScreen } from '../../features/rollsMaterial/RollsMaterialScreen.tsx';
 import { LongSeamScreen } from '../../features/longSeam/LongSeamScreen.tsx';
 import { LongSeamInspScreen } from '../../features/longSeamInsp/LongSeamInspScreen.tsx';
 import { FitupScreen } from '../../features/fitup/FitupScreen.tsx';
+import { FitupQueueScreen } from '../../features/fitupQueue/FitupQueueScreen.tsx';
+import { RoundSeamScreen } from '../../features/roundSeam/RoundSeamScreen.tsx';
+import { RoundSeamInspScreen } from '../../features/roundSeamInsp/RoundSeamInspScreen.tsx';
+import { RtXrayQueueScreen } from '../../features/rtXrayQueue/RtXrayQueueScreen.tsx';
+import { SpotXrayScreen } from '../../features/spotXray/SpotXrayScreen.tsx';
+import { NameplateScreen } from '../../features/nameplate/NameplateScreen.tsx';
+import { HydroScreen } from '../../features/hydro/HydroScreen.tsx';
 import styles from './OperatorLayout.module.css';
 
 export function OperatorLayout() {
@@ -219,11 +227,27 @@ function WorkCenterRouter(props: WorkCenterProps) {
   const cache = getTabletCache();
   const wcName = cache?.cachedWorkCenterName?.toLowerCase() ?? '';
 
+  if (wcName.includes('rolls material') || wcName.includes('rolls mat'))
+    return <RollsMaterialScreen {...props} />;
   if (wcName.includes('rolls')) return <RollsScreen {...props} />;
   if (wcName.includes('long seam insp')) return <LongSeamInspScreen {...props} />;
   if (wcName.includes('long seam')) return <LongSeamScreen {...props} />;
+  if (wcName.includes('fitup queue') || wcName.includes('fit-up queue') || wcName.includes('fit up queue'))
+    return <FitupQueueScreen {...props} />;
   if (wcName.includes('fitup') || wcName.includes('fit-up') || wcName.includes('fit up'))
     return <FitupScreen {...props} />;
+  if (wcName.includes('round seam insp'))
+    return <RoundSeamInspScreen {...props} />;
+  if (wcName.includes('round seam'))
+    return <RoundSeamScreen {...props} />;
+  if (wcName.includes('rt') && wcName.includes('xray') || wcName.includes('rt x-ray') || wcName.includes('real time'))
+    return <RtXrayQueueScreen {...props} />;
+  if (wcName.includes('spot') && wcName.includes('xray') || wcName.includes('spot x-ray'))
+    return <SpotXrayScreen {...props} />;
+  if (wcName.includes('nameplate') || wcName.includes('data plate'))
+    return <NameplateScreen {...props} />;
+  if (wcName.includes('hydro'))
+    return <HydroScreen {...props} />;
 
   return (
     <div style={{ padding: 40, textAlign: 'center', color: '#868686' }}>

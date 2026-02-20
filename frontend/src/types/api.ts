@@ -110,6 +110,71 @@ export interface KanbanCardLookupResponse {
   cardColor?: string;
 }
 
+export interface CreateMaterialQueueItemRequest {
+  productId: string;
+  vendorMillId?: string;
+  vendorProcessorId?: string;
+  heatNumber: string;
+  coilNumber: string;
+  lotNumber?: string;
+  quantity: number;
+}
+
+export interface CreateFitupQueueItemRequest {
+  productId: string;
+  vendorHeadId: string;
+  lotNumber?: string;
+  heatNumber?: string;
+  coilSlabNumber?: string;
+  cardCode: string;
+}
+
+export interface AddXrayQueueItemRequest {
+  serialNumber: string;
+  operatorId: string;
+}
+
+export interface CreateRoundSeamSetupRequest {
+  tankSize: number;
+  rs1WelderId?: string;
+  rs2WelderId?: string;
+  rs3WelderId?: string;
+  rs4WelderId?: string;
+}
+
+export interface CreateRoundSeamRecordRequest {
+  serialNumber: string;
+  workCenterId: string;
+  assetId: string;
+  productionLineId: string;
+  operatorId: string;
+}
+
+export interface CreateNameplateRecordRequest {
+  serialNumber: string;
+  productId: string;
+  workCenterId: string;
+  operatorId: string;
+}
+
+export interface CreateHydroRecordRequest {
+  assemblyAlphaCode: string;
+  nameplateSerialNumber: string;
+  result: string;
+  workCenterId: string;
+  assetId?: string;
+  operatorId: string;
+  defects: { defectCodeId: string; characteristicId: string; locationId: string }[];
+}
+
+export interface HydroRecordResponse {
+  id: string;
+  assemblyAlphaCode: string;
+  nameplateSerialNumber: string;
+  result: string;
+  timestamp: string;
+}
+
 export interface ApiError {
   message: string;
   code?: string;

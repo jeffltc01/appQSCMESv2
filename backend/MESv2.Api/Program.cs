@@ -18,6 +18,11 @@ builder.Services.AddScoped<IProductionRecordService, ProductionRecordService>();
 builder.Services.AddScoped<IInspectionRecordService, InspectionRecordService>();
 builder.Services.AddScoped<IAssemblyService, AssemblyService>();
 builder.Services.AddScoped<ISerialNumberService, SerialNumberService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IRoundSeamService, RoundSeamService>();
+builder.Services.AddScoped<INameplateService, NameplateService>();
+builder.Services.AddScoped<IHydroService, HydroService>();
+builder.Services.AddScoped<IXrayQueueService, XrayQueueService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "dev-secret-key-min-32-chars-long-for-hs256";
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
