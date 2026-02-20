@@ -12,10 +12,13 @@ backend/MESv2.Api/bin/
 backend/MESv2.Api/obj/
 backend/MESv2.Api.Tests/bin/
 backend/MESv2.Api.Tests/obj/
+migration/MESv2.Migration/bin/
+migration/MESv2.Migration/obj/
 
 # IDE
 .vs/
 .vscode/
+.cursor/
 *.user
 *.suo
 
