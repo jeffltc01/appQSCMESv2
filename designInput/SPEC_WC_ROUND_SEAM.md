@@ -23,7 +23,7 @@ Unlike upstream work centers (Rolls, Long Seam, Long Seam Inspection) which log 
 |---|---|---|
 | **≤ 500** (1 shell) | 2 | RS1 (left head to shell), RS2 (shell to right head) |
 | **1000** (2 shells) | 3 | RS1, RS2, RS3 |
-| **≥ 1500** (3 shells) | 4 | RS1, RS2, RS3, RS4 |
+| **> 1000** (3 shells) | 4 | RS1, RS2, RS3, RS4 |
 
 See [MANFACTURING_CONCEPTS.MD](MANFACTURING_CONCEPTS.MD) for the Components and Weld Position diagrams.
 
@@ -73,7 +73,7 @@ This screen renders inside the Work Center Content Area of the Operator Work Cen
 |                                                           |
 |  (Roundseam 3 Welder: [ ▾ ... ] )  ← shown for 1000+   |
 |                                                           |
-|  (Roundseam 4 Welder: [ ▾ ... ] )  ← shown for 1500+   |
+|  (Roundseam 4 Welder: [ ▾ ... ] )  ← shown for > 1000   |
 |                                                           |
 |             [ Save Setup ]                                |
 |                                                           |
@@ -110,7 +110,7 @@ Before any production records can be saved, the operator must complete the Round
 
 After setup is saved, each production record automatically includes:
 
-| Field | Example (≤ 500) | Example (1000) | Example (≥ 1500) |
+| Field | Example (≤ 500) | Example (1000) | Example (> 1000) |
 |---|---|---|---|
 | RS1 Welder | Jeff Phillips | Jeff Phillips | Jeff Phillips |
 | RS2 Welder | Jeff Phillips | Mike Johnson | Mike Johnson |
@@ -229,7 +229,7 @@ The setup screen is always manual (dropdown selectors for tank size and welders)
 | **RS1 Welder ID** | Setup dropdown | Welder for Round Seam 1 position |
 | **RS2 Welder ID** | Setup dropdown | Welder for Round Seam 2 position |
 | **RS3 Welder ID** | Setup dropdown (if 1000+) | Welder for Round Seam 3 position |
-| **RS4 Welder ID** | Setup dropdown (if 1500+) | Welder for Round Seam 4 position |
+| **RS4 Welder ID** | Setup dropdown (if > 1000) | Welder for Round Seam 4 position |
 | **Timestamp** | Server-generated | When setup was saved |
 
 ### 8.2 Production Record (per assembly)

@@ -22,7 +22,7 @@ Heads are a purchased raw material. **Material Handlers** document head lot deta
 |---|---|---|---|
 | **≤ 500** (120, 250, 320, 500) | 1 | 2 (Left, Right) | H1 — S1 — H2 |
 | **1000** | 2 | 2 (Left, Right) | H1 — S1 — S2 — H2 |
-| **≥ 1500** | 3 | 2 (Left, Right) | H1 — S1 — S2 — S3 — H2 |
+| **> 1000** (1450, 1990) | 3 | 2 (Left, Right) | H1 — S1 — S2 — S3 — H2 |
 
 See [MANFACTURING_CONCEPTS.MD](MANFACTURING_CONCEPTS.MD) for the Components and Weld Position diagrams.
 
@@ -73,7 +73,7 @@ The center of the screen displays a visual representation of the tank assembly. 
 |---|---|
 | **≤ 500** | Left Head — Shell 1 — Right Head |
 | **1000** | Left Head — Shell 1 — Shell 2 — Right Head |
-| **≥ 1500** | Left Head — Shell 1 — Shell 2 — Shell 3 — Right Head |
+| **> 1000** | Left Head — Shell 1 — Shell 2 — Shell 3 — Right Head |
 
 Each component slot shows:
 - **Header label**: "Left Head", "Shell 1", "Shell 2", etc.
@@ -103,7 +103,7 @@ sequenceDiagram
         Screen->>Screen: Prompt "Scan Shell 2"
         Op->>Screen: Scan Shell 2 (SC;YYYYYY)
         Screen->>Screen: Fill Shell 2 slot
-    else Tank size ≥ 1500
+    else Tank size > 1000
         Screen->>Screen: Prompt "Scan Shell 2"
         Op->>Screen: Scan Shell 2 (SC;YYYYYY)
         Screen->>Screen: Fill Shell 2 slot
@@ -150,7 +150,7 @@ sequenceDiagram
 **2. Scan Additional Shells (if needed)**
 
 - **1000**: The screen prompts "Scan Shell 2". The operator scans the second shell. Shell 2 slot fills in.
-- **≥ 1500**: After Shell 2, the screen prompts "Scan Shell 3". The operator scans the third shell. Shell 3 slot fills in.
+- **> 1000**: After Shell 2, the screen prompts "Scan Shell 3". The operator scans the third shell. Shell 3 slot fills in.
 - Each additional shell must have a matching tank size. If a mismatched shell is scanned, red overlay — "Shell size does not match the assembly".
 
 **3. Scan Kanban Card for Heads**
@@ -167,7 +167,7 @@ sequenceDiagram
 
 **5. Tank Size Change (optional)**
 
-- If Rolls selected the wrong material, the Fitup operator can change the tank size by scanning `TS;{size}` (e.g., `TS;120`, `TS;250`, `TS;500`, `TS;1000`).
+- If Rolls selected the wrong material, the Fitup operator can change the tank size by scanning `TS;{size}` (e.g., `TS;120`, `TS;250`, `TS;500`, `TS;1000`, `TS;1450`, `TS;1990`).
 - This changes the assembly product and may change the number of shells required:
   - Changing from a 1-shell size to a 2-shell size requires scanning another shell.
   - Changing from a 2-shell size to a 1-shell size removes the second shell from the assembly.
@@ -233,7 +233,7 @@ When splitting:
 - TraceabilityLog entries record: "AC was created from split of AB (left side)" and "AD was created from split of AB (right side)".
 - Each new assembly may need new head lot scans or may retain the original head lots.
 
-#### ≥ 1500 (3 shells, 2 heads)
+#### > 1000 (3 shells, 2 heads)
 
 Same splitting concept — the assembly is split into **two** resulting assemblies (not three). The operator chooses a split point:
 
@@ -268,7 +268,8 @@ When reassembly mode is active, the visual assembly diagram shows the existing a
 | `TS;320` | Change tank size to 320 | Anytime before save |
 | `TS;500` | Change tank size to 500 | Anytime before save |
 | `TS;1000` | Change tank size to 1000 | Anytime before save |
-| `TS;1500` | Change tank size to 1500 | Anytime before save |
+| `TS;1450` | Change tank size to 1450 | Anytime before save |
+| `TS;1990` | Change tank size to 1990 | Anytime before save |
 
 ---
 
@@ -344,7 +345,7 @@ The Heads Queue displays head material loaded by Material Handlers at the Fitup 
 |---|---|---|
 | Shell 1 serial → Alpha Code | Assembly contains shell | Links shell to assembly |
 | Shell 2 serial → Alpha Code | Assembly contains shell | (if 1000 or larger) |
-| Shell 3 serial → Alpha Code | Assembly contains shell | (if 1500 or larger) |
+| Shell 3 serial → Alpha Code | Assembly contains shell | (if > 1000) |
 | Left Head lot → Alpha Code | Assembly uses head lot | Links head material to assembly |
 | Right Head lot → Alpha Code | Assembly uses head lot | Links head material to assembly |
 

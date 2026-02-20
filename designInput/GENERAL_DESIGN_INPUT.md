@@ -180,12 +180,11 @@ The general format is `PREFIX;PARAMETERS`. This allows the system to distinguish
 | `D;` | Defect code | `D;042` |
 | `L;` | Location code | `L;003` |
 | `FD;` | Full defect (compound) | `FD;042-007-003` (DefectCode-Characteristic-Location) |
-| `INP;` | Input / action command | `INP;1` (e.g., Print), `INP;3` (Yes), `INP;4` (No) |
+| `INP;` | Input / action command (context-dependent per work center) | `INP;1` (e.g., Print), `INP;2` (e.g., Advance Queue at Rolls, Reset at Fitup), `INP;3` (Yes/Pass/Save), `INP;4` (No/Fail) |
 | `KC;` | Card lookup (reusable barcode card) | `KC;03` |
 | `TS;` | Tank size change | `TS;120`, `TS;250`, `TS;500` |
 | `S;` | Save | `S;1` |
 | `CL;` | Clear all | `CL;1` |
-| `O;` | Override save | `O;1` |
 | `FLT;` | Fault / error from equipment | `FLT;Button Stuck` |
 | `NOSHELL;` | No shell present | `NOSHELL;0` |
 
@@ -244,7 +243,7 @@ When the External Input toggle is **off**, the screen operates in Manual mode. O
 
 - **Idle timeout**: Configurable duration. After timeout, a warning prompt appears. If no interaction, auto-logout returns to the Login screen.
 - **Token refresh**: JWT tokens are refreshed silently while the session is active.
-- **Concurrent sessions**: A user can only be logged in on one tablet at a time (prevents an operator from being "active" at two work centers simultaneously).
+- **Concurrent sessions**: Operators (6.0) through Supervisor (4.0) can only be logged in on one tablet at a time — new login terminates the previous session. Quality Manager (3.0) and above can maintain multiple concurrent sessions (for testing or covering stations for new employees).
 
 ### 5.5 Shift Support (Future)
 
@@ -276,9 +275,19 @@ Per [SECURITY_ROLES.md](SECURITY_ROLES.md), the application defines 7 role tiers
 | Operator work center screens | Operator (6.0) |
 | External Input toggle (On/Off) | All roles |
 | Tablet Setup (assign work center) | Team Lead (5.0) |
+| Kanban card management (add/remove cards) | Team Lead (5.0) and above |
+| Who's On the Floor (active sessions per site) | Team Lead (5.0) and above |
 | View inspection logs | Quality Tech (5.0) / Authorized Inspector (5.5) |
-| Override actions (e.g., `O;1`) | Quality Tech (5.0) and above (per work center spec) |
 | Supervisor / Team Lead screens | Supervisor (4.0) / Team Lead (5.0) — separate spec |
+| Manage Characteristics (edit only) | Quality Director (2.0) and above |
+| Manage Defect Codes (CRUD, AllowDelete flag respected) | Quality Director (2.0) and above |
+| Manage Defect Locations (CRUD) | Quality Director (2.0) and above |
+| Manage Control Plans (edit only) | Quality Director (2.0) and above |
+| Manage Work Centers (edit only) | Quality Director (2.0) and above |
+| Manage Assets (add/edit, no delete) | Quality Manager (3.0) and above |
+| Change Plant Gear (1–5) | Operations Director (2.0) and above |
+| Manage Vendors (CRUD) | Quality Manager (3.0) / Plant Manager (3.0) and above |
+| Manage Products (CRUD) | Quality Manager (3.0) / Plant Manager (3.0) and above |
 | View change logs | Quality Manager (3.0) and above |
 | Admin screens (user/config management) | Administrator (1.0) |
 
@@ -482,7 +491,7 @@ The v1 system uses a **field-level ChangeLog** (`mesChangeLog`) that records bef
 | Event Category | Logging Mechanism | Examples |
 |---|---|---|
 | **Data Changes** | ChangeLog (field-level) | Record creation, field updates, deletions — with from-value and to-value |
-| **Overrides** | ChangeLog (field-level) | Quality override saves (`O;1`), defect clears (`CL;1`) |
+| **Overrides** | ChangeLog (field-level) | Defect clears (`CL;1`), inspection result overrides |
 | **Authentication** | Application log | Login, logout, failed login attempts |
 | **Scans** | Application log | Every barcode scan (command, raw value, result) |
 | **Configuration** | ChangeLog (field-level) | Work center assignments, role changes, user management |
@@ -565,3 +574,12 @@ The following items are **out of scope** for the initial release but the archite
 | [SPEC_WC_LONG_SEAM_INSPECTION.md](SPEC_WC_LONG_SEAM_INSPECTION.md) | Long Seam Inspection — defect logging with assumed Long Seam characteristic, scan-sheet-driven workflow |
 | [SPEC_WC_FITUP.md](SPEC_WC_FITUP.md) | Fitup work center — shell + head assembly, alpha code assignment, reassembly/splitting, kanban card head lots |
 | [SPEC_WC_ROUND_SEAM.md](SPEC_WC_ROUND_SEAM.md) | Round Seam — circumferential welds, per-seam welder setup, assembly-level tracking, SAW/MIG asset |
+| [SPEC_WC_ROUND_SEAM_INSPECTION.md](SPEC_WC_ROUND_SEAM_INSPECTION.md) | Round Seam Inspection — defect logging with explicit RS1–RS4 characteristic, assembly-level, L;XXX;C;YYY format |
+| [SPEC_WC_SPOT_XRAY.md](SPEC_WC_SPOT_XRAY.md) | Spot X-ray — **placeholder**, to be completed last |
+| [SPEC_WC_NAMEPLATE.md](SPEC_WC_NAMEPLATE.md) | Nameplate — PC-based, manual serial number entry, auto-print barcode label via NiceLabel |
+| [SPEC_WC_HYDRO.md](SPEC_WC_HYDRO.md) | Hydro — hydrostatic testing, assembly↔nameplate marriage, accept/reject, touch-driven defect entry |
+| [SPEC_WC_ROLLS_MATERIAL.md](SPEC_WC_ROLLS_MATERIAL.md) | Rolls Material — Material Handler queue management for plate loaded at Rolls; manual entry, selection popups |
+| [SPEC_WC_FITUP_QUEUE.md](SPEC_WC_FITUP_QUEUE.md) | Fitup Queue — Material Handler queue management for heads; vendor-dependent fields (CMF vs Compco), kanban card scanning |
+| [SPEC_WC_RT_XRAY_QUEUE.md](SPEC_WC_RT_XRAY_QUEUE.md) | Real Time X-ray Queue — scan-to-add shell queue feeding the separate RT X-ray application; auto-refresh, FIFO |
+| [SPEC_DATA_PRODUCTS.md](SPEC_DATA_PRODUCTS.md) | Products & Product Types — reference data, site availability, tank sizes/types, seed data tables |
+| [SPEC_DATA_REFERENCE.md](SPEC_DATA_REFERENCE.md) | Reference Data & Entity Definitions — all supporting entities (Site, ProductionLine, PlantGear, WorkCenter, Asset, Vendor, Characteristic, ControlPlan, DefectCode, DefectLocation, AnnotationType, BarcodeCard, SiteSchedule), management screen access, v1 migration notes |

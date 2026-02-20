@@ -287,7 +287,9 @@ If an Operator logs in and the tablet has **no cached work center** (i.e., Table
 
 ### 7.4 Concurrent Session Enforcement
 
-If the user is already logged in on another tablet, the previous session is terminated and the new login takes precedence. The previous tablet returns to the Login screen on its next API call. No confirmation prompt is shown — the most recent login always wins.
+**Operators (6.0) through Supervisor (4.0):** If the user is already logged in on another tablet, the previous session is terminated and the new login takes precedence. The previous tablet returns to the Login screen on its next API call. No confirmation prompt is shown — the most recent login always wins.
+
+**Quality Manager (3.0) and above:** Multiple concurrent sessions are allowed. These users may need to log in at multiple work centers simultaneously for testing or to temporarily cover a station for a new employee who isn't fully set up. No previous session is terminated on new login.
 
 ### 7.5 Session Timeout Return
 

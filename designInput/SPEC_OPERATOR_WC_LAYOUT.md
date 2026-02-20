@@ -91,16 +91,16 @@ The Welder(s) section displays currently active welders at this work center and 
 
 #### Welder Minimum Enforcement
 
-Certain work centers (e.g., welding stations) require at least one active welder before production data can be logged. This is driven by a `requiresWelder` flag on the WorkCenter entity.
+Certain work centers require a minimum number of active welders before production data can be logged. This is driven by the `NoOfWelders` field on the WorkCenter entity (0 = no welders required, 1+ = that many welders must be signed in).
 
 | Scenario | Behavior |
 |---|---|
-| **Work center requires welder, none present** | Save/submit actions are blocked. The work center content area displays a persistent banner: "A welder must be signed in before logging data." The save barcode (`S;1`) returns a red overlay with the same message. |
-| **Work center requires welder, welder present** | Normal operation — no banner, all save/submit actions enabled. |
-| **Work center does not require welder** | Normal operation regardless of welder list state. |
-| **Last welder removed at a required station** | The persistent banner reappears immediately and save actions are re-disabled. |
+| **Welders signed in < NoOfWelders** | Save/submit actions are blocked. The work center content area displays a persistent banner: "{N} welder(s) must be signed in before logging data." The save barcode (`S;1`) returns a red overlay with the same message. |
+| **Welders signed in >= NoOfWelders** | Normal operation — no banner, all save/submit actions enabled. |
+| **NoOfWelders = 0** | Normal operation regardless of welder list state. |
+| **Welder removed, count drops below minimum** | The persistent banner reappears immediately and save actions are re-disabled. |
 
-Enforcement is applied both **client-side** (UI disables save, shows banner) and **server-side** (API rejects production record submissions if no active welder is found for a welder-required work center).
+Enforcement is applied both **client-side** (UI disables save, shows banner) and **server-side** (API rejects production record submissions if the active welder count is below the work center's `NoOfWelders` minimum).
 
 ### 3.5 Top Bar Styling
 

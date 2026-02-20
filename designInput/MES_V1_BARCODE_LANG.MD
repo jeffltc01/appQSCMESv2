@@ -41,7 +41,6 @@ In general the format of the commands are FUNCTION a semi-colon and then PARAMET
   - D;XXX = Logging a defect where the Defect ID is XXX
   - L;XXX;C;YYY = Logging a defect where the Location ID of the defect is XXX and the Characteristic ID of the defect is YYY
   - S;1 = Save, technically don't need the 1, but adding it for consistency
-  - O;1 = Save and Override (that's a capital O as in Overide)
   - CL;1 = Clear all defects
   - FD;XXX-YYY-ZZZ = Logging full defect where XXX is DefectCode, YYY is the Characteristic Lookup Id and ZZZ is the location Lookup Id
 - **Hydro**
