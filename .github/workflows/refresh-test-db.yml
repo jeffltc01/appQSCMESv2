@@ -1,0 +1,92 @@
+name: Refresh Test Database from Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm replacing the test database with production data'
+        required: true
+        type: string
+
+env:
+  PROD_RESOURCE_GROUP: rg-mes-prod
+  PROD_SQL_SERVER: mes-prod-sql
+  PROD_DB_NAME: MES-Prod
+  TEST_RESOURCE_GROUP: rg-mes-test
+  TEST_SQL_SERVER: mes-test-sql
+  TEST_DB_NAME: MES-Test
+  STORAGE_ACCOUNT: mesbacpacs
+  STORAGE_CONTAINER: bacpacs
+
+jobs:
+  refresh:
+    name: Export Prod → Import Test
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    environment: test
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get storage account key
+        id: storage-key
+        run: |
+          KEY=$(az storage account keys list \
+            --resource-group ${{ env.PROD_RESOURCE_GROUP }} \
+            --account-name ${{ env.STORAGE_ACCOUNT }} \
+            --query '[0].value' -o tsv)
+          echo "::add-mask::$KEY"
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Export production database to BACPAC
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BACPAC_NAME="mes-prod-${TIMESTAMP}.bacpac"
+          echo "BACPAC_NAME=$BACPAC_NAME" >> "$GITHUB_ENV"
+
+          az sql db export \
+            --resource-group ${{ env.PROD_RESOURCE_GROUP }} \
+            --server ${{ env.PROD_SQL_SERVER }} \
+            --name ${{ env.PROD_DB_NAME }} \
+            --admin-user ${{ secrets.SQL_ADMIN_USER }} \
+            --admin-password ${{ secrets.SQL_ADMIN_PASSWORD }} \
+            --storage-key-type StorageAccessKey \
+            --storage-key ${{ steps.storage-key.outputs.key }} \
+            --storage-uri "https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.STORAGE_CONTAINER }}/${BACPAC_NAME}"
+
+          echo "Exported to ${BACPAC_NAME}"
+
+      - name: Delete existing test database
+        run: |
+          az sql db delete \
+            --resource-group ${{ env.TEST_RESOURCE_GROUP }} \
+            --server ${{ env.TEST_SQL_SERVER }} \
+            --name ${{ env.TEST_DB_NAME }} \
+            --yes || echo "Test database did not exist, continuing..."
+
+      - name: Import BACPAC into test server
+        run: |
+          az sql db import \
+            --resource-group ${{ env.TEST_RESOURCE_GROUP }} \
+            --server ${{ env.TEST_SQL_SERVER }} \
+            --name ${{ env.TEST_DB_NAME }} \
+            --admin-user ${{ secrets.SQL_ADMIN_USER }} \
+            --admin-password ${{ secrets.SQL_ADMIN_PASSWORD }} \
+            --storage-key-type StorageAccessKey \
+            --storage-key ${{ steps.storage-key.outputs.key }} \
+            --storage-uri "https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.STORAGE_CONTAINER }}/${{ env.BACPAC_NAME }}"
+
+          echo "Import complete. Test database now has production data."
+
+      - name: Summary
+        run: |
+          echo "## Test DB Refresh Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** ${{ env.PROD_SQL_SERVER }}/${{ env.PROD_DB_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target:** ${{ env.TEST_SQL_SERVER }}/${{ env.TEST_DB_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **BACPAC:** ${{ env.BACPAC_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deploy the app to test to apply any pending EF migrations." >> $GITHUB_STEP_SUMMARY

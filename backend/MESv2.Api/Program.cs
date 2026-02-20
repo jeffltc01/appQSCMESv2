@@ -9,8 +9,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<MesDbContext>(options =>
-    options.UseSqlite("Data Source=mes.db"));
+{
+    if (connectionString != null && connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase))
+        options.UseSqlServer(connectionString);
+    else
+        options.UseSqlite(connectionString ?? "Data Source=mes.db");
+});
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IWorkCenterService, WorkCenterService>();
@@ -43,11 +50,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:5173"];
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -60,7 +70,16 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MesDbContext>();
-    context.Database.EnsureCreated();
+
+    if (context.Database.IsSqlServer())
+    {
+        context.Database.Migrate();
+    }
+    else
+    {
+        context.Database.EnsureCreated();
+        DbInitializer.Seed(context);
+    }
 }
 
 if (app.Environment.IsDevelopment())

@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Data;
-using MESv2.Api.Models;
 
 namespace MESv2.Api.Tests;
 
@@ -30,18 +29,7 @@ public static class TestHelpers
 
         var context = new MesDbContext(options);
         context.Database.EnsureCreated();
-
-        if (!context.Assets.Any())
-        {
-            context.Assets.Add(new Asset
-            {
-                Id = TestAssetId,
-                Name = "Test Asset 1",
-                WorkCenterId = WorkCenter1Plt1Id,
-                ProductionLineId = ProductionLine1Plt1Id
-            });
-            context.SaveChanges();
-        }
+        DbInitializer.Seed(context);
 
         return context;
     }
