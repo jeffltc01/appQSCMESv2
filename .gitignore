@@ -31,3 +31,11 @@ Thumbs.db
 # Test results
 frontend/coverage/
 backend/TestResults/
+
+# Scratch / test files
+*.pdf
+backend/MESv2.Api/test-*.json
+frontend/test-*.json
+
+# Generated scripts
+generate_spec_pdf.py
