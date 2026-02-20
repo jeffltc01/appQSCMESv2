@@ -8,6 +8,7 @@ export interface AuthUser {
   roleName: string;
   defaultSiteId: string;
   isCertifiedWelder: boolean;
+  userType: number;
   plantCode: string;
   plantTimeZoneId: string;
 }

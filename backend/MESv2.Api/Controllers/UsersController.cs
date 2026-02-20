@@ -47,7 +47,9 @@ public class UsersController : ControllerBase
                 DefaultSiteId = u.DefaultSiteId,
                 DefaultSiteName = u.DefaultSite.Name,
                 IsCertifiedWelder = u.IsCertifiedWelder,
-                RequirePinForLogin = u.RequirePinForLogin
+                RequirePinForLogin = u.RequirePinForLogin,
+                UserType = (int)u.UserType,
+                IsActive = u.IsActive
             })
             .ToListAsync(cancellationToken);
         return Ok(list);
@@ -86,7 +88,8 @@ public class UsersController : ControllerBase
             RoleName = dto.RoleName,
             DefaultSiteId = dto.DefaultSiteId,
             IsCertifiedWelder = dto.IsCertifiedWelder,
-            RequirePinForLogin = dto.RequirePinForLogin
+            RequirePinForLogin = dto.RequirePinForLogin,
+            UserType = (Models.UserType)dto.UserType
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync(cancellationToken);
@@ -104,7 +107,9 @@ public class UsersController : ControllerBase
             DefaultSiteId = user.DefaultSiteId,
             DefaultSiteName = site?.Name ?? "",
             IsCertifiedWelder = user.IsCertifiedWelder,
-            RequirePinForLogin = user.RequirePinForLogin
+            RequirePinForLogin = user.RequirePinForLogin,
+            UserType = (int)user.UserType,
+            IsActive = user.IsActive
         });
     }
 
@@ -122,6 +127,8 @@ public class UsersController : ControllerBase
         user.DefaultSiteId = dto.DefaultSiteId;
         user.IsCertifiedWelder = dto.IsCertifiedWelder;
         user.RequirePinForLogin = dto.RequirePinForLogin;
+        user.UserType = (Models.UserType)dto.UserType;
+        user.IsActive = dto.IsActive;
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -138,17 +145,34 @@ public class UsersController : ControllerBase
             DefaultSiteId = user.DefaultSiteId,
             DefaultSiteName = site?.Name ?? "",
             IsCertifiedWelder = user.IsCertifiedWelder,
-            RequirePinForLogin = user.RequirePinForLogin
+            RequirePinForLogin = user.RequirePinForLogin,
+            UserType = (int)user.UserType,
+            IsActive = user.IsActive
         });
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> DeleteUser(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminUserDto>> DeleteUser(Guid id, CancellationToken cancellationToken)
     {
-        var user = await _db.Users.FindAsync(new object[] { id }, cancellationToken);
+        var user = await _db.Users.Include(u => u.DefaultSite).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (user == null) return NotFound();
-        _db.Users.Remove(user);
+        user.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
-        return NoContent();
+        return Ok(new AdminUserDto
+        {
+            Id = user.Id,
+            EmployeeNumber = user.EmployeeNumber,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DisplayName = user.DisplayName,
+            RoleTier = user.RoleTier,
+            RoleName = user.RoleName,
+            DefaultSiteId = user.DefaultSiteId,
+            DefaultSiteName = user.DefaultSite?.Name ?? "",
+            IsCertifiedWelder = user.IsCertifiedWelder,
+            RequirePinForLogin = user.RequirePinForLogin,
+            UserType = (int)user.UserType,
+            IsActive = user.IsActive
+        });
     }
 }

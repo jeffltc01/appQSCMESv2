@@ -1,10 +1,17 @@
 .gearRow {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .gearBtn {
-  min-width: 44px;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
   font-weight: 600;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }

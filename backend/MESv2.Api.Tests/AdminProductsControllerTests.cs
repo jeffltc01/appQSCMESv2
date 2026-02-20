@@ -95,7 +95,7 @@ public class AdminProductsControllerTests
     }
 
     [Fact]
-    public async Task DeleteProduct_RemovesFromDatabase()
+    public async Task DeleteProduct_SoftDeletesSetsInactive()
     {
         var controller = CreateController(out var db);
         var ptId = db.ProductTypes.First().Id;
@@ -105,8 +105,11 @@ public class AdminProductsControllerTests
 
         var result = await controller.DeleteProduct(product.Id, CancellationToken.None);
 
-        Assert.IsType<NoContentResult>(result);
-        Assert.False(db.Products.Any(p => p.Id == product.Id));
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var dto = Assert.IsType<AdminProductDto>(ok.Value);
+        Assert.False(dto.IsActive);
+        var dbProduct = db.Products.Single(p => p.Id == product.Id);
+        Assert.False(dbProduct.IsActive);
     }
 
     [Fact]
@@ -114,6 +117,6 @@ public class AdminProductsControllerTests
     {
         var controller = CreateController(out _);
         var result = await controller.DeleteProduct(Guid.NewGuid(), CancellationToken.None);
-        Assert.IsType<NotFoundResult>(result);
+        Assert.IsType<NotFoundResult>(result.Result);
     }
 }

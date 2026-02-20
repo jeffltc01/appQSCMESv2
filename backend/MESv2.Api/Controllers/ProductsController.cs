@@ -44,8 +44,10 @@ public class ProductsController : ControllerBase
                 TankType = p.TankType,
                 SageItemNumber = p.SageItemNumber,
                 NameplateNumber = p.NameplateNumber,
+                SiteNumbers = p.SiteNumbers,
                 ProductTypeId = p.ProductTypeId,
-                ProductTypeName = p.ProductType.Name
+                ProductTypeName = p.ProductType.Name,
+                IsActive = p.IsActive
             })
             .ToListAsync(cancellationToken);
         return Ok(list);
@@ -72,6 +74,7 @@ public class ProductsController : ControllerBase
             TankType = dto.TankType,
             SageItemNumber = dto.SageItemNumber,
             NameplateNumber = dto.NameplateNumber,
+            SiteNumbers = dto.SiteNumbers,
             ProductTypeId = dto.ProductTypeId
         };
         _db.Products.Add(product);
@@ -86,8 +89,10 @@ public class ProductsController : ControllerBase
             TankType = product.TankType,
             SageItemNumber = product.SageItemNumber,
             NameplateNumber = product.NameplateNumber,
+            SiteNumbers = product.SiteNumbers,
             ProductTypeId = product.ProductTypeId,
-            ProductTypeName = pt?.Name ?? ""
+            ProductTypeName = pt?.Name ?? "",
+            IsActive = product.IsActive
         });
     }
 
@@ -102,7 +107,9 @@ public class ProductsController : ControllerBase
         product.TankType = dto.TankType;
         product.SageItemNumber = dto.SageItemNumber;
         product.NameplateNumber = dto.NameplateNumber;
+        product.SiteNumbers = dto.SiteNumbers;
         product.ProductTypeId = dto.ProductTypeId;
+        product.IsActive = dto.IsActive;
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -115,18 +122,32 @@ public class ProductsController : ControllerBase
             TankType = product.TankType,
             SageItemNumber = product.SageItemNumber,
             NameplateNumber = product.NameplateNumber,
+            SiteNumbers = product.SiteNumbers,
             ProductTypeId = product.ProductTypeId,
-            ProductTypeName = pt?.Name ?? ""
+            ProductTypeName = pt?.Name ?? "",
+            IsActive = product.IsActive
         });
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> DeleteProduct(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminProductDto>> DeleteProduct(Guid id, CancellationToken cancellationToken)
     {
-        var product = await _db.Products.FindAsync(new object[] { id }, cancellationToken);
+        var product = await _db.Products.Include(p => p.ProductType).FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (product == null) return NotFound();
-        _db.Products.Remove(product);
+        product.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
-        return NoContent();
+        return Ok(new AdminProductDto
+        {
+            Id = product.Id,
+            ProductNumber = product.ProductNumber,
+            TankSize = product.TankSize,
+            TankType = product.TankType,
+            SageItemNumber = product.SageItemNumber,
+            NameplateNumber = product.NameplateNumber,
+            SiteNumbers = product.SiteNumbers,
+            ProductTypeId = product.ProductTypeId,
+            ProductTypeName = product.ProductType?.Name ?? "",
+            IsActive = product.IsActive
+        });
     }
 }

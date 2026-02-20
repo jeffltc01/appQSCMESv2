@@ -25,7 +25,7 @@ public class AuthService : IAuthService
     {
         var user = await _db.Users
             .Include(u => u.DefaultSite)
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo, cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive, cancellationToken);
         if (user == null)
             return null;
 
@@ -43,7 +43,7 @@ public class AuthService : IAuthService
     {
         var user = await _db.Users
             .Include(u => u.DefaultSite)
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo, cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive, cancellationToken);
         if (user == null)
             return null;
 
@@ -61,6 +61,7 @@ public class AuthService : IAuthService
             RoleName = user.RoleName,
             DefaultSiteId = user.DefaultSiteId,
             IsCertifiedWelder = user.IsCertifiedWelder,
+            UserType = (int)user.UserType,
             PlantCode = user.DefaultSite?.Code ?? string.Empty,
             PlantTimeZoneId = user.DefaultSite?.TimeZoneId ?? "America/Chicago"
         };

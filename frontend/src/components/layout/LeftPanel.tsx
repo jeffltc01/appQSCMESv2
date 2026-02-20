@@ -70,6 +70,7 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Settings"
+          onClick={() => navigate('/menu')}
         />
       </Tooltip>
 

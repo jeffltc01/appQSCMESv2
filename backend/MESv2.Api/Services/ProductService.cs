@@ -15,7 +15,7 @@ public class ProductService : IProductService
 
     public async Task<IReadOnlyList<ProductListDto>> GetProductsAsync(string? type, string? siteCode, CancellationToken cancellationToken = default)
     {
-        var query = _db.Products.Include(p => p.ProductType).AsQueryable();
+        var query = _db.Products.Include(p => p.ProductType).Where(p => p.IsActive).AsQueryable();
 
         if (!string.IsNullOrEmpty(type))
             query = query.Where(p => p.ProductType.SystemTypeName != null
@@ -43,12 +43,17 @@ public class ProductService : IProductService
         if (!string.IsNullOrEmpty(type))
             query = query.Where(v => v.VendorType == type);
 
-        if (!string.IsNullOrEmpty(siteCode))
-            query = query.Where(v => v.SiteCode == null || v.SiteCode == siteCode);
-
         var list = await query
             .OrderBy(v => v.Name)
             .ToListAsync(cancellationToken);
+
+        if (!string.IsNullOrEmpty(siteCode))
+        {
+            list = list.Where(v =>
+                v.SiteCode == null ||
+                v.SiteCode.Split(';').Contains(siteCode)
+            ).ToList();
+        }
 
         return list.Select(v => new VendorDto
         {

@@ -29,6 +29,11 @@ export interface Asset {
   workCenterId: string;
 }
 
+export enum UserType {
+  Standard = 0,
+  AuthorizedInspector = 1,
+}
+
 export interface User {
   id: string;
   employeeNumber: string;
@@ -40,6 +45,7 @@ export interface User {
   defaultSiteId: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  userType: number;
 }
 
 export interface Welder {
@@ -246,8 +252,10 @@ export interface AdminProduct {
   tankType: string;
   sageItemNumber?: string;
   nameplateNumber?: string;
+  siteNumbers?: string;
   productTypeId: string;
   productTypeName: string;
+  isActive: boolean;
 }
 
 export interface ProductType {
@@ -267,6 +275,8 @@ export interface AdminUser {
   defaultSiteName: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  userType: number;
+  isActive: boolean;
 }
 
 export interface RoleOption {

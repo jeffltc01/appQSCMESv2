@@ -45,6 +45,7 @@ const mockUsers = [
     defaultSiteName: 'Plant 1',
     isCertifiedWelder: false,
     requirePinForLogin: false,
+    userType: 0,
   },
 ];
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Button, Input, Label } from '@fluentui/react-components';
 import { DismissRegular } from '@fluentui/react-icons';
@@ -33,7 +33,17 @@ export function OperatorLayout() {
   const navigate = useNavigate();
   const cache = getTabletCache();
 
-  useHeartbeat(!!cache?.cachedWorkCenterId);
+  const sessionData = useMemo(() => {
+    if (!cache?.cachedWorkCenterId || !cache.cachedProductionLineId || !user?.plantCode) return undefined;
+    return {
+      workCenterId: cache.cachedWorkCenterId,
+      productionLineId: cache.cachedProductionLineId,
+      assetId: cache.cachedAssetId || undefined,
+      siteCode: user.plantCode,
+    };
+  }, [cache?.cachedWorkCenterId, cache?.cachedProductionLineId, cache?.cachedAssetId, user?.plantCode]);
+
+  useHeartbeat(!!cache?.cachedWorkCenterId, sessionData);
 
   const [numberOfWelders, setNumberOfWelders] = useState(cache?.cachedNumberOfWelders ?? 0);
 

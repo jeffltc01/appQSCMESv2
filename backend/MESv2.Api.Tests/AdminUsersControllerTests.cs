@@ -104,7 +104,7 @@ public class AdminUsersControllerTests
     }
 
     [Fact]
-    public async Task DeleteUser_RemovesUser()
+    public async Task DeleteUser_SoftDeletesSetsInactive()
     {
         var controller = CreateController(out var db);
         var newUser = new User { Id = Guid.NewGuid(), EmployeeNumber = "DEL001", FirstName = "Del", LastName = "Ete", DisplayName = "Del Ete", RoleTier = 6, RoleName = "Operator", DefaultSiteId = TestHelpers.PlantPlt1Id };
@@ -113,7 +113,10 @@ public class AdminUsersControllerTests
 
         var result = await controller.DeleteUser(newUser.Id, CancellationToken.None);
 
-        Assert.IsType<NoContentResult>(result);
-        Assert.False(db.Users.Any(u => u.Id == newUser.Id));
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var dto = Assert.IsType<AdminUserDto>(ok.Value);
+        Assert.False(dto.IsActive);
+        var dbUser = db.Users.Single(u => u.Id == newUser.Id);
+        Assert.False(dbUser.IsActive);
     }
 }

@@ -189,6 +189,7 @@ export interface CreateProductRequest {
   tankType: string;
   sageItemNumber?: string;
   nameplateNumber?: string;
+  siteNumbers?: string;
   productTypeId: string;
 }
 
@@ -198,7 +199,9 @@ export interface UpdateProductRequest {
   tankType: string;
   sageItemNumber?: string;
   nameplateNumber?: string;
+  siteNumbers?: string;
   productTypeId: string;
+  isActive: boolean;
 }
 
 export interface CreateUserRequest {
@@ -211,6 +214,7 @@ export interface CreateUserRequest {
   defaultSiteId: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  userType: number;
 }
 
 export interface UpdateUserRequest {
@@ -222,6 +226,8 @@ export interface UpdateUserRequest {
   defaultSiteId: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  userType: number;
+  isActive: boolean;
 }
 
 export interface CreateVendorRequest {

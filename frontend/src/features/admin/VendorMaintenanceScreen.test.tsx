@@ -16,6 +16,9 @@ vi.mock('../../api/endpoints.ts', () => ({
   adminVendorApi: {
     getAll: vi.fn(),
   },
+  siteApi: {
+    getSites: vi.fn().mockResolvedValue([]),
+  },
 }));
 
 function renderScreen() {

@@ -234,7 +234,7 @@ export const adminProductApi = {
   getTypes: () => api.get<ProductType[]>('/products/types'),
   create: (req: CreateProductRequest) => api.post<AdminProduct>('/products', req),
   update: (id: string, req: UpdateProductRequest) => api.put<AdminProduct>(`/products/${id}`, req),
-  remove: (id: string) => api.delete<void>(`/products/${id}`),
+  remove: (id: string) => api.delete<AdminProduct>(`/products/${id}`),
 };
 
 export const adminUserApi = {
@@ -242,14 +242,14 @@ export const adminUserApi = {
   getRoles: () => api.get<RoleOption[]>('/users/roles'),
   create: (req: CreateUserRequest) => api.post<AdminUser>('/users', req),
   update: (id: string, req: UpdateUserRequest) => api.put<AdminUser>(`/users/${id}`, req),
-  remove: (id: string) => api.delete<void>(`/users/${id}`),
+  remove: (id: string) => api.delete<AdminUser>(`/users/${id}`),
 };
 
 export const adminVendorApi = {
   getAll: () => api.get<AdminVendor[]>('/vendors/admin'),
   create: (req: CreateVendorRequest) => api.post<AdminVendor>('/vendors', req),
   update: (id: string, req: UpdateVendorRequest) => api.put<AdminVendor>(`/vendors/${id}`, req),
-  remove: (id: string) => api.delete<void>(`/vendors/${id}`),
+  remove: (id: string) => api.delete<AdminVendor>(`/vendors/${id}`),
 };
 
 export const adminDefectCodeApi = {

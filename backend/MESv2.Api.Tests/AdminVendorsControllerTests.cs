@@ -69,16 +69,19 @@ public class AdminVendorsControllerTests
     }
 
     [Fact]
-    public async Task DeleteVendor_RemovesVendor()
+    public async Task DeleteVendor_SoftDeletesSetsInactive()
     {
         var controller = CreateController(out var db);
-        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "ToDelete", VendorType = "head", IsActive = true };
+        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "ToDeactivate", VendorType = "head", IsActive = true };
         db.Vendors.Add(vendor);
         await db.SaveChangesAsync();
 
         var result = await controller.DeleteVendor(vendor.Id, CancellationToken.None);
 
-        Assert.IsType<NoContentResult>(result);
-        Assert.False(db.Vendors.Any(v => v.Id == vendor.Id));
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var dto = Assert.IsType<AdminVendorDto>(ok.Value);
+        Assert.False(dto.IsActive);
+        var dbVendor = db.Vendors.Single(v => v.Id == vendor.Id);
+        Assert.False(dbVendor.IsActive);
     }
 }

@@ -35,4 +35,35 @@ public class ProductServiceTests
         Assert.Contains(result, v => v.Name == "Mill Co");
         Assert.DoesNotContain(result, v => v.Name == "Old Mill");
     }
+
+    [Fact]
+    public async Task GetVendors_FiltersBySiteCode_WithSemicolonDelimited()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "All Sites Mill", VendorType = "mill", SiteCode = null, IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", SiteCode = "000", IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", SiteCode = "000;600", IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "WJ Only Mill", VendorType = "mill", SiteCode = "700", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var sut = new ProductService(db);
+
+        var result000 = await sut.GetVendorsAsync("mill", "000");
+        Assert.Contains(result000, v => v.Name == "All Sites Mill");
+        Assert.Contains(result000, v => v.Name == "Cleveland Mill");
+        Assert.Contains(result000, v => v.Name == "Multi Mill");
+        Assert.DoesNotContain(result000, v => v.Name == "WJ Only Mill");
+
+        var result600 = await sut.GetVendorsAsync("mill", "600");
+        Assert.Contains(result600, v => v.Name == "All Sites Mill");
+        Assert.DoesNotContain(result600, v => v.Name == "Cleveland Mill");
+        Assert.Contains(result600, v => v.Name == "Multi Mill");
+        Assert.DoesNotContain(result600, v => v.Name == "WJ Only Mill");
+
+        var result700 = await sut.GetVendorsAsync("mill", "700");
+        Assert.Contains(result700, v => v.Name == "All Sites Mill");
+        Assert.Contains(result700, v => v.Name == "WJ Only Mill");
+        Assert.DoesNotContain(result700, v => v.Name == "Cleveland Mill");
+        Assert.DoesNotContain(result700, v => v.Name == "Multi Mill");
+    }
 }

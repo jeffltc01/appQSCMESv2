@@ -1,5 +1,11 @@
 namespace MESv2.Api.Models;
 
+public enum UserType
+{
+    Standard = 0,
+    AuthorizedInspector = 1
+}
+
 public class User
 {
     public Guid Id { get; set; }
@@ -13,6 +19,8 @@ public class User
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
     public string? PinHash { get; set; }
+    public UserType UserType { get; set; } = UserType.Standard;
+    public bool IsActive { get; set; } = true;
 
     public Plant DefaultSite { get; set; } = null!;
 }

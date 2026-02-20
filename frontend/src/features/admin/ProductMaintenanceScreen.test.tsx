@@ -7,7 +7,7 @@ import { adminProductApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', displayName: 'Test Admin' },
+    user: { plantCode: 'PLT1', displayName: 'Test Admin', roleTier: 1 },
     logout: vi.fn(),
   }),
 }));
@@ -16,6 +16,9 @@ vi.mock('../../api/endpoints.ts', () => ({
   adminProductApi: {
     getAll: vi.fn(),
     getTypes: vi.fn(),
+  },
+  siteApi: {
+    getSites: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -37,6 +40,7 @@ const mockProducts = [
     tankType: 'Shell',
     productTypeName: 'Shell',
     productTypeId: 'pt1',
+    isActive: true,
   },
 ];
 

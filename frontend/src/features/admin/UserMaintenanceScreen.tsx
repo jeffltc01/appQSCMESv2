@@ -3,9 +3,16 @@ import { Button, Input, Label, Dropdown, Option, Checkbox, Spinner } from '@flue
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminUserApi, siteApi } from '../../api/endpoints.ts';
 import type { AdminUser, RoleOption, Plant } from '../../types/domain.ts';
+import { UserType } from '../../types/domain.ts';
 import styles from './CardList.module.css';
+
+const userTypeOptions = [
+  { value: UserType.Standard, label: 'Standard' },
+  { value: UserType.AuthorizedInspector, label: 'Authorized Inspector (AI)' },
+];
 
 export function UserMaintenanceScreen() {
   const [items, setItems] = useState<AdminUser[]>([]);
@@ -16,6 +23,8 @@ export function UserMaintenanceScreen() {
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -26,6 +35,8 @@ export function UserMaintenanceScreen() {
   const [defaultSiteId, setDefaultSiteId] = useState('');
   const [isCertifiedWelder, setIsCertifiedWelder] = useState(false);
   const [requirePinForLogin, setRequirePinForLogin] = useState(false);
+  const [userType, setUserType] = useState<number>(UserType.Standard);
+  const [isActive, setIsActive] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,8 +55,8 @@ export function UserMaintenanceScreen() {
     setEditing(null);
     setEmployeeNumber(''); setFirstName(''); setLastName(''); setDisplayName('');
     setRoleName('Operator'); setRoleTier(6); setDefaultSiteId('');
-    setIsCertifiedWelder(false); setRequirePinForLogin(false);
-    setError(''); setModalOpen(true);
+    setIsCertifiedWelder(false); setRequirePinForLogin(false); setUserType(UserType.Standard);
+    setIsActive(true); setError(''); setModalOpen(true);
   };
 
   const openEdit = (item: AdminUser) => {
@@ -53,8 +64,8 @@ export function UserMaintenanceScreen() {
     setEmployeeNumber(item.employeeNumber); setFirstName(item.firstName); setLastName(item.lastName);
     setDisplayName(item.displayName); setRoleName(item.roleName); setRoleTier(item.roleTier);
     setDefaultSiteId(item.defaultSiteId); setIsCertifiedWelder(item.isCertifiedWelder);
-    setRequirePinForLogin(item.requirePinForLogin);
-    setError(''); setModalOpen(true);
+    setRequirePinForLogin(item.requirePinForLogin); setUserType(item.userType);
+    setIsActive(item.isActive); setError(''); setModalOpen(true);
   };
 
   const handleRoleChange = (_: unknown, data: { optionValue?: string }) => {
@@ -68,13 +79,13 @@ export function UserMaintenanceScreen() {
       if (editing) {
         const updated = await adminUserApi.update(editing.id, {
           firstName, lastName, displayName, roleTier, roleName,
-          defaultSiteId, isCertifiedWelder, requirePinForLogin,
+          defaultSiteId, isCertifiedWelder, requirePinForLogin, userType, isActive,
         });
         setItems(prev => prev.map(u => u.id === updated.id ? updated : u));
       } else {
         const created = await adminUserApi.create({
           employeeNumber, firstName, lastName, displayName, roleTier, roleName,
-          defaultSiteId, isCertifiedWelder, requirePinForLogin,
+          defaultSiteId, isCertifiedWelder, requirePinForLogin, userType,
         });
         setItems(prev => [...prev, created]);
       }
@@ -83,10 +94,15 @@ export function UserMaintenanceScreen() {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this user?')) return;
-    try { await adminUserApi.remove(id); setItems(prev => prev.filter(u => u.id !== id)); }
-    catch { alert('Failed to delete user.'); }
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const updated = await adminUserApi.remove(deleteTarget.id);
+      setItems(prev => prev.map(u => u.id === updated.id ? updated : u));
+      setDeleteTarget(null);
+    } catch { alert('Failed to deactivate user.'); }
+    finally { setDeleting(false); }
   };
 
   return (
@@ -97,12 +113,12 @@ export function UserMaintenanceScreen() {
         <div className={styles.grid}>
           {items.length === 0 && <div className={styles.emptyState}>No users found.</div>}
           {items.map(item => (
-            <div key={item.id} className={styles.card}>
+            <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.displayName}</span>
                 <div className={styles.cardActions}>
                   <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => handleDelete(item.id)} />
+                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
                 </div>
               </div>
               <div className={styles.cardField}>
@@ -117,9 +133,17 @@ export function UserMaintenanceScreen() {
                 <span className={styles.cardFieldLabel}>Site</span>
                 <span className={styles.cardFieldValue}>{item.defaultSiteName}</span>
               </div>
-              {item.isCertifiedWelder && (
-                <span className={`${styles.badge} ${styles.badgeBlue}`}>Welder</span>
-              )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
+                  {item.isActive ? 'Active' : 'Inactive'}
+                </span>
+                {item.isCertifiedWelder && (
+                  <span className={`${styles.badge} ${styles.badgeBlue}`}>Welder</span>
+                )}
+                {item.userType === UserType.AuthorizedInspector && (
+                  <span className={`${styles.badge} ${styles.badgeGreen}`}>AI</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -157,9 +181,30 @@ export function UserMaintenanceScreen() {
         >
           {sites.map(s => <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>{s.name} ({s.code})</Option>)}
         </Dropdown>
+        <Label>User Type</Label>
+        <Dropdown
+          value={userTypeOptions.find(o => o.value === userType)?.label ?? 'Standard'}
+          selectedOptions={[String(userType)]}
+          onOptionSelect={(_, d) => { if (d.optionValue) setUserType(Number(d.optionValue)); }}
+        >
+          {userTypeOptions.map(o => (
+            <Option key={o.value} value={String(o.value)} text={o.label}>{o.label}</Option>
+          ))}
+        </Dropdown>
         <Checkbox label="Certified Welder" checked={isCertifiedWelder} onChange={(_, d) => setIsCertifiedWelder(!!d.checked)} />
         <Checkbox label="Require PIN for Login" checked={requirePinForLogin} onChange={(_, d) => setRequirePinForLogin(!!d.checked)} />
+        {editing && (
+          <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
+        )}
       </AdminModal>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        itemName={deleteTarget?.displayName ?? ''}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </AdminLayout>
   );
 }

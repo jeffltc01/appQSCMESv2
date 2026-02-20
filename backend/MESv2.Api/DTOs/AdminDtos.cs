@@ -9,8 +9,10 @@ public class AdminProductDto
     public string TankType { get; set; } = string.Empty;
     public string? SageItemNumber { get; set; }
     public string? NameplateNumber { get; set; }
+    public string? SiteNumbers { get; set; }
     public Guid ProductTypeId { get; set; }
     public string ProductTypeName { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
 }
 
 public class CreateProductDto
@@ -20,6 +22,7 @@ public class CreateProductDto
     public string TankType { get; set; } = string.Empty;
     public string? SageItemNumber { get; set; }
     public string? NameplateNumber { get; set; }
+    public string? SiteNumbers { get; set; }
     public Guid ProductTypeId { get; set; }
 }
 
@@ -30,7 +33,9 @@ public class UpdateProductDto
     public string TankType { get; set; } = string.Empty;
     public string? SageItemNumber { get; set; }
     public string? NameplateNumber { get; set; }
+    public string? SiteNumbers { get; set; }
     public Guid ProductTypeId { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 // ---- Users ----
@@ -47,6 +52,8 @@ public class AdminUserDto
     public string DefaultSiteName { get; set; } = string.Empty;
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
+    public int UserType { get; set; }
+    public bool IsActive { get; set; }
 }
 
 public class CreateUserDto
@@ -60,6 +67,7 @@ public class CreateUserDto
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
+    public int UserType { get; set; }
 }
 
 public class UpdateUserDto
@@ -72,6 +80,8 @@ public class UpdateUserDto
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
+    public int UserType { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 // ---- Vendors ----

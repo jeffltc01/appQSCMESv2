@@ -77,12 +77,12 @@ public class VendorsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> DeleteVendor(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminVendorDto>> DeleteVendor(Guid id, CancellationToken cancellationToken)
     {
         var vendor = await _db.Vendors.FindAsync(new object[] { id }, cancellationToken);
         if (vendor == null) return NotFound();
-        _db.Vendors.Remove(vendor);
+        vendor.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
-        return NoContent();
+        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, SiteCode = vendor.SiteCode, IsActive = vendor.IsActive });
     }
 }

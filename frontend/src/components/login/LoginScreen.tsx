@@ -16,6 +16,7 @@ import { setAuthToken } from '../../api/apiClient.ts';
 import { getTabletCache } from '../../hooks/useLocalStorage.ts';
 import type { LoginConfigResponse } from '../../types/api.ts';
 import type { Plant } from '../../types/domain.ts';
+import qscLogo from '../../assets/qsc-logo.png';
 import styles from './LoginScreen.module.css';
 
 export function LoginScreen() {
@@ -131,6 +132,7 @@ export function LoginScreen() {
     <div className={styles.container}>
       <div className={styles.form}>
         <div className={styles.logoSection}>
+          <img src={qscLogo} alt="Quality Steel Corporation" className={styles.logo} />
           <h1 className={styles.title}>MES Login</h1>
           <span className={styles.version}>v2.0.0</span>
         </div>

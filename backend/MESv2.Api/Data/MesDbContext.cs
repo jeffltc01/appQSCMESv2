@@ -40,6 +40,8 @@ public class MesDbContext : DbContext
     public DbSet<NameplateRecord> NameplateRecords => Set<NameplateRecord>();
     public DbSet<HydroRecord> HydroRecords => Set<HydroRecord>();
     public DbSet<ActiveSession> ActiveSessions => Set<ActiveSession>();
+    public DbSet<SpotXrayIncrement> SpotXrayIncrements => Set<SpotXrayIncrement>();
+    public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -120,6 +122,36 @@ public class MesDbContext : DbContext
             .HasOne(s => s.Product)
             .WithMany(p => p.SerialNumbers)
             .HasForeignKey(s => s.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SerialNumber>()
+            .HasOne(s => s.MillVendor)
+            .WithMany()
+            .HasForeignKey(s => s.MillVendorId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SerialNumber>()
+            .HasOne(s => s.ProcessorVendor)
+            .WithMany()
+            .HasForeignKey(s => s.ProcessorVendorId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SerialNumber>()
+            .HasOne(s => s.HeadsVendor)
+            .WithMany()
+            .HasForeignKey(s => s.HeadsVendorId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SerialNumber>()
+            .HasOne(s => s.ReplaceBySN)
+            .WithMany()
+            .HasForeignKey(s => s.ReplaceBySNId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SerialNumber>()
+            .HasOne(s => s.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SerialNumber>()
+            .HasOne(s => s.ModifiedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.ModifiedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<ProductionRecord>()
@@ -387,6 +419,22 @@ public class MesDbContext : DbContext
             .HasForeignKey(d => d.HydroRecordId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.ProductionRecord)
+            .WithMany()
+            .HasForeignKey(s => s.ManufacturingLogId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.ModifiedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.ModifiedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
@@ -401,6 +449,9 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<HydroRecord>().HasIndex(h => h.AssemblyAlphaCode);
         modelBuilder.Entity<RoundSeamSetup>().HasIndex(r => new { r.WorkCenterId, r.CreatedAt });
         modelBuilder.Entity<Vendor>().HasIndex(v => new { v.VendorType, v.SiteCode });
+        modelBuilder.Entity<SerialNumber>().HasIndex(s => s.SiteCode);
+        modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.ManufacturingLogId);
+        modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.SiteCode);
 
         // ----- Seed data -----
         var plant1Id = Guid.Parse("11111111-1111-1111-1111-111111111111"); // Cleveland (000)
@@ -524,32 +575,35 @@ public class MesDbContext : DbContext
         );
 
         // Products: Plates, Heads, Shells, Sellable Tanks
+        // SiteNumbers is a comma-separated list of plant codes that use the product
+        var allSites = "000,600,700";
+        var clevelandFremont = "000,600";
         modelBuilder.Entity<Product>().HasData(
-            new Product { Id = Guid.Parse("b1011111-1111-1111-1111-111111111111"), ProductNumber = "PL .140NOM X 54.00 X 74.625", TankSize = 120, TankType = "Plate", ProductTypeId = ptPlateId },
-            new Product { Id = Guid.Parse("b1021111-1111-1111-1111-111111111111"), ProductNumber = "PL .175NOM X 63.25 X 93.375", TankSize = 250, TankType = "Plate", ProductTypeId = ptPlateId },
-            new Product { Id = Guid.Parse("b1031111-1111-1111-1111-111111111111"), ProductNumber = "PL .175NOM X 87.00 X 93.375", TankSize = 320, TankType = "Plate", ProductTypeId = ptPlateId },
-            new Product { Id = Guid.Parse("b1041111-1111-1111-1111-111111111111"), ProductNumber = "PL .218NOM X 83.00 X 116.6875", TankSize = 500, TankType = "Plate", ProductTypeId = ptPlateId },
-            new Product { Id = Guid.Parse("b1051111-1111-1111-1111-111111111111"), ProductNumber = "PL .239NOM X 75.75 X 127.5675", TankSize = 1000, TankType = "Plate", ProductTypeId = ptPlateId },
-            new Product { Id = Guid.Parse("b2011111-1111-1111-1111-111111111111"), ProductNumber = "ELLIP 24\" OD", TankSize = 120, TankType = "Head", ProductTypeId = ptHeadId },
-            new Product { Id = Guid.Parse("b2021111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 30\" OD", TankSize = 250, TankType = "Head", ProductTypeId = ptHeadId },
-            new Product { Id = Guid.Parse("b2031111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 30\" OD", TankSize = 320, TankType = "Head", ProductTypeId = ptHeadId },
-            new Product { Id = Guid.Parse("b2041111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 37\" ID", TankSize = 500, TankType = "Head", ProductTypeId = ptHeadId },
-            new Product { Id = Guid.Parse("b2051111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 40.5\" ID", TankSize = 1000, TankType = "Head", ProductTypeId = ptHeadId },
-            new Product { Id = Guid.Parse("b3011111-1111-1111-1111-111111111111"), ProductNumber = "120 gal", TankSize = 120, TankType = "Shell", ProductTypeId = ptShellId },
-            new Product { Id = Guid.Parse("b3021111-1111-1111-1111-111111111111"), ProductNumber = "250 gal", TankSize = 250, TankType = "Shell", ProductTypeId = ptShellId },
-            new Product { Id = Guid.Parse("b3031111-1111-1111-1111-111111111111"), ProductNumber = "320 gal", TankSize = 320, TankType = "Shell", ProductTypeId = ptShellId },
-            new Product { Id = Guid.Parse("b3041111-1111-1111-1111-111111111111"), ProductNumber = "500 gal", TankSize = 500, TankType = "Shell", ProductTypeId = ptShellId },
-            new Product { Id = Guid.Parse("b3051111-1111-1111-1111-111111111111"), ProductNumber = "1000 gal", TankSize = 1000, TankType = "Shell", ProductTypeId = ptShellId },
-            new Product { Id = Guid.Parse("b5011111-1111-1111-1111-111111111111"), ProductNumber = "120 AG", TankSize = 120, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5021111-1111-1111-1111-111111111111"), ProductNumber = "120 UG", TankSize = 120, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5031111-1111-1111-1111-111111111111"), ProductNumber = "250 AG", TankSize = 250, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5041111-1111-1111-1111-111111111111"), ProductNumber = "250 UG", TankSize = 250, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5051111-1111-1111-1111-111111111111"), ProductNumber = "320 AG", TankSize = 320, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5061111-1111-1111-1111-111111111111"), ProductNumber = "320 UG", TankSize = 320, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5071111-1111-1111-1111-111111111111"), ProductNumber = "500 AG", TankSize = 500, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5081111-1111-1111-1111-111111111111"), ProductNumber = "500 UG", TankSize = 500, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b5091111-1111-1111-1111-111111111111"), ProductNumber = "1000 AG", TankSize = 1000, TankType = "Sellable", ProductTypeId = ptSellableTankId },
-            new Product { Id = Guid.Parse("b50a1111-1111-1111-1111-111111111111"), ProductNumber = "1000 UG", TankSize = 1000, TankType = "Sellable", ProductTypeId = ptSellableTankId }
+            new Product { Id = Guid.Parse("b1011111-1111-1111-1111-111111111111"), ProductNumber = "PL .140NOM X 54.00 X 74.625", TankSize = 120, TankType = "Plate", SiteNumbers = allSites, ProductTypeId = ptPlateId },
+            new Product { Id = Guid.Parse("b1021111-1111-1111-1111-111111111111"), ProductNumber = "PL .175NOM X 63.25 X 93.375", TankSize = 250, TankType = "Plate", SiteNumbers = allSites, ProductTypeId = ptPlateId },
+            new Product { Id = Guid.Parse("b1031111-1111-1111-1111-111111111111"), ProductNumber = "PL .175NOM X 87.00 X 93.375", TankSize = 320, TankType = "Plate", SiteNumbers = allSites, ProductTypeId = ptPlateId },
+            new Product { Id = Guid.Parse("b1041111-1111-1111-1111-111111111111"), ProductNumber = "PL .218NOM X 83.00 X 116.6875", TankSize = 500, TankType = "Plate", SiteNumbers = clevelandFremont, ProductTypeId = ptPlateId },
+            new Product { Id = Guid.Parse("b1051111-1111-1111-1111-111111111111"), ProductNumber = "PL .239NOM X 75.75 X 127.5675", TankSize = 1000, TankType = "Plate", SiteNumbers = clevelandFremont, ProductTypeId = ptPlateId },
+            new Product { Id = Guid.Parse("b2011111-1111-1111-1111-111111111111"), ProductNumber = "ELLIP 24\" OD", TankSize = 120, TankType = "Head", SiteNumbers = allSites, ProductTypeId = ptHeadId },
+            new Product { Id = Guid.Parse("b2021111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 30\" OD", TankSize = 250, TankType = "Head", SiteNumbers = allSites, ProductTypeId = ptHeadId },
+            new Product { Id = Guid.Parse("b2031111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 30\" OD", TankSize = 320, TankType = "Head", SiteNumbers = allSites, ProductTypeId = ptHeadId },
+            new Product { Id = Guid.Parse("b2041111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 37\" ID", TankSize = 500, TankType = "Head", SiteNumbers = clevelandFremont, ProductTypeId = ptHeadId },
+            new Product { Id = Guid.Parse("b2051111-1111-1111-1111-111111111111"), ProductNumber = "HEMI 40.5\" ID", TankSize = 1000, TankType = "Head", SiteNumbers = clevelandFremont, ProductTypeId = ptHeadId },
+            new Product { Id = Guid.Parse("b3011111-1111-1111-1111-111111111111"), ProductNumber = "120 gal", TankSize = 120, TankType = "Shell", SiteNumbers = allSites, ProductTypeId = ptShellId },
+            new Product { Id = Guid.Parse("b3021111-1111-1111-1111-111111111111"), ProductNumber = "250 gal", TankSize = 250, TankType = "Shell", SiteNumbers = allSites, ProductTypeId = ptShellId },
+            new Product { Id = Guid.Parse("b3031111-1111-1111-1111-111111111111"), ProductNumber = "320 gal", TankSize = 320, TankType = "Shell", SiteNumbers = allSites, ProductTypeId = ptShellId },
+            new Product { Id = Guid.Parse("b3041111-1111-1111-1111-111111111111"), ProductNumber = "500 gal", TankSize = 500, TankType = "Shell", SiteNumbers = clevelandFremont, ProductTypeId = ptShellId },
+            new Product { Id = Guid.Parse("b3051111-1111-1111-1111-111111111111"), ProductNumber = "1000 gal", TankSize = 1000, TankType = "Shell", SiteNumbers = clevelandFremont, ProductTypeId = ptShellId },
+            new Product { Id = Guid.Parse("b5011111-1111-1111-1111-111111111111"), ProductNumber = "120 AG", TankSize = 120, TankType = "Sellable", SiteNumbers = allSites, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5021111-1111-1111-1111-111111111111"), ProductNumber = "120 UG", TankSize = 120, TankType = "Sellable", SiteNumbers = allSites, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5031111-1111-1111-1111-111111111111"), ProductNumber = "250 AG", TankSize = 250, TankType = "Sellable", SiteNumbers = allSites, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5041111-1111-1111-1111-111111111111"), ProductNumber = "250 UG", TankSize = 250, TankType = "Sellable", SiteNumbers = allSites, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5051111-1111-1111-1111-111111111111"), ProductNumber = "320 AG", TankSize = 320, TankType = "Sellable", SiteNumbers = allSites, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5061111-1111-1111-1111-111111111111"), ProductNumber = "320 UG", TankSize = 320, TankType = "Sellable", SiteNumbers = allSites, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5071111-1111-1111-1111-111111111111"), ProductNumber = "500 AG", TankSize = 500, TankType = "Sellable", SiteNumbers = clevelandFremont, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5081111-1111-1111-1111-111111111111"), ProductNumber = "500 UG", TankSize = 500, TankType = "Sellable", SiteNumbers = clevelandFremont, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b5091111-1111-1111-1111-111111111111"), ProductNumber = "1000 AG", TankSize = 1000, TankType = "Sellable", SiteNumbers = clevelandFremont, ProductTypeId = ptSellableTankId },
+            new Product { Id = Guid.Parse("b50a1111-1111-1111-1111-111111111111"), ProductNumber = "1000 UG", TankSize = 1000, TankType = "Sellable", SiteNumbers = clevelandFremont, ProductTypeId = ptSellableTankId }
         );
 
         // Users: EMP001 = Jeff Thompson (TestUserId), Administrator, Cleveland
