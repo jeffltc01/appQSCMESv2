@@ -50,8 +50,12 @@ export function OperatorLayout() {
     if (!cache?.cachedWorkCenterId) return;
     loadWelders();
     loadHistory();
-    loadNumberOfWelders();
   }, [cache?.cachedWorkCenterId]);
+
+  useEffect(() => {
+    if (!cache?.cachedWorkCenterId) return;
+    loadNumberOfWelders();
+  }, [cache?.cachedWorkCenterId, user?.plantCode]);
 
   useEffect(() => {
     if (user && isWelder) {
@@ -96,13 +100,27 @@ export function OperatorLayout() {
       const wcs = await workCenterApi.getWorkCenters(user.plantCode);
       const wc = wcs.find((w) => w.id === cache.cachedWorkCenterId);
       if (wc) {
-        setNumberOfWelders(wc.numberOfWelders);
-        localStorage.setItem('cachedNumberOfWelders', String(wc.numberOfWelders));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw = wc as any;
+        const count = typeof raw.numberOfWelders === 'number'
+          ? raw.numberOfWelders
+          : raw.requiresWelder ? 1 : 0;
+        setNumberOfWelders(count);
+        localStorage.setItem('cachedNumberOfWelders', String(count));
       }
     } catch {
-      // Fall back to cached value
+      // API failed — derive from work center name as fallback
+      const wcName = (cache.cachedWorkCenterName ?? '').toLowerCase();
+      const welderRequired = ['rolls', 'long seam', 'fitup', 'round seam']
+        .some((n) => wcName.includes(n))
+        && !wcName.includes('material') && !wcName.includes('queue')
+        && !wcName.includes('inspection') && !wcName.includes('insp');
+      if (welderRequired) {
+        setNumberOfWelders(1);
+        localStorage.setItem('cachedNumberOfWelders', '1');
+      }
     }
-  }, [cache?.cachedWorkCenterId, user?.plantCode]);
+  }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName, user?.plantCode]);
 
   const showScanResult = useCallback((result: ScanResult) => {
     setScanResult(result);
