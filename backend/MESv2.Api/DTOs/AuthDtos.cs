@@ -28,6 +28,7 @@ public class UserDto
     public bool IsCertifiedWelder { get; set; }
     public int UserType { get; set; }
     public string PlantCode { get; set; } = string.Empty;
+    public string PlantName { get; set; } = string.Empty;
     public string PlantTimeZoneId { get; set; } = string.Empty;
 }
 

@@ -7,7 +7,7 @@ import { adminUserApi, siteApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', displayName: 'Test Admin' },
+    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
     logout: vi.fn(),
   }),
 }));
@@ -46,6 +46,7 @@ const mockUsers = [
     isCertifiedWelder: false,
     requirePinForLogin: false,
     userType: 0,
+    isActive: true,
   },
 ];
 
@@ -112,5 +113,13 @@ describe('UserMaintenanceScreen', () => {
   it('displays correct title', async () => {
     renderScreen();
     expect(screen.getByText('User Maintenance')).toBeInTheDocument();
+  });
+
+  it('renders search box for filtering', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('John Doe')).toBeInTheDocument();
+    });
+    expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
   });
 });

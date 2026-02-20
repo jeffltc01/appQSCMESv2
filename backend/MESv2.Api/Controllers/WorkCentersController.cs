@@ -191,6 +191,104 @@ public class WorkCentersController : ControllerBase
         return Ok(list);
     }
 
+    [HttpGet("admin/grouped")]
+    public async Task<ActionResult<IEnumerable<AdminWorkCenterGroupDto>>> GetAllGrouped(CancellationToken cancellationToken)
+    {
+        var wcs = await _db.WorkCenters
+            .Include(w => w.WorkCenterType)
+            .Include(w => w.Plant)
+            .Include(w => w.MaterialQueueForWC)
+            .OrderBy(w => w.Name)
+            .ToListAsync(cancellationToken);
+
+        var groups = wcs
+            .GroupBy(w => w.WorkCenterGroupId)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new AdminWorkCenterGroupDto
+                {
+                    GroupId = g.Key,
+                    BaseName = first.Name,
+                    WorkCenterTypeName = first.WorkCenterType.Name,
+                    DataEntryType = first.DataEntryType,
+                    SiteConfigs = g.OrderBy(w => w.Plant.Code).Select(w => new WorkCenterSiteConfigDto
+                    {
+                        WorkCenterId = w.Id,
+                        PlantId = w.PlantId,
+                        PlantName = w.Plant.Name,
+                        SiteName = w.Name,
+                        NumberOfWelders = w.NumberOfWelders,
+                        ProductionLineId = w.ProductionLineId,
+                        MaterialQueueForWCId = w.MaterialQueueForWCId,
+                        MaterialQueueForWCName = w.MaterialQueueForWC?.Name,
+                    }).ToList()
+                };
+            })
+            .OrderBy(g => g.BaseName)
+            .ToList();
+
+        return Ok(groups);
+    }
+
+    [HttpPut("admin/group/{groupId:guid}")]
+    public async Task<ActionResult<AdminWorkCenterGroupDto>> UpdateGroup(Guid groupId, [FromBody] UpdateWorkCenterGroupDto dto, CancellationToken cancellationToken)
+    {
+        var wcs = await _db.WorkCenters
+            .Include(w => w.WorkCenterType)
+            .Include(w => w.Plant)
+            .Where(w => w.WorkCenterGroupId == groupId)
+            .ToListAsync(cancellationToken);
+
+        if (wcs.Count == 0) return NotFound();
+
+        foreach (var wc in wcs)
+        {
+            wc.DataEntryType = dto.DataEntryType;
+
+            var siteConfig = dto.SiteConfigs.FirstOrDefault(sc => sc.WorkCenterId == wc.Id);
+            if (siteConfig != null)
+            {
+                wc.Name = siteConfig.SiteName;
+                wc.NumberOfWelders = siteConfig.NumberOfWelders;
+                wc.MaterialQueueForWCId = siteConfig.MaterialQueueForWCId;
+            }
+            else
+            {
+                wc.Name = dto.BaseName;
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var first = wcs.First();
+        var mqNames = new Dictionary<Guid, string>();
+        var mqIds = wcs.Where(w => w.MaterialQueueForWCId.HasValue).Select(w => w.MaterialQueueForWCId!.Value).Distinct().ToList();
+        if (mqIds.Count > 0)
+        {
+            mqNames = await _db.WorkCenters.Where(w => mqIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, cancellationToken);
+        }
+
+        return Ok(new AdminWorkCenterGroupDto
+        {
+            GroupId = groupId,
+            BaseName = first.Name,
+            WorkCenterTypeName = first.WorkCenterType.Name,
+            DataEntryType = first.DataEntryType,
+            SiteConfigs = wcs.OrderBy(w => w.Plant.Code).Select(w => new WorkCenterSiteConfigDto
+            {
+                WorkCenterId = w.Id,
+                PlantId = w.PlantId,
+                PlantName = w.Plant.Name,
+                SiteName = w.Name,
+                NumberOfWelders = w.NumberOfWelders,
+                ProductionLineId = w.ProductionLineId,
+                MaterialQueueForWCId = w.MaterialQueueForWCId,
+                MaterialQueueForWCName = w.MaterialQueueForWCId.HasValue && mqNames.ContainsKey(w.MaterialQueueForWCId.Value) ? mqNames[w.MaterialQueueForWCId.Value] : null,
+            }).ToList()
+        });
+    }
+
     [HttpPut("{id:guid}/config")]
     public async Task<ActionResult<AdminWorkCenterDto>> UpdateConfig(Guid id, [FromBody] UpdateWorkCenterConfigDto dto, CancellationToken cancellationToken)
     {

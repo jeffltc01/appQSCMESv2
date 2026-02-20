@@ -3,13 +3,14 @@ import { Button, Input, Label, Dropdown, Option, Spinner } from '@fluentui/react
 import { EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
-import { adminAssetApi, adminWorkCenterApi } from '../../api/endpoints.ts';
-import type { AdminAsset, AdminWorkCenter } from '../../types/domain.ts';
+import { adminAssetApi, adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
+import type { AdminAsset, AdminWorkCenter, ProductionLineAdmin } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 export function AssetManagementScreen() {
   const [items, setItems] = useState<AdminAsset[]>([]);
   const [workCenters, setWorkCenters] = useState<AdminWorkCenter[]>([]);
+  const [productionLines, setProductionLines] = useState<ProductionLineAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<AdminAsset | null>(null);
@@ -18,13 +19,16 @@ export function AssetManagementScreen() {
 
   const [name, setName] = useState('');
   const [workCenterId, setWorkCenterId] = useState('');
+  const [productionLineId, setProductionLineId] = useState('');
   const [limbleIdentifier, setLimbleIdentifier] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [assets, wcs] = await Promise.all([adminAssetApi.getAll(), adminWorkCenterApi.getAll()]);
-      setItems(assets); setWorkCenters(wcs);
+      const [assets, wcs, pls] = await Promise.all([
+        adminAssetApi.getAll(), adminWorkCenterApi.getAll(), productionLineApi.getAll(),
+      ]);
+      setItems(assets); setWorkCenters(wcs); setProductionLines(pls);
     } catch { setError('Failed to load assets.'); }
     finally { setLoading(false); }
   }, []);
@@ -33,13 +37,14 @@ export function AssetManagementScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setName(''); setWorkCenterId(''); setLimbleIdentifier('');
+    setName(''); setWorkCenterId(''); setProductionLineId(''); setLimbleIdentifier('');
     setError(''); setModalOpen(true);
   };
 
   const openEdit = (item: AdminAsset) => {
     setEditing(item);
     setName(item.name); setWorkCenterId(item.workCenterId);
+    setProductionLineId(item.productionLineId);
     setLimbleIdentifier(item.limbleIdentifier ?? '');
     setError(''); setModalOpen(true);
   };
@@ -47,7 +52,7 @@ export function AssetManagementScreen() {
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      const payload = { name, workCenterId, limbleIdentifier: limbleIdentifier || undefined };
+      const payload = { name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined };
       if (editing) {
         const updated = await adminAssetApi.update(editing.id, payload);
         setItems(prev => prev.map(a => a.id === updated.id ? updated : a));
@@ -79,6 +84,10 @@ export function AssetManagementScreen() {
                 <span className={styles.cardFieldLabel}>Work Center</span>
                 <span className={styles.cardFieldValue}>{item.workCenterName}</span>
               </div>
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Production Line</span>
+                <span className={styles.cardFieldValue}>{item.productionLineName}</span>
+              </div>
               {item.limbleIdentifier && (
                 <div className={styles.cardField}>
                   <span className={styles.cardFieldLabel}>Limble ID</span>
@@ -98,7 +107,7 @@ export function AssetManagementScreen() {
         confirmLabel={editing ? 'Save' : 'Add'}
         loading={saving}
         error={error}
-        confirmDisabled={!name || !workCenterId}
+        confirmDisabled={!name || !workCenterId || !productionLineId}
       >
         <Label>Asset Name</Label>
         <Input value={name} onChange={(_, d) => setName(d.value)} />
@@ -109,6 +118,14 @@ export function AssetManagementScreen() {
           onOptionSelect={(_, d) => { if (d.optionValue) setWorkCenterId(d.optionValue); }}
         >
           {workCenters.map(w => <Option key={w.id} value={w.id} text={`${w.name} (${w.plantName})`}>{w.name} ({w.plantName})</Option>)}
+        </Dropdown>
+        <Label>Production Line</Label>
+        <Dropdown
+          value={productionLines.find(p => p.id === productionLineId) ? `${productionLines.find(p => p.id === productionLineId)!.name} (${productionLines.find(p => p.id === productionLineId)!.plantName})` : ''}
+          selectedOptions={[productionLineId]}
+          onOptionSelect={(_, d) => { if (d.optionValue) setProductionLineId(d.optionValue); }}
+        >
+          {productionLines.map(p => <Option key={p.id} value={p.id} text={`${p.name} (${p.plantName})`}>{p.name} ({p.plantName})</Option>)}
         </Dropdown>
         <Label>Limble Identifier (optional)</Label>
         <Input value={limbleIdentifier} onChange={(_, d) => setLimbleIdentifier(d.value)} />

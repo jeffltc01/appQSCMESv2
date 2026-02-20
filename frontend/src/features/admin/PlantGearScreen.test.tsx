@@ -7,7 +7,7 @@ import { adminPlantGearApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', displayName: 'Test Admin' },
+    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
     logout: vi.fn(),
   }),
 }));

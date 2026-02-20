@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Checkbox, Spinner } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminDefectCodeApi, adminWorkCenterApi } from '../../api/endpoints.ts';
 import type { AdminDefectCode, AdminWorkCenter } from '../../types/domain.ts';
 import styles from './CardList.module.css';
@@ -21,6 +22,9 @@ export function DefectCodesScreen() {
   const [severity, setSeverity] = useState('');
   const [systemType, setSystemType] = useState('');
   const [selectedWcIds, setSelectedWcIds] = useState<string[]>([]);
+  const [isActive, setIsActive] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<AdminDefectCode | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,14 +39,14 @@ export function DefectCodesScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setCode(''); setName(''); setSeverity(''); setSystemType(''); setSelectedWcIds([]);
+    setCode(''); setName(''); setSeverity(''); setSystemType(''); setSelectedWcIds([]); setIsActive(true);
     setError(''); setModalOpen(true);
   };
 
   const openEdit = (item: AdminDefectCode) => {
     setEditing(item);
     setCode(item.code); setName(item.name); setSeverity(item.severity ?? '');
-    setSystemType(item.systemType ?? ''); setSelectedWcIds(item.workCenterIds);
+    setSystemType(item.systemType ?? ''); setSelectedWcIds(item.workCenterIds); setIsActive(item.isActive);
     setError(''); setModalOpen(true);
   };
 
@@ -56,6 +60,7 @@ export function DefectCodesScreen() {
       const payload = {
         code, name, severity: severity || undefined, systemType: systemType || undefined,
         workCenterIds: selectedWcIds,
+        isActive,
       };
       if (editing) {
         const updated = await adminDefectCodeApi.update(editing.id, payload);
@@ -69,10 +74,15 @@ export function DefectCodesScreen() {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this defect code?')) return;
-    try { await adminDefectCodeApi.remove(id); setItems(prev => prev.filter(d => d.id !== id)); }
-    catch { alert('Failed to delete defect code.'); }
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const updated = await adminDefectCodeApi.remove(deleteTarget.id);
+      setItems(prev => prev.map(d => d.id === updated.id ? updated : d));
+      setDeleteTarget(null);
+    } catch { alert('Failed to deactivate defect code.'); }
+    finally { setDeleting(false); }
   };
 
   const inspectionWcs = workCenters.filter(wc =>
@@ -87,12 +97,12 @@ export function DefectCodesScreen() {
         <div className={styles.grid}>
           {items.length === 0 && <div className={styles.emptyState}>No defect codes found.</div>}
           {items.map(item => (
-            <div key={item.id} className={styles.card}>
+            <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.code} &mdash; {item.name}</span>
                 <div className={styles.cardActions}>
                   <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => handleDelete(item.id)} />
+                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
                 </div>
               </div>
               {item.severity && (
@@ -105,6 +115,9 @@ export function DefectCodesScreen() {
                 <span className={styles.cardFieldLabel}>Work Centers</span>
                 <span className={styles.cardFieldValue}>{item.workCenterIds.length} assigned</span>
               </div>
+              <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
+                {item.isActive ? 'Active' : 'Inactive'}
+              </span>
             </div>
           ))}
         </div>
@@ -141,7 +154,18 @@ export function DefectCodesScreen() {
             </label>
           ))}
         </div>
+        {editing && (
+          <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
+        )}
       </AdminModal>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        itemName={deleteTarget ? `${deleteTarget.code} — ${deleteTarget.name}` : ''}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </AdminLayout>
   );
 }

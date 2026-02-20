@@ -7,14 +7,14 @@ import { adminWorkCenterApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', displayName: 'Test Admin' },
+    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
     logout: vi.fn(),
   }),
 }));
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminWorkCenterApi: {
-    getAll: vi.fn(),
+    getGrouped: vi.fn(),
   },
 }));
 
@@ -28,49 +28,57 @@ function renderScreen() {
   );
 }
 
-const mockWorkCenters = [
+const mockGroups = [
   {
-    id: 'wc1',
-    name: 'Rolls 1',
+    groupId: 'g1',
+    baseName: 'Rolls 1',
     workCenterTypeName: 'Rolls',
-    productionLineName: 'Line 1',
-    plantName: 'Plant 1',
-    numberOfWelders: 2,
-    dataEntryType: 'standard',
+    dataEntryType: 'Rolls',
+    siteConfigs: [
+      {
+        workCenterId: 'wc1',
+        plantId: 'p1',
+        plantName: 'Cleveland',
+        siteName: 'Rolls 1',
+        numberOfWelders: 2,
+        productionLineId: 'pl1',
+        materialQueueForWCId: null,
+        materialQueueForWCName: null,
+      },
+    ],
   },
 ];
 
 describe('WorkCenterConfigScreen', () => {
   beforeEach(() => {
-    vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue(mockWorkCenters);
+    vi.mocked(adminWorkCenterApi.getGrouped).mockResolvedValue(mockGroups);
   });
 
   it('renders loading state initially', async () => {
-    let resolveGetAll!: (v: typeof mockWorkCenters) => void;
-    vi.mocked(adminWorkCenterApi.getAll).mockImplementation(
-      () => new Promise((r) => { resolveGetAll = r; }),
+    let resolveGetGrouped!: (v: typeof mockGroups) => void;
+    vi.mocked(adminWorkCenterApi.getGrouped).mockImplementation(
+      () => new Promise((r) => { resolveGetGrouped = r; }),
     );
     renderScreen();
     expect(screen.getByText('Loading...')).toBeInTheDocument();
-    resolveGetAll(mockWorkCenters);
+    resolveGetGrouped(mockGroups);
     await waitFor(() =>
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument(),
     );
   });
 
-  it('renders work center cards after API resolves', async () => {
+  it('renders work center group cards after API resolves', async () => {
     renderScreen();
     await waitFor(() => {
-      expect(screen.getByText('Rolls 1')).toBeInTheDocument();
+      expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getByText('Rolls')).toBeInTheDocument();
-    expect(screen.getByText('Plant 1')).toBeInTheDocument();
+    expect(screen.getByText('Cleveland')).toBeInTheDocument();
   });
 
   it('does not show Add button', async () => {
     renderScreen();
     await waitFor(() => {
-      expect(screen.getByText('Rolls 1')).toBeInTheDocument();
+      expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
     });
     expect(screen.queryByRole('button', { name: /Add/i })).not.toBeInTheDocument();
   });
@@ -80,8 +88,8 @@ describe('WorkCenterConfigScreen', () => {
     expect(screen.getByText('Work Center Config')).toBeInTheDocument();
   });
 
-  it('renders without error when no work centers', async () => {
-    vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue([]);
+  it('renders without error when no groups', async () => {
+    vi.mocked(adminWorkCenterApi.getGrouped).mockResolvedValue([]);
     renderScreen();
     await waitFor(() =>
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument(),

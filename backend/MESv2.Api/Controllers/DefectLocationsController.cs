@@ -30,7 +30,8 @@ public class DefectLocationsController : ControllerBase
                 Name = d.Name,
                 DefaultLocationDetail = d.DefaultLocationDetail,
                 CharacteristicId = d.CharacteristicId,
-                CharacteristicName = d.Characteristic != null ? d.Characteristic.Name : null
+                CharacteristicName = d.Characteristic != null ? d.Characteristic.Name : null,
+                IsActive = d.IsActive
             })
             .ToListAsync(cancellationToken);
         return Ok(list);
@@ -59,7 +60,8 @@ public class DefectLocationsController : ControllerBase
             Id = loc.Id, Code = loc.Code, Name = loc.Name,
             DefaultLocationDetail = loc.DefaultLocationDetail,
             CharacteristicId = loc.CharacteristicId,
-            CharacteristicName = charName
+            CharacteristicName = charName,
+            IsActive = loc.IsActive
         });
     }
 
@@ -73,6 +75,7 @@ public class DefectLocationsController : ControllerBase
         loc.Name = dto.Name;
         loc.DefaultLocationDetail = dto.DefaultLocationDetail;
         loc.CharacteristicId = dto.CharacteristicId;
+        loc.IsActive = dto.IsActive;
         await _db.SaveChangesAsync(cancellationToken);
 
         var charName = dto.CharacteristicId.HasValue
@@ -84,17 +87,31 @@ public class DefectLocationsController : ControllerBase
             Id = loc.Id, Code = loc.Code, Name = loc.Name,
             DefaultLocationDetail = loc.DefaultLocationDetail,
             CharacteristicId = loc.CharacteristicId,
-            CharacteristicName = charName
+            CharacteristicName = charName,
+            IsActive = loc.IsActive
         });
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminDefectLocationDto>> Delete(Guid id, CancellationToken cancellationToken)
     {
         var loc = await _db.DefectLocations.FindAsync(new object[] { id }, cancellationToken);
         if (loc == null) return NotFound();
-        _db.DefectLocations.Remove(loc);
+
+        loc.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
-        return NoContent();
+
+        var charName = loc.CharacteristicId.HasValue
+            ? (await _db.Characteristics.FindAsync(new object[] { loc.CharacteristicId.Value }, cancellationToken))?.Name
+            : null;
+
+        return Ok(new AdminDefectLocationDto
+        {
+            Id = loc.Id, Code = loc.Code, Name = loc.Name,
+            DefaultLocationDetail = loc.DefaultLocationDetail,
+            CharacteristicId = loc.CharacteristicId,
+            CharacteristicName = charName,
+            IsActive = loc.IsActive
+        });
     }
 }

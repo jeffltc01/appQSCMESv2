@@ -7,7 +7,7 @@ import { adminDefectLocationApi, adminCharacteristicApi } from '../../api/endpoi
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', displayName: 'Test Admin' },
+    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
     logout: vi.fn(),
   }),
 }));
@@ -38,6 +38,7 @@ const mockDefectLocations = [
     name: 'T-Joint',
     characteristicId: 'c1',
     characteristicName: 'Long Seam',
+    isActive: true,
   },
 ];
 

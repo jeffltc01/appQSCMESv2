@@ -7,6 +7,7 @@ public class DefectCode
     public string Name { get; set; } = string.Empty;
     public string? Severity { get; set; }
     public string? SystemType { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public ICollection<DefectLog> DefectLogs { get; set; } = new List<DefectLog>();
 }

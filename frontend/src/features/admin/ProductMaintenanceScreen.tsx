@@ -198,17 +198,17 @@ export function ProductMaintenanceScreen() {
         <Input value={sageItemNumber} onChange={(_, d) => setSageItemNumber(d.value)} />
         <Label>Nameplate Number</Label>
         <Input value={nameplateNumber} onChange={(_, d) => setNameplateNumber(d.value)} />
-        <Label>Sites (leave empty for all sites)</Label>
+        <Label>Sites</Label>
         <Dropdown
           multiselect
           value={selectedSites.length > 0
             ? selectedSites.map(c => plants.find(p => p.code === c)?.name ?? c).join(', ')
-            : 'All Sites'}
+            : ''}
           selectedOptions={selectedSites}
           onOptionSelect={(_, d: OptionOnSelectData) => {
             setSelectedSites(d.selectedOptions.filter(Boolean));
           }}
-          placeholder="All Sites"
+          placeholder="Select sites..."
         >
           {plants.map(p => (
             <Option key={p.code} value={p.code} text={`${p.name} (${p.code})`}>

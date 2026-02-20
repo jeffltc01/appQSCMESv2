@@ -7,6 +7,7 @@ public class DefectLocation
     public string Name { get; set; } = string.Empty;
     public string? DefaultLocationDetail { get; set; }
     public Guid? CharacteristicId { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public Characteristic? Characteristic { get; set; }
     public ICollection<DefectLog> DefectLogs { get; set; } = new List<DefectLog>();

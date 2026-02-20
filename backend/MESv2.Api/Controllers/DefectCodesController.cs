@@ -32,7 +32,8 @@ public class DefectCodesController : ControllerBase
                 WorkCenterIds = _db.DefectWorkCenters
                     .Where(dw => dw.DefectCodeId == d.Id)
                     .Select(dw => dw.WorkCenterId)
-                    .ToList()
+                    .ToList(),
+                IsActive = d.IsActive
             })
             .ToListAsync(cancellationToken);
         return Ok(codes);
@@ -67,7 +68,8 @@ public class DefectCodesController : ControllerBase
         {
             Id = code.Id, Code = code.Code, Name = code.Name,
             Severity = code.Severity, SystemType = code.SystemType,
-            WorkCenterIds = dto.WorkCenterIds
+            WorkCenterIds = dto.WorkCenterIds,
+            IsActive = code.IsActive
         });
     }
 
@@ -81,6 +83,7 @@ public class DefectCodesController : ControllerBase
         code.Name = dto.Name;
         code.Severity = dto.Severity;
         code.SystemType = dto.SystemType;
+        code.IsActive = dto.IsActive;
 
         var existing = await _db.DefectWorkCenters.Where(dw => dw.DefectCodeId == id).ToListAsync(cancellationToken);
         _db.DefectWorkCenters.RemoveRange(existing);
@@ -97,24 +100,32 @@ public class DefectCodesController : ControllerBase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        var wcIds = await _db.DefectWorkCenters.Where(dw => dw.DefectCodeId == id).Select(dw => dw.WorkCenterId).ToListAsync(cancellationToken);
         return Ok(new AdminDefectCodeDto
         {
             Id = code.Id, Code = code.Code, Name = code.Name,
             Severity = code.Severity, SystemType = code.SystemType,
-            WorkCenterIds = dto.WorkCenterIds
+            WorkCenterIds = wcIds,
+            IsActive = code.IsActive
         });
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<AdminDefectCodeDto>> Delete(Guid id, CancellationToken cancellationToken)
     {
         var code = await _db.DefectCodes.FindAsync(new object[] { id }, cancellationToken);
         if (code == null) return NotFound();
 
-        var junctions = await _db.DefectWorkCenters.Where(dw => dw.DefectCodeId == id).ToListAsync(cancellationToken);
-        _db.DefectWorkCenters.RemoveRange(junctions);
-        _db.DefectCodes.Remove(code);
+        code.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
-        return NoContent();
+
+        var wcIds = await _db.DefectWorkCenters.Where(dw => dw.DefectCodeId == id).Select(dw => dw.WorkCenterId).ToListAsync(cancellationToken);
+        return Ok(new AdminDefectCodeDto
+        {
+            Id = code.Id, Code = code.Code, Name = code.Name,
+            Severity = code.Severity, SystemType = code.SystemType,
+            WorkCenterIds = wcIds,
+            IsActive = code.IsActive
+        });
     }
 }

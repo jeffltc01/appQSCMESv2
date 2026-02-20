@@ -33,7 +33,7 @@ export function AdminLayout({ title, children, onAdd, addLabel = 'Add' }: AdminL
             Menu
           </Button>
           <span className={styles.pageTitle}>{title}</span>
-          <span className={styles.plantCode}>{user?.plantCode ?? ''}</span>
+          <span className={styles.plantCode}>{user?.plantName ? `${user.plantName} (${user.plantCode})` : user?.plantCode ?? ''}</span>
         </div>
         <div className={styles.topBarRight}>
           {onAdd && (

@@ -72,20 +72,29 @@ export function OperatorLayout() {
   }, [cache?.cachedWorkCenterId, user?.plantCode]);
 
   useEffect(() => {
-    if (user && isWelder) {
-      setWelders((prev) => {
-        if (prev.some((w) => w.userId === user.id)) return prev;
-        return [
-          ...prev,
-          {
-            userId: user.id,
-            displayName: user.displayName,
-            employeeNumber: user.employeeNumber,
-          },
-        ];
-      });
+    if (user && isWelder && cache?.cachedWorkCenterId) {
+      workCenterApi.addWelder(cache.cachedWorkCenterId, user.employeeNumber)
+        .then((w) => {
+          setWelders((prev) => {
+            if (prev.some((existing) => existing.userId === w.userId)) return prev;
+            return [...prev, w];
+          });
+        })
+        .catch(() => {
+          setWelders((prev) => {
+            if (prev.some((existing) => existing.userId === user.id)) return prev;
+            return [
+              ...prev,
+              {
+                userId: user.id,
+                displayName: user.displayName,
+                employeeNumber: user.employeeNumber,
+              },
+            ];
+          });
+        });
     }
-  }, [user, isWelder]);
+  }, [user, isWelder, cache?.cachedWorkCenterId]);
 
   const loadWelders = useCallback(async () => {
     if (!cache?.cachedWorkCenterId) return;

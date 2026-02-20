@@ -63,6 +63,7 @@ public class AuthService : IAuthService
             IsCertifiedWelder = user.IsCertifiedWelder,
             UserType = (int)user.UserType,
             PlantCode = user.DefaultSite?.Code ?? string.Empty,
+            PlantName = user.DefaultSite?.Name ?? string.Empty,
             PlantTimeZoneId = user.DefaultSite?.TimeZoneId ?? "America/Chicago"
         };
 

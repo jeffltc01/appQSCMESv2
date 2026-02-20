@@ -30,9 +30,7 @@ export function TabletSetupScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const ASSET_REQUIRED_WC_NAMES = ['long seam', 'round seam', 'round seam inspection', 'hydro'];
-  const selectedWcName = workCenters.find((w) => w.id === selectedWcId)?.name?.toLowerCase() ?? '';
-  const needsAsset = ASSET_REQUIRED_WC_NAMES.some((n) => selectedWcName.includes(n));
+  const needsAsset = assets.length > 0;
 
   useEffect(() => {
     if (!user) return;
@@ -64,31 +62,40 @@ export function TabletSetupScreen() {
     }
   }, [user]);
 
+  const loadAssets = useCallback(async (wcId: string, plId: string) => {
+    if (!wcId || !plId) {
+      setAssets([]);
+      setSelectedAssetId('');
+      return;
+    }
+    try {
+      const assetList = await assetApi.getAssets(wcId, plId);
+      setAssets(assetList);
+      setSelectedAssetId(assetList.length === 1 ? assetList[0].id : '');
+    } catch {
+      setAssets([]);
+      setSelectedAssetId('');
+    }
+  }, []);
+
   const handleWcChange = useCallback(
-    async (_: unknown, data: OptionOnSelectData) => {
+    (_: unknown, data: OptionOnSelectData) => {
       const wcId = data.optionValue ?? '';
       setSelectedWcId(wcId);
       setSelectedAssetId('');
-      setAssets([]);
-
-      if (!wcId) return;
-
-      const wcName = workCenters.find((w) => w.id === wcId)?.name?.toLowerCase() ?? '';
-      const wcNeedsAsset = ASSET_REQUIRED_WC_NAMES.some((n) => wcName.includes(n));
-
-      if (wcNeedsAsset) {
-        try {
-          const assetList = await assetApi.getAssets(wcId);
-          setAssets(assetList);
-          if (assetList.length === 1) {
-            setSelectedAssetId(assetList[0].id);
-          }
-        } catch {
-          setError('Failed to load assets.');
-        }
-      }
+      loadAssets(wcId, selectedPlId);
     },
-    [workCenters],
+    [selectedPlId, loadAssets],
+  );
+
+  const handlePlChange = useCallback(
+    (_: unknown, data: OptionOnSelectData) => {
+      const plId = data.optionValue ?? '';
+      setSelectedPlId(plId);
+      setSelectedAssetId('');
+      loadAssets(selectedWcId, plId);
+    },
+    [selectedWcId, loadAssets],
   );
 
   const handleSave = useCallback(async () => {
@@ -124,7 +131,7 @@ export function TabletSetupScreen() {
     }
   }, [selectedWcId, selectedPlId, selectedAssetId, workCenters, productionLines, assets, navigate]);
 
-  const canSave = Boolean(selectedWcId && (!needsAsset || selectedAssetId));
+  const canSave = Boolean(selectedWcId && selectedPlId && (!needsAsset || selectedAssetId));
 
   if (user && user.roleTier > 5) {
     return (
@@ -169,13 +176,11 @@ export function TabletSetupScreen() {
             </div>
 
             <div className={styles.field}>
-              <Label className={styles.label}>Production Line</Label>
+              <Label className={styles.label}>*Production Line</Label>
               <Dropdown
                 value={productionLines.find((p) => p.id === selectedPlId)?.name ?? ''}
                 selectedOptions={[selectedPlId]}
-                onOptionSelect={(_, data) => {
-                  if (data.optionValue) setSelectedPlId(data.optionValue);
-                }}
+                onOptionSelect={handlePlChange}
                 className={styles.dropdown}
                 size="large"
                 disabled={productionLines.length <= 1}

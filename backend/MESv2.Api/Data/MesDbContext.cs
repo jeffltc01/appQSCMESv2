@@ -105,6 +105,11 @@ public class MesDbContext : DbContext
             .WithMany(w => w.Assets)
             .HasForeignKey(a => a.WorkCenterId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Asset>()
+            .HasOne(a => a.ProductionLine)
+            .WithMany()
+            .HasForeignKey(a => a.ProductionLineId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<User>()
             .HasOne(u => u.DefaultSite)
@@ -504,6 +509,20 @@ public class MesDbContext : DbContext
             new ProductionLine { Id = line1Plt3, Name = "Line 1", PlantId = plant3Id }
         );
 
+        // Work center group IDs (logical grouping across sites)
+        var grpRolls1 = Guid.Parse("d0000001-0000-0000-0000-000000000001");
+        var grpLongSeam1 = Guid.Parse("d0000002-0000-0000-0000-000000000002");
+        var grpLongSeamInsp = Guid.Parse("d0000003-0000-0000-0000-000000000003");
+        var grpRtXrayQueue = Guid.Parse("d0000004-0000-0000-0000-000000000004");
+        var grpFitup = Guid.Parse("d0000005-0000-0000-0000-000000000005");
+        var grpRoundSeam = Guid.Parse("d0000006-0000-0000-0000-000000000006");
+        var grpRoundSeamInsp = Guid.Parse("d0000007-0000-0000-0000-000000000007");
+        var grpSpotXray = Guid.Parse("d0000008-0000-0000-0000-000000000008");
+        var grpNameplate = Guid.Parse("d0000009-0000-0000-0000-000000000009");
+        var grpHydro = Guid.Parse("d000000a-0000-0000-0000-00000000000a");
+        var grpRollsMaterial = Guid.Parse("d000000b-0000-0000-0000-00000000000b");
+        var grpFitupQueue = Guid.Parse("d000000c-0000-0000-0000-00000000000c");
+
         // Work centers per plant (12 each, tied to Line 1). Cleveland IDs preserved for tests.
         var wcRolls1Plt1 = Guid.Parse("f1111111-1111-1111-1111-111111111111");
         var wcLongSeam1Plt1 = Guid.Parse("f2111111-1111-1111-1111-111111111111");
@@ -519,42 +538,42 @@ public class MesDbContext : DbContext
         var wcFitupQueuePlt1 = Guid.Parse("fc111111-1111-1111-1111-111111111111");
 
         modelBuilder.Entity<WorkCenter>().HasData(
-            new WorkCenter { Id = wcRolls1Plt1, Name = "Rolls 1", PlantId = plant1Id, WorkCenterTypeId = wctRollsId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = wcLongSeam1Plt1, Name = "Long Seam 1", PlantId = plant1Id, WorkCenterTypeId = wctLongSeamId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = "standard" },
-            new WorkCenter { Id = wcLongSeamInspPlt1, Name = "Long Seam Inspection", PlantId = plant1Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = "inspection" },
-            new WorkCenter { Id = wcRtXrayQueuePlt1, Name = "RT X-ray Queue", PlantId = plant1Id, WorkCenterTypeId = wctXrayId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = wcFitupPlt1, Name = "Fitup", PlantId = plant1Id, WorkCenterTypeId = wctFitupId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = wcRoundSeamPlt1, Name = "Round Seam", PlantId = plant1Id, WorkCenterTypeId = wctRoundSeamId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = wcRoundSeamInspPlt1, Name = "Round Seam Inspection", PlantId = plant1Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = "inspection" },
-            new WorkCenter { Id = wcSpotXrayPlt1, Name = "Spot X-ray", PlantId = plant1Id, WorkCenterTypeId = wctSpotXrayId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = wcNameplatePlt1, Name = "Nameplate", PlantId = plant1Id, WorkCenterTypeId = wctNameplateId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = wcHydroPlt1, Name = "Hydro", PlantId = plant1Id, WorkCenterTypeId = wctHydroId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = wcRollsMaterialPlt1, Name = "Rolls Material", PlantId = plant1Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = wcRolls1Plt1 },
-            new WorkCenter { Id = wcFitupQueuePlt1, Name = "Fitup Queue", PlantId = plant1Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = wcFitupPlt1 },
-            new WorkCenter { Id = Guid.Parse("f1222222-2222-2222-2222-222222222222"), Name = "Rolls 1", PlantId = plant2Id, WorkCenterTypeId = wctRollsId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f2222222-2222-2222-2222-222222222222"), Name = "Long Seam 1", PlantId = plant2Id, WorkCenterTypeId = wctLongSeamId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = "standard" },
-            new WorkCenter { Id = Guid.Parse("f3222222-2222-2222-2222-222222222222"), Name = "Long Seam Inspection", PlantId = plant2Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = "inspection" },
-            new WorkCenter { Id = Guid.Parse("f4222222-2222-2222-2222-222222222222"), Name = "RT X-ray Queue", PlantId = plant2Id, WorkCenterTypeId = wctXrayId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f5222222-2222-2222-2222-222222222222"), Name = "Fitup", PlantId = plant2Id, WorkCenterTypeId = wctFitupId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f6222222-2222-2222-2222-222222222222"), Name = "Round Seam", PlantId = plant2Id, WorkCenterTypeId = wctRoundSeamId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f7222222-2222-2222-2222-222222222222"), Name = "Round Seam Inspection", PlantId = plant2Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = "inspection" },
-            new WorkCenter { Id = Guid.Parse("f8222222-2222-2222-2222-222222222222"), Name = "Spot X-ray", PlantId = plant2Id, WorkCenterTypeId = wctSpotXrayId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f9222222-2222-2222-2222-222222222222"), Name = "Nameplate", PlantId = plant2Id, WorkCenterTypeId = wctNameplateId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("fa222222-2222-2222-2222-222222222222"), Name = "Hydro", PlantId = plant2Id, WorkCenterTypeId = wctHydroId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("fb222222-2222-2222-2222-222222222222"), Name = "Rolls Material", PlantId = plant2Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f1222222-2222-2222-2222-222222222222") },
-            new WorkCenter { Id = Guid.Parse("fc222222-2222-2222-2222-222222222222"), Name = "Fitup Queue", PlantId = plant2Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f5222222-2222-2222-2222-222222222222") },
-            new WorkCenter { Id = Guid.Parse("f1333333-3333-3333-3333-333333333333"), Name = "Rolls 1", PlantId = plant3Id, WorkCenterTypeId = wctRollsId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f2333333-3333-3333-3333-333333333333"), Name = "Long Seam 1", PlantId = plant3Id, WorkCenterTypeId = wctLongSeamId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = "standard" },
-            new WorkCenter { Id = Guid.Parse("f3333333-3333-3333-3333-333333333333"), Name = "Long Seam Inspection", PlantId = plant3Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = "inspection" },
-            new WorkCenter { Id = Guid.Parse("f4333333-3333-3333-3333-333333333333"), Name = "RT X-ray Queue", PlantId = plant3Id, WorkCenterTypeId = wctXrayId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f5333333-3333-3333-3333-333333333333"), Name = "Fitup", PlantId = plant3Id, WorkCenterTypeId = wctFitupId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f6333333-3333-3333-3333-333333333333"), Name = "Round Seam", PlantId = plant3Id, WorkCenterTypeId = wctRoundSeamId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f7333333-3333-3333-3333-333333333333"), Name = "Round Seam Inspection", PlantId = plant3Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = "inspection" },
-            new WorkCenter { Id = Guid.Parse("f8333333-3333-3333-3333-333333333333"), Name = "Spot X-ray", PlantId = plant3Id, WorkCenterTypeId = wctSpotXrayId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("f9333333-3333-3333-3333-333333333333"), Name = "Nameplate", PlantId = plant3Id, WorkCenterTypeId = wctNameplateId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("fa333333-3333-3333-3333-333333333333"), Name = "Hydro", PlantId = plant3Id, WorkCenterTypeId = wctHydroId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null },
-            new WorkCenter { Id = Guid.Parse("fb333333-3333-3333-3333-333333333333"), Name = "Rolls Material", PlantId = plant3Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f1333333-3333-3333-3333-333333333333") },
-            new WorkCenter { Id = Guid.Parse("fc333333-3333-3333-3333-333333333333"), Name = "Fitup Queue", PlantId = plant3Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f5333333-3333-3333-3333-333333333333") }
+            new WorkCenter { Id = wcRolls1Plt1, Name = "Rolls 1", PlantId = plant1Id, WorkCenterTypeId = wctRollsId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpRolls1 },
+            new WorkCenter { Id = wcLongSeam1Plt1, Name = "Long Seam 1", PlantId = plant1Id, WorkCenterTypeId = wctLongSeamId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = "standard", WorkCenterGroupId = grpLongSeam1 },
+            new WorkCenter { Id = wcLongSeamInspPlt1, Name = "Long Seam Inspection", PlantId = plant1Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = "inspection", WorkCenterGroupId = grpLongSeamInsp },
+            new WorkCenter { Id = wcRtXrayQueuePlt1, Name = "RT X-ray Queue", PlantId = plant1Id, WorkCenterTypeId = wctXrayId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpRtXrayQueue },
+            new WorkCenter { Id = wcFitupPlt1, Name = "Fitup", PlantId = plant1Id, WorkCenterTypeId = wctFitupId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpFitup },
+            new WorkCenter { Id = wcRoundSeamPlt1, Name = "Round Seam", PlantId = plant1Id, WorkCenterTypeId = wctRoundSeamId, ProductionLineId = line1Plt1, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpRoundSeam },
+            new WorkCenter { Id = wcRoundSeamInspPlt1, Name = "Round Seam Inspection", PlantId = plant1Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = "inspection", WorkCenterGroupId = grpRoundSeamInsp },
+            new WorkCenter { Id = wcSpotXrayPlt1, Name = "Spot X-ray", PlantId = plant1Id, WorkCenterTypeId = wctSpotXrayId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpSpotXray },
+            new WorkCenter { Id = wcNameplatePlt1, Name = "Nameplate", PlantId = plant1Id, WorkCenterTypeId = wctNameplateId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpNameplate },
+            new WorkCenter { Id = wcHydroPlt1, Name = "Hydro", PlantId = plant1Id, WorkCenterTypeId = wctHydroId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpHydro },
+            new WorkCenter { Id = wcRollsMaterialPlt1, Name = "Rolls Material", PlantId = plant1Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = wcRolls1Plt1, WorkCenterGroupId = grpRollsMaterial },
+            new WorkCenter { Id = wcFitupQueuePlt1, Name = "Fitup Queue", PlantId = plant1Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt1, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = wcFitupPlt1, WorkCenterGroupId = grpFitupQueue },
+            new WorkCenter { Id = Guid.Parse("f1222222-2222-2222-2222-222222222222"), Name = "Rolls 1", PlantId = plant2Id, WorkCenterTypeId = wctRollsId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpRolls1 },
+            new WorkCenter { Id = Guid.Parse("f2222222-2222-2222-2222-222222222222"), Name = "Long Seam 1", PlantId = plant2Id, WorkCenterTypeId = wctLongSeamId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = "standard", WorkCenterGroupId = grpLongSeam1 },
+            new WorkCenter { Id = Guid.Parse("f3222222-2222-2222-2222-222222222222"), Name = "Long Seam Inspection", PlantId = plant2Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = "inspection", WorkCenterGroupId = grpLongSeamInsp },
+            new WorkCenter { Id = Guid.Parse("f4222222-2222-2222-2222-222222222222"), Name = "RT X-ray Queue", PlantId = plant2Id, WorkCenterTypeId = wctXrayId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpRtXrayQueue },
+            new WorkCenter { Id = Guid.Parse("f5222222-2222-2222-2222-222222222222"), Name = "Fitup", PlantId = plant2Id, WorkCenterTypeId = wctFitupId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpFitup },
+            new WorkCenter { Id = Guid.Parse("f6222222-2222-2222-2222-222222222222"), Name = "Round Seam", PlantId = plant2Id, WorkCenterTypeId = wctRoundSeamId, ProductionLineId = line1Plt2, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpRoundSeam },
+            new WorkCenter { Id = Guid.Parse("f7222222-2222-2222-2222-222222222222"), Name = "Round Seam Inspection", PlantId = plant2Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = "inspection", WorkCenterGroupId = grpRoundSeamInsp },
+            new WorkCenter { Id = Guid.Parse("f8222222-2222-2222-2222-222222222222"), Name = "Spot X-ray", PlantId = plant2Id, WorkCenterTypeId = wctSpotXrayId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpSpotXray },
+            new WorkCenter { Id = Guid.Parse("f9222222-2222-2222-2222-222222222222"), Name = "Nameplate", PlantId = plant2Id, WorkCenterTypeId = wctNameplateId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpNameplate },
+            new WorkCenter { Id = Guid.Parse("fa222222-2222-2222-2222-222222222222"), Name = "Hydro", PlantId = plant2Id, WorkCenterTypeId = wctHydroId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpHydro },
+            new WorkCenter { Id = Guid.Parse("fb222222-2222-2222-2222-222222222222"), Name = "Rolls Material", PlantId = plant2Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f1222222-2222-2222-2222-222222222222"), WorkCenterGroupId = grpRollsMaterial },
+            new WorkCenter { Id = Guid.Parse("fc222222-2222-2222-2222-222222222222"), Name = "Fitup Queue", PlantId = plant2Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt2, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f5222222-2222-2222-2222-222222222222"), WorkCenterGroupId = grpFitupQueue },
+            new WorkCenter { Id = Guid.Parse("f1333333-3333-3333-3333-333333333333"), Name = "Rolls 1", PlantId = plant3Id, WorkCenterTypeId = wctRollsId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpRolls1 },
+            new WorkCenter { Id = Guid.Parse("f2333333-3333-3333-3333-333333333333"), Name = "Long Seam 1", PlantId = plant3Id, WorkCenterTypeId = wctLongSeamId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = "standard", WorkCenterGroupId = grpLongSeam1 },
+            new WorkCenter { Id = Guid.Parse("f3333333-3333-3333-3333-333333333333"), Name = "Long Seam Inspection", PlantId = plant3Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = "inspection", WorkCenterGroupId = grpLongSeamInsp },
+            new WorkCenter { Id = Guid.Parse("f4333333-3333-3333-3333-333333333333"), Name = "RT X-ray Queue", PlantId = plant3Id, WorkCenterTypeId = wctXrayId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpRtXrayQueue },
+            new WorkCenter { Id = Guid.Parse("f5333333-3333-3333-3333-333333333333"), Name = "Fitup", PlantId = plant3Id, WorkCenterTypeId = wctFitupId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpFitup },
+            new WorkCenter { Id = Guid.Parse("f6333333-3333-3333-3333-333333333333"), Name = "Round Seam", PlantId = plant3Id, WorkCenterTypeId = wctRoundSeamId, ProductionLineId = line1Plt3, NumberOfWelders = 1, DataEntryType = null, WorkCenterGroupId = grpRoundSeam },
+            new WorkCenter { Id = Guid.Parse("f7333333-3333-3333-3333-333333333333"), Name = "Round Seam Inspection", PlantId = plant3Id, WorkCenterTypeId = wctInspectionId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = "inspection", WorkCenterGroupId = grpRoundSeamInsp },
+            new WorkCenter { Id = Guid.Parse("f8333333-3333-3333-3333-333333333333"), Name = "Spot X-ray", PlantId = plant3Id, WorkCenterTypeId = wctSpotXrayId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpSpotXray },
+            new WorkCenter { Id = Guid.Parse("f9333333-3333-3333-3333-333333333333"), Name = "Nameplate", PlantId = plant3Id, WorkCenterTypeId = wctNameplateId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpNameplate },
+            new WorkCenter { Id = Guid.Parse("fa333333-3333-3333-3333-333333333333"), Name = "Hydro", PlantId = plant3Id, WorkCenterTypeId = wctHydroId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, WorkCenterGroupId = grpHydro },
+            new WorkCenter { Id = Guid.Parse("fb333333-3333-3333-3333-333333333333"), Name = "Rolls Material", PlantId = plant3Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f1333333-3333-3333-3333-333333333333"), WorkCenterGroupId = grpRollsMaterial },
+            new WorkCenter { Id = Guid.Parse("fc333333-3333-3333-3333-333333333333"), Name = "Fitup Queue", PlantId = plant3Id, WorkCenterTypeId = wctMaterialQueueId, ProductionLineId = line1Plt3, NumberOfWelders = 0, DataEntryType = null, MaterialQueueForWCId = Guid.Parse("f5333333-3333-3333-3333-333333333333"), WorkCenterGroupId = grpFitupQueue }
         );
 
         // Product types (6) with SystemTypeName
@@ -750,11 +769,11 @@ public class MesDbContext : DbContext
         // Assets: one per key work center for Cleveland Line 1. TestAssetId = Rolls 1 asset for tests.
         var testAssetId = Guid.Parse("a0000001-0000-0000-0000-000000000001");
         modelBuilder.Entity<Asset>().HasData(
-            new Asset { Id = testAssetId, Name = "Rolls 1 Asset", WorkCenterId = wcRolls1Plt1 },
-            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000002"), Name = "Long Seam 1 Asset", WorkCenterId = wcLongSeam1Plt1 },
-            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000003"), Name = "Fitup Asset", WorkCenterId = wcFitupPlt1 },
-            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000004"), Name = "Round Seam Asset", WorkCenterId = wcRoundSeamPlt1 },
-            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000005"), Name = "Hydro Asset", WorkCenterId = wcHydroPlt1 }
+            new Asset { Id = testAssetId, Name = "Rolls 1 Asset", WorkCenterId = wcRolls1Plt1, ProductionLineId = line1Plt1 },
+            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000002"), Name = "Long Seam 1 Asset", WorkCenterId = wcLongSeam1Plt1, ProductionLineId = line1Plt1 },
+            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000003"), Name = "Fitup Asset", WorkCenterId = wcFitupPlt1, ProductionLineId = line1Plt1 },
+            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000004"), Name = "Round Seam Asset", WorkCenterId = wcRoundSeamPlt1, ProductionLineId = line1Plt1 },
+            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000005"), Name = "Hydro Asset", WorkCenterId = wcHydroPlt1, ProductionLineId = line1Plt1 }
         );
     }
 }

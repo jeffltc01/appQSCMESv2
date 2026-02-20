@@ -4,7 +4,7 @@ import { EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { adminWorkCenterApi } from '../../api/endpoints.ts';
-import type { AdminWorkCenter } from '../../types/domain.ts';
+import type { AdminWorkCenterGroup, WorkCenterSiteConfig } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 const DATA_ENTRY_TYPES = [
@@ -12,48 +12,79 @@ const DATA_ENTRY_TYPES = [
   'RealTimeXray', 'Plasma', 'MatQueue-Material', 'MatQueue-Fitup', 'MatQueue-Shell',
 ];
 
+interface SiteConfigEdit {
+  workCenterId: string;
+  plantName: string;
+  siteName: string;
+  numberOfWelders: string;
+  materialQueueForWCId: string;
+}
+
 export function WorkCenterConfigScreen() {
-  const [items, setItems] = useState<AdminWorkCenter[]>([]);
+  const [groups, setGroups] = useState<AdminWorkCenterGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<AdminWorkCenter | null>(null);
+  const [editing, setEditing] = useState<AdminWorkCenterGroup | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [numberOfWelders, setNumberOfWelders] = useState('');
+  const [baseName, setBaseName] = useState('');
   const [dataEntryType, setDataEntryType] = useState('');
-  const [materialQueueForWCId, setMaterialQueueForWCId] = useState('');
+  const [siteEdits, setSiteEdits] = useState<SiteConfigEdit[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setItems(await adminWorkCenterApi.getAll()); }
+    try { setGroups(await adminWorkCenterApi.getGrouped()); }
     catch { setError('Failed to load work centers.'); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const openEdit = (item: AdminWorkCenter) => {
-    setEditing(item);
-    setNumberOfWelders(String(item.numberOfWelders));
-    setDataEntryType(item.dataEntryType ?? '');
-    setMaterialQueueForWCId(item.materialQueueForWCId ?? '');
+  const allSiteConfigs = groups.flatMap(g => g.siteConfigs);
+
+  const openEdit = (group: AdminWorkCenterGroup) => {
+    setEditing(group);
+    setBaseName(group.baseName);
+    setDataEntryType(group.dataEntryType ?? '');
+    setSiteEdits(group.siteConfigs.map(sc => ({
+      workCenterId: sc.workCenterId,
+      plantName: sc.plantName,
+      siteName: sc.siteName,
+      numberOfWelders: String(sc.numberOfWelders),
+      materialQueueForWCId: sc.materialQueueForWCId ?? '',
+    })));
     setError(''); setModalOpen(true);
+  };
+
+  const updateSiteEdit = (idx: number, field: keyof SiteConfigEdit, value: string) => {
+    setSiteEdits(prev => prev.map((se, i) => i === idx ? { ...se, [field]: value } : se));
   };
 
   const handleSave = async () => {
     if (!editing) return;
     setSaving(true); setError('');
     try {
-      const updated = await adminWorkCenterApi.updateConfig(editing.id, {
-        numberOfWelders: Number(numberOfWelders),
+      const updated = await adminWorkCenterApi.updateGroup(editing.groupId, {
+        baseName,
         dataEntryType: dataEntryType || undefined,
-        materialQueueForWCId: materialQueueForWCId || undefined,
+        siteConfigs: siteEdits.map(se => ({
+          workCenterId: se.workCenterId,
+          siteName: se.siteName,
+          numberOfWelders: Number(se.numberOfWelders),
+          materialQueueForWCId: se.materialQueueForWCId || undefined,
+        })),
       });
-      setItems(prev => prev.map(w => w.id === updated.id ? updated : w));
+      setGroups(prev => prev.map(g => g.groupId === updated.groupId ? updated : g));
       setModalOpen(false);
     } catch { setError('Failed to save config.'); }
     finally { setSaving(false); }
+  };
+
+  const findWcName = (id?: string) => {
+    if (!id) return undefined;
+    const sc = allSiteConfigs.find(s => s.workCenterId === id);
+    return sc?.siteName;
   };
 
   return (
@@ -62,38 +93,36 @@ export function WorkCenterConfigScreen() {
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
         <div className={styles.grid}>
-          {items.map(item => (
-            <div key={item.id} className={styles.card}>
+          {groups.map(group => (
+            <div key={group.groupId} className={styles.card}>
               <div className={styles.cardHeader}>
-                <span className={styles.cardTitle}>{item.name}</span>
+                <span className={styles.cardTitle}>{group.baseName}</span>
                 <div className={styles.cardActions}>
-                  <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
+                  <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(group)} />
                 </div>
-              </div>
-              <div className={styles.cardField}>
-                <span className={styles.cardFieldLabel}>Plant</span>
-                <span className={styles.cardFieldValue}>{item.plantName}</span>
               </div>
               <div className={styles.cardField}>
                 <span className={styles.cardFieldLabel}>Type</span>
-                <span className={styles.cardFieldValue}>{item.workCenterTypeName}</span>
+                <span className={styles.cardFieldValue}>{group.workCenterTypeName}</span>
               </div>
-              <div className={styles.cardField}>
-                <span className={styles.cardFieldLabel}>Welders</span>
-                <span className={styles.cardFieldValue}>{item.numberOfWelders}</span>
-              </div>
-              {item.dataEntryType && (
+              {group.dataEntryType && (
                 <div className={styles.cardField}>
                   <span className={styles.cardFieldLabel}>Entry</span>
-                  <span className={styles.cardFieldValue}>{item.dataEntryType}</span>
+                  <span className={styles.cardFieldValue}>{group.dataEntryType}</span>
                 </div>
               )}
-              {item.materialQueueForWCName && (
-                <div className={styles.cardField}>
-                  <span className={styles.cardFieldLabel}>Queue For</span>
-                  <span className={styles.cardFieldValue}>{item.materialQueueForWCName}</span>
-                </div>
-              )}
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {group.siteConfigs.map(sc => (
+                  <div key={sc.workCenterId} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
+                    <span className={`${styles.badge} ${styles.badgeBlue}`}>{sc.plantName}</span>
+                    <span style={{ flex: 1 }}>{sc.siteName}</span>
+                    <span style={{ color: '#868686' }}>Welders: {sc.numberOfWelders}</span>
+                    {sc.materialQueueForWCName && (
+                      <span style={{ color: '#868686', fontSize: 12 }}>Queue: {sc.materialQueueForWCName}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -101,15 +130,15 @@ export function WorkCenterConfigScreen() {
 
       <AdminModal
         open={modalOpen}
-        title={`Edit ${editing?.name ?? 'Work Center'}`}
+        title={`Edit ${editing?.baseName ?? 'Work Center'}`}
         onConfirm={handleSave}
         onCancel={() => setModalOpen(false)}
         confirmLabel="Save"
         loading={saving}
         error={error}
       >
-        <Label>Number of Welders</Label>
-        <Input type="number" value={numberOfWelders} onChange={(_, d) => setNumberOfWelders(d.value)} />
+        <Label>Base Name</Label>
+        <Input value={baseName} onChange={(_, d) => setBaseName(d.value)} />
         <Label>Data Entry Type</Label>
         <Dropdown
           value={dataEntryType || 'None'}
@@ -119,17 +148,35 @@ export function WorkCenterConfigScreen() {
           <Option value="">None</Option>
           {DATA_ENTRY_TYPES.map(t => <Option key={t} value={t}>{t}</Option>)}
         </Dropdown>
-        <Label>Material Queue For WC</Label>
-        <Dropdown
-          value={items.find(w => w.id === materialQueueForWCId)?.name ?? 'None'}
-          selectedOptions={[materialQueueForWCId]}
-          onOptionSelect={(_, d) => setMaterialQueueForWCId(d.optionValue ?? '')}
-        >
-          <Option value="">None</Option>
-          {items.filter(w => w.id !== editing?.id).map(w => (
-            <Option key={w.id} value={w.id} text={`${w.name} (${w.plantName})`}>{w.name} ({w.plantName})</Option>
+
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Label style={{ fontWeight: 600 }}>Per-Site Configuration</Label>
+          {siteEdits.map((se, idx) => (
+            <div key={se.workCenterId} style={{ border: '1px solid #e5e5e5', padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{se.plantName}</span>
+              <Label>Name at this site</Label>
+              <Input value={se.siteName} onChange={(_, d) => updateSiteEdit(idx, 'siteName', d.value)} />
+              <Label>Number of Welders</Label>
+              <Input type="number" value={se.numberOfWelders} onChange={(_, d) => updateSiteEdit(idx, 'numberOfWelders', d.value)} />
+              <Label>Material Queue For WC</Label>
+              <Dropdown
+                value={findWcName(se.materialQueueForWCId) ?? 'None'}
+                selectedOptions={[se.materialQueueForWCId]}
+                onOptionSelect={(_, d) => updateSiteEdit(idx, 'materialQueueForWCId', d.optionValue ?? '')}
+              >
+                <Option value="">None</Option>
+                {allSiteConfigs
+                  .filter(s => s.workCenterId !== se.workCenterId && s.plantName === se.plantName)
+                  .map(s => (
+                    <Option key={s.workCenterId} value={s.workCenterId} text={s.siteName}>
+                      {s.siteName}
+                    </Option>
+                  ))
+                }
+              </Dropdown>
+            </div>
           ))}
-        </Dropdown>
+        </div>
       </AdminModal>
     </AdminLayout>
   );

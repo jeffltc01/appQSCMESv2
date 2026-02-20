@@ -27,4 +27,15 @@ public class ProductionLinesController : ControllerBase
             .ToListAsync(cancellationToken);
         return Ok(list);
     }
+
+    [HttpGet("all")]
+    public async Task<ActionResult<IEnumerable<ProductionLineAdminDto>>> GetAllProductionLines(CancellationToken cancellationToken)
+    {
+        var list = await _db.ProductionLines
+            .Include(l => l.Plant)
+            .OrderBy(l => l.Plant.Code).ThenBy(l => l.Name)
+            .Select(l => new ProductionLineAdminDto { Id = l.Id, Name = l.Name, PlantId = l.PlantId, PlantName = l.Plant.Name })
+            .ToListAsync(cancellationToken);
+        return Ok(list);
+    }
 }

@@ -76,6 +76,7 @@ public class AdminUsersControllerTests
 
         var dto = new UpdateUserDto
         {
+            EmployeeNumber = user.EmployeeNumber,
             FirstName = "Updated",
             LastName = "Name",
             DisplayName = "Updated Name",
@@ -95,10 +96,37 @@ public class AdminUsersControllerTests
     }
 
     [Fact]
+    public async Task UpdateUser_ChangesEmployeeNumber()
+    {
+        var controller = CreateController(out var db);
+        var user = db.Users.First(u => u.EmployeeNumber == "EMP001");
+
+        var dto = new UpdateUserDto
+        {
+            EmployeeNumber = "EMP999",
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DisplayName = user.DisplayName,
+            RoleTier = user.RoleTier,
+            RoleName = user.RoleName,
+            DefaultSiteId = user.DefaultSiteId,
+            IsCertifiedWelder = user.IsCertifiedWelder,
+            RequirePinForLogin = user.RequirePinForLogin
+        };
+
+        var result = await controller.UpdateUser(user.Id, dto, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var updated = Assert.IsType<AdminUserDto>(ok.Value);
+        Assert.Equal("EMP999", updated.EmployeeNumber);
+        Assert.Equal("EMP999", db.Users.Single(u => u.Id == user.Id).EmployeeNumber);
+    }
+
+    [Fact]
     public async Task UpdateUser_ReturnsNotFound_WhenMissing()
     {
         var controller = CreateController(out _);
-        var dto = new UpdateUserDto { FirstName = "X", LastName = "X", DisplayName = "X", RoleTier = 6, RoleName = "Operator", DefaultSiteId = TestHelpers.PlantPlt1Id };
+        var dto = new UpdateUserDto { EmployeeNumber = "X", FirstName = "X", LastName = "X", DisplayName = "X", RoleTier = 6, RoleName = "Operator", DefaultSiteId = TestHelpers.PlantPlt1Id };
         var result = await controller.UpdateUser(Guid.NewGuid(), dto, CancellationToken.None);
         Assert.IsType<NotFoundResult>(result.Result);
     }

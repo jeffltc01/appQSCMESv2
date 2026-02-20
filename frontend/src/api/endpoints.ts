@@ -31,6 +31,7 @@ import type {
   CreateDefectLocationRequest,
   UpdateDefectLocationRequest,
   UpdateWorkCenterConfigRequest,
+  UpdateWorkCenterGroupRequest,
   UpdateCharacteristicRequest,
   UpdateControlPlanRequest,
   CreateAssetRequest,
@@ -43,6 +44,7 @@ import type {
   Plant,
   WorkCenter,
   ProductionLine,
+  ProductionLineAdmin,
   Asset,
   Welder,
   WCHistoryData,
@@ -66,6 +68,7 @@ import type {
   AdminDefectCode,
   AdminDefectLocation,
   AdminWorkCenter,
+  AdminWorkCenterGroup,
   AdminCharacteristic,
   AdminControlPlan,
   AdminAsset,
@@ -115,11 +118,16 @@ export const workCenterApi = {
 export const productionLineApi = {
   getProductionLines: (siteCode: string) =>
     api.get<ProductionLine[]>(`/productionlines?siteCode=${encodeURIComponent(siteCode)}`),
+  getAll: () =>
+    api.get<ProductionLineAdmin[]>('/productionlines/all'),
 };
 
 export const assetApi = {
-  getAssets: (workCenterId: string) =>
-    api.get<Asset[]>(`/assets?workCenterId=${encodeURIComponent(workCenterId)}`),
+  getAssets: (workCenterId: string, productionLineId?: string) => {
+    const params = new URLSearchParams({ workCenterId });
+    if (productionLineId) params.set('productionLineId', productionLineId);
+    return api.get<Asset[]>(`/assets?${params}`);
+  },
 };
 
 export const tabletSetupApi = {
@@ -256,19 +264,21 @@ export const adminDefectCodeApi = {
   getAll: () => api.get<AdminDefectCode[]>('/defect-codes'),
   create: (req: CreateDefectCodeRequest) => api.post<AdminDefectCode>('/defect-codes', req),
   update: (id: string, req: UpdateDefectCodeRequest) => api.put<AdminDefectCode>(`/defect-codes/${id}`, req),
-  remove: (id: string) => api.delete<void>(`/defect-codes/${id}`),
+  remove: (id: string) => api.delete<AdminDefectCode>(`/defect-codes/${id}`),
 };
 
 export const adminDefectLocationApi = {
   getAll: () => api.get<AdminDefectLocation[]>('/defect-locations'),
   create: (req: CreateDefectLocationRequest) => api.post<AdminDefectLocation>('/defect-locations', req),
   update: (id: string, req: UpdateDefectLocationRequest) => api.put<AdminDefectLocation>(`/defect-locations/${id}`, req),
-  remove: (id: string) => api.delete<void>(`/defect-locations/${id}`),
+  remove: (id: string) => api.delete<AdminDefectLocation>(`/defect-locations/${id}`),
 };
 
 export const adminWorkCenterApi = {
   getAll: () => api.get<AdminWorkCenter[]>('/workcenters/admin'),
+  getGrouped: () => api.get<AdminWorkCenterGroup[]>('/workcenters/admin/grouped'),
   updateConfig: (id: string, req: UpdateWorkCenterConfigRequest) => api.put<AdminWorkCenter>(`/workcenters/${id}/config`, req),
+  updateGroup: (groupId: string, req: UpdateWorkCenterGroupRequest) => api.put<AdminWorkCenterGroup>(`/workcenters/admin/group/${groupId}`, req),
 };
 
 export const adminCharacteristicApi = {

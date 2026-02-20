@@ -49,7 +49,7 @@ public class WorkCenterService : IWorkCenterService
     public async Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo, cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder, cancellationToken);
         if (user == null)
             return null;
 
@@ -194,6 +194,7 @@ public class WorkCenterService : IWorkCenterService
             .Include(d => d.DefectCode)
             .Where(d => d.WorkCenterId == wcId)
             .Select(d => d.DefectCode)
+            .Where(d => d.IsActive)
             .Distinct()
             .OrderBy(d => d.Code)
             .ToListAsync(cancellationToken);
@@ -215,7 +216,7 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         var locations = await _db.DefectLocations
-            .Where(d => d.CharacteristicId != null && characteristicIds.Contains(d.CharacteristicId!.Value))
+            .Where(d => d.IsActive && d.CharacteristicId != null && characteristicIds.Contains(d.CharacteristicId!.Value))
             .OrderBy(d => d.Code)
             .ToListAsync(cancellationToken);
 

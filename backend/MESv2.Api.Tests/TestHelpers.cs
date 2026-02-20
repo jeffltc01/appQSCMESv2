@@ -37,7 +37,8 @@ public static class TestHelpers
             {
                 Id = TestAssetId,
                 Name = "Test Asset 1",
-                WorkCenterId = WorkCenter1Plt1Id
+                WorkCenterId = WorkCenter1Plt1Id,
+                ProductionLineId = ProductionLine1Plt1Id
             });
             context.SaveChanges();
         }

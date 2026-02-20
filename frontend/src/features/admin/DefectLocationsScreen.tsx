@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Dropdown, Option, Checkbox, Spinner } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminDefectLocationApi, adminCharacteristicApi } from '../../api/endpoints.ts';
 import type { AdminDefectLocation, AdminCharacteristic } from '../../types/domain.ts';
 import styles from './CardList.module.css';
@@ -20,6 +21,9 @@ export function DefectLocationsScreen() {
   const [name, setName] = useState('');
   const [defaultLocationDetail, setDefaultLocationDetail] = useState('');
   const [characteristicId, setCharacteristicId] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<AdminDefectLocation | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,7 +38,7 @@ export function DefectLocationsScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setCode(''); setName(''); setDefaultLocationDetail(''); setCharacteristicId('');
+    setCode(''); setName(''); setDefaultLocationDetail(''); setCharacteristicId(''); setIsActive(true);
     setError(''); setModalOpen(true);
   };
 
@@ -42,7 +46,7 @@ export function DefectLocationsScreen() {
     setEditing(item);
     setCode(item.code); setName(item.name);
     setDefaultLocationDetail(item.defaultLocationDetail ?? '');
-    setCharacteristicId(item.characteristicId ?? '');
+    setCharacteristicId(item.characteristicId ?? ''); setIsActive(item.isActive);
     setError(''); setModalOpen(true);
   };
 
@@ -53,6 +57,7 @@ export function DefectLocationsScreen() {
         code, name,
         defaultLocationDetail: defaultLocationDetail || undefined,
         characteristicId: characteristicId || undefined,
+        isActive,
       };
       if (editing) {
         const updated = await adminDefectLocationApi.update(editing.id, payload);
@@ -66,10 +71,15 @@ export function DefectLocationsScreen() {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this defect location?')) return;
-    try { await adminDefectLocationApi.remove(id); setItems(prev => prev.filter(d => d.id !== id)); }
-    catch { alert('Failed to delete defect location.'); }
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const updated = await adminDefectLocationApi.remove(deleteTarget.id);
+      setItems(prev => prev.map(d => d.id === updated.id ? updated : d));
+      setDeleteTarget(null);
+    } catch { alert('Failed to deactivate defect location.'); }
+    finally { setDeleting(false); }
   };
 
   return (
@@ -80,12 +90,12 @@ export function DefectLocationsScreen() {
         <div className={styles.grid}>
           {items.length === 0 && <div className={styles.emptyState}>No defect locations found.</div>}
           {items.map(item => (
-            <div key={item.id} className={styles.card}>
+            <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.code} &mdash; {item.name}</span>
                 <div className={styles.cardActions}>
                   <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => handleDelete(item.id)} />
+                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
                 </div>
               </div>
               {item.characteristicName && (
@@ -94,6 +104,9 @@ export function DefectLocationsScreen() {
                   <span className={styles.cardFieldValue}>{item.characteristicName}</span>
                 </div>
               )}
+              <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
+                {item.isActive ? 'Active' : 'Inactive'}
+              </span>
             </div>
           ))}
         </div>
@@ -124,7 +137,18 @@ export function DefectLocationsScreen() {
           <Option value="">None</Option>
           {characteristics.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
         </Dropdown>
+        {editing && (
+          <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
+        )}
       </AdminModal>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        itemName={deleteTarget ? `${deleteTarget.code} — ${deleteTarget.name}` : ''}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </AdminLayout>
   );
 }

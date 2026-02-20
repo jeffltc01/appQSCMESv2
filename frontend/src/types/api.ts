@@ -24,6 +24,7 @@ export interface LoginResponse {
     defaultSiteId: string;
     isCertifiedWelder: boolean;
     plantCode: string;
+    plantName: string;
     plantTimeZoneId: string;
   };
 }
@@ -218,6 +219,7 @@ export interface CreateUserRequest {
 }
 
 export interface UpdateUserRequest {
+  employeeNumber: string;
   firstName: string;
   lastName: string;
   displayName: string;
@@ -257,6 +259,7 @@ export interface UpdateDefectCodeRequest {
   severity?: string;
   systemType?: string;
   workCenterIds: string[];
+  isActive: boolean;
 }
 
 export interface CreateDefectLocationRequest {
@@ -271,11 +274,25 @@ export interface UpdateDefectLocationRequest {
   name: string;
   defaultLocationDetail?: string;
   characteristicId?: string;
+  isActive: boolean;
 }
 
 export interface UpdateWorkCenterConfigRequest {
   numberOfWelders: number;
   dataEntryType?: string;
+  materialQueueForWCId?: string;
+}
+
+export interface UpdateWorkCenterGroupRequest {
+  baseName: string;
+  dataEntryType?: string;
+  siteConfigs: UpdateSiteConfigRequest[];
+}
+
+export interface UpdateSiteConfigRequest {
+  workCenterId: string;
+  siteName: string;
+  numberOfWelders: number;
   materialQueueForWCId?: string;
 }
 
@@ -297,12 +314,14 @@ export interface UpdateControlPlanRequest {
 export interface CreateAssetRequest {
   name: string;
   workCenterId: string;
+  productionLineId: string;
   limbleIdentifier?: string;
 }
 
 export interface UpdateAssetRequest {
   name: string;
   workCenterId: string;
+  productionLineId: string;
   limbleIdentifier?: string;
 }
 

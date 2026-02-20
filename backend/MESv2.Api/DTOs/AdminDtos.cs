@@ -72,6 +72,7 @@ public class CreateUserDto
 
 public class UpdateUserDto
 {
+    public string EmployeeNumber { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
@@ -118,6 +119,7 @@ public class AdminDefectCodeDto
     public string? Severity { get; set; }
     public string? SystemType { get; set; }
     public List<Guid> WorkCenterIds { get; set; } = new();
+    public bool IsActive { get; set; } = true;
 }
 
 public class CreateDefectCodeDto
@@ -136,6 +138,7 @@ public class UpdateDefectCodeDto
     public string? Severity { get; set; }
     public string? SystemType { get; set; }
     public List<Guid> WorkCenterIds { get; set; } = new();
+    public bool IsActive { get; set; } = true;
 }
 
 // ---- Defect Locations ----
@@ -147,6 +150,7 @@ public class AdminDefectLocationDto
     public string? DefaultLocationDetail { get; set; }
     public Guid? CharacteristicId { get; set; }
     public string? CharacteristicName { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public class CreateDefectLocationDto
@@ -163,6 +167,7 @@ public class UpdateDefectLocationDto
     public string Name { get; set; } = string.Empty;
     public string? DefaultLocationDetail { get; set; }
     public Guid? CharacteristicId { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 // ---- Work Centers ----
@@ -182,6 +187,42 @@ public class UpdateWorkCenterConfigDto
 {
     public int NumberOfWelders { get; set; }
     public string? DataEntryType { get; set; }
+    public Guid? MaterialQueueForWCId { get; set; }
+}
+
+public class AdminWorkCenterGroupDto
+{
+    public Guid GroupId { get; set; }
+    public string BaseName { get; set; } = string.Empty;
+    public string WorkCenterTypeName { get; set; } = string.Empty;
+    public string? DataEntryType { get; set; }
+    public List<WorkCenterSiteConfigDto> SiteConfigs { get; set; } = new();
+}
+
+public class WorkCenterSiteConfigDto
+{
+    public Guid WorkCenterId { get; set; }
+    public Guid PlantId { get; set; }
+    public string PlantName { get; set; } = string.Empty;
+    public string SiteName { get; set; } = string.Empty;
+    public int NumberOfWelders { get; set; }
+    public Guid? ProductionLineId { get; set; }
+    public Guid? MaterialQueueForWCId { get; set; }
+    public string? MaterialQueueForWCName { get; set; }
+}
+
+public class UpdateWorkCenterGroupDto
+{
+    public string BaseName { get; set; } = string.Empty;
+    public string? DataEntryType { get; set; }
+    public List<UpdateSiteConfigDto> SiteConfigs { get; set; } = new();
+}
+
+public class UpdateSiteConfigDto
+{
+    public Guid WorkCenterId { get; set; }
+    public string SiteName { get; set; } = string.Empty;
+    public int NumberOfWelders { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
 }
 
@@ -235,6 +276,8 @@ public class AdminAssetDto
     public string Name { get; set; } = string.Empty;
     public Guid WorkCenterId { get; set; }
     public string WorkCenterName { get; set; } = string.Empty;
+    public Guid ProductionLineId { get; set; }
+    public string ProductionLineName { get; set; } = string.Empty;
     public string? LimbleIdentifier { get; set; }
 }
 
@@ -242,6 +285,7 @@ public class CreateAssetDto
 {
     public string Name { get; set; } = string.Empty;
     public Guid WorkCenterId { get; set; }
+    public Guid ProductionLineId { get; set; }
     public string? LimbleIdentifier { get; set; }
 }
 
@@ -249,6 +293,7 @@ public class UpdateAssetDto
 {
     public string Name { get; set; } = string.Empty;
     public Guid WorkCenterId { get; set; }
+    public Guid ProductionLineId { get; set; }
     public string? LimbleIdentifier { get; set; }
 }
 

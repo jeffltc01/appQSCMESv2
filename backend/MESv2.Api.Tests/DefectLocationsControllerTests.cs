@@ -64,7 +64,41 @@ public class DefectLocationsControllerTests
     }
 
     [Fact]
-    public async Task Delete_RemovesLocation()
+    public async Task Update_CanDeactivate()
+    {
+        var controller = CreateController(out var db);
+        var loc = db.DefectLocations.First();
+
+        var dto = new UpdateDefectLocationDto
+        {
+            Code = loc.Code,
+            Name = loc.Name,
+            CharacteristicId = loc.CharacteristicId,
+            IsActive = false
+        };
+
+        var result = await controller.Update(loc.Id, dto, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var updated = Assert.IsType<AdminDefectLocationDto>(ok.Value);
+        Assert.False(updated.IsActive);
+        var dbLoc = db.DefectLocations.Single(d => d.Id == loc.Id);
+        Assert.False(dbLoc.IsActive);
+    }
+
+    [Fact]
+    public async Task GetAll_IncludesIsActiveField()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetAll(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminDefectLocationDto>>(ok.Value).ToList();
+        Assert.All(list, d => Assert.True(d.IsActive));
+    }
+
+    [Fact]
+    public async Task Delete_SoftDeletesSetsInactive()
     {
         var controller = CreateController(out var db);
         var loc = new DefectLocation { Id = Guid.NewGuid(), Code = "DEL", Name = "To Delete" };
@@ -73,7 +107,11 @@ public class DefectLocationsControllerTests
 
         var result = await controller.Delete(loc.Id, CancellationToken.None);
 
-        Assert.IsType<NoContentResult>(result);
-        Assert.False(db.DefectLocations.Any(d => d.Id == loc.Id));
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var dto = Assert.IsType<AdminDefectLocationDto>(ok.Value);
+        Assert.False(dto.IsActive);
+        Assert.True(db.DefectLocations.Any(d => d.Id == loc.Id));
+        var dbLoc = db.DefectLocations.Single(d => d.Id == loc.Id);
+        Assert.False(dbLoc.IsActive);
     }
 }

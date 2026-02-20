@@ -49,8 +49,6 @@
   gap: 8px;
   justify-content: center;
   padding: 10px 0;
-  flex: 1;
-  min-height: 0;
 }
 
 .headSlot, .shellSlot {

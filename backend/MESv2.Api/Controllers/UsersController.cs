@@ -119,6 +119,7 @@ public class UsersController : ControllerBase
         var user = await _db.Users.FindAsync(new object[] { id }, cancellationToken);
         if (user == null) return NotFound();
 
+        user.EmployeeNumber = dto.EmployeeNumber;
         user.FirstName = dto.FirstName;
         user.LastName = dto.LastName;
         user.DisplayName = dto.DisplayName;

@@ -12,19 +12,15 @@ const vendorTypeOptions = ['mill', 'processor', 'head'];
 
 function parseSiteCodes(raw?: string | null): string[] {
   if (!raw) return [];
-  return raw.split(';').filter(Boolean);
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
 
 function joinSiteCodes(codes: string[]): string | undefined {
-  return codes.length > 0 ? codes.join(';') : undefined;
+  return codes.length > 0 ? codes.join(',') : undefined;
 }
 
-function siteCodesDisplay(raw: string | undefined | null, sites: Plant[]): string {
-  const codes = parseSiteCodes(raw);
-  if (codes.length === 0) return 'All Sites';
-  return codes
-    .map(c => sites.find(s => s.code === c)?.name ?? c)
-    .join(', ');
+function siteCodesToNames(codes: string[], sites: Plant[]): string[] {
+  return codes.map(c => sites.find(s => s.code === c)?.name ?? c);
 }
 
 export function VendorMaintenanceScreen() {
@@ -117,9 +113,17 @@ export function VendorMaintenanceScreen() {
                 <span className={styles.cardFieldValue}>{item.vendorType}</span>
               </div>
               <div className={styles.cardField}>
-                <span className={styles.cardFieldLabel}>Site</span>
+                <span className={styles.cardFieldLabel}>Sites</span>
                 <span className={styles.cardFieldValue}>
-                  {siteCodesDisplay(item.siteCode, sites)}
+                  {(() => {
+                    const codes = parseSiteCodes(item.siteCode);
+                    const names = siteCodesToNames(codes, sites);
+                    return names.length > 0 ? names.map(n => (
+                      <span key={n} className={`${styles.badge} ${styles.badgeBlue}`} style={{ marginRight: 4 }}>
+                        {n}
+                      </span>
+                    )) : '—';
+                  })()}
                 </span>
               </div>
               <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
@@ -153,17 +157,17 @@ export function VendorMaintenanceScreen() {
             <Option key={t} value={t}>{t}</Option>
           ))}
         </Dropdown>
-        <Label>Sites (leave empty for all sites)</Label>
+        <Label>Sites</Label>
         <Dropdown
           multiselect
           value={selectedSites.length > 0
             ? selectedSites.map(c => sites.find(s => s.code === c)?.name ?? c).join(', ')
-            : 'All Sites'}
+            : ''}
           selectedOptions={selectedSites}
           onOptionSelect={(_, d: OptionOnSelectData) => {
             setSelectedSites(d.selectedOptions.filter(Boolean));
           }}
-          placeholder="All Sites"
+          placeholder="Select sites..."
         >
           {sites.map(s => (
             <Option key={s.code} value={s.code} text={`${s.name} (${s.code})`}>

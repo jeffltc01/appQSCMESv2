@@ -85,7 +85,43 @@ public class DefectCodesControllerTests
     }
 
     [Fact]
-    public async Task Delete_RemovesCodeAndJunctions()
+    public async Task Update_CanDeactivate()
+    {
+        var controller = CreateController(out var db);
+        var code = new DefectCode { Id = Guid.NewGuid(), Code = "350", Name = "Deactivate Me" };
+        db.DefectCodes.Add(code);
+        await db.SaveChangesAsync();
+
+        var dto = new UpdateDefectCodeDto
+        {
+            Code = "350",
+            Name = "Deactivate Me",
+            IsActive = false,
+            WorkCenterIds = new List<Guid>()
+        };
+
+        var result = await controller.Update(code.Id, dto, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var updated = Assert.IsType<AdminDefectCodeDto>(ok.Value);
+        Assert.False(updated.IsActive);
+        var dbCode = db.DefectCodes.Single(d => d.Id == code.Id);
+        Assert.False(dbCode.IsActive);
+    }
+
+    [Fact]
+    public async Task GetAll_IncludesIsActiveField()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetAll(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminDefectCodeDto>>(ok.Value).ToList();
+        Assert.All(list, d => Assert.True(d.IsActive));
+    }
+
+    [Fact]
+    public async Task Delete_SoftDeletesSetsInactive()
     {
         var controller = CreateController(out var db);
         var code = new DefectCode { Id = Guid.NewGuid(), Code = "400", Name = "To Delete" };
@@ -95,8 +131,11 @@ public class DefectCodesControllerTests
 
         var result = await controller.Delete(code.Id, CancellationToken.None);
 
-        Assert.IsType<NoContentResult>(result);
-        Assert.False(db.DefectCodes.Any(d => d.Id == code.Id));
-        Assert.False(db.DefectWorkCenters.Any(dw => dw.DefectCodeId == code.Id));
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var dto = Assert.IsType<AdminDefectCodeDto>(ok.Value);
+        Assert.False(dto.IsActive);
+        Assert.True(db.DefectCodes.Any(d => d.Id == code.Id));
+        var dbCode = db.DefectCodes.Single(d => d.Id == code.Id);
+        Assert.False(dbCode.IsActive);
     }
 }

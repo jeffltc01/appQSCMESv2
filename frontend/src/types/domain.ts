@@ -11,6 +11,13 @@ export interface ProductionLine {
   plantId: string;
 }
 
+export interface ProductionLineAdmin {
+  id: string;
+  name: string;
+  plantId: string;
+  plantName: string;
+}
+
 export interface WorkCenter {
   id: string;
   name: string;
@@ -299,6 +306,7 @@ export interface AdminDefectCode {
   severity?: string;
   systemType?: string;
   workCenterIds: string[];
+  isActive: boolean;
 }
 
 export interface AdminDefectLocation {
@@ -308,6 +316,7 @@ export interface AdminDefectLocation {
   defaultLocationDetail?: string;
   characteristicId?: string;
   characteristicName?: string;
+  isActive: boolean;
 }
 
 export interface AdminWorkCenter {
@@ -317,6 +326,25 @@ export interface AdminWorkCenter {
   plantName: string;
   numberOfWelders: number;
   dataEntryType?: string;
+  materialQueueForWCId?: string;
+  materialQueueForWCName?: string;
+}
+
+export interface AdminWorkCenterGroup {
+  groupId: string;
+  baseName: string;
+  workCenterTypeName: string;
+  dataEntryType?: string;
+  siteConfigs: WorkCenterSiteConfig[];
+}
+
+export interface WorkCenterSiteConfig {
+  workCenterId: string;
+  plantId: string;
+  plantName: string;
+  siteName: string;
+  numberOfWelders: number;
+  productionLineId?: string;
   materialQueueForWCId?: string;
   materialQueueForWCName?: string;
 }
@@ -348,6 +376,8 @@ export interface AdminAsset {
   name: string;
   workCenterId: string;
   workCenterName: string;
+  productionLineId: string;
+  productionLineName: string;
   limbleIdentifier?: string;
 }
 

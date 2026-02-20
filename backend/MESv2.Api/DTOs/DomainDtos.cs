@@ -15,6 +15,14 @@ public class ProductionLineDto
     public Guid PlantId { get; set; }
 }
 
+public class ProductionLineAdminDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
+    public string PlantName { get; set; } = string.Empty;
+}
+
 public class WorkCenterDto
 {
     public Guid Id { get; set; }

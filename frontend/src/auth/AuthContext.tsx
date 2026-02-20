@@ -10,6 +10,7 @@ export interface AuthUser {
   isCertifiedWelder: boolean;
   userType: number;
   plantCode: string;
+  plantName: string;
   plantTimeZoneId: string;
 }
 

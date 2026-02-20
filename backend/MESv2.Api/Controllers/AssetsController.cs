@@ -18,10 +18,15 @@ public class AssetsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<AssetDto>>> GetAssets([FromQuery] Guid workCenterId, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AssetDto>>> GetAssets([FromQuery] Guid? workCenterId, [FromQuery] Guid? productionLineId, CancellationToken cancellationToken)
     {
-        var list = await _db.Assets
-            .Where(a => a.WorkCenterId == workCenterId)
+        var query = _db.Assets.AsQueryable();
+        if (workCenterId.HasValue)
+            query = query.Where(a => a.WorkCenterId == workCenterId.Value);
+        if (productionLineId.HasValue)
+            query = query.Where(a => a.ProductionLineId == productionLineId.Value);
+
+        var list = await query
             .OrderBy(a => a.Name)
             .Select(a => new AssetDto { Id = a.Id, Name = a.Name, WorkCenterId = a.WorkCenterId })
             .ToListAsync(cancellationToken);
@@ -33,6 +38,7 @@ public class AssetsController : ControllerBase
     {
         var list = await _db.Assets
             .Include(a => a.WorkCenter)
+            .Include(a => a.ProductionLine)
             .OrderBy(a => a.WorkCenter.Name).ThenBy(a => a.Name)
             .Select(a => new AdminAssetDto
             {
@@ -40,6 +46,8 @@ public class AssetsController : ControllerBase
                 Name = a.Name,
                 WorkCenterId = a.WorkCenterId,
                 WorkCenterName = a.WorkCenter.Name,
+                ProductionLineId = a.ProductionLineId,
+                ProductionLineName = a.ProductionLine.Name + " (" + a.ProductionLine.Plant.Name + ")",
                 LimbleIdentifier = a.LimbleIdentifier
             })
             .ToListAsync(cancellationToken);
@@ -54,13 +62,15 @@ public class AssetsController : ControllerBase
             Id = Guid.NewGuid(),
             Name = dto.Name,
             WorkCenterId = dto.WorkCenterId,
+            ProductionLineId = dto.ProductionLineId,
             LimbleIdentifier = dto.LimbleIdentifier
         };
         _db.Assets.Add(asset);
         await _db.SaveChangesAsync(cancellationToken);
 
-        var wcName = (await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken))?.Name ?? "";
-        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wcName, LimbleIdentifier = asset.LimbleIdentifier });
+        var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
+        var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier });
     }
 
     [HttpPut("{id:guid}")]
@@ -71,10 +81,12 @@ public class AssetsController : ControllerBase
 
         asset.Name = dto.Name;
         asset.WorkCenterId = dto.WorkCenterId;
+        asset.ProductionLineId = dto.ProductionLineId;
         asset.LimbleIdentifier = dto.LimbleIdentifier;
         await _db.SaveChangesAsync(cancellationToken);
 
-        var wcName = (await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken))?.Name ?? "";
-        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wcName, LimbleIdentifier = asset.LimbleIdentifier });
+        var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
+        var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier });
     }
 }

@@ -66,6 +66,19 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Login_ReturnsPlantName_ForUserPlant()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var config = CreateConfig();
+        var sut = new AuthService(db, config);
+
+        var result = await sut.LoginAsync("EMP001", null, TestHelpers.PlantPlt1Id, false);
+
+        Assert.NotNull(result);
+        Assert.False(string.IsNullOrEmpty(result.User.PlantName));
+    }
+
+    [Fact]
     public async Task Login_ReturnsPlantTimeZoneId_ForUserPlant()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

@@ -33,6 +33,7 @@ public class AdminAssetsControllerTests
         {
             Name = "New Asset",
             WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             LimbleIdentifier = "LMB-001"
         };
 
@@ -42,6 +43,7 @@ public class AdminAssetsControllerTests
         var created = Assert.IsType<AdminAssetDto>(ok.Value);
         Assert.Equal("New Asset", created.Name);
         Assert.Equal("LMB-001", created.LimbleIdentifier);
+        Assert.Equal(TestHelpers.ProductionLine1Plt1Id, created.ProductionLineId);
         Assert.True(db.Assets.Any(a => a.Name == "New Asset"));
     }
 
@@ -49,11 +51,11 @@ public class AdminAssetsControllerTests
     public async Task UpdateAsset_ModifiesFields()
     {
         var controller = CreateController(out var db);
-        var asset = new Asset { Id = Guid.NewGuid(), Name = "Old Asset", WorkCenterId = TestHelpers.WorkCenter1Plt1Id };
+        var asset = new Asset { Id = Guid.NewGuid(), Name = "Old Asset", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        var dto = new UpdateAssetDto { Name = "Updated Asset", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, LimbleIdentifier = "LMB-002" };
+        var dto = new UpdateAssetDto { Name = "Updated Asset", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, ProductionLineId = TestHelpers.ProductionLine1Plt1Id, LimbleIdentifier = "LMB-002" };
         var result = await controller.UpdateAsset(asset.Id, dto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -63,10 +65,25 @@ public class AdminAssetsControllerTests
     }
 
     [Fact]
+    public async Task GetAllAssets_IncludesProductionLineInfo()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetAllAssets(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminAssetDto>>(ok.Value).ToList();
+        Assert.All(list, a =>
+        {
+            Assert.NotEqual(Guid.Empty, a.ProductionLineId);
+            Assert.False(string.IsNullOrEmpty(a.ProductionLineName));
+        });
+    }
+
+    [Fact]
     public async Task UpdateAsset_ReturnsNotFound_WhenMissing()
     {
         var controller = CreateController(out _);
-        var dto = new UpdateAssetDto { Name = "X", WorkCenterId = TestHelpers.WorkCenter1Plt1Id };
+        var dto = new UpdateAssetDto { Name = "X", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
         var result = await controller.UpdateAsset(Guid.NewGuid(), dto, CancellationToken.None);
         Assert.IsType<NotFoundResult>(result.Result);
     }

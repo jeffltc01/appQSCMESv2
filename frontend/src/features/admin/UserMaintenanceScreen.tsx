@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Dropdown, Option, Checkbox, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Dropdown, Option, Checkbox, Spinner, SearchBox } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
@@ -25,6 +25,7 @@ export function UserMaintenanceScreen() {
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [search, setSearch] = useState('');
 
   const [employeeNumber, setEmployeeNumber] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -78,7 +79,7 @@ export function UserMaintenanceScreen() {
     try {
       if (editing) {
         const updated = await adminUserApi.update(editing.id, {
-          firstName, lastName, displayName, roleTier, roleName,
+          employeeNumber, firstName, lastName, displayName, roleTier, roleName,
           defaultSiteId, isCertifiedWelder, requirePinForLogin, userType, isActive,
         });
         setItems(prev => prev.map(u => u.id === updated.id ? updated : u));
@@ -105,14 +106,31 @@ export function UserMaintenanceScreen() {
     finally { setDeleting(false); }
   };
 
+  const filteredItems = items.filter(item => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return item.displayName.toLowerCase().includes(q)
+      || item.firstName.toLowerCase().includes(q)
+      || item.lastName.toLowerCase().includes(q)
+      || item.employeeNumber.toLowerCase().includes(q);
+  });
+
   return (
     <AdminLayout title="User Maintenance" onAdd={openAdd} addLabel="Add User">
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
+        <>
+        <div className={styles.filterBar}>
+          <SearchBox
+            placeholder="Search by name or employee #..."
+            value={search}
+            onChange={(_, d) => setSearch(d.value)}
+          />
+        </div>
         <div className={styles.grid}>
-          {items.length === 0 && <div className={styles.emptyState}>No users found.</div>}
-          {items.map(item => (
+          {filteredItems.length === 0 && <div className={styles.emptyState}>No users found.</div>}
+          {filteredItems.map(item => (
             <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.displayName}</span>
@@ -147,6 +165,7 @@ export function UserMaintenanceScreen() {
             </div>
           ))}
         </div>
+        </>
       )}
 
       <AdminModal
@@ -159,10 +178,8 @@ export function UserMaintenanceScreen() {
         error={error}
         confirmDisabled={!firstName || !lastName || !displayName || !defaultSiteId}
       >
-        {!editing && (
-          <><Label>Employee Number</Label>
-          <Input value={employeeNumber} onChange={(_, d) => setEmployeeNumber(d.value)} /></>
-        )}
+        <Label>Employee Number</Label>
+        <Input value={employeeNumber} onChange={(_, d) => setEmployeeNumber(d.value)} />
         <Label>First Name</Label>
         <Input value={firstName} onChange={(_, d) => setFirstName(d.value)} />
         <Label>Last Name</Label>

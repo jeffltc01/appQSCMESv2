@@ -154,4 +154,68 @@ public class WorkCenterServiceTests
         Assert.Equal("DC1", result[0].Code);
         Assert.Equal("Defect 1", result[0].Name);
     }
+
+    [Fact]
+    public async Task GetDefectCodes_ExcludesInactive()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var activeId = Guid.NewGuid();
+        var inactiveId = Guid.NewGuid();
+        db.DefectCodes.Add(new DefectCode { Id = activeId, Code = "A1", Name = "Active", IsActive = true });
+        db.DefectCodes.Add(new DefectCode { Id = inactiveId, Code = "I1", Name = "Inactive", IsActive = false });
+        db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = activeId, WorkCenterId = TestHelpers.WorkCenter1Plt1Id });
+        db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = inactiveId, WorkCenterId = TestHelpers.WorkCenter1Plt1Id });
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db);
+        var result = await sut.GetDefectCodesAsync(TestHelpers.WorkCenter1Plt1Id);
+
+        Assert.Single(result);
+        Assert.Equal("A1", result[0].Code);
+    }
+
+    [Fact]
+    public async Task AddWelder_ReturnsNull_WhenNotCertified()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.IsCertifiedWelder = false;
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db);
+        var result = await sut.AddWelderAsync(TestHelpers.WorkCenter1Plt1Id, "EMP001");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task AddWelder_ReturnsWelder_WhenCertified()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.IsCertifiedWelder = true;
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db);
+        var result = await sut.AddWelderAsync(TestHelpers.WorkCenter1Plt1Id, "EMP001");
+
+        Assert.NotNull(result);
+        Assert.Equal(user.Id, result.UserId);
+        Assert.Equal("EMP001", result.EmployeeNumber);
+    }
+
+    [Fact]
+    public async Task AddWelder_ReturnsNull_WhenInactive()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.IsCertifiedWelder = true;
+        user.IsActive = false;
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db);
+        var result = await sut.AddWelderAsync(TestHelpers.WorkCenter1Plt1Id, "EMP001");
+
+        Assert.Null(result);
+    }
 }

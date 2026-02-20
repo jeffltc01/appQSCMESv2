@@ -10,6 +10,7 @@ public class WorkCenter
     public int NumberOfWelders { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+    public Guid WorkCenterGroupId { get; set; }
 
     public Plant Plant { get; set; } = null!;
     public WorkCenterType WorkCenterType { get; set; } = null!;
