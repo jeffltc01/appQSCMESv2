@@ -367,7 +367,7 @@ Shared across all sites (no SiteCode). Production records are tagged with the si
 | **WorkCenterName** | string | Display name (shared across all plants) |
 | **DataEntryType** | string | Frontend routing key — determines which screen component to load |
 | **MaterialQueueForWCId** | GUID (FK, nullable) | For queue screens — points to the production WC they feed |
-| **NoOfWelders** | int | Minimum welders required to start logging data (0 = none) |
+| **NumberOfWelders** | int | Minimum welders required to start logging data (0 = none). Enforced by the Welder Gate dialog in the operator layout. |
 | **AllowRecordDefects** | bit | Whether this WC logs defects |
 | **ForceLabelValidation** | bit | Dual-label match enforcement (Rolls only) |
 | **ProductionSequence** | decimal | Ordering (1.0 Rolls → 9.0 Hydro, 1000 = material handling) |

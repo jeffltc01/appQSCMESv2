@@ -13,8 +13,8 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
   return {
     workCenterId: 'wc-rs', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
-    requiresWelder: true, externalInput: false,
-    showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(), setRequiresWelder: vi.fn(),
+    numberOfWelders: 1, externalInput: false,
+    showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };
 }
@@ -26,11 +26,6 @@ function renderScreen(overrides: Partial<WorkCenterProps> = {}) {
 
 describe('RoundSeamScreen', () => {
   beforeEach(() => { vi.clearAllMocks(); });
-
-  it('sets requiresWelder to true', () => {
-    const { props } = renderScreen();
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(true);
-  });
 
   it('shows warning when setup not complete', async () => {
     renderScreen();

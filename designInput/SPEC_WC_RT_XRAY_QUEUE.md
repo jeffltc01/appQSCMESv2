@@ -7,7 +7,7 @@
 | **Work Center** | Real Time X-ray Queue |
 | **Purpose** | An operator near the x-ray loading area scans shell barcodes into a queue. The Real Time X-ray operator — who cannot see or scan the shell once it's inside the equipment — pulls from this queue in a separate application. |
 | **Operator Role** | Operator (6.0) |
-| **Requires Welder** | No |
+| **NumberOfWelders** | 0 |
 | **Auto-Print Label** | No |
 | **Input Modes** | External Input (barcode scanning) — primary mode; Manual Mode available as fallback |
 | **Device** | Samsung tablet |

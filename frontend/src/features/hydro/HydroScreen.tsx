@@ -20,7 +20,7 @@ interface DefectWizardState {
 export function HydroScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, operatorId,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [state, setState] = useState<HydroState>('WaitingForScans');
@@ -36,7 +36,6 @@ export function HydroScreen(props: WorkCenterProps) {
   const [manualInput, setManualInput] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadLookups();
   }, [workCenterId]);
 

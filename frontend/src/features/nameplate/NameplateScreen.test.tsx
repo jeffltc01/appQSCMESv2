@@ -12,8 +12,8 @@ vi.mock('../../api/endpoints', () => ({
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
     workCenterId: 'wc-np', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
-    welders: [], requiresWelder: false, externalInput: false,
-    showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(), setRequiresWelder: vi.fn(),
+    welders: [], numberOfWelders: 0, externalInput: false,
+    showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };
 }
@@ -25,11 +25,6 @@ function renderScreen(overrides: Partial<WorkCenterProps> = {}) {
 
 describe('NameplateScreen', () => {
   beforeEach(() => { vi.clearAllMocks(); });
-
-  it('sets requiresWelder to false', () => {
-    const { props } = renderScreen();
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(false);
-  });
 
   it('has serial number input', () => {
     renderScreen();

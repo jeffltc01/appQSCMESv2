@@ -89,18 +89,32 @@ The Welder(s) section displays currently active welders at this work center and 
 | **Persistence** | The welder list is stored server-side against the work center's current session. If the operator logs out, the welder list is cleared. |
 | **API** | `POST /workcenters/{id}/welders` to add, `DELETE /workcenters/{id}/welders/{userId}` to remove, `GET /workcenters/{id}/welders` to refresh. |
 
-#### Welder Minimum Enforcement
+#### Welder Minimum Enforcement (Welder Gate)
 
-Certain work centers require a minimum number of active welders before production data can be logged. This is driven by the `NoOfWelders` field on the WorkCenter entity (0 = no welders required, 1+ = that many welders must be signed in).
+Certain work centers require a minimum number of active welders before production data can be logged. This is driven by the `NumberOfWelders` field on the WorkCenter entity (0 = no welders required, 1+ = that many welders must be signed in). The value is cached in `localStorage` (`cachedNumberOfWelders`) during Tablet Setup so the operator layout can enforce it immediately.
+
+**Blocking Dialog (Welder Gate):**
+
+When a user navigates to the operator screen and the work center's `NumberOfWelders > 0` but fewer welders are currently signed in, a **full-screen blocking dialog** is displayed that prevents all interaction with the work center content behind it. The dialog:
+
+1. Displays the title "Welder Sign-In Required" and a status message indicating how many welders are needed (e.g., "This work center requires 1 welder. Add a welder to continue.").
+2. Shows any welders already signed in as removable chips (name + employee number).
+3. Provides an **Employee Number** input field and an **Add Welder** button. When the employee number is submitted, the API is called (`POST /workcenters/{id}/welders`) to look up and add the welder. If the employee is not found or not a certified welder, an error message is shown.
+4. Provides a **Cancel** button. Pressing Cancel navigates the user back to the **Tablet Setup** screen (`/tablet-setup`), effectively returning them to the main menu.
+5. The dialog **cannot be dismissed** by tapping outside it. The only ways past it are: (a) adding enough welders to meet the minimum, or (b) pressing Cancel.
+6. Once `welders.length >= NumberOfWelders`, the dialog disappears automatically and the work center screen becomes fully interactive.
 
 | Scenario | Behavior |
 |---|---|
-| **Welders signed in < NoOfWelders** | Save/submit actions are blocked. The work center content area displays a persistent banner: "{N} welder(s) must be signed in before logging data." The save barcode (`S;1`) returns a red overlay with the same message. |
-| **Welders signed in >= NoOfWelders** | Normal operation — no banner, all save/submit actions enabled. |
-| **NoOfWelders = 0** | Normal operation regardless of welder list state. |
-| **Welder removed, count drops below minimum** | The persistent banner reappears immediately and save actions are re-disabled. |
+| **Welders signed in < NumberOfWelders** | Welder Gate dialog blocks the screen. All work center interaction is prevented until the minimum is met. |
+| **Welders signed in >= NumberOfWelders** | Normal operation — no dialog, all save/submit actions enabled. |
+| **NumberOfWelders = 0** | Normal operation regardless of welder list state. |
+| **Welder removed, count drops below minimum** | The Welder Gate dialog reappears immediately and blocks the screen until a replacement welder is added or the user cancels. |
+| **Auto-add via login** | If the operator logged in with the Welder toggle ON, they are automatically added to the welder list. If this satisfies the minimum, the Welder Gate does not appear. |
 
-Enforcement is applied both **client-side** (UI disables save, shows banner) and **server-side** (API rejects production record submissions if the active welder count is below the work center's `NoOfWelders` minimum).
+Enforcement is applied both **client-side** (Welder Gate dialog) and **server-side** (API rejects production record submissions if the active welder count is below the work center's `NumberOfWelders` minimum).
+
+**Note on per-screen enforcement:** Individual work center screens do **not** need to implement their own welder checks. The Welder Gate in the operator layout is the single point of enforcement. Screens receive the `welders` array and `numberOfWelders` count via props for display or record-creation purposes, but they rely on the layout to guarantee the minimum is met before they become accessible.
 
 ### 3.5 Top Bar Styling
 

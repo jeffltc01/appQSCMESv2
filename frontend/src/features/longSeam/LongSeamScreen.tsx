@@ -9,14 +9,10 @@ import styles from './LongSeamScreen.module.css';
 export function LongSeamScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [manualSerial, setManualSerial] = useState('');
-
-  useEffect(() => {
-    setRequiresWelder(true);
-  }, [setRequiresWelder]);
 
   const recordShell = useCallback(
     async (serial: string) => {

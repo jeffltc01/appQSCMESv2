@@ -33,6 +33,7 @@ export interface TabletCache {
   cachedAssetId: string;
   cachedAssetName: string;
   cachedMaterialQueueForWCId?: string;
+  cachedNumberOfWelders: number;
 }
 
 export function getTabletCache(): TabletCache | null {
@@ -47,6 +48,7 @@ export function getTabletCache(): TabletCache | null {
       cachedAssetId: localStorage.getItem('cachedAssetId') ?? '',
       cachedAssetName: localStorage.getItem('cachedAssetName') ?? '',
       cachedMaterialQueueForWCId: localStorage.getItem('cachedMaterialQueueForWCId') ?? undefined,
+      cachedNumberOfWelders: parseInt(localStorage.getItem('cachedNumberOfWelders') ?? '0', 10),
     };
   } catch {
     return null;
@@ -65,4 +67,5 @@ export function setTabletCache(cache: TabletCache) {
   } else {
     localStorage.removeItem('cachedMaterialQueueForWCId');
   }
+  localStorage.setItem('cachedNumberOfWelders', String(cache.cachedNumberOfWelders));
 }

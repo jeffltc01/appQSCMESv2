@@ -18,7 +18,7 @@ function seamCountForSize(size: number): number {
 export function RoundSeamScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [setup, setSetup] = useState<RoundSeamSetup | null>(null);
@@ -29,7 +29,6 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   const [manualSerial, setManualSerial] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(true);
     loadSetup();
     loadAvailableWelders();
   }, [workCenterId]);

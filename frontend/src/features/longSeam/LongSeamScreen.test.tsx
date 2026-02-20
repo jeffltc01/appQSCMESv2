@@ -20,12 +20,11 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     productionLineId: 'pl-1',
     operatorId: 'op-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
-    requiresWelder: true,
+    numberOfWelders: 1,
     externalInput: false,
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),
-    setRequiresWelder: vi.fn(),
     ...overrides,
   };
 }
@@ -50,11 +49,6 @@ describe('LongSeamScreen', () => {
   it('renders prompt to scan serial', () => {
     renderLongSeam();
     expect(screen.getByText(/scan serial number/i)).toBeInTheDocument();
-  });
-
-  it('sets requiresWelder to true', () => {
-    const { props } = renderLongSeam();
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(true);
   });
 
   it('has serial number input in manual mode', () => {

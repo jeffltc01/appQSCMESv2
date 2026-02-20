@@ -8,7 +8,7 @@
 | **Position in Line** | 6th — after Long Seam Inspection (and Real Time X-ray / Plasma which have no MES specs) |
 | **Purpose** | Shells are married to a left head and right head to form a tank assembly. The system assigns an Alpha Code that becomes the assembly's identifier for all downstream stations. |
 | **Operator Role** | Fitup Operator (6.0) |
-| **Requires Welder** | Yes — the operator tack-welds the assembly to hold components together |
+| **NumberOfWelders** | 1 — the operator tack-welds the assembly to hold components together |
 | **Auto-Print Label** | No — the alpha code is displayed on screen; operator writes it on the assembly (future: downstream stations look up the alpha code via shell barcode) |
 | **Input Modes** | External Input (barcode scanning) and Manual Mode (touch) |
 

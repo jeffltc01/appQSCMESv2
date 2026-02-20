@@ -7,7 +7,7 @@
 | **Work Center** | Fitup Queue |
 | **Purpose** | Material Handlers document head material loaded for the Fitup work center. This populates the Heads Queue that the Fitup operator selects from by scanning kanban cards. |
 | **Operator Role** | Material Handler / Operator (6.0) |
-| **Requires Welder** | No |
+| **NumberOfWelders** | 0 |
 | **Auto-Print Label** | No |
 | **Input Modes** | Manual Mode (touch/typing) + barcode scanner for Queue Card field only |
 | **Device** | Samsung tablet |

@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { RollsScreen } from './RollsScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
-import type { ScanResult } from '../../components/layout/ScanOverlay';
 
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: {
@@ -17,7 +15,7 @@ vi.mock('../../api/endpoints', () => ({
   },
 }));
 
-const { workCenterApi, productionRecordApi } = await import('../../api/endpoints');
+const { workCenterApi } = await import('../../api/endpoints');
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
@@ -26,12 +24,11 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     productionLineId: 'pl-1',
     operatorId: 'op-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
-    requiresWelder: true,
+    numberOfWelders: 1,
     externalInput: false,
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),
-    setRequiresWelder: vi.fn(),
     ...overrides,
   };
 }
@@ -56,11 +53,6 @@ describe('RollsScreen', () => {
   it('renders idle state prompting to advance queue', () => {
     renderRolls();
     expect(screen.getByText(/advance the material queue/i)).toBeInTheDocument();
-  });
-
-  it('sets requiresWelder to true', () => {
-    const { props } = renderRolls();
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(true);
   });
 
   it('displays material queue items', async () => {
@@ -118,4 +110,5 @@ describe('RollsScreen', () => {
     renderRolls();
     expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
   });
+
 });

@@ -19,7 +19,7 @@ interface PendingDefect {
 export function LongSeamInspScreen(props: WorkCenterProps) {
   const {
     workCenterId, operatorId,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [screenState, setScreenState] = useState<ScreenState>('WaitingForShell');
@@ -38,7 +38,6 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
   const [manualLocation, setManualLocation] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadLookups();
   }, [workCenterId]);
 

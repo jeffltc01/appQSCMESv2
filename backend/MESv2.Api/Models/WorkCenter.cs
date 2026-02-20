@@ -7,7 +7,7 @@ public class WorkCenter
     public Guid PlantId { get; set; }
     public Guid WorkCenterTypeId { get; set; }
     public Guid? ProductionLineId { get; set; }
-    public bool RequiresWelder { get; set; }
+    public int NumberOfWelders { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
 

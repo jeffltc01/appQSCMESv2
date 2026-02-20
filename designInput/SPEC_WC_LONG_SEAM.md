@@ -8,7 +8,7 @@
 | **Position in Line** | 2nd — after Rolls |
 | **Purpose** | The longitudinal seam on the rolled shell is fully welded shut. In terms of the MES application, this is a scan-through station — the operator scans the shell's barcode label to record that it passed through this work center, capturing the timestamp and welder. |
 | **Operator Role** | Long Seam Operator (6.0) |
-| **Requires Welder** | Yes — the operator welds the longitudinal seam |
+| **NumberOfWelders** | 1 — the operator welds the longitudinal seam |
 | **Auto-Print Label** | No — the shell already has pre-printed labels from Rolls |
 | **Input Modes** | External Input (barcode scanning) and Manual Mode (touch) |
 

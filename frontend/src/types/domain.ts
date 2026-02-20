@@ -16,7 +16,7 @@ export interface WorkCenter {
   plantId: string;
   workCenterTypeId: string;
   workCenterTypeName: string;
-  requiresWelder: boolean;
+  numberOfWelders: number;
   productionLineId?: string;
   dataEntryType?: string;
   materialQueueForWCId?: string;

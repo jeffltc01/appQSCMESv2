@@ -6,14 +6,13 @@ import { productApi, nameplateApi } from '../../api/endpoints.ts';
 import styles from './NameplateScreen.module.css';
 
 export function NameplateScreen(props: WorkCenterProps) {
-  const { workCenterId, operatorId, showScanResult, refreshHistory, setRequiresWelder } = props;
+  const { workCenterId, operatorId, showScanResult, refreshHistory } = props;
 
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadProducts();
   }, [workCenterId]);
 

@@ -36,12 +36,11 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     productionLineId: 'pl-1',
     operatorId: 'op-1',
     welders: [],
-    requiresWelder: false,
+    numberOfWelders: 0,
     externalInput: false,
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),
-    setRequiresWelder: vi.fn(),
     ...overrides,
   };
 }
@@ -66,11 +65,6 @@ describe('LongSeamInspScreen', () => {
   it('starts in WaitingForShell state', () => {
     renderInspection();
     expect(screen.getByText(/scan serial number/i)).toBeInTheDocument();
-  });
-
-  it('sets requiresWelder to false', () => {
-    const { props } = renderInspection();
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(false);
   });
 
   it('transitions to AwaitingDefects after shell scan', async () => {

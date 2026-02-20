@@ -7,8 +7,8 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
     workCenterId: 'wc-spot', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
-    welders: [], requiresWelder: false, externalInput: false,
-    showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(), setRequiresWelder: vi.fn(),
+    welders: [], numberOfWelders: 0, externalInput: false,
+    showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };
 }
@@ -21,9 +21,4 @@ describe('SpotXrayScreen', () => {
     expect(screen.getByText(/specification pending/i)).toBeInTheDocument();
   });
 
-  it('sets requiresWelder to false', () => {
-    const props = createProps();
-    render(<FluentProvider theme={webLightTheme}><SpotXrayScreen {...props} /></FluentProvider>);
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(false);
-  });
 });

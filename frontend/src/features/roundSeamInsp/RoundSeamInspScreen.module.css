@@ -2,51 +2,51 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
-  gap: 16px;
+  padding: 10px 12px;
+  gap: 8px;
 }
 
 .prompt {
-  font-size: 20px;
+  font-size: 18px;
   color: #868686;
   text-align: center;
-  padding: 20px 0;
+  padding: 10px 0;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   max-width: 480px;
   width: 100%;
   margin: 0 auto;
   background: #f8f9fa;
-  padding: 24px;
+  padding: 8px 12px;
   border: 1px solid #e5e5e5;
 }
 
 .label {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
 }
 
 .input {
-  min-height: 56px;
+  min-height: 40px;
 }
 
 .submitBtn {
-  min-height: 56px;
-  font-size: 18px;
+  min-height: 40px;
+  font-size: 16px;
   font-weight: 600;
   border-radius: 0 !important;
 }
 
 .header {
   display: flex;
-  gap: 24px;
+  gap: 10px;
   align-items: center;
-  padding: 8px 0;
-  font-size: 16px;
+  padding: 6px 0;
+  font-size: 14px;
 }
 
 .stateLabel {
@@ -63,39 +63,39 @@
 .tableHeader {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: #f8f9fa;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   border-bottom: 1px solid #e5e5e5;
 }
 
 .tableRow {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid #e5e5e5;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .emptyRow {
-  padding: 20px;
+  padding: 12px;
   text-align: center;
   color: #868686;
   font-style: italic;
 }
 
 .pendingHint {
-  font-size: 14px;
+  font-size: 13px;
   color: #ffc107;
   font-weight: 500;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .manualDefects {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .manualRow {
@@ -110,7 +110,7 @@
 
 .actionRow {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .actionRow button {

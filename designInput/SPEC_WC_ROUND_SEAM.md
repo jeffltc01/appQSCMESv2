@@ -8,7 +8,7 @@
 | **Position in Line** | 7th — after Fitup |
 | **Purpose** | The circumferential (round seam) welds are made using automated weld machines, joining shells to heads and shells to shells. Each round seam weld position is tracked to the individual welder who performed it. |
 | **Operator Role** | Round Seam Operator (6.0) |
-| **Requires Welder** | Yes — automated weld machines are operated by certified welders |
+| **NumberOfWelders** | 1 — automated weld machines are operated by certified welders |
 | **Auto-Print Label** | No |
 | **Input Modes** | External Input (barcode scanning) and Manual Mode (touch) |
 | **Weld Machines** | SAW (Submerged Arc Weld) and MIG machines — the specific machine is identified by the tablet's cached **Asset** |

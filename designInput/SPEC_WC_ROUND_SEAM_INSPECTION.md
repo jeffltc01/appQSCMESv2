@@ -8,7 +8,7 @@
 | **Position in Line** | 8th — after Round Seam |
 | **Purpose** | The inspector visually inspects the circumferential (round seam) welds on each assembly and logs any defects found. If no defects are found, the assembly is saved with a clean record. |
 | **Operator Role** | Inspector / Operator (6.0) |
-| **Requires Welder** | No — this is an inspection station |
+| **NumberOfWelders** | 0 — this is an inspection station |
 | **Auto-Print Label** | No |
 | **Input Modes** | External Input (barcode scanning) and Manual Mode (touch) |
 | **Scan Sheets** | Laminated reference sheets at the station for defect codes, locations, and characteristics |

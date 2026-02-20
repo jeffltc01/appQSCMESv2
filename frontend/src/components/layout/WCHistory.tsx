@@ -1,4 +1,4 @@
-import { NoteRegular } from '@fluentui/react-icons';
+import { FlagRegular, FlagFilled } from '@fluentui/react-icons';
 import type { WCHistoryData } from '../../types/domain.ts';
 import styles from './WCHistory.module.css';
 
@@ -9,41 +9,44 @@ interface WCHistoryProps {
 export function WCHistory({ data }: WCHistoryProps) {
   return (
     <div className={styles.container}>
-      <div className={styles.countSection}>
-        <span className={styles.countLabel}>Today</span>
-        <span className={styles.countValue}>{data.dayCount}</span>
+      <div className={styles.header}>
+        <span className={styles.headerTitle}>History</span>
+        <span className={styles.headerCount}>(Today&apos;s Count: {data.dayCount})</span>
       </div>
 
-      <div className={styles.divider} />
+      <div className={styles.tableHeader}>
+        <span className={styles.colAnnot}>Annot</span>
+        <span className={styles.colDateTime}>Date/Time</span>
+        <span className={styles.colSerial}>Shell Code / Serial No.</span>
+        <span className={styles.colSize}>Size</span>
+      </div>
 
-      <div className={styles.recentSection}>
-        <span className={styles.recentLabel}>Last 5</span>
+      <div className={styles.tableBody}>
         {data.recentRecords.length === 0 ? (
-          <span className={styles.noRecords}>No records today</span>
+          <div className={styles.noRecords}>No records today</div>
         ) : (
-          data.recentRecords.map((record) => (
-            <div key={record.id} className={styles.recordRow}>
-              <div className={styles.recordMain}>
-                <span className={styles.recordSerial}>{record.serialOrIdentifier}</span>
-                <span className={styles.recordSize}>{record.tankSize ?? ''}</span>
-              </div>
-              <div className={styles.recordMeta}>
-                <span className={styles.recordTime}>
-                  {new Date(record.timestamp).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true,
-                  })}
+          data.recentRecords.map((record) => {
+            const dt = new Date(record.timestamp);
+            const dateStr = `${dt.getMonth() + 1}/${dt.getDate()}`;
+            const timeStr = dt.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true,
+            });
+            return (
+              <div key={record.id} className={styles.row}>
+                <span className={styles.colAnnot}>
+                  {record.hasAnnotation
+                    ? <FlagFilled fontSize={14} className={styles.flagActive} />
+                    : <FlagRegular fontSize={14} className={styles.flagInactive} />}
                 </span>
-                <button
-                  className={`${styles.annotationFlag} ${record.hasAnnotation ? styles.hasAnnotation : ''}`}
-                  aria-label="Annotation"
-                >
-                  <NoteRegular fontSize={14} />
-                </button>
+                <span className={styles.colDateTime}>{dateStr} {timeStr}</span>
+                <span className={styles.colSerial}>{record.serialOrIdentifier}</span>
+                <span className={styles.colSize}>{record.tankSize ?? ''}</span>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

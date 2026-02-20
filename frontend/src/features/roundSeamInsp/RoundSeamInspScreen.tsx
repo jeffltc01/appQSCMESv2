@@ -21,7 +21,7 @@ interface PendingDefect {
 export function RoundSeamInspScreen(props: WorkCenterProps) {
   const {
     workCenterId, operatorId,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [screenState, setScreenState] = useState<ScreenState>('WaitingForShell');
@@ -40,7 +40,6 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
   const [manualLocation, setManualLocation] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadLookups();
   }, [workCenterId]);
 

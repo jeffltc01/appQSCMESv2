@@ -8,13 +8,12 @@ import { xrayQueueApi } from '../../api/endpoints.ts';
 import styles from './RtXrayQueueScreen.module.css';
 
 export function RtXrayQueueScreen(props: WorkCenterProps) {
-  const { workCenterId, operatorId, showScanResult, registerBarcodeHandler, setRequiresWelder } = props;
+  const { workCenterId, operatorId, showScanResult, registerBarcodeHandler } = props;
 
   const [queue, setQueue] = useState<XrayQueueItem[]>([]);
   const [manualSerial, setManualSerial] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadQueue();
   }, [workCenterId]);
 

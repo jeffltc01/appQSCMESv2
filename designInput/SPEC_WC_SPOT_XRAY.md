@@ -10,7 +10,7 @@
 | **Position in Line** | 9th — after Round Seam Inspection |
 | **Purpose** | Selected weld positions are x-rayed for quality verification. Ties back to per-seam welder data from Round Seam. |
 | **Operator Role** | TBD |
-| **Requires Welder** | TBD |
+| **NumberOfWelders** | TBD |
 | **Auto-Print Label** | TBD |
 | **Input Modes** | TBD |
 

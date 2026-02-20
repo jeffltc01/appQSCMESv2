@@ -2,18 +2,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 50px;
-  padding: 0 16px;
+  height: 36px;
+  padding: 0 12px;
   background: #343a40;
   color: #ffffff;
   font-family: 'Roboto', Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
 .plantTime {
   font-weight: 400;
-  min-width: 260px;
+  min-width: 240px;
 }
 
 .toggleArea {
@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.8;
 }
 

@@ -8,7 +8,7 @@
 | **Position in Line** | 3rd — after Long Seam |
 | **Purpose** | The inspector visually inspects the longitudinal weld seam on each shell and logs any defects found. If no defects are found, the shell is saved with a clean record. |
 | **Operator Role** | Inspector / Operator (6.0) |
-| **Requires Welder** | No — this is an inspection station |
+| **NumberOfWelders** | 0 — this is an inspection station |
 | **Auto-Print Label** | No — the shell already has labels from Rolls |
 | **Input Modes** | External Input (barcode scanning) and Manual Mode (touch) |
 | **Scan Sheets** | Laminated reference sheets at the station for defect codes and location codes |

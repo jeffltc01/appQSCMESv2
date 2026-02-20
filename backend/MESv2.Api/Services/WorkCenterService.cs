@@ -33,7 +33,7 @@ public class WorkCenterService : IWorkCenterService
             PlantId = w.PlantId,
             WorkCenterTypeId = w.WorkCenterTypeId,
             WorkCenterTypeName = w.WorkCenterType.Name,
-            RequiresWelder = w.RequiresWelder,
+            NumberOfWelders = w.NumberOfWelders,
             ProductionLineId = w.ProductionLineId,
             DataEntryType = w.DataEntryType,
             MaterialQueueForWCId = w.MaterialQueueForWCId

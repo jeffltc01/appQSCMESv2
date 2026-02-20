@@ -7,7 +7,7 @@
 | **Work Center** | Rolls Material |
 | **Purpose** | Material Handlers document the steel plate loaded for the Rolls work center. This populates the material queue that the Rolls operator advances from. |
 | **Operator Role** | Material Handler / Operator (6.0) |
-| **Requires Welder** | No |
+| **NumberOfWelders** | 0 |
 | **Auto-Print Label** | No |
 | **Input Modes** | Manual Mode only — no barcode scanner (vendors don't barcode plate well enough for scanning) |
 | **Device** | Samsung tablet (same as other work centers) |

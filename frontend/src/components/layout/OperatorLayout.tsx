@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Button, Input, Label } from '@fluentui/react-components';
+import { DismissRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { getTabletCache } from '../../hooks/useLocalStorage.ts';
 import { useBarcode } from '../../hooks/useBarcode.ts';
@@ -27,14 +29,22 @@ import styles from './OperatorLayout.module.css';
 
 export function OperatorLayout() {
   const { user, isWelder } = useAuth();
+  const navigate = useNavigate();
   const cache = getTabletCache();
+
+  const numberOfWelders = cache?.cachedNumberOfWelders ?? 0;
 
   const [externalInput, setExternalInput] = useState(false);
   const [welders, setWelders] = useState<Welder[]>([]);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const barcodeHandlerRef = useRef<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
   const [historyData, setHistoryData] = useState<WCHistoryData>({ dayCount: 0, recentRecords: [] });
-  const [requiresWelder, setRequiresWelder] = useState(false);
+  const [welderGateEmpNo, setWelderGateEmpNo] = useState('');
+  const [welderGateError, setWelderGateError] = useState('');
+  const [welderGateLoading, setWelderGateLoading] = useState(false);
+
+  const weldersSatisfied = welders.length >= numberOfWelders;
+  const showWelderGate = numberOfWelders > 0 && !weldersSatisfied;
 
   useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
@@ -137,19 +147,40 @@ export function OperatorLayout() {
     [cache?.cachedWorkCenterId, showScanResult],
   );
 
+  const handleWelderGateAdd = useCallback(async () => {
+    if (!welderGateEmpNo.trim() || !cache?.cachedWorkCenterId) return;
+    setWelderGateError('');
+    setWelderGateLoading(true);
+    try {
+      const w = await workCenterApi.addWelder(cache.cachedWorkCenterId, welderGateEmpNo.trim());
+      setWelders((prev) => {
+        if (prev.some((existing) => existing.userId === w.userId)) return prev;
+        return [...prev, w];
+      });
+      setWelderGateEmpNo('');
+    } catch {
+      setWelderGateError('Employee not found or not a certified welder');
+    } finally {
+      setWelderGateLoading(false);
+    }
+  }, [welderGateEmpNo, cache?.cachedWorkCenterId]);
+
+  const handleWelderGateCancel = useCallback(() => {
+    navigate('/tablet-setup');
+  }, [navigate]);
+
   const wcProps = {
     workCenterId: cache?.cachedWorkCenterId ?? '',
     assetId: cache?.cachedAssetId ?? '',
     productionLineId: cache?.cachedProductionLineId ?? '',
     operatorId: user?.id ?? '',
     welders,
-    requiresWelder,
+    numberOfWelders,
     externalInput,
     materialQueueForWCId: cache?.cachedMaterialQueueForWCId,
     showScanResult,
     refreshHistory,
     registerBarcodeHandler,
-    setRequiresWelder,
   };
 
   return (
@@ -172,11 +203,6 @@ export function OperatorLayout() {
           className={styles.content}
           style={{ pointerEvents: externalInput ? 'none' : 'auto' }}
         >
-          {requiresWelder && welders.length === 0 && (
-            <div className={styles.welderBanner}>
-              A welder must be signed in before logging data.
-            </div>
-          )}
           <Routes>
             <Route index element={<WorkCenterRouter {...wcProps} />} />
           </Routes>
@@ -206,6 +232,67 @@ export function OperatorLayout() {
       {scanResult && (
         <ScanOverlay result={scanResult} onDismiss={() => setScanResult(null)} />
       )}
+
+      {showWelderGate && (
+        <div className={styles.welderGateOverlay}>
+          <div className={styles.welderGateDialog}>
+            <h2 className={styles.welderGateTitle}>Welder Sign-In Required</h2>
+            <p className={styles.welderGateStatus}>
+              This work center requires {numberOfWelders} welder{numberOfWelders > 1 ? 's' : ''}.
+              {welders.length > 0
+                ? ` ${welders.length} of ${numberOfWelders} signed in.`
+                : ' Add a welder to continue.'}
+            </p>
+
+            {welders.length > 0 && (
+              <div className={styles.welderGateList}>
+                {welders.map((w) => (
+                  <div key={w.userId} className={styles.welderGateChip}>
+                    <span>{w.displayName} ({w.employeeNumber})</span>
+                    <button onClick={() => removeWelder(w.userId)} aria-label={`Remove ${w.displayName}`}>
+                      <DismissRegular fontSize={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className={styles.welderGateForm}>
+              <div style={{ flex: 1 }}>
+                <Label>Employee Number</Label>
+                <Input
+                  value={welderGateEmpNo}
+                  onChange={(_, d) => { setWelderGateEmpNo(d.value); setWelderGateError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleWelderGateAdd(); }}
+                  placeholder="Enter employee number..."
+                  size="large"
+                  inputMode="numeric"
+                  disabled={welderGateLoading}
+                />
+              </div>
+              <Button
+                appearance="primary"
+                size="large"
+                onClick={handleWelderGateAdd}
+                disabled={!welderGateEmpNo.trim() || welderGateLoading}
+                style={{ marginTop: 22 }}
+              >
+                Add Welder
+              </Button>
+            </div>
+
+            {welderGateError && (
+              <div style={{ color: '#dc3545', fontSize: 13 }}>{welderGateError}</div>
+            )}
+
+            <div className={styles.welderGateActions}>
+              <Button appearance="secondary" size="large" onClick={handleWelderGateCancel}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -216,13 +303,12 @@ export interface WorkCenterProps {
   productionLineId: string;
   operatorId: string;
   welders: Welder[];
-  requiresWelder: boolean;
+  numberOfWelders: number;
   externalInput: boolean;
   materialQueueForWCId?: string;
   showScanResult: (result: ScanResult) => void;
   refreshHistory: () => void;
   registerBarcodeHandler: (handler: (bc: ParsedBarcode | null, raw: string) => void) => void;
-  setRequiresWelder: (v: boolean) => void;
 }
 
 function WorkCenterRouter(props: WorkCenterProps) {

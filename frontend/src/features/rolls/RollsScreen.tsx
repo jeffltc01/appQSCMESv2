@@ -24,7 +24,7 @@ interface ActiveMaterial {
 export function RollsScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [scanState, setScanState] = useState<ScanState>('idle');
@@ -36,7 +36,6 @@ export function RollsScreen(props: WorkCenterProps) {
   const [manualSerial, setManualSerial] = useState('');
 
   useEffect(() => {
-    setRequiresWelder(true);
     loadQueue();
   }, [workCenterId]);
 

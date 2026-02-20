@@ -21,7 +21,7 @@ interface ShellSlot {
 export function FitupScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
-    showScanResult, refreshHistory, registerBarcodeHandler, setRequiresWelder,
+    showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [tankSize, setTankSize] = useState<number>(0);
@@ -40,7 +40,6 @@ export function FitupScreen(props: WorkCenterProps) {
   } | null>(null);
 
   useEffect(() => {
-    setRequiresWelder(true);
     loadHeadsQueue();
   }, [workCenterId]);
 

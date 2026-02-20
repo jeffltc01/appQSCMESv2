@@ -21,7 +21,7 @@ const emptyForm: FormData = {
 };
 
 export function RollsMaterialScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, setRequiresWelder, materialQueueForWCId } = props;
+  const { workCenterId, showScanResult, materialQueueForWCId } = props;
   const targetWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
@@ -34,7 +34,6 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
   const [selectingField, setSelectingField] = useState<'product' | 'mill' | 'processor' | null>(null);
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadQueue();
     loadLookups();
   }, [workCenterId]);

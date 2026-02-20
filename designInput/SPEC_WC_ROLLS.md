@@ -8,7 +8,7 @@
 | **Position in Line** | 1st — first station in the production sequence |
 | **Purpose** | Steel plate is fed into a rolling machine that forms it into a cylindrical tank shell. The operator tack-welds the shell to hold its shape, affixes two pre-printed barcode labels, and scans both to create a production record. |
 | **Operator Role** | Rolls Operator (6.0) |
-| **Requires Welder** | Yes — the operator tack-welds the rolled shell to keep it closed |
+| **NumberOfWelders** | 1 — the operator tack-welds the rolled shell to keep it closed |
 | **Auto-Print Label** | No — pre-printed barcodes are used because weld dust in the environment damages printers |
 | **Input Modes** | External Input (barcode scanning) and Manual Mode (touch) |
 

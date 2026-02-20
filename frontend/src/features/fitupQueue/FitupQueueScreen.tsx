@@ -22,7 +22,7 @@ const emptyForm: FormData = {
 };
 
 export function FitupQueueScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, registerBarcodeHandler, setRequiresWelder, materialQueueForWCId } = props;
+  const { workCenterId, showScanResult, registerBarcodeHandler, materialQueueForWCId } = props;
   const targetWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
@@ -35,7 +35,6 @@ export function FitupQueueScreen(props: WorkCenterProps) {
   const [selectedVendorType, setSelectedVendorType] = useState<'cmf' | 'compco' | null>(null);
 
   useEffect(() => {
-    setRequiresWelder(false);
     loadQueue();
     loadLookups();
   }, [workCenterId]);

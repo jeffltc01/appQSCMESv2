@@ -8,7 +8,7 @@
 | **Position in Line** | 10th — after Spot X-ray |
 | **Purpose** | Creates the nameplate that is welded onto the tank at Hydro. The nameplate is a steel plate etched with tank information. After etching, the operator enters the serial number into the MES, which prints a barcode label. A foil cover is placed over the nameplate and the printed barcode is affixed on top. |
 | **Operator Role** | Nameplate Operator (6.0) |
-| **Requires Welder** | No — etching equipment, not welding (nameplate is welded onto the tank later at Hydro) |
+| **NumberOfWelders** | 0 — etching equipment, not welding (nameplate is welded onto the tank later at Hydro) |
 | **Auto-Print Label** | Yes — a barcode label is printed on Save (via NiceLabel Cloud) |
 | **Input Device** | PC (not a tablet) — this station uses a desktop computer to access the MES application |
 | **Input Modes** | Manual Mode only — no barcode scanner at this station |

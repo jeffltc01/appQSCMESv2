@@ -21,7 +21,7 @@ public class WorkCenterDto
     public Guid PlantId { get; set; }
     public Guid WorkCenterTypeId { get; set; }
     public string WorkCenterTypeName { get; set; } = string.Empty;
-    public bool RequiresWelder { get; set; }
+    public int NumberOfWelders { get; set; }
     public Guid? ProductionLineId { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }

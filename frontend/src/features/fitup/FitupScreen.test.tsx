@@ -30,12 +30,11 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     productionLineId: 'pl-1',
     operatorId: 'op-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
-    requiresWelder: true,
+    numberOfWelders: 1,
     externalInput: false,
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),
-    setRequiresWelder: vi.fn(),
     ...overrides,
   };
 }
@@ -68,11 +67,6 @@ describe('FitupScreen', () => {
     expect(screen.getByText('Left Head')).toBeInTheDocument();
     expect(screen.getByText('Right Head')).toBeInTheDocument();
     expect(screen.getAllByText('Scan KC')).toHaveLength(2);
-  });
-
-  it('sets requiresWelder to true', () => {
-    const { props } = renderFitup();
-    expect(props.setRequiresWelder).toHaveBeenCalledWith(true);
   });
 
   it('adds shell via manual entry', async () => {
