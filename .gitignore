@@ -1,0 +1,33 @@
+# Dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Environment
+frontend/.env.local
+frontend/.env.production
+backend/MESv2.Api/appsettings.Development.json
+
+# Build
+backend/MESv2.Api/bin/
+backend/MESv2.Api/obj/
+backend/MESv2.Api.Tests/bin/
+backend/MESv2.Api.Tests/obj/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# SQLite dev database
+*.db
+*.db-shm
+*.db-wal
+
+# Test results
+frontend/coverage/
+backend/TestResults/

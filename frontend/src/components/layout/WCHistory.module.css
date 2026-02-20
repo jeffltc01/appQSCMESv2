@@ -1,0 +1,108 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px;
+}
+
+.countSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.countLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: #868686;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.countValue {
+  font-size: 40px;
+  font-weight: 700;
+  color: #2b3b84;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.divider {
+  height: 1px;
+  background: #e5e5e5;
+  margin: 8px 0;
+}
+
+.recentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.recentLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: #868686;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.noRecords {
+  font-size: 13px;
+  color: #868686;
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.recordRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 13px;
+}
+
+.recordMain {
+  display: flex;
+  flex-direction: column;
+}
+
+.recordSerial {
+  font-weight: 500;
+  color: #212529;
+}
+
+.recordSize {
+  font-size: 12px;
+  color: #868686;
+}
+
+.recordMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recordTime {
+  font-size: 12px;
+  color: #868686;
+}
+
+.annotationFlag {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #dfe2ed;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.annotationFlag.hasAnnotation {
+  color: #ffc107;
+}

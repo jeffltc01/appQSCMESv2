@@ -1,0 +1,49 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.middle {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  background: #ffffff;
+  position: relative;
+}
+
+.rightPanel {
+  width: 260px;
+  min-width: 220px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  border-left: 1px solid #e5e5e5;
+  overflow-y: auto;
+}
+
+.hiddenInput {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.welderBanner {
+  background: #ffc107;
+  color: #212529;
+  text-align: center;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 16px;
+}

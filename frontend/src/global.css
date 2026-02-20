@@ -1,0 +1,47 @@
+:root {
+  --qs-primary: #2b3b84;
+  --qs-primary-hover: #222e67;
+  --qs-primary-active: #1e2a5e;
+  --qs-secondary: #e41e2f;
+  --qs-secondary-hover: #c41826;
+  --qs-tertiary: #606ca3;
+  --qs-dark-red: #aa121f;
+  --qs-body-text: #212529;
+  --qs-gray: #868686;
+  --qs-light-gray: #dfe2ed;
+  --qs-light: #f8f9fa;
+  --qs-dark: #343a40;
+  --qs-white: #ffffff;
+  --qs-black: #000000;
+  --qs-success: #28a745;
+  --qs-warning: #ffc107;
+  --qs-danger: #dc3545;
+  --qs-info: #17a2b8;
+  --qs-font-family: 'Roboto', Helvetica, Arial, sans-serif;
+  --qs-overlay-dark: rgba(0, 0, 0, 0.25);
+  --qs-overlay-blue: rgba(43, 59, 132, 0.78);
+  --qs-border-light: #e5e5e5;
+  --qs-btn-radius: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--qs-font-family);
+  font-size: 16px;
+  color: var(--qs-body-text);
+  background: var(--qs-light);
+}
+
+input, select, button, textarea {
+  font-family: inherit;
+}

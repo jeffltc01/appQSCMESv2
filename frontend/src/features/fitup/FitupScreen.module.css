@@ -1,0 +1,205 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.topRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.tankSizeDisplay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.tankDropdown {
+  min-width: 120px;
+}
+
+.tankValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2b3b84;
+}
+
+.reassemblyPrompt {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  padding: 16px;
+  text-align: center;
+}
+
+.promptButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.assemblyDiagram {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  justify-content: center;
+  padding: 16px 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.headSlot, .shellSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 120px;
+  max-width: 180px;
+  flex: 1;
+}
+
+.slotLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #868686;
+  text-transform: uppercase;
+}
+
+.slotBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  min-height: 80px;
+  border: 2px dashed #dfe2ed;
+  background: #f8f9fa;
+  padding: 8px;
+  text-align: center;
+}
+
+.slotBox.filled {
+  border: 2px solid #28a745;
+  background: #e8f5e9;
+}
+
+.slotInfo {
+  font-size: 13px;
+  color: #212529;
+  word-break: break-all;
+}
+
+.slotPlaceholder {
+  font-size: 13px;
+  color: #868686;
+  font-style: italic;
+}
+
+.manualEntry {
+  padding: 8px 0;
+}
+
+.manualRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.serialInput {
+  flex: 1;
+}
+
+.queueSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.queueHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.queueTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.queueCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #e5e5e5;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.queueCard:hover:not(:disabled) {
+  border-color: #2b3b84;
+  background: #f8f9fa;
+}
+
+.queueCard:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.queueCardInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.queueCardDetail {
+  font-size: 12px;
+  color: #868686;
+}
+
+.cardColorDot {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #e5e5e5;
+}
+
+.emptyQueue {
+  font-size: 14px;
+  color: #868686;
+  font-style: italic;
+  text-align: center;
+  padding: 16px;
+}
+
+.alphaDisplay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+}
+
+.alphaLabel {
+  font-size: 18px;
+  color: #868686;
+  text-transform: uppercase;
+}
+
+.alphaValue {
+  font-size: 64px;
+  font-weight: 900;
+  color: #2b3b84;
+}
+
+.alphaHint {
+  font-size: 16px;
+  color: #868686;
+}

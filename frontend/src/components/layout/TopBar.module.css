@@ -1,0 +1,89 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 16px;
+  background: #2b3b84;
+  color: #ffffff;
+  font-family: 'Roboto', Helvetica, Arial, sans-serif;
+  flex-shrink: 0;
+}
+
+.wcInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+}
+
+.wcName {
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.wcDetail {
+  font-weight: 400;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.operator {
+  font-weight: 400;
+  font-size: 16px;
+  text-align: center;
+}
+
+.welders {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 400px;
+  justify-content: flex-end;
+}
+
+.welderLabel {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.noWelders {
+  font-size: 14px;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.welderChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 8px;
+  font-size: 14px;
+  border-radius: 0;
+}
+
+.removeWelder {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.removeWelder:hover {
+  color: #dc3545;
+}
+
+.addWelderBtn {
+  color: #ffffff !important;
+}
+
+.addWelderForm {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+}
