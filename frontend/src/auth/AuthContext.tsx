@@ -9,6 +9,7 @@ export interface AuthUser {
   defaultSiteId: string;
   isCertifiedWelder: boolean;
   plantCode: string;
+  plantTimeZoneId: string;
 }
 
 interface AuthState {

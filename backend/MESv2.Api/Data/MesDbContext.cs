@@ -375,9 +375,9 @@ public class MesDbContext : DbContext
         var plant3Id = Guid.Parse("33333333-3333-3333-3333-333333333333"); // West Jordan (700)
 
         modelBuilder.Entity<Plant>().HasData(
-            new Plant { Id = plant1Id, Code = "000", Name = "Cleveland" },
-            new Plant { Id = plant2Id, Code = "600", Name = "Fremont" },
-            new Plant { Id = plant3Id, Code = "700", Name = "West Jordan" }
+            new Plant { Id = plant1Id, Code = "000", Name = "Cleveland", TimeZoneId = "America/Chicago" },
+            new Plant { Id = plant2Id, Code = "600", Name = "Fremont", TimeZoneId = "America/New_York" },
+            new Plant { Id = plant3Id, Code = "700", Name = "West Jordan", TimeZoneId = "America/Denver" }
         );
 
         // Work center types (10)

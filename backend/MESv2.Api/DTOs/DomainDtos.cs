@@ -5,6 +5,7 @@ public class PlantDto
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string TimeZoneId { get; set; } = string.Empty;
 }
 
 public class ProductionLineDto

@@ -27,6 +27,7 @@ public class UserDto
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
     public string PlantCode { get; set; } = string.Empty;
+    public string PlantTimeZoneId { get; set; } = string.Empty;
 }
 
 public class LoginResultDto

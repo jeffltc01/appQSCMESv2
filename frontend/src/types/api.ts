@@ -24,6 +24,7 @@ export interface LoginResponse {
     defaultSiteId: string;
     isCertifiedWelder: boolean;
     plantCode: string;
+    plantTimeZoneId: string;
   };
 }
 

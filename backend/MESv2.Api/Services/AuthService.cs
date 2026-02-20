@@ -61,7 +61,8 @@ public class AuthService : IAuthService
             RoleName = user.RoleName,
             DefaultSiteId = user.DefaultSiteId,
             IsCertifiedWelder = user.IsCertifiedWelder,
-            PlantCode = user.DefaultSite?.Code ?? string.Empty
+            PlantCode = user.DefaultSite?.Code ?? string.Empty,
+            PlantTimeZoneId = user.DefaultSite?.TimeZoneId ?? "America/Chicago"
         };
 
         return new LoginResultDto { Token = token, User = userDto };

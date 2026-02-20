@@ -88,8 +88,10 @@ public class WorkCenterService : IWorkCenterService
         if (!DateTime.TryParse(date, out var dateParsed))
             dateParsed = DateTime.UtcNow.Date;
 
-        var startOfDay = dateParsed.Date;
-        var endOfDay = startOfDay.AddDays(1);
+        var tz = await GetPlantTimeZoneForWorkCenterAsync(wcId, cancellationToken);
+        var localDate = dateParsed.Date;
+        var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
+        var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
 
         var records = await _db.ProductionRecords
             .Include(r => r.SerialNumber)
@@ -433,6 +435,22 @@ public class WorkCenterService : IWorkCenterService
         CardId = m.CardId,
         CardColor = m.CardColor
     };
+
+    private async Task<TimeZoneInfo> GetPlantTimeZoneForWorkCenterAsync(Guid wcId, CancellationToken cancellationToken)
+    {
+        var tzId = await _db.WorkCenters
+            .Where(w => w.Id == wcId)
+            .Select(w => w.Plant.TimeZoneId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!string.IsNullOrEmpty(tzId))
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(tzId); }
+            catch (TimeZoneNotFoundException) { }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
 
     public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)
     {

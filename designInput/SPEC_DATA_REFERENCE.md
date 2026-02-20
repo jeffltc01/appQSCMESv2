@@ -316,16 +316,17 @@ Stale sessions (heartbeat expired) do **not** count toward the limit — only se
 | **Id** | GUID (PK) | Unique identifier |
 | **SiteName** | string | "Cleveland", "Fremont", "West Jordan" |
 | **SiteCode** | string (unique) | "000", "600", "700" |
+| **TimeZoneId** | string, NOT NULL | IANA time zone identifier for the plant's local time (used for day-boundary calculations and display) |
 | **CurrentPlantGearId** | GUID (FK) | Current production speed level (references PlantGear) |
 | **NextTankAlphaCode** | string | Next alpha code to assign at Fitup (AA–ZZ, per plant) |
 
 **Dropped from v1**: `NextDateSeqCode`, `NextTankCountSeqCode`, `NextDateCode` — unused.
 
-| Site Code | Plant Name |
-|---|---|
-| 000 | Cleveland |
-| 600 | Fremont |
-| 700 | West Jordan |
+| Site Code | Plant Name | Time Zone |
+|---|---|---|
+| 000 | Cleveland | America/Chicago (Central) |
+| 600 | Fremont | America/New_York (Eastern) |
+| 700 | West Jordan | America/Denver (Mountain) |
 
 ---
 

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MESv2.Api.Data;
 using MESv2.Api.Models;
 using MESv2.Api.Services;
 
@@ -6,6 +7,10 @@ namespace MESv2.Api.Tests;
 
 public class WorkCenterServiceTests
 {
+    private static readonly Guid TestProductTypeId = Guid.Parse("a3333333-3333-3333-3333-333333333333");
+    private static readonly Guid TestProductId = Guid.Parse("b3011111-1111-1111-1111-111111111111");
+    private static readonly Guid TestPlantGearId = Guid.Parse("61111111-1111-1111-1111-111111111111");
+
     [Fact]
     public async Task GetWorkCenters_FiltersBySiteCode()
     {
@@ -51,6 +56,79 @@ public class WorkCenterServiceTests
             .FirstOrDefaultAsync(m => m.WorkCenterId == TestHelpers.WorkCenter1Plt1Id && m.HeatNumber == "H1");
         Assert.NotNull(item);
         Assert.Equal("active", item.Status);
+    }
+
+    private static void SeedProductionRecord(MesDbContext db, Guid wcId, DateTime utcTimestamp)
+    {
+        var snId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = snId,
+            Serial = "SN-" + snId.ToString("N")[..6],
+            ProductId = TestProductId,
+            CreatedAt = utcTimestamp
+        });
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = snId,
+            WorkCenterId = wcId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = utcTimestamp,
+            PlantGearId = TestPlantGearId
+        });
+    }
+
+    [Fact]
+    public async Task GetHistory_ReturnsRecordsForLocalDate_UsingPlantTimezone()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db);
+
+        // Cleveland plant uses America/Chicago (UTC-6 standard / UTC-5 DST).
+        // Create a record at 2026-03-15 03:00 UTC = 2026-03-14 22:00 CDT (still March 14 locally)
+        var utcTimestamp = new DateTime(2026, 3, 15, 3, 0, 0, DateTimeKind.Utc);
+        SeedProductionRecord(db, TestHelpers.WorkCenter1Plt1Id, utcTimestamp);
+        await db.SaveChangesAsync();
+
+        // Querying for March 14 (local) should find this record
+        var result = await sut.GetHistoryAsync(TestHelpers.WorkCenter1Plt1Id, "2026-03-14", 10);
+        Assert.Equal(1, result.DayCount);
+        Assert.Single(result.RecentRecords);
+    }
+
+    [Fact]
+    public async Task GetHistory_ExcludesRecordsOutsideLocalDay()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db);
+
+        // Record at 2026-03-15 03:00 UTC = March 14 22:00 CDT
+        SeedProductionRecord(db, TestHelpers.WorkCenter1Plt1Id, new DateTime(2026, 3, 15, 3, 0, 0, DateTimeKind.Utc));
+        await db.SaveChangesAsync();
+
+        // Querying for March 15 (local) should NOT find this record (it's March 14 in Central time)
+        var result = await sut.GetHistoryAsync(TestHelpers.WorkCenter1Plt1Id, "2026-03-15", 10);
+        Assert.Equal(0, result.DayCount);
+        Assert.Empty(result.RecentRecords);
+    }
+
+    [Fact]
+    public async Task GetHistory_HandlesMultipleRecords_SameLocalDay()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db);
+
+        // Both timestamps fall within Feb 20 Central time (UTC-6):
+        //   06:00 UTC = 00:00 CST, 23:59 UTC = 17:59 CST
+        SeedProductionRecord(db, TestHelpers.WorkCenter1Plt1Id, new DateTime(2026, 2, 20, 6, 0, 0, DateTimeKind.Utc));
+        SeedProductionRecord(db, TestHelpers.WorkCenter1Plt1Id, new DateTime(2026, 2, 20, 23, 59, 0, DateTimeKind.Utc));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetHistoryAsync(TestHelpers.WorkCenter1Plt1Id, "2026-02-20", 10);
+        Assert.Equal(2, result.DayCount);
+        Assert.Equal(2, result.RecentRecords.Count);
     }
 
     [Fact]

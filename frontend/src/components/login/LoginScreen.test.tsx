@@ -84,7 +84,7 @@ describe('LoginScreen', () => {
       userName: 'Test User',
     });
     vi.mocked(siteApi.getSites).mockResolvedValue([
-      { id: 'site-1', code: 'PLT1', name: 'Plant 1' },
+      { id: 'site-1', code: 'PLT1', name: 'Plant 1', timeZoneId: 'America/Chicago' },
     ]);
 
     renderLogin();
@@ -107,7 +107,7 @@ describe('LoginScreen', () => {
       userName: 'Test User',
     });
     vi.mocked(siteApi.getSites).mockResolvedValue([
-      { id: 'site-1', code: 'PLT1', name: 'Plant 1' },
+      { id: 'site-1', code: 'PLT1', name: 'Plant 1', timeZoneId: 'America/Chicago' },
     ]);
 
     renderLogin();
@@ -131,7 +131,7 @@ describe('LoginScreen', () => {
       userName: 'Test User',
     });
     vi.mocked(siteApi.getSites).mockResolvedValue([
-      { id: 'site-1', code: 'PLT1', name: 'Plant 1' },
+      { id: 'site-1', code: 'PLT1', name: 'Plant 1', timeZoneId: 'America/Chicago' },
     ]);
 
     renderLogin();
@@ -154,7 +154,7 @@ describe('LoginScreen', () => {
       userName: 'Test User',
     });
     vi.mocked(siteApi.getSites).mockResolvedValue([
-      { id: 'site-1', code: 'PLT1', name: 'Plant 1' },
+      { id: 'site-1', code: 'PLT1', name: 'Plant 1', timeZoneId: 'America/Chicago' },
     ]);
     vi.mocked(authApi.login).mockRejectedValue(new Error('Auth failed'));
 

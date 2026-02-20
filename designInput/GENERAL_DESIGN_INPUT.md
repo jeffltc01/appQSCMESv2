@@ -308,6 +308,20 @@ The Authorized Inspector (AI) is an **external representative** (not a QSC emplo
 - **One-time data migration** from v1 Azure SQL database (which contains views and stored procedures) into the v2 schema.
 - Stored procedures from v1 (used as function substitutes in PowerApps) will be replaced by **application service layer logic** in ASP.NET Core.
 
+### 7.1.1 Timestamp Convention
+
+All server-generated timestamps (e.g., `CreatedDateTime`, `ModifiedDateTime`, `LogDateTime`, `Timestamp`, `ChangeDateTime`) are **stored and transmitted in UTC** (ISO 8601 with `Z` suffix). The backend uses `DateTime.UtcNow` when writing timestamps.
+
+The frontend converts UTC timestamps to the user's local time for display using the browser's built-in `Date` and `toLocaleString()` APIs. Since tablets are fixed installations at each plant, the browser's local timezone matches the plant's timezone.
+
+Each **Site** has a `TimeZoneId` field (IANA identifier, e.g., `America/Chicago`) used by the backend for plant-local day-boundary calculations (e.g., "today's records" for WC History). The three plants span three US time zones:
+
+| Plant | Time Zone ID | Zone |
+|---|---|---|
+| Cleveland (000) | `America/Chicago` | Central |
+| Fremont (600) | `America/New_York` | Eastern |
+| West Jordan (700) | `America/Denver` | Mountain |
+
 ### 7.2 Conceptual Domain Entities
 
 ```mermaid

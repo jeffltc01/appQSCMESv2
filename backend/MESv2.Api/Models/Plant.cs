@@ -5,6 +5,7 @@ public class Plant
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string TimeZoneId { get; set; } = "America/Chicago";
 
     public ICollection<ProductionLine> ProductionLines { get; set; } = new List<ProductionLine>();
     public ICollection<WorkCenter> WorkCenters { get; set; } = new List<WorkCenter>();

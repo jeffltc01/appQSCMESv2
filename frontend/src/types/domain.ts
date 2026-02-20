@@ -2,6 +2,7 @@ export interface Plant {
   id: string;
   code: string;
   name: string;
+  timeZoneId: string;
 }
 
 export interface ProductionLine {

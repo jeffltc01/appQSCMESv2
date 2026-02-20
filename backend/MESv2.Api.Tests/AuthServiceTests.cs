@@ -66,6 +66,33 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Login_ReturnsPlantTimeZoneId_ForUserPlant()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var config = CreateConfig();
+        var sut = new AuthService(db, config);
+
+        var result = await sut.LoginAsync("EMP001", null, TestHelpers.PlantPlt1Id, false);
+
+        Assert.NotNull(result);
+        Assert.Equal("America/Chicago", result.User.PlantTimeZoneId);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsCorrectTimeZone_ForEachPlant()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var config = CreateConfig();
+        var sut = new AuthService(db, config);
+
+        var fremont = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP004");
+        var result = await sut.LoginAsync("EMP004", null, fremont.DefaultSiteId, false);
+
+        Assert.NotNull(result);
+        Assert.Equal("America/New_York", result.User.PlantTimeZoneId);
+    }
+
+    [Fact]
     public async Task Login_ReturnsNull_WhenPinRequired_AndMissing()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
