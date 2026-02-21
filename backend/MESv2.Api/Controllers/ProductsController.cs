@@ -35,7 +35,7 @@ public class ProductsController : ControllerBase
     {
         var list = await _db.Products
             .Include(p => p.ProductType)
-            .OrderBy(p => p.TankType).ThenBy(p => p.TankSize)
+            .OrderBy(p => p.TankSize).ThenBy(p => p.TankType)
             .Select(p => new AdminProductDto
             {
                 Id = p.Id,

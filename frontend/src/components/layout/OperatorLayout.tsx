@@ -333,7 +333,11 @@ export function OperatorLayout() {
       )}
 
       {scanResult && (
-        <ScanOverlay result={scanResult} onDismiss={dismissScanResult} />
+        <ScanOverlay
+          result={scanResult}
+          onDismiss={dismissScanResult}
+          autoCloseMs={scanResult.type === 'error' ? 10000 : undefined}
+        />
       )}
 
       {showWelderGate && (

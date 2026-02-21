@@ -1,0 +1,114 @@
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: flex-end;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterField label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  background: #f8f9fa;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: top;
+}
+
+.table tr:hover {
+  background: #f8f9fa;
+}
+
+.flagBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.flagYes {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.flagNo {
+  background: #f1f3f5;
+  color: #868e96;
+}
+
+.resolvedBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.resolvedYes {
+  background: #d4edda;
+  color: #155724;
+}
+
+.resolvedNo {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.notesCell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loadingState {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 0;
+  color: #868e96;
+  font-size: 15px;
+}
+
+.countLabel {
+  font-size: 13px;
+  color: #868e96;
+  margin-bottom: 8px;
+}

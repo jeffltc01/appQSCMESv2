@@ -11,6 +11,10 @@ import { CharacteristicsScreen } from './CharacteristicsScreen.tsx';
 import { ControlPlansScreen } from './ControlPlansScreen.tsx';
 import { PlantGearScreen } from './PlantGearScreen.tsx';
 import { WhosOnFloorScreen } from './WhosOnFloorScreen.tsx';
+import { ProductionLineMaintenanceScreen } from './ProductionLineMaintenanceScreen.tsx';
+import { AnnotationTypesScreen } from './AnnotationTypesScreen.tsx';
+import { SerialNumberLookupScreen } from './SerialNumberLookupScreen.tsx';
+import { AnnotationMaintenanceScreen } from './AnnotationMaintenanceScreen.tsx';
 
 export function AdminRoutes() {
   return (
@@ -27,6 +31,10 @@ export function AdminRoutes() {
       <Route path="control-plans" element={<ControlPlansScreen />} />
       <Route path="plant-gear" element={<PlantGearScreen />} />
       <Route path="whos-on-floor" element={<WhosOnFloorScreen />} />
+      <Route path="production-lines" element={<ProductionLineMaintenanceScreen />} />
+      <Route path="annotation-types" element={<AnnotationTypesScreen />} />
+      <Route path="annotations" element={<AnnotationMaintenanceScreen />} />
+      <Route path="serial-lookup" element={<SerialNumberLookupScreen />} />
       <Route path="*" element={<Navigate to="/menu" replace />} />
     </Routes>
   );

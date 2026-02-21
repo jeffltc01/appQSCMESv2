@@ -1,0 +1,113 @@
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.serialInput {
+  flex: 1;
+  min-width: 200px;
+}
+
+.detailsToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.treeContainer {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8f9fa;
+  min-height: 120px;
+  margin-bottom: 16px;
+}
+
+.treeNode {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.treeNode:hover {
+  background: #e9ecef;
+  border-radius: 4px;
+}
+
+.treeNodeSelected {
+  background: #d0ebff;
+  border-radius: 4px;
+}
+
+.treeChevron {
+  width: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.treeChildren {
+  padding-left: 24px;
+}
+
+.eventsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.eventsTable th {
+  background: #f8f9fa;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.eventsTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.eventsTable tr:hover td {
+  background: #f8f9fa;
+}
+
+.emptyTree {
+  text-align: center;
+  color: #868e96;
+  padding: 24px;
+  font-style: italic;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.errorMsg {
+  color: #c92a2a;
+  font-size: 14px;
+  padding: 8px 0;
+}

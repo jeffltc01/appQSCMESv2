@@ -133,6 +133,11 @@ public class UsersController : ControllerBase
         var user = await _db.Users.FindAsync(new object[] { id }, cancellationToken);
         if (user == null) return NotFound();
 
+        if (user.RoleTier <= 2m &&
+            Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&
+            decimal.TryParse(tierHeader, out var callerTier) && callerTier > 2m)
+            return StatusCode(403, new { message = "You do not have permission to modify this user." });
+
         var normalizedEmpNo = NormalizeEmployeeNumber(dto.EmployeeNumber, dto.UserType);
         var exists = await _db.Users.AnyAsync(
             u => u.EmployeeNumber == normalizedEmpNo && u.Id != id, cancellationToken);
@@ -194,6 +199,12 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.Include(u => u.DefaultSite).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         if (user == null) return NotFound();
+
+        if (user.RoleTier <= 2m &&
+            Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&
+            decimal.TryParse(tierHeader, out var callerTier) && callerTier > 2m)
+            return StatusCode(403, new { message = "You do not have permission to deactivate this user." });
+
         user.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
         return Ok(new AdminUserDto

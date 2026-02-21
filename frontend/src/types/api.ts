@@ -348,3 +348,36 @@ export interface CreateActiveSessionRequest {
   assetId?: string;
   siteCode: string;
 }
+
+export interface CreateProductionLineRequest {
+  name: string;
+  plantId: string;
+}
+
+export interface UpdateProductionLineRequest {
+  name: string;
+  plantId: string;
+}
+
+export interface CreateAnnotationTypeRequest {
+  name: string;
+  abbreviation?: string;
+  requiresResolution: boolean;
+  operatorCanCreate: boolean;
+  displayColor?: string;
+}
+
+export interface UpdateAnnotationTypeRequest {
+  name: string;
+  abbreviation?: string;
+  requiresResolution: boolean;
+  operatorCanCreate: boolean;
+  displayColor?: string;
+}
+
+export interface UpdateAnnotationRequest {
+  flag: boolean;
+  notes?: string;
+  resolvedNotes?: string;
+  resolvedByUserId?: string;
+}

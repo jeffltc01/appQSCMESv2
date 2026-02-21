@@ -112,21 +112,23 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
       }
       setShowForm(false);
       loadQueue();
+      props.refreshHistory();
     } catch (err: unknown) {
       const msg = (err && typeof err === 'object' && 'message' in err) ? String((err as { message: string }).message) : 'Failed to save queue item';
       showScanResult({ type: 'error', message: msg });
     }
-  }, [form, editingId, targetWCId, showScanResult, loadQueue]);
+  }, [form, editingId, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
   const handleDelete = useCallback(async (itemId: string) => {
     try {
       await materialQueueApi.deleteItem(targetWCId, itemId);
       showScanResult({ type: 'success', message: 'Item removed from queue' });
       loadQueue();
+      props.refreshHistory();
     } catch {
       showScanResult({ type: 'error', message: 'Failed to remove item' });
     }
-  }, [targetWCId, showScanResult, loadQueue]);
+  }, [targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
   const selectedMill = mills.find((m) => m.id === form.vendorMillId);

@@ -431,3 +431,47 @@ export interface ActiveSession {
   lastHeartbeatDateTime: string;
   isStale: boolean;
 }
+
+export interface AdminAnnotationType {
+  id: string;
+  name: string;
+  abbreviation?: string;
+  requiresResolution: boolean;
+  operatorCanCreate: boolean;
+  displayColor?: string;
+}
+
+export interface TraceabilityNode {
+  id: string;
+  label: string;
+  nodeType: string;
+  children?: TraceabilityNode[];
+}
+
+export interface ManufacturingEvent {
+  timestamp: string;
+  workCenterName: string;
+  type: string;
+  completedBy: string;
+  assetName?: string;
+  inspectionResult?: string;
+}
+
+export interface SerialNumberLookup {
+  serialNumber: string;
+  treeNodes: TraceabilityNode[];
+  events: ManufacturingEvent[];
+}
+
+export interface AdminAnnotation {
+  id: string;
+  serialNumber: string;
+  annotationTypeName: string;
+  annotationTypeId: string;
+  flag: boolean;
+  notes?: string;
+  initiatedByName: string;
+  resolvedByName?: string;
+  resolvedNotes?: string;
+  createdAt: string;
+}

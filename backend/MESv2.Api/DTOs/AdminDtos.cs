@@ -391,9 +391,74 @@ public class ProductTypeDto
     public string Name { get; set; } = string.Empty;
 }
 
+// ---- Production Lines ----
+public class CreateProductionLineDto
+{
+    public string Name { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
+}
+
+public class UpdateProductionLineDto
+{
+    public string Name { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
+}
+
 // ---- Role reference ----
 public class RoleOptionDto
 {
     public decimal Tier { get; set; }
     public string Name { get; set; } = string.Empty;
+}
+
+// ---- Annotation Types ----
+public class AdminAnnotationTypeDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Abbreviation { get; set; }
+    public bool RequiresResolution { get; set; }
+    public bool OperatorCanCreate { get; set; }
+    public string? DisplayColor { get; set; }
+}
+
+public class CreateAnnotationTypeDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Abbreviation { get; set; }
+    public bool RequiresResolution { get; set; }
+    public bool OperatorCanCreate { get; set; }
+    public string? DisplayColor { get; set; }
+}
+
+public class UpdateAnnotationTypeDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Abbreviation { get; set; }
+    public bool RequiresResolution { get; set; }
+    public bool OperatorCanCreate { get; set; }
+    public string? DisplayColor { get; set; }
+}
+
+// ---- Annotations ----
+public class AdminAnnotationDto
+{
+    public Guid Id { get; set; }
+    public string SerialNumber { get; set; } = string.Empty;
+    public string AnnotationTypeName { get; set; } = string.Empty;
+    public Guid AnnotationTypeId { get; set; }
+    public bool Flag { get; set; }
+    public string? Notes { get; set; }
+    public string InitiatedByName { get; set; } = string.Empty;
+    public string? ResolvedByName { get; set; }
+    public string? ResolvedNotes { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class UpdateAnnotationDto
+{
+    public bool Flag { get; set; }
+    public string? Notes { get; set; }
+    public string? ResolvedNotes { get; set; }
+    public Guid? ResolvedByUserId { get; set; }
 }

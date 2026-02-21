@@ -174,10 +174,12 @@ export function UserMaintenanceScreen() {
             <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.displayName}</span>
-                <div className={styles.cardActions}>
-                  <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
-                </div>
+                {!(isSiteScoped && item.roleTier <= 2) && (
+                  <div className={styles.cardActions}>
+                    <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
+                    <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
+                  </div>
+                )}
               </div>
               <div className={styles.cardField}>
                 <span className={styles.cardFieldLabel}>Emp #</span>

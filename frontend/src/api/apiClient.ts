@@ -3,9 +3,19 @@ import type { ApiError } from '../types/api.ts';
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 let authToken: string | null = null;
+let roleTierHeader: string | null = null;
+let siteIdHeader: string | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
+}
+
+export function setRoleTier(tier: number | null) {
+  roleTierHeader = tier != null ? String(tier) : null;
+}
+
+export function setSiteId(siteId: string | null) {
+  siteIdHeader = siteId ?? null;
 }
 
 async function request<T>(
@@ -18,6 +28,12 @@ async function request<T>(
   };
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  if (roleTierHeader) {
+    headers['X-User-Role-Tier'] = roleTierHeader;
+  }
+  if (siteIdHeader) {
+    headers['X-User-Site-Id'] = siteIdHeader;
   }
 
   const response = await fetch(`${BASE_URL}${path}`, {

@@ -76,4 +76,111 @@ public class SerialNumberService : ISerialNumberService
             ExistingAssembly = existingAssembly
         };
     }
+
+    public async Task<SerialNumberLookupDto?> GetLookupAsync(string serial, CancellationToken cancellationToken = default)
+    {
+        var sn = await _db.SerialNumbers
+            .Include(s => s.Product)
+            .FirstOrDefaultAsync(s => s.Serial == serial, cancellationToken);
+        if (sn == null) return null;
+
+        var treeNodes = new List<TraceabilityNodeDto>();
+
+        var shellLog = await _db.TraceabilityLogs
+            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id && t.Relationship == "shell", cancellationToken);
+
+        if (shellLog != null && !string.IsNullOrEmpty(shellLog.ToAlphaCode))
+        {
+            var assembly = await _db.Assemblies
+                .FirstOrDefaultAsync(a => a.AlphaCode == shellLog.ToAlphaCode, cancellationToken);
+
+            if (assembly != null)
+            {
+                var assemblyNode = new TraceabilityNodeDto
+                {
+                    Id = assembly.AlphaCode,
+                    Label = $"{assembly.AlphaCode} (Assembled)",
+                    NodeType = "assembled",
+                    Children = new List<TraceabilityNodeDto>()
+                };
+
+                var relatedLogs = await _db.TraceabilityLogs
+                    .Where(t => t.ToAlphaCode == shellLog.ToAlphaCode)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var log in relatedLogs)
+                {
+                    if (log.FromSerialNumberId.HasValue)
+                    {
+                        var relatedSn = await _db.SerialNumbers
+                            .Include(s => s.Product)
+                            .FirstOrDefaultAsync(s => s.Id == log.FromSerialNumberId.Value, cancellationToken);
+                        if (relatedSn != null)
+                        {
+                            var productDesc = relatedSn.Product?.TankType ?? "";
+                            assemblyNode.Children.Add(new TraceabilityNodeDto
+                            {
+                                Id = relatedSn.Id.ToString(),
+                                Label = $"{relatedSn.Serial} ({productDesc})",
+                                NodeType = log.Relationship ?? "component"
+                            });
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(log.TankLocation))
+                    {
+                        assemblyNode.Children.Add(new TraceabilityNodeDto
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Label = $"Heat {log.TankLocation} ({log.Relationship})",
+                            NodeType = log.Relationship ?? "head"
+                        });
+                    }
+                }
+
+                var sellableNode = new TraceabilityNodeDto
+                {
+                    Id = sn.Id.ToString(),
+                    Label = $"{serial} (Sellable)",
+                    NodeType = "sellable",
+                    Children = new List<TraceabilityNodeDto> { assemblyNode }
+                };
+                treeNodes.Add(sellableNode);
+            }
+        }
+
+        if (treeNodes.Count == 0)
+        {
+            treeNodes.Add(new TraceabilityNodeDto
+            {
+                Id = sn.Id.ToString(),
+                Label = $"{serial} ({sn.Product?.TankType ?? "Unknown"})",
+                NodeType = "serial"
+            });
+        }
+
+        var records = await _db.ProductionRecords
+            .Include(r => r.WorkCenter).ThenInclude(w => w.WorkCenterType)
+            .Include(r => r.Operator)
+            .Include(r => r.Asset)
+            .Where(r => r.SerialNumberId == sn.Id)
+            .OrderByDescending(r => r.Timestamp)
+            .ToListAsync(cancellationToken);
+
+        var events = records.Select(r => new ManufacturingEventDto
+        {
+            Timestamp = r.Timestamp,
+            WorkCenterName = r.WorkCenter?.Name ?? "",
+            Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
+            CompletedBy = r.Operator?.DisplayName ?? "",
+            AssetName = r.Asset?.Name,
+            InspectionResult = r.InspectionResult
+        }).ToList();
+
+        return new SerialNumberLookupDto
+        {
+            SerialNumber = serial,
+            TreeNodes = treeNodes,
+            Events = events
+        };
+    }
 }

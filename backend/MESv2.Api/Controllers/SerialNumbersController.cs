@@ -23,4 +23,13 @@ public class SerialNumbersController : ControllerBase
             return NotFound();
         return Ok(result);
     }
+
+    [HttpGet("{serial}/lookup")]
+    public async Task<ActionResult<SerialNumberLookupDto>> GetLookup(string serial, CancellationToken cancellationToken)
+    {
+        var result = await _serialNumberService.GetLookupAsync(serial, cancellationToken);
+        if (result == null)
+            return NotFound(new { message = "Serial number not found" });
+        return Ok(result);
+    }
 }

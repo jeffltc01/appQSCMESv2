@@ -369,6 +369,16 @@ public class WorkCenterService : IWorkCenterService
         if (dto.VendorMillId.HasValue) item.VendorMillId = dto.VendorMillId;
         if (dto.VendorProcessorId.HasValue) item.VendorProcessorId = dto.VendorProcessorId;
 
+        _db.QueueTransactions.Add(new QueueTransaction
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Action = "updated",
+            ItemSummary = $"{item.ProductDescription} - Heat {item.HeatNumber} Coil {item.CoilNumber} - Qty {item.Quantity}",
+            OperatorName = string.Empty,
+            Timestamp = DateTime.UtcNow
+        });
+
         await _db.SaveChangesAsync(cancellationToken);
         return MapQueueItem(item);
     }
@@ -378,6 +388,17 @@ public class WorkCenterService : IWorkCenterService
         var item = await _db.MaterialQueueItems
             .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
         if (item == null) return false;
+
+        _db.QueueTransactions.Add(new QueueTransaction
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Action = "removed",
+            ItemSummary = $"{item.ProductDescription} - Heat {item.HeatNumber} Coil {item.CoilNumber}",
+            OperatorName = string.Empty,
+            Timestamp = DateTime.UtcNow
+        });
+
         _db.MaterialQueueItems.Remove(item);
         await _db.SaveChangesAsync(cancellationToken);
         return true;
@@ -479,6 +500,16 @@ public class WorkCenterService : IWorkCenterService
         if (dto.HeatNumber != null) item.HeatNumber = dto.HeatNumber;
         if (dto.CoilSlabNumber != null) item.CoilSlabNumber = dto.CoilSlabNumber;
 
+        _db.QueueTransactions.Add(new QueueTransaction
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Action = "updated",
+            ItemSummary = $"{item.ProductDescription} - Card {item.CardId}",
+            OperatorName = string.Empty,
+            Timestamp = DateTime.UtcNow
+        });
+
         await _db.SaveChangesAsync(cancellationToken);
         return MapQueueItem(item);
     }
@@ -488,6 +519,17 @@ public class WorkCenterService : IWorkCenterService
         var item = await _db.MaterialQueueItems
             .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
         if (item == null) return false;
+
+        _db.QueueTransactions.Add(new QueueTransaction
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Action = "removed",
+            ItemSummary = $"{item.ProductDescription} - Card {item.CardId}",
+            OperatorName = string.Empty,
+            Timestamp = DateTime.UtcNow
+        });
+
         _db.MaterialQueueItems.Remove(item);
         await _db.SaveChangesAsync(cancellationToken);
         return true;

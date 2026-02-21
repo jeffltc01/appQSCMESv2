@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Input, Label, Dropdown, Option, Spinner, Checkbox, type OptionOnSelectData } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
@@ -35,6 +35,7 @@ export function ProductMaintenanceScreen() {
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [filterTypeId, setFilterTypeId] = useState('');
 
   const [productNumber, setProductNumber] = useState('');
   const [tankSize, setTankSize] = useState('');
@@ -114,14 +115,32 @@ export function ProductMaintenanceScreen() {
     finally { setDeleting(false); }
   };
 
+  const filteredItems = useMemo(() => {
+    let list = items;
+    if (filterTypeId) list = list.filter(p => p.productTypeId === filterTypeId);
+    return [...list].sort((a, b) => a.tankSize - b.tankSize);
+  }, [items, filterTypeId]);
+
   return (
     <AdminLayout title="Product Maintenance" onAdd={isAdmin ? openAdd : undefined} addLabel="Add Product">
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
+        <>
+        <div className={styles.filterBar}>
+          <Dropdown
+            placeholder="All Product Types"
+            value={filterTypeId ? (types.find(t => t.id === filterTypeId)?.name ?? '') : 'All Product Types'}
+            selectedOptions={filterTypeId ? [filterTypeId] : []}
+            onOptionSelect={(_, d) => setFilterTypeId(d.optionValue ?? '')}
+          >
+            <Option value="" text="All Product Types">All Product Types</Option>
+            {types.map(t => <Option key={t.id} value={t.id}>{t.name}</Option>)}
+          </Dropdown>
+        </div>
         <div className={styles.grid}>
-          {items.length === 0 && <div className={styles.emptyState}>No products found.</div>}
-          {items.map(item => {
+          {filteredItems.length === 0 && <div className={styles.emptyState}>No products found.</div>}
+          {filteredItems.map(item => {
             const codes = parseSiteCodes(item.siteNumbers);
             const names = siteCodesToNames(codes, plants);
             return (
@@ -168,6 +187,7 @@ export function ProductMaintenanceScreen() {
             );
           })}
         </div>
+        </>
       )}
 
       <AdminModal

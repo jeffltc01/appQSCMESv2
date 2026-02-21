@@ -116,18 +116,20 @@ export function FitupQueueScreen(props: WorkCenterProps) {
       }
       setShowForm(false);
       loadQueue();
+      props.refreshHistory();
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save' });
     }
-  }, [form, editingId, targetWCId, showScanResult, loadQueue]);
+  }, [form, editingId, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
   const handleDelete = useCallback(async (itemId: string) => {
     try {
       await materialQueueApi.deleteFitupItem(targetWCId, itemId);
       showScanResult({ type: 'success', message: 'Item removed' });
       loadQueue();
+      props.refreshHistory();
     } catch { showScanResult({ type: 'error', message: 'Failed to remove' }); }
-  }, [targetWCId, showScanResult, loadQueue]);
+  }, [targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
   const selectedVendor = vendors.find((v) => v.id === form.vendorHeadId);

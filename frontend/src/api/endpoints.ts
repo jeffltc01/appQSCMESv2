@@ -41,6 +41,11 @@ import type {
   CreateActiveSessionRequest,
   CreateWorkCenterProductionLineRequest,
   UpdateWorkCenterProductionLineRequest,
+  CreateAnnotationTypeRequest,
+  UpdateAnnotationTypeRequest,
+  CreateProductionLineRequest,
+  UpdateProductionLineRequest,
+  UpdateAnnotationRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -79,6 +84,9 @@ import type {
   PlantWithGear,
   ActiveSession,
   WorkCenterProductionLine,
+  AdminAnnotationType,
+  AdminAnnotation,
+  SerialNumberLookup,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -163,6 +171,8 @@ export const assemblyApi = {
 export const serialNumberApi = {
   getContext: (serial: string) =>
     api.get<SerialNumberContextResponse>(`/serial-numbers/${encodeURIComponent(serial)}/context`),
+  getLookup: (serial: string) =>
+    api.get<SerialNumberLookup>(`/serial-numbers/${encodeURIComponent(serial)}/lookup`),
 };
 
 export const materialQueueApi = {
@@ -324,6 +334,25 @@ export const adminKanbanCardApi = {
 export const adminPlantGearApi = {
   getAll: () => api.get<PlantWithGear[]>('/plant-gear'),
   setGear: (plantId: string, req: SetPlantGearRequest) => api.put<void>(`/plant-gear/${plantId}`, req),
+};
+
+export const adminAnnotationTypeApi = {
+  getAll: () => api.get<AdminAnnotationType[]>('/annotation-types'),
+  create: (req: CreateAnnotationTypeRequest) => api.post<AdminAnnotationType>('/annotation-types', req),
+  update: (id: string, req: UpdateAnnotationTypeRequest) => api.put<AdminAnnotationType>(`/annotation-types/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/annotation-types/${id}`),
+};
+
+export const adminProductionLineApi = {
+  getAll: () => api.get<ProductionLineAdmin[]>('/productionlines/all'),
+  create: (req: CreateProductionLineRequest) => api.post<ProductionLineAdmin>('/productionlines', req),
+  update: (id: string, req: UpdateProductionLineRequest) => api.put<ProductionLineAdmin>(`/productionlines/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/productionlines/${id}`),
+};
+
+export const adminAnnotationApi = {
+  getAll: (siteId?: string) => api.get<AdminAnnotation[]>(`/annotations${siteId ? `?siteId=${siteId}` : ''}`),
+  update: (id: string, req: UpdateAnnotationRequest) => api.put<AdminAnnotation>(`/annotations/${id}`, req),
 };
 
 export const activeSessionApi = {

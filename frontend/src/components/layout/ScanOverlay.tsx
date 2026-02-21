@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { CheckmarkCircleRegular, DismissCircleRegular } from '@fluentui/react-icons';
 import styles from './ScanOverlay.module.css';
 
@@ -9,10 +10,24 @@ export interface ScanResult {
 interface ScanOverlayProps {
   result: ScanResult;
   onDismiss: () => void;
+  autoCloseMs?: number;
 }
 
-export function ScanOverlay({ result, onDismiss }: ScanOverlayProps) {
+export function ScanOverlay({ result, onDismiss, autoCloseMs }: ScanOverlayProps) {
   const isSuccess = result.type === 'success';
+
+  const [remaining, setRemaining] = useState(() =>
+    autoCloseMs ? Math.ceil(autoCloseMs / 1000) : 0,
+  );
+
+  useEffect(() => {
+    if (!autoCloseMs || isSuccess) return;
+    setRemaining(Math.ceil(autoCloseMs / 1000));
+    const id = setInterval(() => {
+      setRemaining((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [autoCloseMs, isSuccess]);
 
   return (
     <div
@@ -29,7 +44,11 @@ export function ScanOverlay({ result, onDismiss }: ScanOverlayProps) {
           <DismissCircleRegular className={styles.icon} />
         )}
         {result.message && <span className={styles.message}>{result.message}</span>}
-        {!isSuccess && <span className={styles.dismissHint}>Tap to dismiss</span>}
+        {!isSuccess && (
+          <span className={styles.dismissHint}>
+            Tap to dismiss{remaining > 0 ? ` (${remaining}s)` : ''}
+          </span>
+        )}
       </div>
     </div>
   );

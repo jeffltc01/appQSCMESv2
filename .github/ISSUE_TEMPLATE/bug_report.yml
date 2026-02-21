@@ -1,0 +1,105 @@
+name: "\U0001F41B Bug Report"
+description: Report a bug or something that isn't working correctly
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this bug! Please fill out the details below so we can investigate.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area of the application
+      description: Which part of the app is affected?
+      options:
+        - Login / Authentication
+        - Menu / Navigation
+        - Fitup Queue
+        - Long Seam
+        - Round Seam
+        - Rolls / Material
+        - Scan Overlay
+        - Admin - Users
+        - Admin - Products
+        - Admin - Production Lines
+        - Admin - Annotation Types
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear description of what went wrong.
+      placeholder: "When I try to scan a barcode on the Long Seam screen, nothing happens."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we recreate this issue?
+      placeholder: |
+        1. Log in as an operator
+        2. Go to Long Seam screen
+        3. Scan a barcode
+        4. Nothing happens
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+      placeholder: "The scanned item should appear and be ready for processing."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened instead?
+      placeholder: "Nothing happened after scanning. No error message was displayed."
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or error messages
+      description: If applicable, paste screenshots or copy any error messages you see.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser are you using?
+      options:
+        - Chrome
+        - Edge
+        - Firefox
+        - Safari
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How much does this affect your work?
+      options:
+        - "Low - Minor inconvenience, I can work around it"
+        - "Medium - It slows me down but I can still work"
+        - "High - I can't complete an important task"
+        - "Critical - The app is completely unusable"
+    validations:
+      required: true

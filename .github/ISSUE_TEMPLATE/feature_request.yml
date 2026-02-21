@@ -1,0 +1,77 @@
+name: "\U0001F4A1 Feature Request"
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to improve the app? We'd love to hear it! Please describe your suggestion below.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area of the application
+      description: Which part of the app does this relate to?
+      options:
+        - Login / Authentication
+        - Menu / Navigation
+        - Fitup Queue
+        - Long Seam
+        - Round Seam
+        - Rolls / Material
+        - Scan Overlay
+        - Admin - Users
+        - Admin - Products
+        - Admin - Production Lines
+        - Admin - Annotation Types
+        - New feature / Not in the app yet
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the problem or frustration you're experiencing that this feature would address.
+      placeholder: "I often need to check the status of multiple items on the fitup queue, but I can only view one at a time."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the feature you'd like
+      description: A clear description of what you want to happen.
+      placeholder: "Add a batch selection mode to the Fitup Queue so I can view or process multiple items at once."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: Have you tried any workarounds? Are there other ways this could be solved?
+      placeholder: "Currently I open each item individually, which is slow."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - "Nice to have - Would be a welcome improvement"
+        - "Important - Would significantly help my workflow"
+        - "Critical - I really need this to do my job effectively"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other details, screenshots, or mockups that help explain your idea.
+    validations:
+      required: false
