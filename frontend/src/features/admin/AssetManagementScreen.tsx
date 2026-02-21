@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Checkbox, Dropdown, Option, Spinner } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
@@ -25,6 +25,7 @@ export function AssetManagementScreen() {
   const [workCenterId, setWorkCenterId] = useState('');
   const [productionLineId, setProductionLineId] = useState('');
   const [limbleIdentifier, setLimbleIdentifier] = useState('');
+  const [isActive, setIsActive] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,7 +57,7 @@ export function AssetManagementScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setName(''); setWorkCenterId(''); setProductionLineId(''); setLimbleIdentifier('');
+    setName(''); setWorkCenterId(''); setProductionLineId(''); setLimbleIdentifier(''); setIsActive(true);
     setError(''); setModalOpen(true);
   };
 
@@ -65,18 +66,18 @@ export function AssetManagementScreen() {
     setName(item.name); setWorkCenterId(item.workCenterId);
     setProductionLineId(item.productionLineId);
     setLimbleIdentifier(item.limbleIdentifier ?? '');
+    setIsActive(item.isActive);
     setError(''); setModalOpen(true);
   };
 
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      const payload = { name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined };
       if (editing) {
-        const updated = await adminAssetApi.update(editing.id, payload);
+        const updated = await adminAssetApi.update(editing.id, { name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined, isActive });
         setItems(prev => prev.map(a => a.id === updated.id ? updated : a));
       } else {
-        const created = await adminAssetApi.create(payload);
+        const created = await adminAssetApi.create({ name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined });
         setItems(prev => [...prev, created]);
       }
       setModalOpen(false);
@@ -92,7 +93,7 @@ export function AssetManagementScreen() {
         <div className={styles.grid}>
           {filteredItems.length === 0 && <div className={styles.emptyState}>No assets found.</div>}
           {filteredItems.map(item => (
-            <div key={item.id} className={styles.card}>
+            <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.name}</span>
                 <div className={styles.cardActions}>
@@ -113,6 +114,9 @@ export function AssetManagementScreen() {
                   <span className={styles.cardFieldValue}>{item.limbleIdentifier}</span>
                 </div>
               )}
+              <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
+                {item.isActive ? 'Active' : 'Inactive'}
+              </span>
             </div>
           ))}
         </div>
@@ -148,6 +152,9 @@ export function AssetManagementScreen() {
         </Dropdown>
         <Label>Limble Identifier (optional)</Label>
         <Input value={limbleIdentifier} onChange={(_, d) => setLimbleIdentifier(d.value)} />
+        {editing && (
+          <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
+        )}
       </AdminModal>
     </AdminLayout>
   );

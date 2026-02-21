@@ -301,6 +301,7 @@ public class AdminAssetDto
     public Guid ProductionLineId { get; set; }
     public string ProductionLineName { get; set; } = string.Empty;
     public string? LimbleIdentifier { get; set; }
+    public bool IsActive { get; set; }
 }
 
 public class CreateAssetDto
@@ -317,6 +318,7 @@ public class UpdateAssetDto
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public string? LimbleIdentifier { get; set; }
+    public bool IsActive { get; set; }
 }
 
 // ---- Kanban Cards ----

@@ -20,7 +20,7 @@ public class AssetsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AssetDto>>> GetAssets([FromQuery] Guid? workCenterId, [FromQuery] Guid? productionLineId, CancellationToken cancellationToken)
     {
-        var query = _db.Assets.AsQueryable();
+        var query = _db.Assets.Where(a => a.IsActive);
         if (workCenterId.HasValue)
             query = query.Where(a => a.WorkCenterId == workCenterId.Value);
         if (productionLineId.HasValue)
@@ -48,7 +48,8 @@ public class AssetsController : ControllerBase
                 WorkCenterName = a.WorkCenter.Name,
                 ProductionLineId = a.ProductionLineId,
                 ProductionLineName = a.ProductionLine.Name + " (" + a.ProductionLine.Plant.Name + ")",
-                LimbleIdentifier = a.LimbleIdentifier
+                LimbleIdentifier = a.LimbleIdentifier,
+                IsActive = a.IsActive
             })
             .ToListAsync(cancellationToken);
         return Ok(list);
@@ -70,7 +71,7 @@ public class AssetsController : ControllerBase
 
         var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
         var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
-        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier });
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, IsActive = asset.IsActive });
     }
 
     [HttpPut("{id:guid}")]
@@ -83,10 +84,11 @@ public class AssetsController : ControllerBase
         asset.WorkCenterId = dto.WorkCenterId;
         asset.ProductionLineId = dto.ProductionLineId;
         asset.LimbleIdentifier = dto.LimbleIdentifier;
+        asset.IsActive = dto.IsActive;
         await _db.SaveChangesAsync(cancellationToken);
 
         var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
         var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
-        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier });
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, IsActive = asset.IsActive });
     }
 }

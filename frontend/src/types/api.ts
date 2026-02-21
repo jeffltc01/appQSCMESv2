@@ -330,6 +330,7 @@ export interface UpdateAssetRequest {
   workCenterId: string;
   productionLineId: string;
   limbleIdentifier?: string;
+  isActive: boolean;
 }
 
 export interface CreateBarcodeCardRequest {

@@ -392,6 +392,7 @@ export interface AdminAsset {
   productionLineId: string;
   productionLineName: string;
   limbleIdentifier?: string;
+  isActive: boolean;
 }
 
 export interface AdminBarcodeCard {

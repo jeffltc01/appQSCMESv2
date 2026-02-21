@@ -8,7 +8,7 @@ import { useBarcode } from '../../hooks/useBarcode.ts';
 import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import type { Welder, WCHistoryData, QueueTransaction } from '../../types/domain.ts';
-import { workCenterApi } from '../../api/endpoints.ts';
+import { workCenterApi, adminWorkCenterApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
 import { BottomBar } from './BottomBar.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
@@ -144,17 +144,27 @@ export function OperatorLayout() {
     try {
       const wcs = await workCenterApi.getWorkCenters();
       const wc = wcs.find((w) => w.id === cache.cachedWorkCenterId);
-      if (wc) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const raw = wc as any;
-        const count = typeof raw.numberOfWelders === 'number'
-          ? raw.numberOfWelders
-          : raw.requiresWelder ? 1 : 0;
-        setNumberOfWelders(count);
-        localStorage.setItem('cachedNumberOfWelders', String(count));
+      if (!wc) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = wc as any;
+      let count = typeof raw.numberOfWelders === 'number'
+        ? raw.numberOfWelders
+        : raw.requiresWelder ? 1 : 0;
+
+      if (cache.cachedProductionLineId) {
+        try {
+          const plConfig = await adminWorkCenterApi.getProductionLineConfig(
+            cache.cachedWorkCenterId, cache.cachedProductionLineId);
+          count = plConfig.numberOfWelders;
+        } catch {
+          // No per-line config — keep base WorkCenter default
+        }
       }
+
+      setNumberOfWelders(count);
+      localStorage.setItem('cachedNumberOfWelders', String(count));
     } catch {
-      // API failed — derive from work center name as fallback
       const wcName = (cache.cachedWorkCenterName ?? '').toLowerCase();
       const welderRequired = ['rolls', 'long seam', 'fitup', 'round seam']
         .some((n) => wcName.includes(n))
@@ -165,7 +175,7 @@ export function OperatorLayout() {
         localStorage.setItem('cachedNumberOfWelders', '1');
       }
     }
-  }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName]);
+  }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName, cache?.cachedProductionLineId]);
 
   const dismissScanResult = useCallback(() => {
     if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }

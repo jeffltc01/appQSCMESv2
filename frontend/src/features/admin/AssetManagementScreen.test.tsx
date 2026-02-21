@@ -43,6 +43,7 @@ const mockAssets = [
     productionLineId: 'pl1',
     productionLineName: 'Line 1 (Cleveland)',
     limbleIdentifier: 'LMB-001',
+    isActive: true,
   },
 ];
 

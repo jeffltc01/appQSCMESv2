@@ -7,6 +7,7 @@ public class Asset
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public string? LimbleIdentifier { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public WorkCenter WorkCenter { get; set; } = null!;
     public ProductionLine ProductionLine { get; set; } = null!;
