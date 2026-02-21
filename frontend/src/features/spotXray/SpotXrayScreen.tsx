@@ -1,7 +1,7 @@
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import styles from './SpotXrayScreen.module.css';
 
-export function SpotXrayScreen(props: WorkCenterProps) {
+export function SpotXrayScreen(_props: WorkCenterProps) {
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>Spot X-ray</h2>

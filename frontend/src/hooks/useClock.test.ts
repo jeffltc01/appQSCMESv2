@@ -16,7 +16,6 @@ describe('useClock', () => {
   it('updates time on interval', () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useClock());
-    const initial = result.current;
 
     act(() => {
       vi.advanceTimersByTime(1000);

@@ -74,7 +74,7 @@ describe('LongSeamScreen', () => {
       timestamp: new Date().toISOString(),
     });
 
-    const { props } = renderLongSeam();
+    renderLongSeam();
     const input = screen.getByPlaceholderText(/enter serial number/i);
     await user.type(input, '000001');
     await user.click(screen.getByRole('button', { name: /submit/i }));

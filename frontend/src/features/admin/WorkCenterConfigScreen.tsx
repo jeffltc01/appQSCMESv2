@@ -300,7 +300,7 @@ export function WorkCenterConfigScreen() {
               {allProductionLines
                 .filter(pl => !existingPlIdsForWc(plWcId).includes(pl.id))
                 .map(pl => (
-                  <Option key={pl.id} value={pl.id}>
+                  <Option key={pl.id} value={pl.id} text={`${pl.name} (${pl.plantName})`}>
                     {pl.name} ({pl.plantName})
                   </Option>
                 ))

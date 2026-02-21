@@ -23,6 +23,7 @@ export interface LoginResponse {
     roleName: string;
     defaultSiteId: string;
     isCertifiedWelder: boolean;
+    userType: number;
     plantCode: string;
     plantName: string;
     plantTimeZoneId: string;

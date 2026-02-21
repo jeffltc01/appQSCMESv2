@@ -31,7 +31,9 @@ function renderScreen() {
 const mockControlPlans = [
   {
     id: '1',
+    characteristicId: 'ch1',
     characteristicName: 'Long Seam',
+    workCenterId: 'wc1',
     workCenterName: 'Rolls 1',
     isEnabled: true,
     resultType: 'PassFail',

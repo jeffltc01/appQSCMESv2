@@ -75,7 +75,7 @@ describe('LongSeamInspScreen', () => {
       shellSize: '120',
     });
 
-    const { props } = renderInspection();
+    renderInspection();
     const input = screen.getByPlaceholderText(/enter serial number/i);
     await user.type(input, 'SH001');
     await user.click(screen.getByRole('button', { name: /submit/i }));
@@ -134,7 +134,7 @@ describe('LongSeamInspScreen', () => {
       defects: [],
     });
 
-    const { props } = renderInspection();
+    renderInspection();
     await user.type(screen.getByPlaceholderText(/enter serial number/i), 'SH001');
     await user.click(screen.getByRole('button', { name: /submit/i }));
 

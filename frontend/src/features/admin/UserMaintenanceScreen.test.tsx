@@ -55,7 +55,7 @@ const mockRoles = [
   { name: 'Operator', tier: 6 },
 ];
 
-const mockSites = [{ id: 's1', code: 'PLT1', name: 'Plant 1' }];
+const mockSites = [{ id: 's1', code: 'PLT1', name: 'Plant 1', timeZoneId: 'America/Chicago' }];
 
 describe('UserMaintenanceScreen', () => {
   beforeEach(() => {
