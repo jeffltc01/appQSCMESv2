@@ -10,18 +10,20 @@ public class XrayQueueServiceTests
     public async Task GetQueue_ReturnsItemsForWorkCenter()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
+        var snId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber { Id = snId, Serial = "SH001", PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
         db.XrayQueueItems.Add(new XrayQueueItem
         {
             Id = Guid.NewGuid(),
-            WorkCenterId = TestHelpers.wcRollsId,
-            SerialNumber = "SH001",
+            WorkCenterId = TestHelpers.wcRtXrayQueueId,
+            SerialNumberId = snId,
             OperatorId = TestHelpers.TestUserId,
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
         var sut = new XrayQueueService(db);
-        var result = await sut.GetQueueAsync(TestHelpers.wcRollsId);
+        var result = await sut.GetQueueAsync(TestHelpers.wcRtXrayQueueId);
 
         Assert.Single(result);
         Assert.Equal("SH001", result[0].SerialNumber);
@@ -31,11 +33,11 @@ public class XrayQueueServiceTests
     public async Task AddAsync_ValidSerial_AddsToQueue()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        db.SerialNumbers.Add(new SerialNumber { Id = Guid.NewGuid(), Serial = "SH002", CreatedAt = DateTime.UtcNow });
+        db.SerialNumbers.Add(new SerialNumber { Id = Guid.NewGuid(), Serial = "SH002", PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
 
         var sut = new XrayQueueService(db);
-        var result = await sut.AddAsync(TestHelpers.wcRollsId, new AddXrayQueueItemDto
+        var result = await sut.AddAsync(TestHelpers.wcRtXrayQueueId, new AddXrayQueueItemDto
         {
             SerialNumber = "SH002",
             OperatorId = TestHelpers.TestUserId
@@ -52,7 +54,7 @@ public class XrayQueueServiceTests
         var sut = new XrayQueueService(db);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.AddAsync(TestHelpers.wcRollsId, new AddXrayQueueItemDto
+            sut.AddAsync(TestHelpers.wcRtXrayQueueId, new AddXrayQueueItemDto
             {
                 SerialNumber = "UNKNOWN",
                 OperatorId = TestHelpers.TestUserId
@@ -64,12 +66,12 @@ public class XrayQueueServiceTests
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var snId = Guid.NewGuid();
-        db.SerialNumbers.Add(new SerialNumber { Id = snId, Serial = "SH003", CreatedAt = DateTime.UtcNow });
+        db.SerialNumbers.Add(new SerialNumber { Id = snId, Serial = "SH003", PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
         db.XrayQueueItems.Add(new XrayQueueItem
         {
             Id = Guid.NewGuid(),
-            WorkCenterId = TestHelpers.wcRollsId,
-            SerialNumber = "SH003",
+            WorkCenterId = TestHelpers.wcRtXrayQueueId,
+            SerialNumberId = snId,
             OperatorId = TestHelpers.TestUserId,
             CreatedAt = DateTime.UtcNow
         });
@@ -78,7 +80,7 @@ public class XrayQueueServiceTests
         var sut = new XrayQueueService(db);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.AddAsync(TestHelpers.wcRollsId, new AddXrayQueueItemDto
+            sut.AddAsync(TestHelpers.wcRtXrayQueueId, new AddXrayQueueItemDto
             {
                 SerialNumber = "SH003",
                 OperatorId = TestHelpers.TestUserId
@@ -89,19 +91,21 @@ public class XrayQueueServiceTests
     public async Task RemoveAsync_ExistingItem_ReturnsTrue()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
+        var snId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber { Id = snId, Serial = "SH004", PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
         var itemId = Guid.NewGuid();
         db.XrayQueueItems.Add(new XrayQueueItem
         {
             Id = itemId,
-            WorkCenterId = TestHelpers.wcRollsId,
-            SerialNumber = "SH004",
+            WorkCenterId = TestHelpers.wcRtXrayQueueId,
+            SerialNumberId = snId,
             OperatorId = TestHelpers.TestUserId,
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
         var sut = new XrayQueueService(db);
-        var result = await sut.RemoveAsync(TestHelpers.wcRollsId, itemId);
+        var result = await sut.RemoveAsync(TestHelpers.wcRtXrayQueueId, itemId);
 
         Assert.True(result);
     }

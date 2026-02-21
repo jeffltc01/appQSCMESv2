@@ -191,6 +191,80 @@ describe('FitupScreen', () => {
     });
   });
 
+  it('alpha popup does not display the text Alpha Code', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+    });
+    vi.mocked(assemblyApi.create).mockResolvedValue({
+      id: 'asm1',
+      alphaCode: 'AA',
+      timestamp: new Date().toISOString(),
+    });
+
+    const { props } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    // Add shell
+    handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    await waitFor(() => expect(serialNumberApi.getContext).toHaveBeenCalled());
+    // Add head
+    handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    await waitFor(() => expect(materialQueueApi.getCardLookup).toHaveBeenCalled());
+    // Save
+    handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    await waitFor(() => expect(assemblyApi.create).toHaveBeenCalled());
+    // Alpha popup should show the code but not the words "Alpha Code"
+    await waitFor(() => expect(screen.getByText('AA')).toBeInTheDocument());
+    expect(screen.queryByText('Alpha Code')).not.toBeInTheDocument();
+  });
+
+  it('scanning save at alpha popup dismisses popup instead of creating another assembly', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+    });
+    vi.mocked(assemblyApi.create).mockResolvedValue({
+      id: 'asm1',
+      alphaCode: 'AA',
+      timestamp: new Date().toISOString(),
+    });
+
+    const { props } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    await waitFor(() => expect(serialNumberApi.getContext).toHaveBeenCalled());
+    handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    await waitFor(() => expect(materialQueueApi.getCardLookup).toHaveBeenCalled());
+    handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    await waitFor(() => expect(assemblyApi.create).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText('AA')).toBeInTheDocument());
+
+    // Clear the mock call count
+    vi.mocked(assemblyApi.create).mockClear();
+
+    // Scan save again while alpha popup is showing
+    handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+
+    // Should NOT create another assembly
+    expect(assemblyApi.create).not.toHaveBeenCalled();
+    // Popup should be dismissed — back to normal view
+    await waitFor(() => expect(screen.queryByText('AA')).not.toBeInTheDocument());
+  });
+
   it('handles tank size override via barcode', () => {
     const { props } = renderFitup();
     const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];

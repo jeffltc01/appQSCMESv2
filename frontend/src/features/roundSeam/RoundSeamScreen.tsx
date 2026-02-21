@@ -25,6 +25,7 @@ function tankBracket(size: number): number {
 export function RoundSeamScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId,
+    welderCountLoaded = true,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -45,6 +46,8 @@ export function RoundSeamScreen(props: WorkCenterProps) {
     loadAvailableWelders();
   }, [workCenterId]);
 
+  const pendingSetupOpenRef = useRef(false);
+
   const loadSetup = useCallback(async () => {
     try {
       const s = await roundSeamApi.getSetup(workCenterId);
@@ -53,15 +56,30 @@ export function RoundSeamScreen(props: WorkCenterProps) {
       if (!s.isComplete && !initialLoadDoneRef.current) {
         initialLoadDoneRef.current = true;
         setSetupWelders([s.rs1WelderId, s.rs2WelderId, s.rs3WelderId, s.rs4WelderId]);
-        setShowSetup(true);
+        if (welderCountLoaded) {
+          setShowSetup(true);
+        } else {
+          pendingSetupOpenRef.current = true;
+        }
       } else {
         initialLoadDoneRef.current = true;
       }
     } catch {
       initialLoadDoneRef.current = true;
+      if (welderCountLoaded) {
+        setShowSetup(true);
+      } else {
+        pendingSetupOpenRef.current = true;
+      }
+    }
+  }, [workCenterId, welderCountLoaded]);
+
+  useEffect(() => {
+    if (welderCountLoaded && pendingSetupOpenRef.current) {
+      pendingSetupOpenRef.current = false;
       setShowSetup(true);
     }
-  }, [workCenterId]);
+  }, [welderCountLoaded]);
 
   const loadAvailableWelders = useCallback(async () => {
     try {

@@ -34,4 +34,5 @@ public class AssemblyLookupDto
     public string AlphaCode { get; set; } = string.Empty;
     public int TankSize { get; set; }
     public int RoundSeamCount { get; set; }
+    public List<string> Shells { get; set; } = new();
 }

@@ -17,6 +17,7 @@ public class XrayQueueService : IXrayQueueService
     public async Task<IReadOnlyList<XrayQueueItemDto>> GetQueueAsync(Guid wcId, CancellationToken cancellationToken = default)
     {
         var items = await _db.XrayQueueItems
+            .Include(x => x.SerialNumber)
             .Where(x => x.WorkCenterId == wcId)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -24,20 +25,20 @@ public class XrayQueueService : IXrayQueueService
         return items.Select(x => new XrayQueueItemDto
         {
             Id = x.Id,
-            SerialNumber = x.SerialNumber,
+            SerialNumber = x.SerialNumber.Serial,
             CreatedAt = x.CreatedAt
         }).ToList();
     }
 
     public async Task<XrayQueueItemDto> AddAsync(Guid wcId, AddXrayQueueItemDto dto, CancellationToken cancellationToken = default)
     {
-        var serialExists = await _db.SerialNumbers
-            .AnyAsync(s => s.Serial == dto.SerialNumber, cancellationToken);
-        if (!serialExists)
+        var sn = await _db.SerialNumbers
+            .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken);
+        if (sn == null)
             throw new InvalidOperationException("Serial number not found");
 
         var duplicate = await _db.XrayQueueItems
-            .AnyAsync(x => x.WorkCenterId == wcId && x.SerialNumber == dto.SerialNumber, cancellationToken);
+            .AnyAsync(x => x.WorkCenterId == wcId && x.SerialNumberId == sn.Id, cancellationToken);
         if (duplicate)
             throw new InvalidOperationException("Serial is already in queue");
 
@@ -45,7 +46,7 @@ public class XrayQueueService : IXrayQueueService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
-            SerialNumber = dto.SerialNumber,
+            SerialNumberId = sn.Id,
             OperatorId = dto.OperatorId,
             CreatedAt = DateTime.UtcNow
         };
@@ -56,7 +57,7 @@ public class XrayQueueService : IXrayQueueService
         return new XrayQueueItemDto
         {
             Id = item.Id,
-            SerialNumber = item.SerialNumber,
+            SerialNumber = sn.Serial,
             CreatedAt = item.CreatedAt
         };
     }

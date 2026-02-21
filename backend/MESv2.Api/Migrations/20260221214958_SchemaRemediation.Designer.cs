@@ -4,6 +4,7 @@ using MESv2.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MESv2.Api.Migrations
 {
     [DbContext(typeof(MesDbContext))]
-    partial class MesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260221214958_SchemaRemediation")]
+    partial class SchemaRemediation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -528,14 +531,35 @@ namespace MESv2.Api.Migrations
                     b.Property<string>("CardId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CoilNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CoilSlabNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("HeatNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LotNumber")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("OperatorId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Position")
                         .HasColumnType("int");
+
+                    b.Property<string>("ProductDescription")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
@@ -546,9 +570,21 @@ namespace MESv2.Api.Migrations
                     b.Property<Guid?>("SerialNumberId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ShellSize")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid?>("VendorHeadId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("VendorMillId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("VendorProcessorId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("WorkCenterId")
                         .HasColumnType("uniqueidentifier");

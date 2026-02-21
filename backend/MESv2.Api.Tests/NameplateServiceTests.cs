@@ -7,40 +7,42 @@ namespace MESv2.Api.Tests;
 
 public class NameplateServiceTests
 {
-    private static readonly Guid TestProductId = Guid.NewGuid();
-
     [Fact]
     public async Task Create_ValidRecord_Succeeds()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedProduct(db);
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
 
         var sut = new NameplateService(db, NullLogger<NameplateService>.Instance);
         var result = await sut.CreateAsync(new CreateNameplateRecordDto
         {
             SerialNumber = "W00100001",
-            ProductId = TestProductId,
-            WorkCenterId = TestHelpers.wcRollsId,
+            ProductId = product.Id,
+            WorkCenterId = TestHelpers.wcNameplateId,
             OperatorId = TestHelpers.TestUserId
         });
 
         Assert.NotNull(result);
         Assert.Equal("W00100001", result.SerialNumber);
+
+        var sn = db.SerialNumbers.FirstOrDefault(s => s.Serial == "W00100001");
+        Assert.NotNull(sn);
+        Assert.Equal(product.Id, sn.ProductId);
     }
 
     [Fact]
     public async Task Create_DuplicateSerial_Throws()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedProduct(db);
-        db.NameplateRecords.Add(new NameplateRecord
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+
+        db.SerialNumbers.Add(new SerialNumber
         {
             Id = Guid.NewGuid(),
-            SerialNumber = "W00100002",
-            ProductId = TestProductId,
-            WorkCenterId = TestHelpers.wcRollsId,
-            OperatorId = TestHelpers.TestUserId,
-            Timestamp = DateTime.UtcNow
+            Serial = "W00100002",
+            ProductId = product.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
@@ -50,8 +52,8 @@ public class NameplateServiceTests
             sut.CreateAsync(new CreateNameplateRecordDto
             {
                 SerialNumber = "W00100002",
-                ProductId = TestProductId,
-                WorkCenterId = TestHelpers.wcRollsId,
+                ProductId = product.Id,
+                WorkCenterId = TestHelpers.wcNameplateId,
                 OperatorId = TestHelpers.TestUserId
             }));
     }
@@ -60,15 +62,15 @@ public class NameplateServiceTests
     public async Task GetBySerial_Found_ReturnsRecord()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedProduct(db);
-        db.NameplateRecords.Add(new NameplateRecord
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+
+        db.SerialNumbers.Add(new SerialNumber
         {
             Id = Guid.NewGuid(),
-            SerialNumber = "W00100003",
-            ProductId = TestProductId,
-            WorkCenterId = TestHelpers.wcRollsId,
-            OperatorId = TestHelpers.TestUserId,
-            Timestamp = DateTime.UtcNow
+            Serial = "W00100003",
+            ProductId = product.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
@@ -86,27 +88,5 @@ public class NameplateServiceTests
         var sut = new NameplateService(db, NullLogger<NameplateService>.Instance);
         var result = await sut.GetBySerialAsync("NONEXISTENT");
         Assert.Null(result);
-    }
-
-    private static void SeedProduct(MESv2.Api.Data.MesDbContext db)
-    {
-        if (!db.Products.Any(p => p.Id == TestProductId))
-        {
-            var ptId = Guid.NewGuid();
-            if (!db.ProductTypes.Any())
-                db.ProductTypes.Add(new ProductType { Id = ptId, Name = "Sellable" });
-            else
-                ptId = db.ProductTypes.First().Id;
-
-            db.Products.Add(new Product
-            {
-                Id = TestProductId,
-                ProductNumber = "120-AG-STD",
-                TankSize = 120,
-                TankType = "AG",
-                ProductTypeId = ptId
-            });
-            db.SaveChanges();
-        }
     }
 }

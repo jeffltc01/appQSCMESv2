@@ -82,19 +82,27 @@ public class RoundSeamService : IRoundSeamService
 
         var shellLog = await _db.TraceabilityLogs
             .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id && t.Relationship == "shell", cancellationToken);
-        if (shellLog == null || string.IsNullOrEmpty(shellLog.ToAlphaCode)) return null;
+        if (shellLog?.ToSerialNumberId == null) return null;
 
-        var assembly = await _db.Assemblies
-            .FirstOrDefaultAsync(a => a.AlphaCode == shellLog.ToAlphaCode, cancellationToken);
-        if (assembly == null) return null;
+        var assemblySn = await _db.SerialNumbers
+            .Include(s => s.Product)
+            .FirstOrDefaultAsync(s => s.Id == shellLog.ToSerialNumberId.Value, cancellationToken);
+        if (assemblySn == null) return null;
 
-        int roundSeamCount = assembly.TankSize <= 500 ? 2 : assembly.TankSize <= 1000 ? 3 : 4;
+        var tankSize = assemblySn.Product?.TankSize ?? 0;
+        int roundSeamCount = tankSize <= 500 ? 2 : tankSize <= 1000 ? 3 : 4;
+
+        var shellSerials = await _db.TraceabilityLogs
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell" && t.FromSerialNumberId != null)
+            .Join(_db.SerialNumbers, t => t.FromSerialNumberId, s => s.Id, (t, s) => s.Serial)
+            .ToListAsync(cancellationToken);
 
         return new AssemblyLookupDto
         {
-            AlphaCode = assembly.AlphaCode,
-            TankSize = assembly.TankSize,
-            RoundSeamCount = roundSeamCount
+            AlphaCode = assemblySn.Serial,
+            TankSize = tankSize,
+            RoundSeamCount = roundSeamCount,
+            Shells = shellSerials
         };
     }
 
@@ -104,12 +112,14 @@ public class RoundSeamService : IRoundSeamService
         if (assemblyLookup == null)
             throw new InvalidOperationException("Shell is not part of any assembly");
 
+        var assemblySn = await _db.SerialNumbers
+            .FirstAsync(s => s.Serial == assemblyLookup.AlphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+
         var existing = await _db.ProductionRecords
-            .Include(r => r.SerialNumber)
             .Where(r => r.WorkCenterId == dto.WorkCenterId)
             .AnyAsync(r => _db.TraceabilityLogs.Any(t =>
                 t.FromSerialNumberId == r.SerialNumberId &&
-                t.ToAlphaCode == assemblyLookup.AlphaCode &&
+                t.ToSerialNumberId == assemblySn.Id &&
                 t.Relationship == "shell"), cancellationToken);
 
         if (existing)

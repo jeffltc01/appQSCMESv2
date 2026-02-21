@@ -30,7 +30,7 @@ import { HydroScreen } from '../../features/hydro/HydroScreen.tsx';
 import styles from './OperatorLayout.module.css';
 
 export function OperatorLayout() {
-  const { user, isWelder } = useAuth();
+  const { user, isWelder, logout } = useAuth();
   const navigate = useNavigate();
   const cache = getTabletCache();
 
@@ -47,6 +47,7 @@ export function OperatorLayout() {
   useHeartbeat(!!cache?.cachedWorkCenterId, sessionData);
 
   const [numberOfWelders, setNumberOfWelders] = useState(cache?.cachedNumberOfWelders ?? 0);
+  const [welderCountLoaded, setWelderCountLoaded] = useState(cache?.cachedNumberOfWelders != null);
 
   const [externalInput, setExternalInput] = useState(false);
   const [welders, setWelders] = useState<Welder[]>([]);
@@ -174,6 +175,8 @@ export function OperatorLayout() {
         setNumberOfWelders(1);
         localStorage.setItem('cachedNumberOfWelders', '1');
       }
+    } finally {
+      setWelderCountLoaded(true);
     }
   }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName, cache?.cachedProductionLineId]);
 
@@ -266,8 +269,8 @@ export function OperatorLayout() {
   }, [welderGateEmpNo, cache?.cachedWorkCenterId]);
 
   const handleWelderGateCancel = useCallback(() => {
-    navigate('/tablet-setup');
-  }, [navigate]);
+    logout();
+  }, [logout]);
 
   const supportsExternalInput = !(
     dataEntryType === 'MatQueue-Material' ||
@@ -281,8 +284,10 @@ export function OperatorLayout() {
     assetId: cache?.cachedAssetId ?? '',
     productionLineId: cache?.cachedProductionLineId ?? '',
     operatorId: user?.id ?? '',
+    plantId: user?.defaultSiteId ?? '',
     welders,
     numberOfWelders,
+    welderCountLoaded,
     externalInput,
     materialQueueForWCId: cache?.cachedMaterialQueueForWCId,
     showScanResult,
@@ -437,8 +442,10 @@ export interface WorkCenterProps {
   assetId: string;
   productionLineId: string;
   operatorId: string;
+  plantId: string;
   welders: Welder[];
   numberOfWelders: number;
+  welderCountLoaded: boolean;
   externalInput: boolean;
   materialQueueForWCId?: string;
   showScanResult: (result: ScanResult) => void;

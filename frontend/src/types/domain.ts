@@ -137,23 +137,10 @@ export interface MaterialQueueItem {
   createdAt?: string;
 }
 
-export interface Assembly {
-  id: string;
-  alphaCode: string;
-  tankSize: number;
-  shells: string[];
-  leftHeadLotId?: string;
-  rightHeadLotId?: string;
-  leftHeadInfo?: HeadLotInfo;
-  rightHeadInfo?: HeadLotInfo;
-  workCenterId: string;
-  operatorId: string;
-  timestamp: string;
-}
-
 export interface HeadLotInfo {
   heatNumber: string;
   coilNumber: string;
+  lotNumber?: string;
   productDescription: string;
   cardId?: string;
   cardColor?: string;
@@ -239,6 +226,7 @@ export interface AssemblyLookup {
   alphaCode: string;
   tankSize: number;
   roundSeamCount: number;
+  shells: string[];
 }
 
 export interface NameplateRecordInfo {
@@ -462,6 +450,15 @@ export interface SerialNumberLookup {
   serialNumber: string;
   treeNodes: TraceabilityNode[];
   events: ManufacturingEvent[];
+}
+
+export interface SellableTankStatus {
+  serialNumber: string;
+  productNumber: string;
+  tankSize: number;
+  rtXrayResult: string | null;
+  spotXrayResult: string | null;
+  hydroResult: string | null;
 }
 
 export interface AdminAnnotation {

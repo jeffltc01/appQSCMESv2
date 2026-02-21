@@ -61,8 +61,11 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default)
     {
+        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
+
         var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder, cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder
+                && (plantId == Guid.Empty || u.DefaultSiteId == plantId), cancellationToken);
         if (user == null)
             return null;
 
@@ -154,10 +157,12 @@ public class WorkCenterService : IWorkCenterService
     public async Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default)
     {
         var query = _db.MaterialQueueItems
+            .Include(m => m.SerialNumber)
+            .ThenInclude(s => s!.Product)
             .Where(m => m.WorkCenterId == wcId);
 
         if (!string.IsNullOrEmpty(type))
-            query = query.Where(m => m.Status == type);
+            query = query.Where(m => m.QueueType == type);
 
         var items = await query
             .OrderBy(m => m.Position)
@@ -169,21 +174,16 @@ public class WorkCenterService : IWorkCenterService
     public async Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default)
     {
         var active = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .Where(m => m.WorkCenterId == wcId && m.Status == "active")
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (active != null)
-            return new QueueAdvanceResponseDto
-            {
-                ShellSize = active.ShellSize ?? string.Empty,
-                HeatNumber = active.HeatNumber,
-                CoilNumber = active.CoilNumber,
-                Quantity = active.Quantity,
-                ProductDescription = active.ProductDescription
-            };
+            return MapAdvanceResponse(active);
 
         var nextQueued = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .Where(m => m.WorkCenterId == wcId && m.Status == "queued")
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
@@ -194,15 +194,17 @@ public class WorkCenterService : IWorkCenterService
         nextQueued.Status = "active";
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new QueueAdvanceResponseDto
-        {
-            ShellSize = nextQueued.ShellSize ?? string.Empty,
-            HeatNumber = nextQueued.HeatNumber,
-            CoilNumber = nextQueued.CoilNumber,
-            Quantity = nextQueued.Quantity,
-            ProductDescription = nextQueued.ProductDescription
-        };
+        return MapAdvanceResponse(nextQueued);
     }
+
+    private static QueueAdvanceResponseDto MapAdvanceResponse(MaterialQueueItem m) => new()
+    {
+        ShellSize = m.SerialNumber?.Product?.TankSize.ToString() ?? string.Empty,
+        HeatNumber = m.SerialNumber?.HeatNumber ?? string.Empty,
+        CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
+        Quantity = m.Quantity,
+        ProductDescription = m.SerialNumber?.Product?.ProductNumber ?? string.Empty
+    };
 
     public Task ReportFaultAsync(Guid wcId, string description, CancellationToken cancellationToken = default)
     {
@@ -319,15 +321,7 @@ public class WorkCenterService : IWorkCenterService
             WorkCenterId = wcId,
             Position = maxPos + 1,
             Status = "queued",
-            ProductDescription = product?.ProductNumber ?? "Unknown",
-            ShellSize = product?.TankSize.ToString(),
-            HeatNumber = dto.HeatNumber,
-            CoilNumber = dto.CoilNumber,
             Quantity = dto.Quantity,
-            ProductId = dto.ProductId,
-            VendorMillId = dto.VendorMillId,
-            VendorProcessorId = dto.VendorProcessorId,
-            LotNumber = dto.LotNumber,
             QueueType = "rolls",
             CreatedAt = DateTime.UtcNow,
             SerialNumberId = serial.Id
@@ -335,46 +329,53 @@ public class WorkCenterService : IWorkCenterService
 
         _db.MaterialQueueItems.Add(item);
 
+        var productDesc = product?.ProductNumber ?? "Unknown";
         _db.QueueTransactions.Add(new QueueTransaction
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
             Action = "added",
-            ItemSummary = $"{item.ProductDescription} - Heat {dto.HeatNumber} Coil {dto.CoilNumber} - Qty {dto.Quantity}",
+            ItemSummary = $"{productDesc} - Heat {dto.HeatNumber} Coil {dto.CoilNumber} - Qty {dto.Quantity}",
             OperatorName = string.Empty,
             Timestamp = DateTime.UtcNow
         });
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        item.SerialNumber = serial;
+        serial.Product = product;
         return MapQueueItem(item);
     }
 
     public async Task<MaterialQueueItemDto?> UpdateMaterialQueueItemAsync(Guid wcId, Guid itemId, UpdateMaterialQueueItemDto dto, CancellationToken cancellationToken = default)
     {
         var item = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
         if (item == null) return null;
 
-        if (dto.HeatNumber != null) item.HeatNumber = dto.HeatNumber;
-        if (dto.CoilNumber != null) item.CoilNumber = dto.CoilNumber;
-        if (dto.Quantity.HasValue) item.Quantity = dto.Quantity.Value;
-        if (dto.LotNumber != null) item.LotNumber = dto.LotNumber;
-        if (dto.ProductId.HasValue)
+        var sn = item.SerialNumber;
+        if (sn != null)
         {
-            item.ProductId = dto.ProductId.Value;
-            var product = await _db.Products.FindAsync(new object[] { dto.ProductId.Value }, cancellationToken);
-            if (product != null) item.ProductDescription = product.ProductNumber;
+            if (dto.HeatNumber != null) sn.HeatNumber = dto.HeatNumber;
+            if (dto.CoilNumber != null) sn.CoilNumber = dto.CoilNumber;
+            if (dto.LotNumber != null) sn.LotNumber = dto.LotNumber;
+            if (dto.ProductId.HasValue) sn.ProductId = dto.ProductId.Value;
+            if (dto.VendorMillId.HasValue) sn.MillVendorId = dto.VendorMillId;
+            if (dto.VendorProcessorId.HasValue) sn.ProcessorVendorId = dto.VendorProcessorId;
         }
-        if (dto.VendorMillId.HasValue) item.VendorMillId = dto.VendorMillId;
-        if (dto.VendorProcessorId.HasValue) item.VendorProcessorId = dto.VendorProcessorId;
+        if (dto.Quantity.HasValue) item.Quantity = dto.Quantity.Value;
+
+        var productDesc = sn?.Product?.ProductNumber ?? string.Empty;
+        var heat = sn?.HeatNumber ?? string.Empty;
+        var coil = sn?.CoilNumber ?? string.Empty;
 
         _db.QueueTransactions.Add(new QueueTransaction
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
             Action = "updated",
-            ItemSummary = $"{item.ProductDescription} - Heat {item.HeatNumber} Coil {item.CoilNumber} - Qty {item.Quantity}",
+            ItemSummary = $"{productDesc} - Heat {heat} Coil {coil} - Qty {item.Quantity}",
             OperatorName = string.Empty,
             Timestamp = DateTime.UtcNow
         });
@@ -386,15 +387,20 @@ public class WorkCenterService : IWorkCenterService
     public async Task<bool> DeleteMaterialQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default)
     {
         var item = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
         if (item == null) return false;
+
+        var productDesc = item.SerialNumber?.Product?.ProductNumber ?? string.Empty;
+        var heat = item.SerialNumber?.HeatNumber ?? string.Empty;
+        var coil = item.SerialNumber?.CoilNumber ?? string.Empty;
 
         _db.QueueTransactions.Add(new QueueTransaction
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
             Action = "removed",
-            ItemSummary = $"{item.ProductDescription} - Heat {item.HeatNumber} Coil {item.CoilNumber}",
+            ItemSummary = $"{productDesc} - Heat {heat} Coil {coil}",
             OperatorName = string.Empty,
             Timestamp = DateTime.UtcNow
         });
@@ -438,16 +444,9 @@ public class WorkCenterService : IWorkCenterService
             WorkCenterId = wcId,
             Position = maxPos + 1,
             Status = "queued",
-            ProductDescription = product?.ProductNumber ?? "Unknown",
-            HeatNumber = dto.HeatNumber ?? string.Empty,
-            CoilNumber = string.Empty,
             Quantity = 1,
             CardId = dto.CardCode,
             CardColor = card?.Color,
-            ProductId = dto.ProductId,
-            VendorHeadId = dto.VendorHeadId,
-            LotNumber = dto.LotNumber,
-            CoilSlabNumber = dto.CoilSlabNumber,
             QueueType = "fitup",
             CreatedAt = DateTime.UtcNow,
             SerialNumberId = serial.Id
@@ -455,25 +454,29 @@ public class WorkCenterService : IWorkCenterService
 
         _db.MaterialQueueItems.Add(item);
 
+        var productDesc = product?.ProductNumber ?? "Unknown";
         var summaryId = !string.IsNullOrEmpty(dto.LotNumber) ? $"Lot {dto.LotNumber}" : $"Heat {dto.HeatNumber}";
         _db.QueueTransactions.Add(new QueueTransaction
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
             Action = "added",
-            ItemSummary = $"{item.ProductDescription} - {summaryId} - Card {dto.CardCode}",
+            ItemSummary = $"{productDesc} - {summaryId} - Card {dto.CardCode}",
             OperatorName = string.Empty,
             Timestamp = DateTime.UtcNow
         });
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        item.SerialNumber = serial;
+        serial.Product = product;
         return MapQueueItem(item);
     }
 
     public async Task<MaterialQueueItemDto?> UpdateFitupQueueItemAsync(Guid wcId, Guid itemId, UpdateFitupQueueItemDto dto, CancellationToken cancellationToken = default)
     {
         var item = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
         if (item == null) return null;
 
@@ -489,23 +492,23 @@ public class WorkCenterService : IWorkCenterService
             item.CardColor = card?.Color;
         }
 
-        if (dto.ProductId.HasValue)
+        var sn = item.SerialNumber;
+        if (sn != null)
         {
-            item.ProductId = dto.ProductId.Value;
-            var product = await _db.Products.FindAsync(new object[] { dto.ProductId.Value }, cancellationToken);
-            if (product != null) item.ProductDescription = product.ProductNumber;
+            if (dto.ProductId.HasValue) sn.ProductId = dto.ProductId.Value;
+            if (dto.VendorHeadId.HasValue) sn.HeadsVendorId = dto.VendorHeadId;
+            if (dto.LotNumber != null) sn.LotNumber = dto.LotNumber;
+            if (dto.HeatNumber != null) sn.HeatNumber = dto.HeatNumber;
+            if (dto.CoilSlabNumber != null) sn.CoilNumber = dto.CoilSlabNumber;
         }
-        if (dto.VendorHeadId.HasValue) item.VendorHeadId = dto.VendorHeadId;
-        if (dto.LotNumber != null) item.LotNumber = dto.LotNumber;
-        if (dto.HeatNumber != null) item.HeatNumber = dto.HeatNumber;
-        if (dto.CoilSlabNumber != null) item.CoilSlabNumber = dto.CoilSlabNumber;
 
+        var productDesc = sn?.Product?.ProductNumber ?? string.Empty;
         _db.QueueTransactions.Add(new QueueTransaction
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
             Action = "updated",
-            ItemSummary = $"{item.ProductDescription} - Card {item.CardId}",
+            ItemSummary = $"{productDesc} - Card {item.CardId}",
             OperatorName = string.Empty,
             Timestamp = DateTime.UtcNow
         });
@@ -517,15 +520,17 @@ public class WorkCenterService : IWorkCenterService
     public async Task<bool> DeleteFitupQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default)
     {
         var item = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .FirstOrDefaultAsync(m => m.Id == itemId && m.WorkCenterId == wcId && m.Status == "queued", cancellationToken);
         if (item == null) return false;
 
+        var productDesc = item.SerialNumber?.Product?.ProductNumber ?? string.Empty;
         _db.QueueTransactions.Add(new QueueTransaction
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
             Action = "removed",
-            ItemSummary = $"{item.ProductDescription} - Card {item.CardId}",
+            ItemSummary = $"{productDesc} - Card {item.CardId}",
             OperatorName = string.Empty,
             Timestamp = DateTime.UtcNow
         });
@@ -558,10 +563,10 @@ public class WorkCenterService : IWorkCenterService
         Id = m.Id,
         Position = m.Position,
         Status = m.Status,
-        ProductDescription = m.ProductDescription,
-        ShellSize = m.ShellSize,
-        HeatNumber = m.HeatNumber,
-        CoilNumber = m.CoilNumber,
+        ProductDescription = m.SerialNumber?.Product?.ProductNumber ?? string.Empty,
+        ShellSize = m.SerialNumber?.Product?.TankSize.ToString(),
+        HeatNumber = m.SerialNumber?.HeatNumber ?? string.Empty,
+        CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
         Quantity = m.Quantity,
         CardId = m.CardId,
         CardColor = m.CardColor,
@@ -587,15 +592,20 @@ public class WorkCenterService : IWorkCenterService
     public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)
     {
         var queueItem = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .FirstOrDefaultAsync(m => m.CardId == cardId, cancellationToken);
         if (queueItem != null)
+        {
+            var sn = queueItem.SerialNumber;
             return new KanbanCardLookupDto
             {
-                HeatNumber = queueItem.HeatNumber,
-                CoilNumber = queueItem.CoilNumber,
-                ProductDescription = queueItem.ProductDescription,
+                HeatNumber = sn?.HeatNumber ?? string.Empty,
+                CoilNumber = sn?.CoilNumber ?? string.Empty,
+                LotNumber = sn?.LotNumber,
+                ProductDescription = sn?.Product?.ProductNumber ?? string.Empty,
                 CardColor = queueItem.CardColor
             };
+        }
 
         var card = await _db.BarcodeCards
             .FirstOrDefaultAsync(b => b.CardValue == cardId, cancellationToken);

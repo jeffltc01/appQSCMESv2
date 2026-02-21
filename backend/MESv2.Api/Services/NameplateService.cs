@@ -18,51 +18,67 @@ public class NameplateService : INameplateService
 
     public async Task<NameplateRecordResponseDto> CreateAsync(CreateNameplateRecordDto dto, CancellationToken cancellationToken = default)
     {
-        var duplicate = await _db.NameplateRecords
-            .AnyAsync(n => n.SerialNumber == dto.SerialNumber, cancellationToken);
+        var duplicate = await _db.SerialNumbers
+            .AnyAsync(s => s.Serial == dto.SerialNumber && s.Product!.ProductType!.SystemTypeName == "sellable", cancellationToken);
         if (duplicate)
             throw new InvalidOperationException("This serial number already exists");
 
-        var record = new NameplateRecord
+        var operator_ = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == dto.OperatorId, cancellationToken);
+        var plantId = operator_?.DefaultSiteId ?? Guid.Empty;
+
+        var sn = new SerialNumber
         {
             Id = Guid.NewGuid(),
-            SerialNumber = dto.SerialNumber,
+            Serial = dto.SerialNumber,
             ProductId = dto.ProductId,
+            PlantId = plantId,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = dto.OperatorId
+        };
+        _db.SerialNumbers.Add(sn);
+
+        var record = new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = sn.Id,
             WorkCenterId = dto.WorkCenterId,
             OperatorId = dto.OperatorId,
+            ProductionLineId = Guid.Empty,
             Timestamp = DateTime.UtcNow
         };
+        _db.ProductionRecords.Add(record);
 
-        _db.NameplateRecords.Add(record);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new NameplateRecordResponseDto
         {
-            Id = record.Id,
-            SerialNumber = record.SerialNumber,
-            ProductId = record.ProductId,
+            Id = sn.Id,
+            SerialNumber = sn.Serial,
+            ProductId = dto.ProductId,
             Timestamp = record.Timestamp
         };
     }
 
     public async Task<NameplateRecordResponseDto?> GetBySerialAsync(string serialNumber, CancellationToken cancellationToken = default)
     {
-        var record = await _db.NameplateRecords
-            .FirstOrDefaultAsync(n => n.SerialNumber == serialNumber, cancellationToken);
-        if (record == null) return null;
+        var sn = await _db.SerialNumbers
+            .Include(s => s.Product)
+            .FirstOrDefaultAsync(s => s.Serial == serialNumber && s.Product!.ProductType!.SystemTypeName == "sellable", cancellationToken);
+        if (sn == null) return null;
 
         return new NameplateRecordResponseDto
         {
-            Id = record.Id,
-            SerialNumber = record.SerialNumber,
-            ProductId = record.ProductId,
-            Timestamp = record.Timestamp
+            Id = sn.Id,
+            SerialNumber = sn.Serial,
+            ProductId = sn.ProductId ?? Guid.Empty,
+            Timestamp = sn.CreatedAt
         };
     }
 
     public Task ReprintAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("NiceLabel reprint requested for NameplateRecord {NameplateRecordId}", id);
+        _logger.LogInformation("NiceLabel reprint requested for SerialNumber {SerialNumberId}", id);
         return Task.CompletedTask;
     }
 }

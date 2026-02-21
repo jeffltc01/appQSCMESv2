@@ -30,7 +30,6 @@ public class MesDbContext : DbContext
     public DbSet<MaterialQueueItem> MaterialQueueItems => Set<MaterialQueueItem>();
     public DbSet<QueueTransaction> QueueTransactions => Set<QueueTransaction>();
     public DbSet<BarcodeCard> BarcodeCards => Set<BarcodeCard>();
-    public DbSet<Assembly> Assemblies => Set<Assembly>();
     public DbSet<Annotation> Annotations => Set<Annotation>();
     public DbSet<AnnotationType> AnnotationTypes => Set<AnnotationType>();
     public DbSet<PlantGear> PlantGears => Set<PlantGear>();
@@ -38,13 +37,13 @@ public class MesDbContext : DbContext
     public DbSet<Vendor> Vendors => Set<Vendor>();
     public DbSet<XrayQueueItem> XrayQueueItems => Set<XrayQueueItem>();
     public DbSet<RoundSeamSetup> RoundSeamSetups => Set<RoundSeamSetup>();
-    public DbSet<NameplateRecord> NameplateRecords => Set<NameplateRecord>();
-    public DbSet<HydroRecord> HydroRecords => Set<HydroRecord>();
     public DbSet<ActiveSession> ActiveSessions => Set<ActiveSession>();
     public DbSet<SpotXrayIncrement> SpotXrayIncrements => Set<SpotXrayIncrement>();
     public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
     public DbSet<WorkCenterProductionLine> WorkCenterProductionLines => Set<WorkCenterProductionLine>();
     public DbSet<WorkCenterWelder> WorkCenterWelders => Set<WorkCenterWelder>();
+    public DbSet<VendorPlant> VendorPlants => Set<VendorPlant>();
+    public DbSet<ProductPlant> ProductPlants => Set<ProductPlant>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -206,6 +205,16 @@ public class MesDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<InspectionRecord>()
+            .HasOne(i => i.SerialNumber)
+            .WithMany()
+            .HasForeignKey(i => i.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<InspectionRecord>()
+            .HasOne(i => i.ProductionRecord)
+            .WithMany()
+            .HasForeignKey(i => i.ProductionRecordId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<InspectionRecord>()
             .HasOne(i => i.WorkCenter)
             .WithMany(w => w.InspectionRecords)
             .HasForeignKey(i => i.WorkCenterId)
@@ -243,6 +252,11 @@ public class MesDbContext : DbContext
             .HasForeignKey(d => d.InspectionRecordId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<DefectLog>()
+            .HasOne(d => d.SerialNumber)
+            .WithMany()
+            .HasForeignKey(d => d.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DefectLog>()
             .HasOne(d => d.DefectCode)
             .WithMany(c => c.DefectLogs)
             .HasForeignKey(d => d.DefectCodeId)
@@ -261,6 +275,11 @@ public class MesDbContext : DbContext
             .HasOne(d => d.RepairedByUser)
             .WithMany()
             .HasForeignKey(d => d.RepairedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DefectLog>()
+            .HasOne(d => d.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(d => d.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<DefectLocation>()
@@ -314,27 +333,6 @@ public class MesDbContext : DbContext
             .HasForeignKey(w => w.MaterialQueueForWCId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<Assembly>()
-            .HasOne(a => a.WorkCenter)
-            .WithMany(w => w.Assemblies)
-            .HasForeignKey(a => a.WorkCenterId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Assembly>()
-            .HasOne(a => a.Asset)
-            .WithMany()
-            .HasForeignKey(a => a.AssetId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Assembly>()
-            .HasOne(a => a.ProductionLine)
-            .WithMany()
-            .HasForeignKey(a => a.ProductionLineId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<Assembly>()
-            .HasOne(a => a.Operator)
-            .WithMany()
-            .HasForeignKey(a => a.OperatorId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         modelBuilder.Entity<Annotation>()
             .HasOne(a => a.ProductionRecord)
             .WithMany(r => r.Annotations)
@@ -374,6 +372,11 @@ public class MesDbContext : DbContext
             .HasForeignKey(x => x.WorkCenterId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<XrayQueueItem>()
+            .HasOne(x => x.SerialNumber)
+            .WithMany()
+            .HasForeignKey(x => x.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<XrayQueueItem>()
             .HasOne(x => x.Operator)
             .WithMany()
             .HasForeignKey(x => x.OperatorId)
@@ -384,49 +387,52 @@ public class MesDbContext : DbContext
             .WithMany()
             .HasForeignKey(r => r.WorkCenterId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<NameplateRecord>()
-            .HasOne(n => n.Product)
+        modelBuilder.Entity<RoundSeamSetup>()
+            .HasOne(r => r.Rs1Welder)
             .WithMany()
-            .HasForeignKey(n => n.ProductId)
+            .HasForeignKey(r => r.Rs1WelderId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<NameplateRecord>()
-            .HasOne(n => n.WorkCenter)
+        modelBuilder.Entity<RoundSeamSetup>()
+            .HasOne(r => r.Rs2Welder)
             .WithMany()
-            .HasForeignKey(n => n.WorkCenterId)
+            .HasForeignKey(r => r.Rs2WelderId)
             .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<NameplateRecord>()
-            .HasOne(n => n.Operator)
+        modelBuilder.Entity<RoundSeamSetup>()
+            .HasOne(r => r.Rs3Welder)
             .WithMany()
-            .HasForeignKey(n => n.OperatorId)
+            .HasForeignKey(r => r.Rs3WelderId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<HydroRecord>()
-            .HasOne(h => h.WorkCenter)
+        modelBuilder.Entity<RoundSeamSetup>()
+            .HasOne(r => r.Rs4Welder)
             .WithMany()
-            .HasForeignKey(h => h.WorkCenterId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<HydroRecord>()
-            .HasOne(h => h.Asset)
-            .WithMany()
-            .HasForeignKey(h => h.AssetId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<HydroRecord>()
-            .HasOne(h => h.Operator)
-            .WithMany()
-            .HasForeignKey(h => h.OperatorId)
+            .HasForeignKey(r => r.Rs4WelderId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<DefectLog>()
-            .HasOne(d => d.HydroRecord)
-            .WithMany(h => h.DefectLogs)
-            .HasForeignKey(d => d.HydroRecordId)
+        modelBuilder.Entity<TraceabilityLog>()
+            .HasOne(t => t.FromSerialNumber)
+            .WithMany()
+            .HasForeignKey(t => t.FromSerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TraceabilityLog>()
+            .HasOne(t => t.ToSerialNumber)
+            .WithMany()
+            .HasForeignKey(t => t.ToSerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TraceabilityLog>()
+            .HasOne(t => t.ProductionRecord)
+            .WithMany()
+            .HasForeignKey(t => t.ProductionRecordId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<SpotXrayIncrement>()
             .HasOne(s => s.ProductionRecord)
             .WithMany()
             .HasForeignKey(s => s.ManufacturingLogId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.InspectTankSn)
+            .WithMany()
+            .HasForeignKey(s => s.InspectTankId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SpotXrayIncrement>()
             .HasOne(s => s.CreatedByUser)
@@ -437,6 +443,18 @@ public class MesDbContext : DbContext
             .HasOne(s => s.ModifiedByUser)
             .WithMany()
             .HasForeignKey(s => s.ModifiedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SiteSchedule>()
+            .HasOne(s => s.Plant)
+            .WithMany()
+            .HasForeignKey(s => s.PlantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MaterialQueueItem>()
+            .HasOne(m => m.Operator)
+            .WithMany()
+            .HasForeignKey(m => m.OperatorId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<WorkCenterProductionLine>()
@@ -461,6 +479,28 @@ public class MesDbContext : DbContext
             .HasForeignKey(w => w.UserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<VendorPlant>()
+            .HasOne(vp => vp.Vendor)
+            .WithMany(v => v.VendorPlants)
+            .HasForeignKey(vp => vp.VendorId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<VendorPlant>()
+            .HasOne(vp => vp.Plant)
+            .WithMany()
+            .HasForeignKey(vp => vp.PlantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProductPlant>()
+            .HasOne(pp => pp.Product)
+            .WithMany(p => p.ProductPlants)
+            .HasForeignKey(pp => pp.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ProductPlant>()
+            .HasOne(pp => pp.Plant)
+            .WithMany()
+            .HasForeignKey(pp => pp.PlantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
@@ -475,21 +515,34 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<QueueTransaction>().HasIndex(qt => new { qt.WorkCenterId, qt.Timestamp });
         modelBuilder.Entity<ProductionRecord>().HasIndex(r => new { r.SerialNumberId, r.WorkCenterId, r.Timestamp });
         modelBuilder.Entity<TraceabilityLog>().HasIndex(t => t.Timestamp);
+        modelBuilder.Entity<TraceabilityLog>().HasIndex(t => t.FromSerialNumberId);
+        modelBuilder.Entity<TraceabilityLog>().HasIndex(t => t.ToSerialNumberId);
+        modelBuilder.Entity<TraceabilityLog>().HasIndex(t => t.ProductionRecordId);
+        modelBuilder.Entity<InspectionRecord>().HasIndex(i => i.SerialNumberId);
+        modelBuilder.Entity<InspectionRecord>().HasIndex(i => i.ProductionRecordId);
+        modelBuilder.Entity<DefectLog>().HasIndex(d => d.SerialNumberId);
+        modelBuilder.Entity<ChangeLog>().HasIndex(c => new { c.RecordTable, c.RecordId });
         modelBuilder.Entity<DefectCode>().HasIndex(d => d.Code);
         modelBuilder.Entity<BarcodeCard>().HasIndex(b => b.CardValue);
         modelBuilder.Entity<XrayQueueItem>().HasIndex(x => x.WorkCenterId);
-        modelBuilder.Entity<NameplateRecord>().HasIndex(n => n.SerialNumber);
-        modelBuilder.Entity<HydroRecord>().HasIndex(h => h.AssemblyAlphaCode);
+        modelBuilder.Entity<XrayQueueItem>().HasIndex(x => x.SerialNumberId);
         modelBuilder.Entity<RoundSeamSetup>().HasIndex(r => new { r.WorkCenterId, r.CreatedAt });
-        modelBuilder.Entity<Vendor>().HasIndex(v => new { v.VendorType, v.PlantIds });
+        modelBuilder.Entity<Vendor>().HasIndex(v => v.VendorType);
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.ManufacturingLogId);
+        modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.InspectTankId);
         modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<WorkCenterProductionLine>()
             .HasIndex(wcpl => new { wcpl.WorkCenterId, wcpl.ProductionLineId })
             .IsUnique();
         modelBuilder.Entity<WorkCenterWelder>()
             .HasIndex(w => new { w.WorkCenterId, w.UserId })
+            .IsUnique();
+        modelBuilder.Entity<VendorPlant>()
+            .HasIndex(vp => new { vp.VendorId, vp.PlantId })
+            .IsUnique();
+        modelBuilder.Entity<ProductPlant>()
+            .HasIndex(pp => new { pp.ProductId, pp.PlantId })
             .IsUnique();
 
     }

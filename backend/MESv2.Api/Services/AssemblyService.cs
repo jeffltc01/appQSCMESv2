@@ -16,9 +16,9 @@ public class AssemblyService : IAssemblyService
 
     public async Task<string> GetNextAlphaCodeAsync(Guid plantId, CancellationToken cancellationToken = default)
     {
-        var existing = await _db.Assemblies
-            .Where(a => a.ProductionLine.PlantId == plantId)
-            .Select(a => a.AlphaCode)
+        var existing = await _db.SerialNumbers
+            .Where(s => s.PlantId == plantId && s.Product!.ProductType!.SystemTypeName == "assembled")
+            .Select(s => s.Serial)
             .ToListAsync(cancellationToken);
 
         var maxIndex = -1;
@@ -51,22 +51,35 @@ public class AssemblyService : IAssemblyService
             .Where(p => p.Id == dto.ProductionLineId)
             .Select(p => p.PlantId)
             .FirstOrDefaultAsync(cancellationToken);
+
         var alphaCode = await GetNextAlphaCodeAsync(plantId, cancellationToken);
 
-        var assembly = new Assembly
+        var product = await _db.Products
+            .FirstOrDefaultAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == dto.TankSize, cancellationToken)
+            ?? throw new ArgumentException($"No assembled tank product found for tank size {dto.TankSize}.");
+
+        var assemblySn = new SerialNumber
         {
             Id = Guid.NewGuid(),
-            AlphaCode = alphaCode,
-            TankSize = dto.TankSize,
+            Serial = alphaCode,
+            ProductId = product.Id,
+            PlantId = plantId,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = dto.OperatorId
+        };
+        _db.SerialNumbers.Add(assemblySn);
+
+        var record = new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = assemblySn.Id,
             WorkCenterId = dto.WorkCenterId,
             AssetId = dto.AssetId,
             ProductionLineId = dto.ProductionLineId,
             OperatorId = dto.OperatorId,
-            Timestamp = DateTime.UtcNow,
-            IsActive = true
+            Timestamp = DateTime.UtcNow
         };
-
-        _db.Assemblies.Add(assembly);
+        _db.ProductionRecords.Add(record);
 
         foreach (var shellSerial in dto.Shells)
         {
@@ -77,12 +90,9 @@ public class AssemblyService : IAssemblyService
                 {
                     Id = Guid.NewGuid(),
                     FromSerialNumberId = sn.Id,
-                    ToSerialNumberId = null,
-                    FromAlphaCode = null,
-                    ToAlphaCode = alphaCode,
+                    ToSerialNumberId = assemblySn.Id,
                     Relationship = "shell",
                     Quantity = 1,
-                    TankLocation = null,
                     Timestamp = DateTime.UtcNow
                 });
             }
@@ -93,12 +103,8 @@ public class AssemblyService : IAssemblyService
             _db.TraceabilityLogs.Add(new TraceabilityLog
             {
                 Id = Guid.NewGuid(),
-                FromSerialNumberId = null,
-                ToSerialNumberId = null,
-                FromAlphaCode = null,
-                ToAlphaCode = alphaCode,
+                ToSerialNumberId = assemblySn.Id,
                 Relationship = "leftHead",
-                Quantity = null,
                 TankLocation = dto.LeftHeadLotId,
                 Timestamp = DateTime.UtcNow
             });
@@ -109,12 +115,8 @@ public class AssemblyService : IAssemblyService
             _db.TraceabilityLogs.Add(new TraceabilityLog
             {
                 Id = Guid.NewGuid(),
-                FromSerialNumberId = null,
-                ToSerialNumberId = null,
-                FromAlphaCode = null,
-                ToAlphaCode = alphaCode,
+                ToSerialNumberId = assemblySn.Id,
                 Relationship = "rightHead",
-                Quantity = null,
                 TankLocation = dto.RightHeadLotId,
                 Timestamp = DateTime.UtcNow
             });
@@ -124,23 +126,23 @@ public class AssemblyService : IAssemblyService
 
         return new CreateAssemblyResponseDto
         {
-            Id = assembly.Id,
-            AlphaCode = assembly.AlphaCode,
-            Timestamp = assembly.Timestamp
+            Id = assemblySn.Id,
+            AlphaCode = assemblySn.Serial,
+            Timestamp = record.Timestamp
         };
     }
 
     public async Task<CreateAssemblyResponseDto> ReassembleAsync(string alphaCode, ReassemblyDto dto, CancellationToken cancellationToken = default)
     {
-        var assembly = await _db.Assemblies
-            .FirstOrDefaultAsync(a => a.AlphaCode == alphaCode, cancellationToken);
-        if (assembly == null)
+        var assemblySn = await _db.SerialNumbers
+            .FirstOrDefaultAsync(s => s.Serial == alphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+        if (assemblySn == null)
             throw new ArgumentException("Assembly not found.");
 
         if (dto.Shells != null)
         {
             var existingShellLogs = await _db.TraceabilityLogs
-                .Where(t => t.ToAlphaCode == alphaCode && t.Relationship == "shell")
+                .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell")
                 .ToListAsync(cancellationToken);
             _db.TraceabilityLogs.RemoveRange(existingShellLogs);
 
@@ -153,12 +155,9 @@ public class AssemblyService : IAssemblyService
                     {
                         Id = Guid.NewGuid(),
                         FromSerialNumberId = sn.Id,
-                        ToSerialNumberId = null,
-                        FromAlphaCode = null,
-                        ToAlphaCode = alphaCode,
+                        ToSerialNumberId = assemblySn.Id,
                         Relationship = "shell",
                         Quantity = 1,
-                        TankLocation = null,
                         Timestamp = DateTime.UtcNow
                     });
                 }
@@ -166,15 +165,16 @@ public class AssemblyService : IAssemblyService
         }
 
         if (dto.OperatorId.HasValue)
-            assembly.OperatorId = dto.OperatorId.Value;
+            assemblySn.ModifiedByUserId = dto.OperatorId.Value;
+        assemblySn.ModifiedDateTime = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken);
 
         return new CreateAssemblyResponseDto
         {
-            Id = assembly.Id,
-            AlphaCode = assembly.AlphaCode,
-            Timestamp = assembly.Timestamp
+            Id = assemblySn.Id,
+            AlphaCode = assemblySn.Serial,
+            Timestamp = assemblySn.ModifiedDateTime ?? assemblySn.CreatedAt
         };
     }
 }

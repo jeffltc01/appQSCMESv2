@@ -16,14 +16,35 @@ public class InspectionRecordService : IInspectionRecordService
 
     public async Task<InspectionRecordResponseDto> CreateAsync(CreateInspectionRecordDto dto, CancellationToken cancellationToken = default)
     {
+        foreach (var defect in dto.Defects)
+        {
+            if (defect.DefectCodeId == Guid.Empty)
+                throw new ArgumentException("DefectCodeId is required for every defect entry.");
+            if (defect.CharacteristicId == Guid.Empty)
+                throw new ArgumentException("CharacteristicId is required for every defect entry.");
+            if (defect.LocationId == Guid.Empty)
+                throw new ArgumentException("LocationId is required for every defect entry.");
+        }
+
+        var sn = await _db.SerialNumbers
+            .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken)
+            ?? throw new ArgumentException($"Serial number '{dto.SerialNumber}' not found.");
+
+        var productionRecord = await _db.ProductionRecords
+            .Where(r => r.SerialNumberId == sn.Id && r.WorkCenterId == dto.WorkCenterId)
+            .OrderByDescending(r => r.Timestamp)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new ArgumentException($"No production record found for serial '{dto.SerialNumber}' at this work center.");
+
         var record = new InspectionRecord
         {
             Id = Guid.NewGuid(),
-            SerialNumber = dto.SerialNumber,
+            SerialNumberId = sn.Id,
+            ProductionRecordId = productionRecord.Id,
             WorkCenterId = dto.WorkCenterId,
             OperatorId = dto.OperatorId,
             Timestamp = DateTime.UtcNow,
-            ControlPlanId = null,
+            ControlPlanId = Guid.Empty,
             ResultText = null,
             ResultNumeric = null
         };
@@ -37,7 +58,7 @@ public class InspectionRecordService : IInspectionRecordService
                 Id = Guid.NewGuid(),
                 ProductionRecordId = null,
                 InspectionRecordId = record.Id,
-                SerialNumber = dto.SerialNumber,
+                SerialNumberId = sn.Id,
                 DefectCodeId = defect.DefectCodeId,
                 CharacteristicId = defect.CharacteristicId,
                 LocationId = defect.LocationId,
@@ -61,7 +82,7 @@ public class InspectionRecordService : IInspectionRecordService
         return new InspectionRecordResponseDto
         {
             Id = record.Id,
-            SerialNumber = record.SerialNumber,
+            SerialNumber = sn.Serial,
             WorkCenterId = record.WorkCenterId,
             OperatorId = record.OperatorId,
             Timestamp = record.Timestamp,

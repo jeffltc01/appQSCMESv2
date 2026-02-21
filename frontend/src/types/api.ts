@@ -109,6 +109,7 @@ export interface QueueAdvanceResponse {
 export interface KanbanCardLookupResponse {
   heatNumber: string;
   coilNumber: string;
+  lotNumber?: string;
   productDescription: string;
   cardColor?: string;
 }

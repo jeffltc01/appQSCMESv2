@@ -7,15 +7,35 @@ namespace MESv2.Api.Tests;
 
 public class InspectionRecordServiceTests
 {
+    private static (Guid snId, Guid prodRecordId) SeedSerialAndProdRecord(MESv2.Api.Data.MesDbContext db, string serial, Guid wcId)
+    {
+        var snId = Guid.NewGuid();
+        var prodId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber { Id = snId, Serial = serial, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = prodId,
+            SerialNumberId = snId,
+            WorkCenterId = wcId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow
+        });
+        db.SaveChanges();
+        return (snId, prodId);
+    }
+
     [Fact]
     public async Task Create_CreatesInspectionRecord_WithNoDefects()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-INSP-001", TestHelpers.wcLongSeamInspId);
+
         var sut = new InspectionRecordService(db);
         var dto = new CreateInspectionRecordDto
         {
             SerialNumber = "SN-INSP-001",
-            WorkCenterId = TestHelpers.wcRollsId,
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
         };
@@ -24,7 +44,7 @@ public class InspectionRecordServiceTests
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("SN-INSP-001", result.SerialNumber);
-        Assert.Equal(TestHelpers.wcRollsId, result.WorkCenterId);
+        Assert.Equal(TestHelpers.wcLongSeamInspId, result.WorkCenterId);
         Assert.Equal(TestHelpers.TestUserId, result.OperatorId);
         Assert.Empty(result.Defects);
 
@@ -36,6 +56,8 @@ public class InspectionRecordServiceTests
     public async Task Create_CreatesDefectLogs_WhenDefectsProvided()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-INSP-002", TestHelpers.wcLongSeamInspId);
+
         var defectCodeId = Guid.NewGuid();
         var characteristicId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
@@ -48,7 +70,7 @@ public class InspectionRecordServiceTests
         var dto = new CreateInspectionRecordDto
         {
             SerialNumber = "SN-INSP-002",
-            WorkCenterId = TestHelpers.wcRollsId,
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>
             {
@@ -66,5 +88,62 @@ public class InspectionRecordServiceTests
 
         var defectLogs = await db.DefectLogs.Where(d => d.InspectionRecordId == result.Id).ToListAsync();
         Assert.Single(defectLogs);
+    }
+
+    [Fact]
+    public async Task Create_ThrowsArgumentException_WhenDefectHasEmptyDefectCodeId()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INSP-003",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Defects = new List<DefectEntryDto>
+            {
+                new() { DefectCodeId = Guid.Empty, CharacteristicId = Guid.NewGuid(), LocationId = Guid.NewGuid() }
+            }
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Create_ThrowsArgumentException_WhenDefectHasEmptyCharacteristicId()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INSP-004",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Defects = new List<DefectEntryDto>
+            {
+                new() { DefectCodeId = Guid.NewGuid(), CharacteristicId = Guid.Empty, LocationId = Guid.NewGuid() }
+            }
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Create_ThrowsArgumentException_WhenDefectHasEmptyLocationId()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INSP-005",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Defects = new List<DefectEntryDto>
+            {
+                new() { DefectCodeId = Guid.NewGuid(), CharacteristicId = Guid.NewGuid(), LocationId = Guid.Empty }
+            }
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateAsync(dto));
     }
 }

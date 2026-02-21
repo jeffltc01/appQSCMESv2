@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.DTOs;
+using MESv2.Api.Models;
 using MESv2.Api.Services;
 
 namespace MESv2.Api.Tests;
@@ -21,17 +22,15 @@ public class AssemblyServiceTests
     public async Task GetNextAlphaCode_ReturnsAB_WhenAAExists()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        db.Assemblies.Add(new MESv2.Api.Models.Assembly
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+        db.SerialNumbers.Add(new SerialNumber
         {
             Id = Guid.NewGuid(),
-            AlphaCode = "AA",
-            TankSize = 100,
-            WorkCenterId = TestHelpers.wcRollsId,
-            AssetId = TestHelpers.TestAssetId,
-            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            OperatorId = TestHelpers.TestUserId,
-            Timestamp = DateTime.UtcNow,
-            IsActive = true
+            Serial = "AA",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = TestHelpers.TestUserId
         });
         await db.SaveChangesAsync();
 
@@ -47,11 +46,13 @@ public class AssemblyServiceTests
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var shellSerial = "SHELL-001";
-        db.SerialNumbers.Add(new MESv2.Api.Models.SerialNumber
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        db.SerialNumbers.Add(new SerialNumber
         {
             Id = Guid.NewGuid(),
             Serial = shellSerial,
-            ProductId = null,
+            ProductId = shellProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
@@ -63,7 +64,7 @@ public class AssemblyServiceTests
             LeftHeadLotId = "LOT-L",
             RightHeadLotId = "LOT-R",
             TankSize = 120,
-            WorkCenterId = TestHelpers.wcRollsId,
+            WorkCenterId = TestHelpers.wcFitupId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
@@ -75,22 +76,26 @@ public class AssemblyServiceTests
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("AA", result.AlphaCode);
 
+        var assemblySn = await db.SerialNumbers.FirstAsync(s => s.Serial == "AA");
         var shellLogs = await db.TraceabilityLogs
-            .Where(t => t.ToAlphaCode == "AA" && t.Relationship == "shell")
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell")
             .ToListAsync();
         Assert.Single(shellLogs);
         Assert.NotNull(shellLogs[0].FromSerialNumberId);
 
         var leftHead = await db.TraceabilityLogs
-            .Where(t => t.ToAlphaCode == "AA" && t.Relationship == "leftHead")
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "leftHead")
             .ToListAsync();
         Assert.Single(leftHead);
         Assert.Equal("LOT-L", leftHead[0].TankLocation);
 
         var rightHead = await db.TraceabilityLogs
-            .Where(t => t.ToAlphaCode == "AA" && t.Relationship == "rightHead")
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "rightHead")
             .ToListAsync();
         Assert.Single(rightHead);
+
+        var prodRecord = await db.ProductionRecords.FirstOrDefaultAsync(r => r.SerialNumberId == assemblySn.Id);
+        Assert.NotNull(prodRecord);
     }
 
     [Fact]
@@ -101,26 +106,26 @@ public class AssemblyServiceTests
         var shell2 = "SHELL-R2";
         var sn1Id = Guid.NewGuid();
         var sn2Id = Guid.NewGuid();
-        db.SerialNumbers.Add(new MESv2.Api.Models.SerialNumber { Id = sn1Id, Serial = shell1, CreatedAt = DateTime.UtcNow });
-        db.SerialNumbers.Add(new MESv2.Api.Models.SerialNumber { Id = sn2Id, Serial = shell2, CreatedAt = DateTime.UtcNow });
-        var assembly = new MESv2.Api.Models.Assembly
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        db.SerialNumbers.Add(new SerialNumber { Id = sn1Id, Serial = shell1, ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
+        db.SerialNumbers.Add(new SerialNumber { Id = sn2Id, Serial = shell2, ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
+
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+        var assemblySnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
         {
-            Id = Guid.NewGuid(),
-            AlphaCode = "BB",
-            TankSize = 100,
-            WorkCenterId = TestHelpers.wcRollsId,
-            AssetId = TestHelpers.TestAssetId,
-            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            OperatorId = TestHelpers.TestUserId,
-            Timestamp = DateTime.UtcNow,
-            IsActive = true
-        };
-        db.Assemblies.Add(assembly);
-        db.TraceabilityLogs.Add(new MESv2.Api.Models.TraceabilityLog
+            Id = assemblySnId,
+            Serial = "BB",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = TestHelpers.TestUserId
+        });
+        db.TraceabilityLogs.Add(new TraceabilityLog
         {
             Id = Guid.NewGuid(),
             FromSerialNumberId = sn1Id,
-            ToAlphaCode = "BB",
+            ToSerialNumberId = assemblySnId,
             Relationship = "shell",
             Quantity = 1,
             Timestamp = DateTime.UtcNow
@@ -135,7 +140,7 @@ public class AssemblyServiceTests
         Assert.Equal("BB", result.AlphaCode);
 
         var shellLogs = await db.TraceabilityLogs
-            .Where(t => t.ToAlphaCode == "BB" && t.Relationship == "shell")
+            .Where(t => t.ToSerialNumberId == assemblySnId && t.Relationship == "shell")
             .ToListAsync();
         Assert.Single(shellLogs);
         Assert.Equal(sn2Id, shellLogs[0].FromSerialNumberId);

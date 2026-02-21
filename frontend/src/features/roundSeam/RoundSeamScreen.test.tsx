@@ -22,7 +22,7 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
   return {
     workCenterId: 'wc-rs', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
-    numberOfWelders: 1, externalInput: false,
+    numberOfWelders: 1, welderCountLoaded: true, externalInput: false,
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };
@@ -80,6 +80,26 @@ describe('RoundSeamScreen', () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /save setup/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not auto-open setup dialog until welder count is loaded', async () => {
+    mockGetSetup.mockResolvedValue({ isComplete: false, tankSize: 0 });
+    const { rerender, props } = renderScreen({ welderCountLoaded: false });
+    // Setup dialog should NOT appear yet
+    await waitFor(() => {
+      expect(mockGetSetup).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole('button', { name: /save setup/i })).not.toBeInTheDocument();
+
+    // Now simulate welder count becoming loaded
+    rerender(
+      <FluentProvider theme={webLightTheme}>
+        <RoundSeamScreen {...props} welderCountLoaded={true} />
+      </FluentProvider>
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save setup/i })).toBeInTheDocument();
     });
   });
 });

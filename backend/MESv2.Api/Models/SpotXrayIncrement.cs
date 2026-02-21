@@ -40,6 +40,7 @@ public class SpotXrayIncrement
     public DateTime? ModifiedDateTime { get; set; }
 
     public ProductionRecord ProductionRecord { get; set; } = null!;
+    public SerialNumber? InspectTankSn { get; set; }
     public User? CreatedByUser { get; set; }
     public User? ModifiedByUser { get; set; }
 }

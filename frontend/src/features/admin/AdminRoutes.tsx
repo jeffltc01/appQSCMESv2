@@ -14,6 +14,7 @@ import { WhosOnFloorScreen } from './WhosOnFloorScreen.tsx';
 import { ProductionLineMaintenanceScreen } from './ProductionLineMaintenanceScreen.tsx';
 import { AnnotationTypesScreen } from './AnnotationTypesScreen.tsx';
 import { SerialNumberLookupScreen } from './SerialNumberLookupScreen.tsx';
+import { SellableTankStatusScreen } from './SellableTankStatusScreen.tsx';
 import { AnnotationMaintenanceScreen } from './AnnotationMaintenanceScreen.tsx';
 
 export function AdminRoutes() {
@@ -35,6 +36,7 @@ export function AdminRoutes() {
       <Route path="annotation-types" element={<AnnotationTypesScreen />} />
       <Route path="annotations" element={<AnnotationMaintenanceScreen />} />
       <Route path="serial-lookup" element={<SerialNumberLookupScreen />} />
+      <Route path="sellable-tank-status" element={<SellableTankStatusScreen />} />
       <Route path="*" element={<Navigate to="/menu" replace />} />
     </Routes>
   );

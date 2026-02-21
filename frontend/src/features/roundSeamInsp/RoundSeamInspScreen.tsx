@@ -26,6 +26,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
 
   const [screenState, setScreenState] = useState<ScreenState>('WaitingForShell');
   const [alphaCode, setAlphaCode] = useState('');
+  const [shells, setShells] = useState<string[]>([]);
   const [tankSize, setTankSize] = useState<number>(0);
   const [defects, setDefects] = useState<DefectEntry[]>([]);
   const [pending, setPending] = useState<PendingDefect>({});
@@ -60,6 +61,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
     try {
       const assembly = await roundSeamApi.getAssemblyByShell(serial);
       setAlphaCode(assembly.alphaCode);
+      setShells(assembly.shells ?? []);
       setTankSize(assembly.tankSize);
       setScreenState('AwaitingDefects');
       setDefects([]);
@@ -114,7 +116,18 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       }
       if (screenState === 'AwaitingDefects') {
         if (bc.prefix === 'SC') { showScanResult({ type: 'error', message: 'Save or clear current assembly before scanning a new one' }); return; }
-        if (bc.prefix === 'S' && bc.value === '1') { saveInspection(); return; }
+        if (bc.prefix === 'S' && bc.value === '1') {
+          if (pending.defectCodeId && (!pending.characteristicId || !pending.locationId)) {
+            showScanResult({ type: 'error', message: 'Incomplete defect entry — add characteristic/location or clear' });
+            return;
+          }
+          if (!pending.defectCodeId && (pending.characteristicId || pending.locationId)) {
+            showScanResult({ type: 'error', message: 'Incomplete defect entry — add defect code or clear' });
+            return;
+          }
+          saveInspection();
+          return;
+        }
         if (bc.prefix === 'CL' && bc.value === '1') { setDefects([]); setPending({}); showScanResult({ type: 'success', message: 'Defects cleared' }); return; }
         if (bc.prefix === 'D') {
           const code = defectCodes.find((c) => c.id === bc.value || c.code === bc.value);
@@ -178,7 +191,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
     <div className={styles.container}>
       <div className={styles.header}>
         <span className={styles.stateLabel}>AwaitingDefects</span>
-        <span>Assembly <strong>{alphaCode}</strong></span>
+        <span>Assembly <strong>{alphaCode}{shells.length > 0 ? ` (${shells.join(', ')})` : ''}</strong></span>
         <span>Tank Size <strong>{tankSize}</strong></span>
       </div>
       <div className={styles.defectTable}>

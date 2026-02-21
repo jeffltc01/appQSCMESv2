@@ -21,6 +21,11 @@ public class ProductService : IProductService
             query = query.Where(p => p.ProductType.SystemTypeName != null
                 && p.ProductType.SystemTypeName.ToLower() == type.ToLower());
 
+        if (!string.IsNullOrEmpty(plantId) && Guid.TryParse(plantId, out var plantIdGuid))
+        {
+            query = query.Where(p => _db.ProductPlants.Any(pp => pp.ProductId == p.Id && pp.PlantId == plantIdGuid));
+        }
+
         var list = await query
             .OrderBy(p => p.TankSize)
             .ThenBy(p => p.ProductNumber)
@@ -43,17 +48,14 @@ public class ProductService : IProductService
         if (!string.IsNullOrEmpty(type))
             query = query.Where(v => v.VendorType == type);
 
+        if (!string.IsNullOrEmpty(plantId) && Guid.TryParse(plantId, out var plantIdGuid))
+        {
+            query = query.Where(v => _db.VendorPlants.Any(vp => vp.VendorId == v.Id && vp.PlantId == plantIdGuid));
+        }
+
         var list = await query
             .OrderBy(v => v.Name)
             .ToListAsync(cancellationToken);
-
-        if (!string.IsNullOrEmpty(plantId))
-        {
-            list = list.Where(v =>
-                !string.IsNullOrEmpty(v.PlantIds) &&
-                v.PlantIds.Split(',').Select(s => s.Trim()).Contains(plantId)
-            ).ToList();
-        }
 
         return list.Select(v => new VendorDto
         {

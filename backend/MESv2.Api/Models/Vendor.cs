@@ -7,4 +7,6 @@ public class Vendor
     public string VendorType { get; set; } = string.Empty; // mill, processor, head
     public string? PlantIds { get; set; }
     public bool IsActive { get; set; } = true;
+
+    public ICollection<VendorPlant> VendorPlants { get; set; } = new List<VendorPlant>();
 }

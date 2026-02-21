@@ -14,4 +14,5 @@ public class Product
 
     public ProductType ProductType { get; set; } = null!;
     public ICollection<SerialNumber> SerialNumbers { get; set; } = new List<SerialNumber>();
+    public ICollection<ProductPlant> ProductPlants { get; set; } = new List<ProductPlant>();
 }

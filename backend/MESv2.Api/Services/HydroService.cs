@@ -16,29 +16,37 @@ public class HydroService : IHydroService
 
     public async Task<HydroRecordResponseDto> CreateAsync(CreateHydroRecordDto dto, CancellationToken cancellationToken = default)
     {
-        var record = new HydroRecord
+        var sellableSn = await _db.SerialNumbers
+            .FirstOrDefaultAsync(s => s.Serial == dto.NameplateSerialNumber, cancellationToken)
+            ?? throw new InvalidOperationException($"Sellable serial number '{dto.NameplateSerialNumber}' not found.");
+
+        var assemblySn = await _db.SerialNumbers
+            .FirstOrDefaultAsync(s => s.Serial == dto.AssemblyAlphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+
+        var record = new ProductionRecord
         {
             Id = Guid.NewGuid(),
-            AssemblyAlphaCode = dto.AssemblyAlphaCode,
-            NameplateSerialNumber = dto.NameplateSerialNumber,
-            Result = dto.Result,
+            SerialNumberId = sellableSn.Id,
             WorkCenterId = dto.WorkCenterId,
             AssetId = dto.AssetId,
             OperatorId = dto.OperatorId,
-            Timestamp = DateTime.UtcNow
+            ProductionLineId = Guid.Empty,
+            Timestamp = DateTime.UtcNow,
+            InspectionResult = dto.Result
         };
+        _db.ProductionRecords.Add(record);
 
-        _db.HydroRecords.Add(record);
-
-        // Create traceability link: assembly → finished serial
-        _db.TraceabilityLogs.Add(new TraceabilityLog
+        if (assemblySn != null)
         {
-            Id = Guid.NewGuid(),
-            FromAlphaCode = dto.AssemblyAlphaCode,
-            ToAlphaCode = dto.NameplateSerialNumber,
-            Relationship = "hydro-marriage",
-            Timestamp = DateTime.UtcNow
-        });
+            _db.TraceabilityLogs.Add(new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = assemblySn.Id,
+                ToSerialNumberId = sellableSn.Id,
+                Relationship = "hydro-marriage",
+                Timestamp = DateTime.UtcNow
+            });
+        }
 
         if (dto.Defects.Count > 0)
         {
@@ -47,11 +55,13 @@ public class HydroService : IHydroService
                 _db.DefectLogs.Add(new DefectLog
                 {
                     Id = Guid.NewGuid(),
-                    HydroRecordId = record.Id,
+                    ProductionRecordId = record.Id,
+                    SerialNumberId = sellableSn.Id,
                     DefectCodeId = defect.DefectCodeId,
                     CharacteristicId = defect.CharacteristicId,
                     LocationId = defect.LocationId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    Timestamp = DateTime.UtcNow
                 });
             }
         }
@@ -61,9 +71,9 @@ public class HydroService : IHydroService
         return new HydroRecordResponseDto
         {
             Id = record.Id,
-            AssemblyAlphaCode = record.AssemblyAlphaCode,
-            NameplateSerialNumber = record.NameplateSerialNumber,
-            Result = record.Result,
+            AssemblyAlphaCode = dto.AssemblyAlphaCode,
+            NameplateSerialNumber = dto.NameplateSerialNumber,
+            Result = dto.Result,
             Timestamp = record.Timestamp
         };
     }

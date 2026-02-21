@@ -16,4 +16,6 @@ public class SiteSchedule
     public string? Comments { get; set; }
     public string? Status { get; set; }
     public Guid? MasterScheduleId { get; set; }
+
+    public Plant Plant { get; set; } = null!;
 }

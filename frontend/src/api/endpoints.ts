@@ -87,6 +87,7 @@ import type {
   AdminAnnotationType,
   AdminAnnotation,
   SerialNumberLookup,
+  SellableTankStatus,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -353,6 +354,11 @@ export const adminProductionLineApi = {
 export const adminAnnotationApi = {
   getAll: (siteId?: string) => api.get<AdminAnnotation[]>(`/annotations${siteId ? `?siteId=${siteId}` : ''}`),
   update: (id: string, req: UpdateAnnotationRequest) => api.put<AdminAnnotation>(`/annotations/${id}`, req),
+};
+
+export const sellableTankStatusApi = {
+  getStatus: (siteId: string, date: string) =>
+    api.get<SellableTankStatus[]>(`/sellable-tank-status?siteId=${encodeURIComponent(siteId)}&date=${encodeURIComponent(date)}`),
 };
 
 export const activeSessionApi = {

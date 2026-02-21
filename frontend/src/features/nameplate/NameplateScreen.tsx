@@ -6,7 +6,7 @@ import { productApi, nameplateApi } from '../../api/endpoints.ts';
 import styles from './NameplateScreen.module.css';
 
 export function NameplateScreen(props: WorkCenterProps) {
-  const { workCenterId, operatorId, showScanResult, refreshHistory } = props;
+  const { workCenterId, operatorId, plantId, showScanResult, refreshHistory } = props;
 
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -14,14 +14,14 @@ export function NameplateScreen(props: WorkCenterProps) {
 
   useEffect(() => {
     loadProducts();
-  }, [workCenterId]);
+  }, [workCenterId, plantId]);
 
   const loadProducts = useCallback(async () => {
     try {
-      const p = await productApi.getProducts('sellable');
+      const p = await productApi.getProducts('sellable', plantId || undefined);
       setProducts(p);
     } catch { /* keep empty */ }
-  }, []);
+  }, [plantId]);
 
   const handleSave = useCallback(async () => {
     if (!selectedProductId || !serialNumber.trim()) {
@@ -52,14 +52,14 @@ export function NameplateScreen(props: WorkCenterProps) {
         <div className={styles.formField}>
           <Label required>Tank Size / Type</Label>
           <Dropdown
-            placeholder="Select tank size/type"
-            value={selectedProduct ? `${selectedProduct.tankSize} ${selectedProduct.tankType}` : ''}
+            placeholder="Select product"
+            value={selectedProduct ? selectedProduct.productNumber : ''}
             selectedOptions={selectedProductId ? [selectedProductId] : []}
             onOptionSelect={(_: unknown, d: OptionOnSelectData) => { if (d.optionValue) setSelectedProductId(d.optionValue); }}
             className={styles.dropdown}
           >
             {products.map((p) => (
-              <Option key={p.id} value={p.id} text={`${p.tankSize} ${p.tankType}`}>{`${p.tankSize} ${p.tankType}`}</Option>
+              <Option key={p.id} value={p.id} text={p.productNumber}>{p.productNumber}</Option>
             ))}
           </Dropdown>
         </div>

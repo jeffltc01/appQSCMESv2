@@ -29,6 +29,7 @@ builder.Services.AddScoped<IRoundSeamService, RoundSeamService>();
 builder.Services.AddScoped<INameplateService, NameplateService>();
 builder.Services.AddScoped<IHydroService, HydroService>();
 builder.Services.AddScoped<IXrayQueueService, XrayQueueService>();
+builder.Services.AddScoped<ISellableTankStatusService, SellableTankStatusService>();
 
 // --- JWT configuration ---
 string jwtKey;

@@ -26,6 +26,7 @@ export function HydroScreen(props: WorkCenterProps) {
   const [state, setState] = useState<HydroState>('WaitingForScans');
   const [shellSerial, setShellSerial] = useState('');
   const [assemblyAlpha, setAssemblyAlpha] = useState('');
+  const [assemblyShells, setAssemblyShells] = useState<string[]>([]);
   const [nameplateSerial, setNameplateSerial] = useState('');
   const [defects, setDefects] = useState<DefectEntry[]>([]);
   const [wizard, setWizard] = useState<DefectWizardState | null>(null);
@@ -55,6 +56,7 @@ export function HydroScreen(props: WorkCenterProps) {
       const assembly = await roundSeamApi.getAssemblyByShell(serial);
       setShellSerial(serial);
       setAssemblyAlpha(assembly.alphaCode);
+      setAssemblyShells(assembly.shells ?? []);
       showScanResult({ type: 'success', message: `Assembly ${assembly.alphaCode} found` });
       if (nameplateSerial) setState('ReadyForInspection');
     } catch (err: any) {
@@ -96,6 +98,7 @@ export function HydroScreen(props: WorkCenterProps) {
     setState('WaitingForScans');
     setShellSerial('');
     setAssemblyAlpha('');
+    setAssemblyShells([]);
     setNameplateSerial('');
     setDefects([]);
     setWizard(null);
@@ -208,7 +211,7 @@ export function HydroScreen(props: WorkCenterProps) {
           <div className={styles.scanInfo}>
             <span>Nameplate SN: <strong>{nameplateSerial}</strong></span>
             <span>Shell No.: <strong>{shellSerial || '—'}</strong></span>
-            <span>Assembly: <strong>{assemblyAlpha}</strong></span>
+            <span>Assembly: <strong>{assemblyAlpha}{assemblyShells.length > 0 ? ` (${assemblyShells.join(', ')})` : ''}</strong></span>
           </div>
           <Button appearance="subtle" onClick={resetScreen}>Reset</Button>
         </div>

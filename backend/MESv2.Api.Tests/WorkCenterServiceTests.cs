@@ -24,8 +24,113 @@ public class WorkCenterServiceTests
         Assert.True(result.Count >= 1);
     }
 
+    private static (SerialNumber sn, MaterialQueueItem qi) SeedQueueItemWithSN(
+        MesDbContext db, Guid wcId, string status, int position,
+        string productNumber, int tankSize, string heatNumber, string coilNumber,
+        int quantity, string? queueType = "rolls", string? cardId = null, string? cardColor = null)
+    {
+        var product = db.Products.FirstOrDefault(p => p.ProductNumber == productNumber)
+            ?? new Product
+            {
+                Id = Guid.NewGuid(),
+                ProductNumber = productNumber,
+                TankSize = tankSize,
+                TankType = "Shell",
+                ProductTypeId = Guid.Parse("a3333333-3333-3333-3333-333333333333")
+            };
+        if (db.Entry(product).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+            db.Products.Add(product);
+
+        var sn = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = $"Heat {heatNumber} Coil {coilNumber}",
+            ProductId = product.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            HeatNumber = heatNumber,
+            CoilNumber = coilNumber,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(sn);
+
+        var qi = new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Position = position,
+            Status = status,
+            Quantity = quantity,
+            QueueType = queueType,
+            CardId = cardId,
+            CardColor = cardColor,
+            SerialNumberId = sn.Id,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.MaterialQueueItems.Add(qi);
+
+        return (sn, qi);
+    }
+
     [Fact]
     public async Task AdvanceQueue_ReturnsNextItem_AndUpdatesStatus()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "queued", 1,
+            "120 gal", 120, "H1", "C1", 5);
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId);
+
+        Assert.NotNull(result);
+        Assert.Equal("H1", result.HeatNumber);
+        Assert.Equal("C1", result.CoilNumber);
+        Assert.Equal(5, result.Quantity);
+        Assert.Equal("120 gal", result.ProductDescription);
+
+        var item = await db.MaterialQueueItems
+            .FirstOrDefaultAsync(m => m.WorkCenterId == TestHelpers.wcRollsId && m.Status == "active");
+        Assert.NotNull(item);
+    }
+
+    [Fact]
+    public async Task AdvanceQueue_ReturnsActive_WhenAlreadyActive()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "active", 1,
+            "250 gal", 250, "HA", "CA", 3);
+        SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "queued", 2,
+            "320 gal", 320, "HB", "CB", 7);
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId);
+
+        Assert.NotNull(result);
+        Assert.Equal("HA", result.HeatNumber);
+        Assert.Equal("250 gal", result.ProductDescription);
+    }
+
+    [Fact]
+    public async Task GetMaterialQueue_ReturnsDerivedDataFromSerialNumber()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "queued", 1,
+            "120 gal", 120, "H-TEST", "C-TEST", 5);
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetMaterialQueueAsync(TestHelpers.wcRollsId, null);
+
+        Assert.Single(result);
+        Assert.Equal("120 gal", result[0].ProductDescription);
+        Assert.Equal("120", result[0].ShellSize);
+        Assert.Equal("H-TEST", result[0].HeatNumber);
+        Assert.Equal("C-TEST", result[0].CoilNumber);
+    }
+
+    [Fact]
+    public async Task GetMaterialQueue_HandlesNullSerialNumber()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         db.MaterialQueueItems.Add(new MaterialQueueItem
@@ -34,28 +139,40 @@ public class WorkCenterServiceTests
             WorkCenterId = TestHelpers.wcRollsId,
             Position = 1,
             Status = "queued",
-            ProductDescription = "Test Coil",
-            HeatNumber = "H1",
-            CoilNumber = "C1",
-            Quantity = 5,
+            Quantity = 1,
+            QueueType = "rolls",
+            SerialNumberId = null,
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetMaterialQueueAsync(TestHelpers.wcRollsId, null);
 
-        var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId);
+        Assert.Single(result);
+        Assert.Equal("", result[0].ProductDescription);
+        Assert.Null(result[0].ShellSize);
+        Assert.Equal("", result[0].HeatNumber);
+        Assert.Equal("", result[0].CoilNumber);
+    }
+
+    [Fact]
+    public async Task GetCardLookup_ReturnsDataFromSerialNumber()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedQueueItemWithSN(db, TestHelpers.wcFitupId, "queued", 1,
+            "250 gal", 250, "HK-01", "CK-01", 1,
+            queueType: "fitup", cardId: "03", cardColor: "Blue");
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetCardLookupAsync("03");
 
         Assert.NotNull(result);
-        Assert.Equal("H1", result.HeatNumber);
-        Assert.Equal("C1", result.CoilNumber);
-        Assert.Equal(5, result.Quantity);
-        Assert.Equal("Test Coil", result.ProductDescription);
-
-        var item = await db.MaterialQueueItems
-            .FirstOrDefaultAsync(m => m.WorkCenterId == TestHelpers.wcRollsId && m.HeatNumber == "H1");
-        Assert.NotNull(item);
-        Assert.Equal("active", item.Status);
+        Assert.Equal("HK-01", result.HeatNumber);
+        Assert.Equal("CK-01", result.CoilNumber);
+        Assert.Equal("250 gal", result.ProductDescription);
+        Assert.Equal("Blue", result.CardColor);
     }
 
     private static void SeedProductionRecord(MesDbContext db, Guid wcId, DateTime utcTimestamp)
@@ -217,5 +334,58 @@ public class WorkCenterServiceTests
         var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetMaterialQueue_FiltersByQueueType_NotStatus()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedQueueItemWithSN(db, TestHelpers.wcFitupId, "queued", 1,
+            "ELLIP 24\" OD", 120, "H1", "C1", 1, queueType: "fitup");
+        SeedQueueItemWithSN(db, TestHelpers.wcFitupId, "queued", 2,
+            "120 gal", 120, "H2", "C2", 5, queueType: "rolls");
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var fitupItems = await sut.GetMaterialQueueAsync(TestHelpers.wcFitupId, "fitup");
+        Assert.Single(fitupItems);
+        Assert.Equal("ELLIP 24\" OD", fitupItems[0].ProductDescription);
+
+        var allItems = await sut.GetMaterialQueueAsync(TestHelpers.wcFitupId, null);
+        Assert.Equal(2, allItems.Count);
+    }
+
+    [Fact]
+    public async Task AddWelder_ReturnsNull_WhenWelderFromDifferentSite()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        // EMP004 is a certified welder from Plant 2
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP004");
+        Assert.True(user.IsCertifiedWelder);
+        Assert.Equal(TestHelpers.PlantPlt2Id, user.DefaultSiteId);
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        // wcRollsId belongs to Plant 1 via ProductionLine — should reject cross-site welder
+        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP004");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task AddWelder_Succeeds_WhenWelderFromSameSite()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        // EMP003 is a certified welder from Plant 1
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP003");
+        Assert.True(user.IsCertifiedWelder);
+        Assert.Equal(TestHelpers.PlantPlt1Id, user.DefaultSiteId);
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        // wcRollsId belongs to Plant 1 — should accept same-site welder
+        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP003");
+
+        Assert.NotNull(result);
+        Assert.Equal("EMP003", result.EmployeeNumber);
     }
 }

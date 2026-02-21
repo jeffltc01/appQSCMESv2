@@ -12,4 +12,8 @@ public class RoundSeamSetup
     public DateTime CreatedAt { get; set; }
 
     public WorkCenter WorkCenter { get; set; } = null!;
+    public User? Rs1Welder { get; set; }
+    public User? Rs2Welder { get; set; }
+    public User? Rs3Welder { get; set; }
+    public User? Rs4Welder { get; set; }
 }

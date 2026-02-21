@@ -8,9 +8,9 @@ namespace MESv2.Api.Tests;
 
 public class VendorsControllerTests
 {
-    private static readonly string Plt1 = TestHelpers.PlantPlt1Id.ToString();
-    private static readonly string Plt2 = TestHelpers.PlantPlt2Id.ToString();
-    private static readonly string Plt3 = TestHelpers.PlantPlt3Id.ToString();
+    private static readonly Guid Plt1 = TestHelpers.PlantPlt1Id;
+    private static readonly Guid Plt2 = TestHelpers.PlantPlt2Id;
+    private static readonly Guid Plt3 = TestHelpers.PlantPlt3Id;
 
     private VendorsController CreateController(out Data.MesDbContext db)
     {
@@ -21,12 +21,19 @@ public class VendorsControllerTests
 
     private static void SeedPlantSpecificVendors(Data.MesDbContext db)
     {
-        db.Vendors.AddRange(
-            new Vendor { Id = Guid.NewGuid(), Name = "Global Mill", VendorType = "mill", PlantIds = null, IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", PlantIds = Plt1, IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", PlantIds = $"{Plt1},{Plt2}", IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "WJ Only Mill", VendorType = "mill", PlantIds = Plt3, IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "Inactive Cleveland Mill", VendorType = "mill", PlantIds = Plt1, IsActive = false }
+        var global = new Vendor { Id = Guid.NewGuid(), Name = "Global Mill", VendorType = "mill", IsActive = true };
+        var cleveland = new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", IsActive = true };
+        var multi = new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", IsActive = true };
+        var wj = new Vendor { Id = Guid.NewGuid(), Name = "WJ Only Mill", VendorType = "mill", IsActive = true };
+        var inactive = new Vendor { Id = Guid.NewGuid(), Name = "Inactive Cleveland Mill", VendorType = "mill", IsActive = false };
+        db.Vendors.AddRange(global, cleveland, multi, wj, inactive);
+
+        db.VendorPlants.AddRange(
+            new VendorPlant { Id = Guid.NewGuid(), VendorId = cleveland.Id, PlantId = Plt1 },
+            new VendorPlant { Id = Guid.NewGuid(), VendorId = multi.Id, PlantId = Plt1 },
+            new VendorPlant { Id = Guid.NewGuid(), VendorId = multi.Id, PlantId = Plt2 },
+            new VendorPlant { Id = Guid.NewGuid(), VendorId = wj.Id, PlantId = Plt3 },
+            new VendorPlant { Id = Guid.NewGuid(), VendorId = inactive.Id, PlantId = Plt1 }
         );
         db.SaveChanges();
     }
@@ -37,7 +44,7 @@ public class VendorsControllerTests
         var controller = CreateController(out var db);
         SeedPlantSpecificVendors(db);
 
-        var result = await controller.GetVendors("mill", Plt1, CancellationToken.None);
+        var result = await controller.GetVendors("mill", Plt1.ToString(), CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<VendorDto>>(ok.Value).ToList();
@@ -71,7 +78,7 @@ public class VendorsControllerTests
         var controller = CreateController(out var db);
         SeedPlantSpecificVendors(db);
 
-        var result = await controller.GetVendors("mill", Plt3, CancellationToken.None);
+        var result = await controller.GetVendors("mill", Plt3.ToString(), CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<VendorDto>>(ok.Value).ToList();

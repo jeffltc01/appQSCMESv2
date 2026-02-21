@@ -45,7 +45,7 @@ export function FitupScreen(props: WorkCenterProps) {
 
   const loadHeadsQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(workCenterId, 'heads');
+      const items = await workCenterApi.getMaterialQueue(workCenterId, 'fitup');
       setHeadsQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
   }, [workCenterId]);
@@ -122,6 +122,7 @@ export function FitupScreen(props: WorkCenterProps) {
         const lot: HeadLotInfo = {
           heatNumber: data.heatNumber,
           coilNumber: data.coilNumber,
+          lotNumber: data.lotNumber,
           productDescription: data.productDescription,
           cardId,
           cardColor: data.cardColor,
@@ -200,6 +201,15 @@ export function FitupScreen(props: WorkCenterProps) {
         return;
       }
 
+      if (alphaCode) {
+        resetAssembly();
+        if (bc.prefix === 'SC') {
+          const { serialNumber: serial } = parseShellLabel(bc.value);
+          addShell(serial);
+        }
+        return;
+      }
+
       if (reassemblyPrompt) {
         if (bc.prefix === 'INP' && bc.value === '3') {
           // Yes - reassemble (simplified: just reset and use the shell)
@@ -243,7 +253,7 @@ export function FitupScreen(props: WorkCenterProps) {
 
       showScanResult({ type: 'error', message: 'Invalid barcode in this context' });
     },
-    [reassemblyPrompt, addShell, applyHeadLot, swapHeads, resetAssembly, saveAssembly, updateTankSize, showScanResult],
+    [alphaCode, reassemblyPrompt, addShell, applyHeadLot, swapHeads, resetAssembly, saveAssembly, updateTankSize, showScanResult],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -256,8 +266,10 @@ export function FitupScreen(props: WorkCenterProps) {
   if (alphaCode) {
     return (
       <div className={styles.alphaDisplay}>
-        <span className={styles.alphaLabel}>Alpha Code</span>
-        <span className={styles.alphaValue}>{alphaCode}</span>
+        <span className={styles.alphaValue}>
+          {alphaCode}
+          {shells.length > 0 && <span className={styles.alphaShells}> ({shells.map((s) => s.serial).join(', ')})</span>}
+        </span>
         <span className={styles.alphaHint}>Write this on the assembly</span>
       </div>
     );
@@ -315,7 +327,9 @@ export function FitupScreen(props: WorkCenterProps) {
             {leftHead ? (
               <span className={styles.slotInfo}>
                 {leftHead.productDescription}<br />
-                H: {leftHead.heatNumber} / C: {leftHead.coilNumber}
+                {leftHead.lotNumber
+                  ? `Lot: ${leftHead.lotNumber}`
+                  : `H: ${leftHead.heatNumber || '—'} / C: ${leftHead.coilNumber || '—'}`}
               </span>
             ) : (
               <span className={styles.slotPlaceholder}>Scan KC</span>
@@ -351,7 +365,9 @@ export function FitupScreen(props: WorkCenterProps) {
             {rightHead ? (
               <span className={styles.slotInfo}>
                 {rightHead.productDescription}<br />
-                H: {rightHead.heatNumber} / C: {rightHead.coilNumber}
+                {rightHead.lotNumber
+                  ? `Lot: ${rightHead.lotNumber}`
+                  : `H: ${rightHead.heatNumber || '—'} / C: ${rightHead.coilNumber || '—'}`}
               </span>
             ) : (
               <span className={styles.slotPlaceholder}>Scan KC</span>

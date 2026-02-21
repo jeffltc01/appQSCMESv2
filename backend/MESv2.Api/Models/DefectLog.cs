@@ -5,22 +5,24 @@ public class DefectLog
     public Guid Id { get; set; }
     public Guid? ProductionRecordId { get; set; }
     public Guid? InspectionRecordId { get; set; }
-    public Guid? HydroRecordId { get; set; }
-    public string SerialNumber { get; set; } = string.Empty;
+    public Guid SerialNumberId { get; set; }
     public Guid DefectCodeId { get; set; }
     public Guid CharacteristicId { get; set; }
     public Guid LocationId { get; set; }
     public string? LocationDetail { get; set; }
     public bool IsRepaired { get; set; }
     public Guid? RepairedByUserId { get; set; }
+    public DateTime? RepairedDateTime { get; set; }
+    public Guid? CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime Timestamp { get; set; }
 
     public ProductionRecord? ProductionRecord { get; set; }
     public InspectionRecord? InspectionRecord { get; set; }
-    public HydroRecord? HydroRecord { get; set; }
+    public SerialNumber SerialNumber { get; set; } = null!;
     public DefectCode DefectCode { get; set; } = null!;
     public Characteristic Characteristic { get; set; } = null!;
     public DefectLocation Location { get; set; } = null!;
     public User? RepairedByUser { get; set; }
+    public User? CreatedByUser { get; set; }
 }
