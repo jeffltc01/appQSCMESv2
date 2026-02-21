@@ -62,7 +62,9 @@ describe('LoginScreen', () => {
 
   it('shows error when employee number is not recognized', async () => {
     const user = userEvent.setup();
-    vi.mocked(authApi.getLoginConfig).mockRejectedValue(new Error('Not found'));
+    vi.mocked(authApi.getLoginConfig).mockRejectedValue({
+      message: 'Request failed with status 404',
+    });
 
     renderLogin();
     const empInput = screen.getByLabelText(/employee no/i);
@@ -71,6 +73,22 @@ describe('LoginScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Employee number not recognized.')).toBeInTheDocument();
+    });
+  });
+
+  it('shows "Employee not active." when an inactive user is looked up', async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.getLoginConfig).mockRejectedValue({
+      message: 'Employee not active.',
+    });
+
+    renderLogin();
+    const empInput = screen.getByLabelText(/employee no/i);
+    await user.type(empInput, '88888');
+    await user.tab();
+
+    await waitFor(() => {
+      expect(screen.getByText('Employee not active.')).toBeInTheDocument();
     });
   });
 

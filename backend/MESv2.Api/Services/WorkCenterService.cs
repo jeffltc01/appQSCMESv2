@@ -51,6 +51,14 @@ public class WorkCenterService : IWorkCenterService
         }).ToList();
     }
 
+    public async Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder, cancellationToken);
+        if (user == null) return null;
+        return new WelderDto { UserId = user.Id, DisplayName = user.DisplayName, EmployeeNumber = user.EmployeeNumber };
+    }
+
     public async Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users
@@ -254,6 +262,42 @@ public class WorkCenterService : IWorkCenterService
         return list.Select(c => new CharacteristicDto { Id = c.Id, Name = c.Name }).ToList();
     }
 
+    private async Task<string> GetSiteCodeForWorkCenter(Guid wcId, CancellationToken cancellationToken)
+    {
+        var siteCode = await _db.WorkCenterProductionLines
+            .Where(wpl => wpl.WorkCenterId == wcId)
+            .Select(wpl => wpl.ProductionLine.Plant.Code)
+            .FirstOrDefaultAsync(cancellationToken);
+        return siteCode ?? string.Empty;
+    }
+
+    private async Task<SerialNumber> FindOrCreateSerialAsync(string serialString, string siteCode, Guid? productId,
+        Guid? millVendorId, Guid? processorVendorId, Guid? headsVendorId,
+        string? heatNumber, string? coilNumber, string? lotNumber, CancellationToken cancellationToken)
+    {
+        var existing = await _db.SerialNumbers
+            .FirstOrDefaultAsync(s => s.Serial == serialString && s.SiteCode == siteCode, cancellationToken);
+        if (existing != null) return existing;
+
+        var serial = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = serialString,
+            SiteCode = siteCode,
+            ProductId = productId,
+            MillVendorId = millVendorId,
+            ProcessorVendorId = processorVendorId,
+            HeadsVendorId = headsVendorId,
+            HeatNumber = heatNumber,
+            CoilNumber = coilNumber,
+            LotNumber = lotNumber,
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.SerialNumbers.Add(serial);
+        await _db.SaveChangesAsync(cancellationToken);
+        return serial;
+    }
+
     public async Task<MaterialQueueItemDto> AddMaterialQueueItemAsync(Guid wcId, CreateMaterialQueueItemDto dto, CancellationToken cancellationToken = default)
     {
         var maxPos = await _db.MaterialQueueItems
@@ -262,6 +306,12 @@ public class WorkCenterService : IWorkCenterService
             .MaxAsync(cancellationToken) ?? 0;
 
         var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
+
+        var siteCode = await GetSiteCodeForWorkCenter(wcId, cancellationToken);
+        var serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilNumber}";
+        var serial = await FindOrCreateSerialAsync(serialString, siteCode, dto.ProductId,
+            dto.VendorMillId, dto.VendorProcessorId, null,
+            dto.HeatNumber, dto.CoilNumber, dto.LotNumber, cancellationToken);
 
         var item = new MaterialQueueItem
         {
@@ -279,10 +329,22 @@ public class WorkCenterService : IWorkCenterService
             VendorProcessorId = dto.VendorProcessorId,
             LotNumber = dto.LotNumber,
             QueueType = "rolls",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            SerialNumberId = serial.Id
         };
 
         _db.MaterialQueueItems.Add(item);
+
+        _db.QueueTransactions.Add(new QueueTransaction
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Action = "added",
+            ItemSummary = $"{item.ProductDescription} - Heat {dto.HeatNumber} Coil {dto.CoilNumber} - Qty {dto.Quantity}",
+            OperatorName = string.Empty,
+            Timestamp = DateTime.UtcNow
+        });
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return MapQueueItem(item);
@@ -338,6 +400,17 @@ public class WorkCenterService : IWorkCenterService
 
         var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
 
+        var siteCode = await GetSiteCodeForWorkCenter(wcId, cancellationToken);
+        string serialString;
+        if (!string.IsNullOrEmpty(dto.LotNumber))
+            serialString = $"Lot {dto.LotNumber}";
+        else
+            serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilSlabNumber}";
+
+        var serial = await FindOrCreateSerialAsync(serialString, siteCode, dto.ProductId,
+            null, null, dto.VendorHeadId,
+            dto.HeatNumber, null, dto.LotNumber, cancellationToken);
+
         var item = new MaterialQueueItem
         {
             Id = Guid.NewGuid(),
@@ -355,10 +428,23 @@ public class WorkCenterService : IWorkCenterService
             LotNumber = dto.LotNumber,
             CoilSlabNumber = dto.CoilSlabNumber,
             QueueType = "fitup",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            SerialNumberId = serial.Id
         };
 
         _db.MaterialQueueItems.Add(item);
+
+        var summaryId = !string.IsNullOrEmpty(dto.LotNumber) ? $"Lot {dto.LotNumber}" : $"Heat {dto.HeatNumber}";
+        _db.QueueTransactions.Add(new QueueTransaction
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            Action = "added",
+            ItemSummary = $"{item.ProductDescription} - {summaryId} - Card {dto.CardCode}",
+            OperatorName = string.Empty,
+            Timestamp = DateTime.UtcNow
+        });
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return MapQueueItem(item);
@@ -481,5 +567,23 @@ public class WorkCenterService : IWorkCenterService
             };
 
         return null;
+    }
+
+    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, CancellationToken cancellationToken = default)
+    {
+        var transactions = await _db.QueueTransactions
+            .Where(qt => qt.WorkCenterId == wcId)
+            .OrderByDescending(qt => qt.Timestamp)
+            .Take(limit)
+            .Select(qt => new QueueTransactionDto
+            {
+                Id = qt.Id,
+                Action = qt.Action,
+                ItemSummary = qt.ItemSummary,
+                OperatorName = qt.OperatorName,
+                Timestamp = qt.Timestamp
+            })
+            .ToListAsync(cancellationToken);
+        return transactions;
     }
 }

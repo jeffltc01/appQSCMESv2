@@ -5,12 +5,13 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { PlantGearScreen } from './PlantGearScreen.tsx';
 import { adminPlantGearApi } from '../../api/endpoints.ts';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1 };
+const tier3User = { plantCode: '000', plantName: 'Cleveland', displayName: 'QM User', roleTier: 3 };
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminPlantGearApi: {
@@ -43,6 +44,7 @@ const mockPlantGear = [
 
 describe('PlantGearScreen', () => {
   beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminPlantGearApi.getAll).mockResolvedValue(mockPlantGear);
   });
 
@@ -87,5 +89,19 @@ describe('PlantGearScreen', () => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument(),
     );
     expect(screen.getByText('Plant Gear')).toBeInTheDocument();
+  });
+
+  describe('Tier 3 read-only behavior', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: tier3User, logout: vi.fn() });
+    });
+
+    it('hides gear buttons for Tier 3', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText(/Plant 1 \(PLT1\)/)).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: '1' })).not.toBeInTheDocument();
+    });
   });
 });

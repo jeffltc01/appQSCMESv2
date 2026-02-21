@@ -5,12 +5,13 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { VendorMaintenanceScreen } from './VendorMaintenanceScreen.tsx';
 import { adminVendorApi } from '../../api/endpoints.ts';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1, defaultSiteId: 's1' };
+const tier3User = { plantCode: '000', plantName: 'Cleveland', displayName: 'QM User', roleTier: 3, defaultSiteId: 's1' };
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminVendorApi: {
@@ -42,6 +43,7 @@ const mockVendors = [
 
 describe('VendorMaintenanceScreen', () => {
   beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminVendorApi.getAll).mockResolvedValue(mockVendors);
   });
 
@@ -84,5 +86,20 @@ describe('VendorMaintenanceScreen', () => {
   it('displays correct title', async () => {
     renderScreen();
     expect(screen.getByText('Vendor Maintenance')).toBeInTheDocument();
+  });
+
+  describe('Tier 3 site-scoped behavior', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: tier3User, logout: vi.fn() });
+    });
+
+    it('hides delete buttons for Tier 3 users', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText('Mill Co')).toBeInTheDocument();
+      });
+      const deleteButtons = screen.queryAllByLabelText(/delete/i);
+      expect(deleteButtons).toHaveLength(0);
+    });
   });
 });

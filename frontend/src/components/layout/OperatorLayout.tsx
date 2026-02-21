@@ -7,12 +7,13 @@ import { getTabletCache } from '../../hooks/useLocalStorage.ts';
 import { useBarcode } from '../../hooks/useBarcode.ts';
 import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import type { ParsedBarcode } from '../../types/barcode.ts';
-import type { Welder, WCHistoryData } from '../../types/domain.ts';
+import type { Welder, WCHistoryData, QueueTransaction } from '../../types/domain.ts';
 import { workCenterApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
 import { BottomBar } from './BottomBar.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
 import { WCHistory } from './WCHistory.tsx';
+import { QueueHistory } from './QueueHistory.tsx';
 import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { RollsScreen } from '../../features/rolls/RollsScreen.tsx';
 import { RollsMaterialScreen } from '../../features/rollsMaterial/RollsMaterialScreen.tsx';
@@ -53,18 +54,38 @@ export function OperatorLayout() {
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barcodeHandlerRef = useRef<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
   const [historyData, setHistoryData] = useState<WCHistoryData>({ dayCount: 0, recentRecords: [] });
+  const [queueTransactions, setQueueTransactions] = useState<QueueTransaction[]>([]);
   const [welderGateEmpNo, setWelderGateEmpNo] = useState('');
   const [welderGateError, setWelderGateError] = useState('');
   const [welderGateLoading, setWelderGateLoading] = useState(false);
+  const [welderGateLookupName, setWelderGateLookupName] = useState<string | null>(null);
+  const welderGateDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
+  const dataEntryType = cache?.cachedDataEntryType ?? '';
   const weldersSatisfied = welders.length >= numberOfWelders;
   const showWelderGate = numberOfWelders > 0 && !weldersSatisfied;
+
+  const isQueueScreen = dataEntryType === 'MatQueue-Material' || dataEntryType === 'MatQueue-Fitup';
+
+  const queueTxnWCId = cache?.cachedMaterialQueueForWCId ?? cache?.cachedWorkCenterId;
+
+  const loadQueueTransactions = useCallback(async () => {
+    if (!queueTxnWCId) return;
+    try {
+      const txns = await workCenterApi.getQueueTransactions(queueTxnWCId);
+      setQueueTransactions(txns);
+    } catch { /* keep stale */ }
+  }, [queueTxnWCId]);
 
   useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
     loadWelders();
-    loadHistory();
-  }, [cache?.cachedWorkCenterId]);
+    if (isQueueScreen) {
+      loadQueueTransactions();
+    } else {
+      loadHistory();
+    }
+  }, [cache?.cachedWorkCenterId, isQueueScreen]);
 
   useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
@@ -159,8 +180,12 @@ export function OperatorLayout() {
   }, []);
 
   const refreshHistory = useCallback(() => {
-    loadHistory();
-  }, [loadHistory]);
+    if (isQueueScreen) {
+      loadQueueTransactions();
+    } else {
+      loadHistory();
+    }
+  }, [isQueueScreen, loadHistory, loadQueueTransactions]);
 
   const handleScan = useCallback(
     (bc: ParsedBarcode | null, raw: string) => {
@@ -222,6 +247,7 @@ export function OperatorLayout() {
         return [...prev, w];
       });
       setWelderGateEmpNo('');
+      setWelderGateLookupName(null);
     } catch {
       setWelderGateError('Employee not found or not a certified welder');
     } finally {
@@ -233,7 +259,6 @@ export function OperatorLayout() {
     navigate('/tablet-setup');
   }, [navigate]);
 
-  const dataEntryType = cache?.cachedDataEntryType ?? '';
   const supportsExternalInput = !(
     dataEntryType === 'MatQueue-Material' ||
     dataEntryType === 'MatQueue-Fitup' ||
@@ -259,6 +284,7 @@ export function OperatorLayout() {
     <div className={styles.shell}>
       <TopBar
         workCenterName={cache?.cachedWorkCenterDisplayName || cache?.cachedWorkCenterName || ''}
+        workCenterId={cache?.cachedWorkCenterId ?? ''}
         productionLineName={cache?.cachedProductionLineName ?? ''}
         assetName={cache?.cachedAssetName ?? ''}
         operatorName={user?.displayName ?? ''}
@@ -281,7 +307,11 @@ export function OperatorLayout() {
         </main>
 
         <aside className={styles.rightPanel}>
-          <WCHistory data={historyData} />
+          {isQueueScreen ? (
+            <QueueHistory transactions={queueTransactions} />
+          ) : (
+            <WCHistory data={historyData} />
+          )}
         </aside>
       </div>
 
@@ -335,13 +365,31 @@ export function OperatorLayout() {
                 <Label>Employee Number</Label>
                 <Input
                   value={welderGateEmpNo}
-                  onChange={(_, d) => { setWelderGateEmpNo(d.value); setWelderGateError(''); }}
+                  onChange={(_, d) => {
+                    setWelderGateEmpNo(d.value);
+                    setWelderGateError('');
+                    setWelderGateLookupName(null);
+                    if (welderGateDebounceRef.current) clearTimeout(welderGateDebounceRef.current);
+                    const val = d.value.trim();
+                    if (val && cache?.cachedWorkCenterId) {
+                      welderGateDebounceRef.current = setTimeout(() => {
+                        workCenterApi.lookupWelder(cache.cachedWorkCenterId!, val)
+                          .then(w => setWelderGateLookupName(w.displayName))
+                          .catch(() => setWelderGateLookupName('Not found'));
+                      }, 500);
+                    }
+                  }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleWelderGateAdd(); }}
                   placeholder="Enter employee number..."
                   size="large"
                   inputMode="numeric"
                   disabled={welderGateLoading}
                 />
+                {welderGateLookupName && (
+                  <div style={{ fontSize: 14, color: welderGateLookupName === 'Not found' ? '#c4314b' : '#2b8a3e', marginTop: 4 }}>
+                    {welderGateLookupName}
+                  </div>
+                )}
               </div>
               <Button
                 appearance="primary"

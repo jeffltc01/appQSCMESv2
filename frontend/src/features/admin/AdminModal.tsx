@@ -22,6 +22,7 @@ interface AdminModalProps {
   loading?: boolean;
   error?: string;
   confirmDisabled?: boolean;
+  wide?: boolean;
 }
 
 export function AdminModal({
@@ -35,10 +36,11 @@ export function AdminModal({
   loading = false,
   error,
   confirmDisabled = false,
+  wide = false,
 }: AdminModalProps) {
   return (
     <Dialog open={open} onOpenChange={(_, data) => { if (!data.open) onCancel(); }}>
-      <DialogSurface className={styles.surface}>
+      <DialogSurface className={wide ? styles.surfaceWide : styles.surface}>
         <DialogBody>
           <DialogTitle
             action={

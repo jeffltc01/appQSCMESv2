@@ -5,12 +5,13 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { UserMaintenanceScreen } from './UserMaintenanceScreen.tsx';
 import { adminUserApi, siteApi } from '../../api/endpoints.ts';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1, defaultSiteId: 's1' };
+const tier3User = { plantCode: 'PLT1', plantName: 'Plant 1', displayName: 'QM User', roleTier: 3, defaultSiteId: 's1' };
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminUserApi: {
@@ -45,6 +46,7 @@ const mockUsers = [
     defaultSiteName: 'Plant 1',
     isCertifiedWelder: false,
     requirePinForLogin: false,
+    hasPin: false,
     userType: 0,
     isActive: true,
   },
@@ -59,6 +61,7 @@ const mockSites = [{ id: 's1', code: 'PLT1', name: 'Plant 1', timeZoneId: 'Ameri
 
 describe('UserMaintenanceScreen', () => {
   beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminUserApi.getAll).mockResolvedValue(mockUsers);
     vi.mocked(adminUserApi.getRoles).mockResolvedValue(mockRoles);
     vi.mocked(siteApi.getSites).mockResolvedValue(mockSites);
@@ -121,5 +124,29 @@ describe('UserMaintenanceScreen', () => {
       expect(screen.getByText('John Doe')).toBeInTheDocument();
     });
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+  });
+
+  describe('Tier 3 site-scoped behavior', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: tier3User, logout: vi.fn() });
+    });
+
+    it('only shows users from the same site', async () => {
+      const multiSiteUsers = [
+        ...mockUsers,
+        {
+          id: '2', employeeNumber: 'EMP002', firstName: 'Jane', lastName: 'Smith',
+          displayName: 'Jane Smith', roleTier: 6, roleName: 'Operator',
+          defaultSiteId: 's2', defaultSiteName: 'Plant 2',
+          isCertifiedWelder: false, requirePinForLogin: false, hasPin: false, userType: 0, isActive: true,
+        },
+      ];
+      vi.mocked(adminUserApi.getAll).mockResolvedValue(multiSiteUsers);
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Jane Smith')).not.toBeInTheDocument();
+    });
   });
 });

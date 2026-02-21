@@ -23,9 +23,9 @@ public class UsersController : ControllerBase
     [HttpGet("login-config")]
     public async Task<ActionResult<LoginConfigDto>> GetLoginConfig([FromQuery] string empNo, CancellationToken cancellationToken)
     {
-        var config = await _authService.GetLoginConfigAsync(empNo, cancellationToken);
+        var (config, inactive) = await _authService.GetLoginConfigAsync(empNo, cancellationToken);
         if (config == null)
-            return NotFound();
+            return inactive ? Conflict(new { message = "Employee not active." }) : NotFound();
         return Ok(config);
     }
 
@@ -78,10 +78,20 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<AdminUserDto>> CreateUser([FromBody] CreateUserDto dto, CancellationToken cancellationToken)
     {
+        var normalizedEmpNo = NormalizeEmployeeNumber(dto.EmployeeNumber, dto.UserType);
+        var exists = await _db.Users.AnyAsync(
+            u => u.EmployeeNumber == normalizedEmpNo, cancellationToken);
+        if (exists)
+            return Conflict(new { message = "Employee number already exists." });
+
+        if (!string.IsNullOrEmpty(dto.Pin) &&
+            (dto.Pin.Length < 4 || dto.Pin.Length > 20 || !dto.Pin.All(char.IsDigit)))
+            return BadRequest(new { message = "PIN must be 4-20 digits." });
+
         var user = new User
         {
             Id = Guid.NewGuid(),
-            EmployeeNumber = dto.EmployeeNumber,
+            EmployeeNumber = normalizedEmpNo,
             FirstName = dto.FirstName,
             LastName = dto.LastName,
             DisplayName = dto.DisplayName,
@@ -123,7 +133,17 @@ public class UsersController : ControllerBase
         var user = await _db.Users.FindAsync(new object[] { id }, cancellationToken);
         if (user == null) return NotFound();
 
-        user.EmployeeNumber = dto.EmployeeNumber;
+        var normalizedEmpNo = NormalizeEmployeeNumber(dto.EmployeeNumber, dto.UserType);
+        var exists = await _db.Users.AnyAsync(
+            u => u.EmployeeNumber == normalizedEmpNo && u.Id != id, cancellationToken);
+        if (exists)
+            return Conflict(new { message = "Employee number already exists." });
+
+        if (!string.IsNullOrEmpty(dto.Pin) &&
+            (dto.Pin.Length < 4 || dto.Pin.Length > 20 || !dto.Pin.All(char.IsDigit)))
+            return BadRequest(new { message = "PIN must be 4-20 digits." });
+
+        user.EmployeeNumber = normalizedEmpNo;
         user.FirstName = dto.FirstName;
         user.LastName = dto.LastName;
         user.DisplayName = dto.DisplayName;
@@ -132,7 +152,9 @@ public class UsersController : ControllerBase
         user.DefaultSiteId = dto.DefaultSiteId;
         user.IsCertifiedWelder = dto.IsCertifiedWelder;
         user.RequirePinForLogin = dto.RequirePinForLogin;
-        if (!string.IsNullOrEmpty(dto.Pin))
+        if (!dto.RequirePinForLogin)
+            user.PinHash = null;
+        else if (!string.IsNullOrEmpty(dto.Pin))
             user.PinHash = BCrypt.Net.BCrypt.HashPassword(dto.Pin);
         user.UserType = (Models.UserType)dto.UserType;
         user.IsActive = dto.IsActive;
@@ -157,6 +179,14 @@ public class UsersController : ControllerBase
             UserType = (int)user.UserType,
             IsActive = user.IsActive
         });
+    }
+
+    private static string NormalizeEmployeeNumber(string empNo, int userType)
+    {
+        var raw = empNo.StartsWith("AI", StringComparison.OrdinalIgnoreCase)
+            ? empNo[2..] : empNo;
+        return userType == (int)Models.UserType.AuthorizedInspector
+            ? "AI" + raw : raw;
     }
 
     [HttpDelete("{id:guid}")]

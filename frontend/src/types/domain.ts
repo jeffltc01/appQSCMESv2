@@ -172,6 +172,14 @@ export interface WCHistoryData {
   recentRecords: WCHistoryEntry[];
 }
 
+export interface QueueTransaction {
+  id: string;
+  action: string;
+  itemSummary: string;
+  operatorName: string;
+  timestamp: string;
+}
+
 export interface Annotation {
   id: string;
   productionRecordId: string;
@@ -280,6 +288,7 @@ export interface AdminUser {
   defaultSiteName: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  hasPin: boolean;
   userType: number;
   isActive: boolean;
 }

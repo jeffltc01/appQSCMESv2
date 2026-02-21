@@ -4,9 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { TopBar } from './TopBar';
 
+vi.mock('../../api/endpoints.ts', () => ({
+  workCenterApi: {
+    lookupWelder: vi.fn().mockRejectedValue(new Error('not found')),
+  },
+}));
+
 function renderTopBar(overrides = {}) {
   const defaults = {
     workCenterName: 'Long Seam',
+    workCenterId: 'wc-123',
     productionLineName: 'Main Line',
     assetName: 'Longseam A',
     operatorName: 'John D.',

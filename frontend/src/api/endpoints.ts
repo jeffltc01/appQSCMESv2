@@ -50,6 +50,7 @@ import type {
   Asset,
   Welder,
   WCHistoryData,
+  QueueTransaction,
   MaterialQueueItem,
   DefectCode,
   DefectLocation,
@@ -96,12 +97,16 @@ export const workCenterApi = {
     api.get<WorkCenter[]>('/workcenters'),
   getWelders: (wcId: string) =>
     api.get<Welder[]>(`/workcenters/${wcId}/welders`),
+  lookupWelder: (wcId: string, empNo: string) =>
+    api.get<Welder>(`/workcenters/${wcId}/welders/lookup?empNo=${encodeURIComponent(empNo)}`),
   addWelder: (wcId: string, employeeNumber: string) =>
     api.post<Welder>(`/workcenters/${wcId}/welders`, { employeeNumber }),
   removeWelder: (wcId: string, userId: string) =>
     api.delete<void>(`/workcenters/${wcId}/welders/${userId}`),
   getHistory: (wcId: string, date: string) =>
     api.get<WCHistoryData>(`/workcenters/${wcId}/history?date=${date}&limit=5`),
+  getQueueTransactions: (wcId: string, limit = 5) =>
+    api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}`),
   getMaterialQueue: (wcId: string, type?: string) =>
     api.get<MaterialQueueItem[]>(
       `/workcenters/${wcId}/material-queue${type ? `?type=${type}` : ''}`,

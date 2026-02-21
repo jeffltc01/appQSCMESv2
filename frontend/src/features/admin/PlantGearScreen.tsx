@@ -2,11 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button, Spinner } from '@fluentui/react-components';
 import { AdminLayout } from './AdminLayout.tsx';
 import { adminPlantGearApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { PlantWithGear } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 import gearStyles from './PlantGear.module.css';
 
 export function PlantGearScreen() {
+  const { user } = useAuth();
+  const isReadOnly = (user?.roleTier ?? 99) > 2;
   const [plants, setPlants] = useState<PlantWithGear[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -50,20 +53,22 @@ export function PlantGearScreen() {
                   {plant.currentGearLevel != null ? `Gear ${plant.currentGearLevel}` : 'Not set'}
                 </span>
               </div>
-              <div className={gearStyles.gearRow}>
-                {plant.gears.map(gear => (
-                  <Button
-                    key={gear.id}
-                    appearance={gear.id === plant.currentPlantGearId ? 'primary' : 'outline'}
-                    size="small"
-                    onClick={() => handleSetGear(plant.plantId, gear.id)}
-                    disabled={saving === plant.plantId}
-                    className={gearStyles.gearBtn}
-                  >
-                    {gear.level}
-                  </Button>
-                ))}
-              </div>
+              {!isReadOnly && (
+                <div className={gearStyles.gearRow}>
+                  {plant.gears.map(gear => (
+                    <Button
+                      key={gear.id}
+                      appearance={gear.id === plant.currentPlantGearId ? 'primary' : 'outline'}
+                      size="small"
+                      onClick={() => handleSetGear(plant.plantId, gear.id)}
+                      disabled={saving === plant.plantId}
+                      className={gearStyles.gearBtn}
+                    >
+                      {gear.level}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

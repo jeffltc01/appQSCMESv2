@@ -12,11 +12,13 @@ public class WorkCentersController : ControllerBase
 {
     private readonly IWorkCenterService _workCenterService;
     private readonly MesDbContext _db;
+    private readonly ILogger<WorkCentersController> _logger;
 
-    public WorkCentersController(IWorkCenterService workCenterService, MesDbContext db)
+    public WorkCentersController(IWorkCenterService workCenterService, MesDbContext db, ILogger<WorkCentersController> logger)
     {
         _workCenterService = workCenterService;
         _db = db;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -31,6 +33,14 @@ public class WorkCentersController : ControllerBase
     {
         var list = await _workCenterService.GetWeldersAsync(id, cancellationToken);
         return Ok(list);
+    }
+
+    [HttpGet("{id:guid}/welders/lookup")]
+    public async Task<ActionResult<WelderDto>> LookupWelder(Guid id, [FromQuery] string empNo, CancellationToken cancellationToken)
+    {
+        var welder = await _workCenterService.LookupWelderAsync(empNo, cancellationToken);
+        if (welder == null) return NotFound();
+        return Ok(welder);
     }
 
     [HttpPost("{id:guid}/welders")]
@@ -55,6 +65,13 @@ public class WorkCentersController : ControllerBase
     public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] string siteCode, [FromQuery] string date, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
     {
         var result = await _workCenterService.GetHistoryAsync(id, siteCode, date, limit, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("{id:guid}/queue-transactions")]
+    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
+    {
+        var result = await _workCenterService.GetQueueTransactionsAsync(id, limit, cancellationToken);
         return Ok(result);
     }
 
@@ -105,8 +122,16 @@ public class WorkCentersController : ControllerBase
     [HttpPost("{id:guid}/material-queue")]
     public async Task<ActionResult<MaterialQueueItemDto>> AddMaterialQueueItem(Guid id, [FromBody] CreateMaterialQueueItemDto dto, CancellationToken cancellationToken)
     {
-        var result = await _workCenterService.AddMaterialQueueItemAsync(id, dto, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _workCenterService.AddMaterialQueueItemAsync(id, dto, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add material queue item for WorkCenter {WorkCenterId}", id);
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}/material-queue/{itemId:guid}")]
@@ -195,27 +220,49 @@ public class WorkCentersController : ControllerBase
         var wcs = await _db.WorkCenters
             .Include(w => w.WorkCenterType)
             .Include(w => w.MaterialQueueForWC)
+            .Include(w => w.WorkCenterProductionLines)
+                .ThenInclude(wpl => wpl.ProductionLine)
+                .ThenInclude(pl => pl.Plant)
             .OrderBy(w => w.Name)
             .ToListAsync(cancellationToken);
 
         var groups = wcs
-            .Select(w => new AdminWorkCenterGroupDto
+            .Select(w =>
             {
-                GroupId = w.Id,
-                BaseName = w.Name,
-                WorkCenterTypeName = w.WorkCenterType.Name,
-                DataEntryType = w.DataEntryType,
-                SiteConfigs = new List<WorkCenterSiteConfigDto>
-                {
-                    new()
+                var plants = w.WorkCenterProductionLines
+                    .Select(wpl => wpl.ProductionLine.Plant)
+                    .DistinctBy(p => p.Id)
+                    .ToList();
+
+                var siteConfigs = plants.Count > 0
+                    ? plants.Select(plant => new WorkCenterSiteConfigDto
                     {
                         WorkCenterId = w.Id,
-                        SiteName = w.Name,
+                        SiteName = plant.Name,
                         NumberOfWelders = w.NumberOfWelders,
                         MaterialQueueForWCId = w.MaterialQueueForWCId,
                         MaterialQueueForWCName = w.MaterialQueueForWC?.Name,
-                    }
-                }
+                    }).ToList()
+                    : new List<WorkCenterSiteConfigDto>
+                    {
+                        new()
+                        {
+                            WorkCenterId = w.Id,
+                            SiteName = w.Name,
+                            NumberOfWelders = w.NumberOfWelders,
+                            MaterialQueueForWCId = w.MaterialQueueForWCId,
+                            MaterialQueueForWCName = w.MaterialQueueForWC?.Name,
+                        }
+                    };
+
+                return new AdminWorkCenterGroupDto
+                {
+                    GroupId = w.Id,
+                    BaseName = w.Name,
+                    WorkCenterTypeName = w.WorkCenterType.Name,
+                    DataEntryType = w.DataEntryType,
+                    SiteConfigs = siteConfigs
+                };
             })
             .OrderBy(g => g.BaseName)
             .ToList();

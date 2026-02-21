@@ -205,7 +205,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
             </div>
           </div>
         </div>
-        <div className={styles.formActions}>
+        <div className={`${styles.formActions} ${styles.formFullWidth}`}>
           <Button appearance="secondary" size="large" onClick={() => setShowForm(false)}>Cancel</Button>
           <Button appearance="primary" size="large" onClick={handleSave}>Save</Button>
         </div>

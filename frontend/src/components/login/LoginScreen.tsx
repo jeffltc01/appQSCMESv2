@@ -50,8 +50,10 @@ export function LoginScreen() {
       setSelectedSiteId(config.defaultSiteId);
       const siteList = await siteApi.getSites();
       setSites(siteList);
-    } catch {
-      setEmpError('Employee number not recognized.');
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message;
+      const isBacked = msg && !msg.startsWith('Request failed');
+      setEmpError(isBacked ? msg : 'Employee number not recognized.');
       setLoginConfig(null);
     } finally {
       setConfigLoading(false);

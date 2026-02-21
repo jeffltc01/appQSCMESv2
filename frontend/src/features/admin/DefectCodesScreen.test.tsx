@@ -5,12 +5,13 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { DefectCodesScreen } from './DefectCodesScreen.tsx';
 import { adminDefectCodeApi, adminWorkCenterApi } from '../../api/endpoints.ts';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1 };
+const tier3User = { plantCode: '000', plantName: 'Cleveland', displayName: 'QM User', roleTier: 3 };
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminDefectCodeApi: {
@@ -55,6 +56,7 @@ const mockWorkCenters = [
 
 describe('DefectCodesScreen', () => {
   beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminDefectCodeApi.getAll).mockResolvedValue(mockDefectCodes);
     vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue(mockWorkCenters);
   });
@@ -104,5 +106,28 @@ describe('DefectCodesScreen', () => {
   it('displays correct title', async () => {
     renderScreen();
     expect(screen.getByText('Defect Codes')).toBeInTheDocument();
+  });
+
+  describe('Tier 3 read-only behavior', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: tier3User, logout: vi.fn() });
+    });
+
+    it('hides Add Code button for Tier 3', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText(/101/)).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: /Add Code/i })).not.toBeInTheDocument();
+    });
+
+    it('hides edit and delete buttons for Tier 3', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText(/101/)).toBeInTheDocument();
+      });
+      expect(screen.queryByLabelText(/edit/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/delete/i)).not.toBeInTheDocument();
+    });
   });
 });

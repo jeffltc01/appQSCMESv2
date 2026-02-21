@@ -5,12 +5,12 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { AssetManagementScreen } from './AssetManagementScreen.tsx';
 import { adminAssetApi, adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1, defaultSiteId: 'p1' };
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminAssetApi: {
@@ -68,6 +68,7 @@ const mockProductionLines = [
 
 describe('AssetManagementScreen', () => {
   beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminAssetApi.getAll).mockResolvedValue(mockAssets);
     vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue(mockWorkCenters);
     vi.mocked(productionLineApi.getAll).mockResolvedValue(mockProductionLines);

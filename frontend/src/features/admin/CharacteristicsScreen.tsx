@@ -4,10 +4,13 @@ import { EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { adminCharacteristicApi, adminProductApi, adminWorkCenterApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminCharacteristic, ProductType, AdminWorkCenter } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 export function CharacteristicsScreen() {
+  const { user } = useAuth();
+  const isReadOnly = (user?.roleTier ?? 99) > 2;
   const [items, setItems] = useState<AdminCharacteristic[]>([]);
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
   const [workCenters, setWorkCenters] = useState<AdminWorkCenter[]>([]);
@@ -81,9 +84,11 @@ export function CharacteristicsScreen() {
             <div key={item.id} className={styles.card}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.name}</span>
-                <div className={styles.cardActions}>
-                  <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                </div>
+                {!isReadOnly && (
+                  <div className={styles.cardActions}>
+                    <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
+                  </div>
+                )}
               </div>
               {(item.specLow != null || item.specHigh != null) && (
                 <div className={styles.cardField}>

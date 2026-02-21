@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Button,
   Input,
@@ -8,10 +8,12 @@ import {
 } from '@fluentui/react-components';
 import { DismissRegular, PersonAddRegular } from '@fluentui/react-icons';
 import type { Welder } from '../../types/domain.ts';
+import { workCenterApi } from '../../api/endpoints.ts';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {
   workCenterName: string;
+  workCenterId: string;
   productionLineName: string;
   assetName: string;
   operatorName: string;
@@ -23,6 +25,7 @@ interface TopBarProps {
 
 export function TopBar({
   workCenterName,
+  workCenterId,
   productionLineName,
   assetName,
   operatorName,
@@ -33,11 +36,41 @@ export function TopBar({
 }: TopBarProps) {
   const [addWelderOpen, setAddWelderOpen] = useState(false);
   const [newWelderEmpNo, setNewWelderEmpNo] = useState('');
+  const [lookupName, setLookupName] = useState<string | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (!addWelderOpen) {
+      setLookupName(null);
+      setLookupLoading(false);
+    }
+  }, [addWelderOpen]);
+
+  const doLookup = useCallback((empNo: string) => {
+    if (!empNo.trim() || !workCenterId) {
+      setLookupName(null);
+      return;
+    }
+    setLookupLoading(true);
+    workCenterApi.lookupWelder(workCenterId, empNo.trim())
+      .then(w => setLookupName(w.displayName))
+      .catch(() => setLookupName('Not found'))
+      .finally(() => setLookupLoading(false));
+  }, [workCenterId]);
+
+  const handleEmpNoChange = useCallback((value: string) => {
+    setNewWelderEmpNo(value);
+    setLookupName(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doLookup(value), 500);
+  }, [doLookup]);
 
   const handleAddWelder = useCallback(() => {
     if (newWelderEmpNo.trim()) {
       onAddWelder(newWelderEmpNo.trim());
       setNewWelderEmpNo('');
+      setLookupName(null);
       setAddWelderOpen(false);
     }
   }, [newWelderEmpNo, onAddWelder]);
@@ -95,13 +128,18 @@ export function TopBar({
                 <Input
                   placeholder="Employee No."
                   value={newWelderEmpNo}
-                  onChange={(_, data) => setNewWelderEmpNo(data.value)}
+                  onChange={(_, data) => handleEmpNoChange(data.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleAddWelder();
                   }}
                   size="medium"
                   inputMode="numeric"
                 />
+                {(lookupLoading || lookupName) && (
+                  <span style={{ fontSize: 12, color: lookupName === 'Not found' ? '#c4314b' : '#616161', minHeight: 16 }}>
+                    {lookupLoading ? 'Looking up...' : lookupName}
+                  </span>
+                )}
                 <Button appearance="primary" size="small" onClick={handleAddWelder}>
                   Add
                 </Button>

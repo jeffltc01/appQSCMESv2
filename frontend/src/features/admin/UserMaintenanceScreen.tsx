@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Input, Label, Dropdown, Option, Checkbox, Spinner, SearchBox } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminUserApi, siteApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminUser, RoleOption, Plant } from '../../types/domain.ts';
 import { UserType } from '../../types/domain.ts';
 import styles from './CardList.module.css';
@@ -14,7 +15,13 @@ const userTypeOptions = [
   { value: UserType.AuthorizedInspector, label: 'Authorized Inspector (AI)' },
 ];
 
+const isAI = (ut: number) => ut === UserType.AuthorizedInspector;
+const stripAIPrefix = (empNo: string) => empNo.replace(/^AI/i, '');
+
 export function UserMaintenanceScreen() {
+  const { user: authUser } = useAuth();
+  const isSiteScoped = (authUser?.roleTier ?? 99) > 2;
+
   const [items, setItems] = useState<AdminUser[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [sites, setSites] = useState<Plant[]>([]);
@@ -36,6 +43,7 @@ export function UserMaintenanceScreen() {
   const [defaultSiteId, setDefaultSiteId] = useState('');
   const [isCertifiedWelder, setIsCertifiedWelder] = useState(false);
   const [requirePinForLogin, setRequirePinForLogin] = useState(false);
+  const [pin, setPin] = useState('');
   const [userType, setUserType] = useState<number>(UserType.Standard);
   const [isActive, setIsActive] = useState(true);
 
@@ -55,18 +63,20 @@ export function UserMaintenanceScreen() {
   const openAdd = () => {
     setEditing(null);
     setEmployeeNumber(''); setFirstName(''); setLastName(''); setDisplayName('');
-    setRoleName('Operator'); setRoleTier(6); setDefaultSiteId('');
-    setIsCertifiedWelder(false); setRequirePinForLogin(false); setUserType(UserType.Standard);
-    setIsActive(true); setError(''); setModalOpen(true);
+    setRoleName('Operator'); setRoleTier(6);
+    setDefaultSiteId(isSiteScoped ? (authUser?.defaultSiteId ?? '') : '');
+    setIsCertifiedWelder(false); setRequirePinForLogin(false); setPin('');
+    setUserType(UserType.Standard); setIsActive(true); setError(''); setModalOpen(true);
   };
 
   const openEdit = (item: AdminUser) => {
     setEditing(item);
-    setEmployeeNumber(item.employeeNumber); setFirstName(item.firstName); setLastName(item.lastName);
+    const rawEmpNo = isAI(item.userType) ? stripAIPrefix(item.employeeNumber) : item.employeeNumber;
+    setEmployeeNumber(rawEmpNo); setFirstName(item.firstName); setLastName(item.lastName);
     setDisplayName(item.displayName); setRoleName(item.roleName); setRoleTier(item.roleTier);
     setDefaultSiteId(item.defaultSiteId); setIsCertifiedWelder(item.isCertifiedWelder);
-    setRequirePinForLogin(item.requirePinForLogin); setUserType(item.userType);
-    setIsActive(item.isActive); setError(''); setModalOpen(true);
+    setRequirePinForLogin(item.requirePinForLogin); setPin('');
+    setUserType(item.userType); setIsActive(item.isActive); setError(''); setModalOpen(true);
   };
 
   const handleRoleChange = (_: unknown, data: { optionValue?: string }) => {
@@ -80,19 +90,23 @@ export function UserMaintenanceScreen() {
       if (editing) {
         const updated = await adminUserApi.update(editing.id, {
           employeeNumber, firstName, lastName, displayName, roleTier, roleName,
-          defaultSiteId, isCertifiedWelder, requirePinForLogin, userType, isActive,
+          defaultSiteId, isCertifiedWelder, requirePinForLogin,
+          pin: pin || undefined, userType, isActive,
         });
         setItems(prev => prev.map(u => u.id === updated.id ? updated : u));
       } else {
         const created = await adminUserApi.create({
           employeeNumber, firstName, lastName, displayName, roleTier, roleName,
-          defaultSiteId, isCertifiedWelder, requirePinForLogin, userType,
+          defaultSiteId, isCertifiedWelder, requirePinForLogin,
+          pin: pin || undefined, userType,
         });
         setItems(prev => [...prev, created]);
       }
       setModalOpen(false);
-    } catch { setError('Failed to save user.'); }
-    finally { setSaving(false); }
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message;
+      setError(msg ?? 'Failed to save user.');
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -106,7 +120,29 @@ export function UserMaintenanceScreen() {
     finally { setDeleting(false); }
   };
 
+  const handleRequirePinChange = (_: unknown, d: { checked: boolean | 'mixed' }) => {
+    const checked = !!d.checked;
+    setRequirePinForLogin(checked);
+    if (!checked) setPin('');
+  };
+
+  const getPinPlaceholder = () => {
+    if (!editing) return '4-20 digit PIN';
+    return editing.hasPin ? 'Leave blank to keep current' : '4-20 digit PIN (required)';
+  };
+
+  const visibleRoles = useMemo(() => {
+    if (!isSiteScoped) return roles;
+    return roles.filter(r => r.tier >= 4);
+  }, [roles, isSiteScoped]);
+
+  const visibleSites = useMemo(() => {
+    if (!isSiteScoped) return sites;
+    return sites.filter(s => s.id === authUser?.defaultSiteId);
+  }, [sites, isSiteScoped, authUser?.defaultSiteId]);
+
   const filteredItems = items.filter(item => {
+    if (isSiteScoped && item.defaultSiteId !== authUser?.defaultSiteId) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return item.displayName.toLowerCase().includes(q)
@@ -114,6 +150,10 @@ export function UserMaintenanceScreen() {
       || item.lastName.toLowerCase().includes(q)
       || item.employeeNumber.toLowerCase().includes(q);
   });
+
+  const aiPrefix = isAI(userType) ? (
+    <span style={{ fontWeight: 600, color: '#1b6ec2', padding: '0 2px' }}>AI</span>
+  ) : undefined;
 
   return (
     <AdminLayout title="User Maintenance" onAdd={openAdd} addLabel="Add User">
@@ -177,42 +217,71 @@ export function UserMaintenanceScreen() {
         loading={saving}
         error={error}
         confirmDisabled={!firstName || !lastName || !displayName || !defaultSiteId}
+        wide
       >
-        <Label>Employee Number</Label>
-        <Input value={employeeNumber} onChange={(_, d) => setEmployeeNumber(d.value)} />
-        <Label>First Name</Label>
-        <Input value={firstName} onChange={(_, d) => setFirstName(d.value)} />
-        <Label>Last Name</Label>
-        <Input value={lastName} onChange={(_, d) => setLastName(d.value)} />
-        <Label>Display Name</Label>
-        <Input value={displayName} onChange={(_, d) => setDisplayName(d.value)} />
-        <Label>Role</Label>
-        <Dropdown value={roleName} selectedOptions={[roleName]} onOptionSelect={handleRoleChange}>
-          {roles.map(r => <Option key={r.name} value={r.name} text={`${r.name} (${r.tier})`}>{r.name} ({r.tier})</Option>)}
-        </Dropdown>
-        <Label>Default Site</Label>
-        <Dropdown
-          value={sites.find(s => s.id === defaultSiteId)?.name ?? ''}
-          selectedOptions={[defaultSiteId]}
-          onOptionSelect={(_, d) => { if (d.optionValue) setDefaultSiteId(d.optionValue); }}
-        >
-          {sites.map(s => <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>{s.name} ({s.code})</Option>)}
-        </Dropdown>
-        <Label>User Type</Label>
-        <Dropdown
-          value={userTypeOptions.find(o => o.value === userType)?.label ?? 'Standard'}
-          selectedOptions={[String(userType)]}
-          onOptionSelect={(_, d) => { if (d.optionValue) setUserType(Number(d.optionValue)); }}
-        >
-          {userTypeOptions.map(o => (
-            <Option key={o.value} value={String(o.value)} text={o.label}>{o.label}</Option>
-          ))}
-        </Dropdown>
-        <Checkbox label="Certified Welder" checked={isCertifiedWelder} onChange={(_, d) => setIsCertifiedWelder(!!d.checked)} />
-        <Checkbox label="Require PIN for Login" checked={requirePinForLogin} onChange={(_, d) => setRequirePinForLogin(!!d.checked)} />
-        {editing && (
-          <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
-        )}
+        <div className={styles.formGrid}>
+          <div className={styles.formColumn}>
+            <Label>Employee Number</Label>
+            <Input
+              value={employeeNumber}
+              onChange={(_, d) => setEmployeeNumber(d.value)}
+              contentBefore={aiPrefix}
+            />
+            <Label>First Name</Label>
+            <Input value={firstName} onChange={(_, d) => setFirstName(d.value)} />
+            <Label>Last Name</Label>
+            <Input value={lastName} onChange={(_, d) => setLastName(d.value)} />
+            <Label>Display Name</Label>
+            <Input value={displayName} onChange={(_, d) => setDisplayName(d.value)} />
+            <Label>User Type</Label>
+            <Dropdown
+              value={userTypeOptions.find(o => o.value === userType)?.label ?? 'Standard'}
+              selectedOptions={[String(userType)]}
+              onOptionSelect={(_, d) => { if (d.optionValue) setUserType(Number(d.optionValue)); }}
+            >
+              {userTypeOptions.map(o => (
+                <Option key={o.value} value={String(o.value)} text={o.label}>{o.label}</Option>
+              ))}
+            </Dropdown>
+          </div>
+          <div className={styles.formColumn}>
+            <Label>Role</Label>
+            <Dropdown value={roleName} selectedOptions={[roleName]} onOptionSelect={handleRoleChange}>
+              {visibleRoles.map(r => <Option key={r.name} value={r.name} text={`${r.name} (${r.tier})`}>{r.name} ({r.tier})</Option>)}
+            </Dropdown>
+            <Label>Default Site</Label>
+            <Dropdown
+              value={visibleSites.find(s => s.id === defaultSiteId)?.name ?? ''}
+              selectedOptions={[defaultSiteId]}
+              onOptionSelect={(_, d) => { if (d.optionValue) setDefaultSiteId(d.optionValue); }}
+              disabled={isSiteScoped}
+            >
+              {visibleSites.map(s => <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>{s.name} ({s.code})</Option>)}
+            </Dropdown>
+            <Checkbox label="Certified Welder" checked={isCertifiedWelder} onChange={(_, d) => setIsCertifiedWelder(!!d.checked)} />
+            <Checkbox label="Require PIN for Login" checked={requirePinForLogin} onChange={handleRequirePinChange} />
+            {requirePinForLogin && (
+              <>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={20}
+                  value={pin}
+                  onChange={(_, d) => setPin(d.value)}
+                  placeholder={getPinPlaceholder()}
+                />
+                {editing && (
+                  <span style={{ fontSize: 12, color: editing.hasPin ? '#2b8a3e' : '#e67700' }}>
+                    {editing.hasPin ? 'PIN is set' : 'No PIN set'}
+                  </span>
+                )}
+              </>
+            )}
+            {editing && (
+              <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
+            )}
+          </div>
+        </div>
       </AdminModal>
 
       <ConfirmDeleteDialog

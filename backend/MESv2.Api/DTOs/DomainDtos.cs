@@ -66,6 +66,15 @@ public class MaterialQueueItemDto
     public DateTime CreatedAt { get; set; }
 }
 
+public class QueueTransactionDto
+{
+    public Guid Id { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string ItemSummary { get; set; } = string.Empty;
+    public string OperatorName { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+}
+
 public class DefectCodeDto
 {
     public Guid Id { get; set; }

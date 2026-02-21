@@ -41,7 +41,7 @@ public class AuthController : ControllerBase
 
         var success = await _authService.ChangePinAsync(userId, dto.CurrentPin, dto.NewPin, cancellationToken);
         if (!success)
-            return BadRequest(new { message = "PIN change failed. Verify your current PIN and ensure the new PIN is 4-6 digits." });
+            return BadRequest(new { message = "PIN change failed. Verify your current PIN and ensure the new PIN is 4-20 digits." });
 
         return Ok(new { message = "PIN changed successfully." });
     }

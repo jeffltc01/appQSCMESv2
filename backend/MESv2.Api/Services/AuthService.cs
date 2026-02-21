@@ -24,22 +24,25 @@ public class AuthService : IAuthService
         _env = env;
     }
 
-    public async Task<LoginConfigDto?> GetLoginConfigAsync(string empNo, CancellationToken cancellationToken = default)
+    public async Task<(LoginConfigDto? Config, bool IsInactive)> GetLoginConfigAsync(string empNo, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users
             .Include(u => u.DefaultSite)
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo, cancellationToken);
         if (user == null)
-            return null;
+            return (null, false);
 
-        return new LoginConfigDto
+        if (!user.IsActive)
+            return (null, true);
+
+        return (new LoginConfigDto
         {
             RequiresPin = user.RequirePinForLogin,
             DefaultSiteId = user.DefaultSiteId,
             AllowSiteSelection = true,
             IsWelder = user.IsCertifiedWelder,
             UserName = user.DisplayName
-        };
+        }, false);
     }
 
     public async Task<LoginResultDto?> LoginAsync(string empNo, string? pin, Guid siteId, bool isWelder, CancellationToken cancellationToken = default)
@@ -79,7 +82,7 @@ public class AuthService : IAuthService
 
     public async Task<bool> ChangePinAsync(Guid userId, string? currentPin, string newPin, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(newPin) || newPin.Length < 4 || newPin.Length > 6 || !newPin.All(char.IsDigit))
+        if (string.IsNullOrEmpty(newPin) || newPin.Length < 4 || newPin.Length > 20 || !newPin.All(char.IsDigit))
             return false;
 
         var user = await _db.Users.FindAsync(new object[] { userId }, cancellationToken);

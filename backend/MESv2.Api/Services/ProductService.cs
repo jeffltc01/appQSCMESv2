@@ -50,8 +50,8 @@ public class ProductService : IProductService
         if (!string.IsNullOrEmpty(siteCode))
         {
             list = list.Where(v =>
-                v.SiteCode == null ||
-                v.SiteCode.Split(';').Contains(siteCode)
+                string.IsNullOrEmpty(v.SiteCode) ||
+                v.SiteCode.Split(',').Select(s => s.Trim()).Contains(siteCode)
             ).ToList();
         }
 

@@ -5,10 +5,13 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminDefectCodeApi, adminWorkCenterApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminDefectCode, AdminWorkCenter } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 export function DefectCodesScreen() {
+  const { user } = useAuth();
+  const isReadOnly = (user?.roleTier ?? 99) > 2;
   const [items, setItems] = useState<AdminDefectCode[]>([]);
   const [workCenters, setWorkCenters] = useState<AdminWorkCenter[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +93,7 @@ export function DefectCodesScreen() {
   );
 
   return (
-    <AdminLayout title="Defect Codes" onAdd={openAdd} addLabel="Add Code">
+    <AdminLayout title="Defect Codes" onAdd={isReadOnly ? undefined : openAdd} addLabel="Add Code">
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
@@ -100,10 +103,12 @@ export function DefectCodesScreen() {
             <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.code} &mdash; {item.name}</span>
-                <div className={styles.cardActions}>
-                  <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
-                </div>
+                {!isReadOnly && (
+                  <div className={styles.cardActions}>
+                    <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
+                    <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
+                  </div>
+                )}
               </div>
               {item.severity && (
                 <div className={styles.cardField}>

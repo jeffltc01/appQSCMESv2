@@ -216,6 +216,7 @@ export interface CreateUserRequest {
   defaultSiteId: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  pin?: string;
   userType: number;
 }
 
@@ -229,6 +230,7 @@ export interface UpdateUserRequest {
   defaultSiteId: string;
   isCertifiedWelder: boolean;
   requirePinForLogin: boolean;
+  pin?: string;
   userType: number;
   isActive: boolean;
 }

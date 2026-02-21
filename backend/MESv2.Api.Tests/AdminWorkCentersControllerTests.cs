@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using MESv2.Api.Controllers;
 using MESv2.Api.DTOs;
 using Moq;
@@ -13,7 +14,8 @@ public class AdminWorkCentersControllerTests
     {
         db = TestHelpers.CreateInMemoryContext();
         var mockService = new Mock<IWorkCenterService>();
-        return new WorkCentersController(mockService.Object, db);
+        var mockLogger = new Mock<ILogger<WorkCentersController>>();
+        return new WorkCentersController(mockService.Object, db, mockLogger.Object);
     }
 
     [Fact]
@@ -60,6 +62,35 @@ public class AdminWorkCentersControllerTests
                 Assert.NotEqual(Guid.Empty, sc.WorkCenterId);
             });
         }
+    }
+
+    [Fact]
+    public async Task GetAllGrouped_SiteConfigsSiteNameIsPlantName_WhenWCHasProductionLines()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetAllGrouped(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var groups = Assert.IsAssignableFrom<IEnumerable<AdminWorkCenterGroupDto>>(ok.Value).ToList();
+
+        var rollsGroup = groups.First(g => g.BaseName == "Rolls");
+        var siteNames = rollsGroup.SiteConfigs.Select(sc => sc.SiteName).ToList();
+        Assert.Contains("Cleveland", siteNames);
+        Assert.DoesNotContain("Rolls", siteNames);
+    }
+
+    [Fact]
+    public async Task GetAllGrouped_WCWithoutProductionLines_FallsBackToWCName()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetAllGrouped(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var groups = Assert.IsAssignableFrom<IEnumerable<AdminWorkCenterGroupDto>>(ok.Value).ToList();
+
+        var rollsMatGroup = groups.First(g => g.BaseName == "Rolls Material");
+        Assert.Single(rollsMatGroup.SiteConfigs);
+        Assert.Equal("Rolls Material", rollsMatGroup.SiteConfigs[0].SiteName);
     }
 
     [Fact]

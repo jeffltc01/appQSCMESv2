@@ -40,9 +40,10 @@ public class AuthServiceTests
         var config = CreateConfig();
         var sut = new AuthService(db, config, CreateDevEnvironment());
 
-        var result = await sut.GetLoginConfigAsync("EMP001");
+        var (result, isInactive) = await sut.GetLoginConfigAsync("EMP001");
 
         Assert.NotNull(result);
+        Assert.False(isInactive);
         Assert.False(result.RequiresPin);
         Assert.Equal(TestHelpers.PlantPlt1Id, result.DefaultSiteId);
         Assert.True(result.AllowSiteSelection);
@@ -57,9 +58,27 @@ public class AuthServiceTests
         var config = CreateConfig();
         var sut = new AuthService(db, config, CreateDevEnvironment());
 
-        var result = await sut.GetLoginConfigAsync("NONEXISTENT");
+        var (result, isInactive) = await sut.GetLoginConfigAsync("NONEXISTENT");
 
         Assert.Null(result);
+        Assert.False(isInactive);
+    }
+
+    [Fact]
+    public async Task GetLoginConfig_ReturnsInactive_WhenUserIsDeactivated()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.IsActive = false;
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var (result, isInactive) = await sut.GetLoginConfigAsync("EMP001");
+
+        Assert.Null(result);
+        Assert.True(isInactive);
     }
 
     [Fact]
@@ -275,6 +294,35 @@ public class AuthServiceTests
         var sut = new AuthService(db, config, CreateDevEnvironment());
 
         var result = await sut.ChangePinAsync(user.Id, null, "ab12");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task ChangePin_Succeeds_With20DigitPin()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.PinHash = null;
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var result = await sut.ChangePinAsync(user.Id, null, "12345678901234567890");
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task ChangePin_Fails_WhenNewPinExceeds20Digits()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var result = await sut.ChangePinAsync(user.Id, null, "123456789012345678901");
 
         Assert.False(result);
     }

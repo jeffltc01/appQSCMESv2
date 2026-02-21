@@ -28,6 +28,7 @@ public class MesDbContext : DbContext
     public DbSet<CharacteristicWorkCenter> CharacteristicWorkCenters => Set<CharacteristicWorkCenter>();
     public DbSet<DefectWorkCenter> DefectWorkCenters => Set<DefectWorkCenter>();
     public DbSet<MaterialQueueItem> MaterialQueueItems => Set<MaterialQueueItem>();
+    public DbSet<QueueTransaction> QueueTransactions => Set<QueueTransaction>();
     public DbSet<BarcodeCard> BarcodeCards => Set<BarcodeCard>();
     public DbSet<Assembly> Assemblies => Set<Assembly>();
     public DbSet<Annotation> Annotations => Set<Annotation>();
@@ -301,6 +302,12 @@ public class MesDbContext : DbContext
             .HasForeignKey(m => m.WorkCenterId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<MaterialQueueItem>()
+            .HasOne(m => m.SerialNumber)
+            .WithMany()
+            .HasForeignKey(m => m.SerialNumberId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<WorkCenter>()
             .HasOne(w => w.MaterialQueueForWC)
             .WithMany()
@@ -457,8 +464,15 @@ public class MesDbContext : DbContext
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
-        modelBuilder.Entity<User>().HasIndex(u => u.EmployeeNumber);
+        modelBuilder.Entity<User>().HasIndex(u => u.EmployeeNumber).IsUnique();
         modelBuilder.Entity<MaterialQueueItem>().HasIndex(m => new { m.WorkCenterId, m.Status });
+
+        modelBuilder.Entity<QueueTransaction>()
+            .HasOne(qt => qt.WorkCenter)
+            .WithMany()
+            .HasForeignKey(qt => qt.WorkCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<QueueTransaction>().HasIndex(qt => new { qt.WorkCenterId, qt.Timestamp });
         modelBuilder.Entity<ProductionRecord>().HasIndex(r => new { r.SerialNumberId, r.WorkCenterId, r.Timestamp });
         modelBuilder.Entity<TraceabilityLog>().HasIndex(t => t.Timestamp);
         modelBuilder.Entity<DefectCode>().HasIndex(d => d.Code);

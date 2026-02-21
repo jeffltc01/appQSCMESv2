@@ -6,6 +6,7 @@ public interface IWorkCenterService
 {
     Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WelderDto>> GetWeldersAsync(Guid wcId, CancellationToken cancellationToken = default);
+    Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default);
     Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default);
     Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default);
     Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string siteCode, string date, int limit, CancellationToken cancellationToken = default);
@@ -23,4 +24,5 @@ public interface IWorkCenterService
     Task<MaterialQueueItemDto?> UpdateFitupQueueItemAsync(Guid wcId, Guid itemId, UpdateFitupQueueItemDto dto, CancellationToken cancellationToken = default);
     Task<bool> DeleteFitupQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(string? siteCode, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, CancellationToken cancellationToken = default);
 }

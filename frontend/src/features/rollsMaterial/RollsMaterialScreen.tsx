@@ -112,8 +112,9 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
       }
       setShowForm(false);
       loadQueue();
-    } catch {
-      showScanResult({ type: 'error', message: 'Failed to save queue item' });
+    } catch (err: unknown) {
+      const msg = (err && typeof err === 'object' && 'message' in err) ? String((err as { message: string }).message) : 'Failed to save queue item';
+      showScanResult({ type: 'error', message: msg });
     }
   }, [form, editingId, targetWCId, showScanResult, loadQueue]);
 
@@ -202,7 +203,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
             <Input size="large" type="number" value={form.quantity} onChange={(_, d) => setForm((f) => ({ ...f, quantity: d.value }))} />
           </div>
         </div>
-        <div className={styles.formActions}>
+        <div className={`${styles.formActions} ${styles.formFullWidth}`}>
           <Button appearance="secondary" size="large" onClick={() => setShowForm(false)}>Cancel</Button>
           <Button appearance="primary" size="large" onClick={handleSave}>Save</Button>
         </div>

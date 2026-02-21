@@ -5,6 +5,7 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminVendorApi, siteApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminVendor, Plant } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
@@ -24,6 +25,9 @@ function siteCodesToNames(codes: string[], sites: Plant[]): string[] {
 }
 
 export function VendorMaintenanceScreen() {
+  const { user } = useAuth();
+  const isSiteScoped = (user?.roleTier ?? 99) > 2;
+
   const [items, setItems] = useState<AdminVendor[]>([]);
   const [sites, setSites] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,21 +63,37 @@ export function VendorMaintenanceScreen() {
 
   const openEdit = (item: AdminVendor) => {
     setEditing(item);
-    setName(item.name); setVendorType(item.vendorType); setSelectedSites(parseSiteCodes(item.siteCode));
+    setName(item.name); setVendorType(item.vendorType);
+    if (isSiteScoped) {
+      const codes = parseSiteCodes(item.siteCode);
+      setSelectedSites(codes.includes(user!.plantCode) ? [user!.plantCode] : []);
+    } else {
+      setSelectedSites(parseSiteCodes(item.siteCode));
+    }
     setIsActive(item.isActive);
     setError(''); setModalOpen(true);
+  };
+
+  const buildMergedSiteCodes = (): string | undefined => {
+    if (!isSiteScoped) return joinSiteCodes(selectedSites);
+    const originalCodes = editing ? parseSiteCodes(editing.siteCode) : [];
+    const otherSites = originalCodes.filter(c => c !== user!.plantCode);
+    const mySiteSelected = selectedSites.includes(user!.plantCode);
+    const merged = mySiteSelected ? [...otherSites, user!.plantCode] : otherSites;
+    return joinSiteCodes(merged);
   };
 
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
+      const mergedSiteCode = buildMergedSiteCodes();
       if (editing) {
         const updated = await adminVendorApi.update(editing.id, {
-          name, vendorType, siteCode: joinSiteCodes(selectedSites), isActive,
+          name, vendorType, siteCode: mergedSiteCode, isActive,
         });
         setItems(prev => prev.map(v => v.id === updated.id ? updated : v));
       } else {
-        const created = await adminVendorApi.create({ name, vendorType, siteCode: joinSiteCodes(selectedSites) });
+        const created = await adminVendorApi.create({ name, vendorType, siteCode: mergedSiteCode });
         setItems(prev => [...prev, created]);
       }
       setModalOpen(false);
@@ -105,7 +125,9 @@ export function VendorMaintenanceScreen() {
                 <span className={styles.cardTitle}>{item.name}</span>
                 <div className={styles.cardActions}>
                   <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
+                  {!isSiteScoped && (
+                    <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
+                  )}
                 </div>
               </div>
               <div className={styles.cardField}>
@@ -158,23 +180,33 @@ export function VendorMaintenanceScreen() {
           ))}
         </Dropdown>
         <Label>Sites</Label>
-        <Dropdown
-          multiselect
-          value={selectedSites.length > 0
-            ? selectedSites.map(c => sites.find(s => s.code === c)?.name ?? c).join(', ')
-            : ''}
-          selectedOptions={selectedSites}
-          onOptionSelect={(_, d: OptionOnSelectData) => {
-            setSelectedSites(d.selectedOptions.filter(Boolean));
-          }}
-          placeholder="Select sites..."
-        >
-          {sites.map(s => (
-            <Option key={s.code} value={s.code} text={`${s.name} (${s.code})`}>
-              {s.name} ({s.code})
-            </Option>
-          ))}
-        </Dropdown>
+        {isSiteScoped ? (
+          <Checkbox
+            label={`${user?.plantName ?? ''} (${user?.plantCode ?? ''})`}
+            checked={selectedSites.includes(user!.plantCode)}
+            onChange={(_, d) => {
+              setSelectedSites(d.checked ? [user!.plantCode] : []);
+            }}
+          />
+        ) : (
+          <Dropdown
+            multiselect
+            value={selectedSites.length > 0
+              ? selectedSites.map(c => sites.find(s => s.code === c)?.name ?? c).join(', ')
+              : ''}
+            selectedOptions={selectedSites}
+            onOptionSelect={(_, d: OptionOnSelectData) => {
+              setSelectedSites(d.selectedOptions.filter(Boolean));
+            }}
+            placeholder="Select sites..."
+          >
+            {sites.map(s => (
+              <Option key={s.code} value={s.code} text={`${s.name} (${s.code})`}>
+                {s.name} ({s.code})
+              </Option>
+            ))}
+          </Dropdown>
+        )}
         {editing && (
           <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
         )}

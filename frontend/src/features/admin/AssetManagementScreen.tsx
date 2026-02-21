@@ -1,13 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Input, Label, Dropdown, Option, Spinner } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { adminAssetApi, adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminAsset, AdminWorkCenter, ProductionLineAdmin } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 export function AssetManagementScreen() {
+  const { user } = useAuth();
+  const isSiteScoped = (user?.roleTier ?? 99) > 2;
+
   const [items, setItems] = useState<AdminAsset[]>([]);
   const [workCenters, setWorkCenters] = useState<AdminWorkCenter[]>([]);
   const [productionLines, setProductionLines] = useState<ProductionLineAdmin[]>([]);
@@ -34,6 +38,21 @@ export function AssetManagementScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const mySitePLIds = useMemo(() => {
+    if (!isSiteScoped) return null;
+    return new Set(productionLines.filter(pl => pl.plantId === user?.defaultSiteId).map(pl => pl.id));
+  }, [isSiteScoped, productionLines, user?.defaultSiteId]);
+
+  const filteredItems = useMemo(() => {
+    if (!isSiteScoped || !mySitePLIds) return items;
+    return items.filter(a => mySitePLIds.has(a.productionLineId));
+  }, [items, isSiteScoped, mySitePLIds]);
+
+  const filteredPLs = useMemo(() => {
+    if (!isSiteScoped) return productionLines;
+    return productionLines.filter(pl => pl.plantId === user?.defaultSiteId);
+  }, [productionLines, isSiteScoped, user?.defaultSiteId]);
 
   const openAdd = () => {
     setEditing(null);
@@ -71,8 +90,8 @@ export function AssetManagementScreen() {
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
         <div className={styles.grid}>
-          {items.length === 0 && <div className={styles.emptyState}>No assets found.</div>}
-          {items.map(item => (
+          {filteredItems.length === 0 && <div className={styles.emptyState}>No assets found.</div>}
+          {filteredItems.map(item => (
             <div key={item.id} className={styles.card}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.name}</span>
@@ -121,11 +140,11 @@ export function AssetManagementScreen() {
         </Dropdown>
         <Label>Production Line</Label>
         <Dropdown
-          value={productionLines.find(p => p.id === productionLineId) ? `${productionLines.find(p => p.id === productionLineId)!.name} (${productionLines.find(p => p.id === productionLineId)!.plantName})` : ''}
+          value={filteredPLs.find(p => p.id === productionLineId) ? `${filteredPLs.find(p => p.id === productionLineId)!.name} (${filteredPLs.find(p => p.id === productionLineId)!.plantName})` : ''}
           selectedOptions={[productionLineId]}
           onOptionSelect={(_, d) => { if (d.optionValue) setProductionLineId(d.optionValue); }}
         >
-          {productionLines.map(p => <Option key={p.id} value={p.id} text={`${p.name} (${p.plantName})`}>{p.name} ({p.plantName})</Option>)}
+          {filteredPLs.map(p => <Option key={p.id} value={p.id} text={`${p.name} (${p.plantName})`}>{p.name} ({p.plantName})</Option>)}
         </Dropdown>
         <Label>Limble Identifier (optional)</Label>
         <Input value={limbleIdentifier} onChange={(_, d) => setLimbleIdentifier(d.value)} />

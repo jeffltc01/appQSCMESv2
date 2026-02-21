@@ -5,10 +5,13 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminDefectLocationApi, adminCharacteristicApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminDefectLocation, AdminCharacteristic } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 export function DefectLocationsScreen() {
+  const { user } = useAuth();
+  const isReadOnly = (user?.roleTier ?? 99) > 2;
   const [items, setItems] = useState<AdminDefectLocation[]>([]);
   const [characteristics, setCharacteristics] = useState<AdminCharacteristic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +86,7 @@ export function DefectLocationsScreen() {
   };
 
   return (
-    <AdminLayout title="Defect Locations" onAdd={openAdd} addLabel="Add Location">
+    <AdminLayout title="Defect Locations" onAdd={isReadOnly ? undefined : openAdd} addLabel="Add Location">
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
@@ -93,10 +96,12 @@ export function DefectLocationsScreen() {
             <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.code} &mdash; {item.name}</span>
-                <div className={styles.cardActions}>
-                  <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
-                  <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
-                </div>
+                {!isReadOnly && (
+                  <div className={styles.cardActions}>
+                    <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
+                    <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => setDeleteTarget(item)} />
+                  </div>
+                )}
               </div>
               {item.characteristicName && (
                 <div className={styles.cardField}>

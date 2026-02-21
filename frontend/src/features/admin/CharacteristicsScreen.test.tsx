@@ -5,12 +5,13 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { CharacteristicsScreen } from './CharacteristicsScreen.tsx';
 import { adminCharacteristicApi, adminProductApi, adminWorkCenterApi } from '../../api/endpoints.ts';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1 };
+const tier3User = { plantCode: '000', plantName: 'Cleveland', displayName: 'QM User', roleTier: 3 };
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminCharacteristicApi: {
@@ -61,6 +62,7 @@ const mockWorkCenters = [
 
 describe('CharacteristicsScreen', () => {
   beforeEach(() => {
+    mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminCharacteristicApi.getAll).mockResolvedValue(mockCharacteristics);
     vi.mocked(adminProductApi.getTypes).mockResolvedValue(mockTypes);
     vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue(mockWorkCenters);
@@ -116,5 +118,19 @@ describe('CharacteristicsScreen', () => {
   it('displays correct title', async () => {
     renderScreen();
     expect(screen.getByText('Characteristics')).toBeInTheDocument();
+  });
+
+  describe('Tier 3 read-only behavior', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: tier3User, logout: vi.fn() });
+    });
+
+    it('hides edit buttons for Tier 3', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText('Long Seam')).toBeInTheDocument();
+      });
+      expect(screen.queryByLabelText(/edit/i)).not.toBeInTheDocument();
+    });
   });
 });

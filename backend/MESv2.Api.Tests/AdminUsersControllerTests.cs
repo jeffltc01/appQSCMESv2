@@ -132,6 +132,94 @@ public class AdminUsersControllerTests
     }
 
     [Fact]
+    public async Task CreateUser_ReturnsBadRequest_WhenPinTooShort()
+    {
+        var controller = CreateController(out _);
+        var dto = new CreateUserDto
+        {
+            EmployeeNumber = "SHORT1",
+            FirstName = "Test",
+            LastName = "User",
+            DisplayName = "Test User",
+            RoleTier = 6,
+            RoleName = "Operator",
+            DefaultSiteId = TestHelpers.PlantPlt1Id,
+            RequirePinForLogin = true,
+            Pin = "12"
+        };
+
+        var result = await controller.CreateUser(dto, CancellationToken.None);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task CreateUser_ReturnsBadRequest_WhenPinContainsLetters()
+    {
+        var controller = CreateController(out _);
+        var dto = new CreateUserDto
+        {
+            EmployeeNumber = "ALPHA1",
+            FirstName = "Test",
+            LastName = "User",
+            DisplayName = "Test User",
+            RoleTier = 6,
+            RoleName = "Operator",
+            DefaultSiteId = TestHelpers.PlantPlt1Id,
+            RequirePinForLogin = true,
+            Pin = "abcd1234"
+        };
+
+        var result = await controller.CreateUser(dto, CancellationToken.None);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task CreateUser_Succeeds_WithValid20DigitPin()
+    {
+        var controller = CreateController(out var db);
+        var dto = new CreateUserDto
+        {
+            EmployeeNumber = "LONG1",
+            FirstName = "Test",
+            LastName = "User",
+            DisplayName = "Test User",
+            RoleTier = 6,
+            RoleName = "Operator",
+            DefaultSiteId = TestHelpers.PlantPlt1Id,
+            RequirePinForLogin = true,
+            Pin = "12345678901234567890"
+        };
+
+        var result = await controller.CreateUser(dto, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var created = Assert.IsType<AdminUserDto>(ok.Value);
+        Assert.True(created.HasPin);
+    }
+
+    [Fact]
+    public async Task UpdateUser_ReturnsBadRequest_WhenPinInvalid()
+    {
+        var controller = CreateController(out var db);
+        var user = db.Users.First(u => u.EmployeeNumber == "EMP001");
+
+        var dto = new UpdateUserDto
+        {
+            EmployeeNumber = user.EmployeeNumber,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            DisplayName = user.DisplayName,
+            RoleTier = user.RoleTier,
+            RoleName = user.RoleName,
+            DefaultSiteId = user.DefaultSiteId,
+            RequirePinForLogin = true,
+            Pin = "ab"
+        };
+
+        var result = await controller.UpdateUser(user.Id, dto, CancellationToken.None);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
     public async Task DeleteUser_SoftDeletesSetsInactive()
     {
         var controller = CreateController(out var db);

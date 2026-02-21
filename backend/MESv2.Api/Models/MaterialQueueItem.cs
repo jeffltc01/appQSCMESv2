@@ -23,6 +23,8 @@ public class MaterialQueueItem
     public string? CoilSlabNumber { get; set; }
     public Guid? OperatorId { get; set; }
     public string? QueueType { get; set; } // rolls, fitup
+    public Guid? SerialNumberId { get; set; }
 
     public WorkCenter WorkCenter { get; set; } = null!;
+    public SerialNumber? SerialNumber { get; set; }
 }

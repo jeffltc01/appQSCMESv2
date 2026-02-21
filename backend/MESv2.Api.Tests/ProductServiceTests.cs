@@ -37,33 +37,50 @@ public class ProductServiceTests
     }
 
     [Fact]
-    public async Task GetVendors_FiltersBySiteCode_WithSemicolonDelimited()
+    public async Task GetVendors_FiltersBySiteCode_IncludesGlobalAndMatchingSites()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "All Sites Mill", VendorType = "mill", SiteCode = null, IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Global Mill", VendorType = "mill", SiteCode = null, IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Global Empty Mill", VendorType = "mill", SiteCode = "", IsActive = true });
         db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", SiteCode = "000", IsActive = true });
-        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", SiteCode = "000;600", IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", SiteCode = "000,600", IsActive = true });
         db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "WJ Only Mill", VendorType = "mill", SiteCode = "700", IsActive = true });
         await db.SaveChangesAsync();
 
         var sut = new ProductService(db);
 
         var result000 = await sut.GetVendorsAsync("mill", "000");
-        Assert.Contains(result000, v => v.Name == "All Sites Mill");
+        Assert.Contains(result000, v => v.Name == "Global Mill");
+        Assert.Contains(result000, v => v.Name == "Global Empty Mill");
         Assert.Contains(result000, v => v.Name == "Cleveland Mill");
         Assert.Contains(result000, v => v.Name == "Multi Mill");
         Assert.DoesNotContain(result000, v => v.Name == "WJ Only Mill");
 
         var result600 = await sut.GetVendorsAsync("mill", "600");
-        Assert.Contains(result600, v => v.Name == "All Sites Mill");
+        Assert.Contains(result600, v => v.Name == "Global Mill");
         Assert.DoesNotContain(result600, v => v.Name == "Cleveland Mill");
         Assert.Contains(result600, v => v.Name == "Multi Mill");
         Assert.DoesNotContain(result600, v => v.Name == "WJ Only Mill");
 
         var result700 = await sut.GetVendorsAsync("mill", "700");
-        Assert.Contains(result700, v => v.Name == "All Sites Mill");
+        Assert.Contains(result700, v => v.Name == "Global Mill");
         Assert.Contains(result700, v => v.Name == "WJ Only Mill");
         Assert.DoesNotContain(result700, v => v.Name == "Cleveland Mill");
         Assert.DoesNotContain(result700, v => v.Name == "Multi Mill");
+    }
+
+    [Fact]
+    public async Task GetVendors_NoSiteCode_ReturnsAllActiveVendorsIncludingGlobal()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Global Mill", VendorType = "mill", SiteCode = null, IsActive = true });
+        db.Vendors.Add(new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", SiteCode = "000", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var sut = new ProductService(db);
+        var result = await sut.GetVendorsAsync("mill", null);
+
+        Assert.Contains(result, v => v.Name == "Global Mill");
+        Assert.Contains(result, v => v.Name == "Cleveland Mill");
     }
 }
