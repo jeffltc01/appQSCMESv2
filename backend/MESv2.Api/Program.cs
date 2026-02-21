@@ -15,10 +15,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<MesDbContext>(options =>
 {
-    if (connectionString != null && connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase))
-        options.UseSqlServer(connectionString);
-    else
-        options.UseSqlite(connectionString ?? "Data Source=mes.db");
+    options.UseSqlServer(connectionString);
 });
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -105,17 +102,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MesDbContext>();
+    context.Database.Migrate();
 
-    if (context.Database.IsSqlServer())
-    {
-        context.Database.Migrate();
-        DbInitializer.SeedReferenceData(context);
-    }
-    else
-    {
-        context.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
         DbInitializer.Seed(context);
-    }
+    else
+        DbInitializer.SeedReferenceData(context);
 }
 
 // --- Global exception handler (non-Development) ---

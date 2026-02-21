@@ -32,11 +32,11 @@ MesDbContext CreateDbContext()
     return new MesDbContext(options);
 }
 
-// Ensure v2 database schema exists
+// Apply EF Core migrations to ensure v2 database schema is up to date
 using (var db = CreateDbContext())
 {
-    Console.WriteLine("Ensuring V2 database schema...");
-    await db.Database.EnsureCreatedAsync();
+    Console.WriteLine("Applying V2 database migrations...");
+    await db.Database.MigrateAsync();
     Console.WriteLine("V2 schema ready.");
 }
 
