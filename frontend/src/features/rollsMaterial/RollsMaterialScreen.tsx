@@ -3,6 +3,7 @@ import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { MaterialQueueItem, ProductListItem, Vendor } from '../../types/domain.ts';
 import { workCenterApi, materialQueueApi, productApi, vendorApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import styles from './RollsMaterialScreen.module.css';
 
 interface FormData {
@@ -22,6 +23,7 @@ const emptyForm: FormData = {
 
 export function RollsMaterialScreen(props: WorkCenterProps) {
   const { workCenterId, showScanResult, materialQueueForWCId } = props;
+  const { user } = useAuth();
   const targetWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
@@ -47,16 +49,17 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
 
   const loadLookups = useCallback(async () => {
     try {
+      const siteCode = user?.plantCode;
       const [p, m, pr] = await Promise.all([
-        productApi.getProducts('plate'),
-        vendorApi.getVendors('mill'),
-        vendorApi.getVendors('processor'),
+        productApi.getProducts('plate', siteCode),
+        vendorApi.getVendors('mill', siteCode),
+        vendorApi.getVendors('processor', siteCode),
       ]);
       setProducts(p);
       setMills(m);
       setProcessors(pr);
     } catch { /* keep empty */ }
-  }, []);
+  }, [user?.plantCode]);
 
   const openAdd = useCallback(() => {
     setForm(emptyForm);

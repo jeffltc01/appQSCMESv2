@@ -150,7 +150,7 @@ export function DefectCodesScreen() {
                 checked={selectedWcIds.includes(wc.id)}
                 onChange={() => toggleWc(wc.id)}
               />
-              {wc.name} ({wc.plantName})
+              {wc.name}
             </label>
           ))}
         </div>

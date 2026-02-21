@@ -2,20 +2,24 @@ using MESv2.Api.Models;
 
 namespace MESv2.Migration.Mappers;
 
+public class WorkCenterMapResult
+{
+    public required WorkCenter WorkCenter { get; init; }
+    public Guid? ProductionLineId { get; init; }
+}
+
 public static class WorkCenterMapper
 {
-    private static readonly Dictionary<string, string> DataEntryTypeMap = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string?> DataEntryTypeMap = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Rolls"] = "Rolls",
-        ["LS"] = "standard",
-        ["Barcode"] = "Barcode",
-        ["Fitup"] = null!,
-        ["Hydro"] = null!,
-        ["Spot"] = null!,
-        ["DataPlate"] = null!,
+        ["Fitup"] = "Fitup",
+        ["Hydro"] = "Hydro",
+        ["Spot"] = "Spot",
+        ["DataPlate"] = "DataPlate",
     };
 
-    public static WorkCenter? Map(dynamic row,
+    public static WorkCenterMapResult? Map(dynamic row,
         Dictionary<string, Guid> workCenterTypes,
         Dictionary<string, Guid> plants,
         List<ProductionLine> lines)
@@ -26,23 +30,52 @@ public static class WorkCenterMapper
         if (!plants.TryGetValue(siteCode, out var plantId))
             return null;
 
-        // Infer WorkCenterType from name
         var wcTypeId = InferWorkCenterType(name, workCenterTypes);
-
-        // Find the first production line for this plant
         var line = lines.FirstOrDefault(l => l.PlantId == plantId);
 
-        return new WorkCenter
+        string? dataEntryType = ResolveDataEntryType((string?)row.DataEntryType, name);
+
+        var wc = new WorkCenter
         {
             Id = (Guid)row.Id,
             Name = name,
-            PlantId = plantId,
             WorkCenterTypeId = wcTypeId,
-            ProductionLineId = line?.Id,
             NumberOfWelders = (int)(row.NoOfWelders ?? 0),
-            DataEntryType = (string?)row.DataEntryType,
+            DataEntryType = dataEntryType,
             MaterialQueueForWCId = (Guid?)row.MaterialQueueForWCId
         };
+
+        return new WorkCenterMapResult
+        {
+            WorkCenter = wc,
+            ProductionLineId = line?.Id
+        };
+    }
+
+    private static string? ResolveDataEntryType(string? v1Value, string wcName)
+    {
+        if (!string.IsNullOrWhiteSpace(v1Value) && DataEntryTypeMap.TryGetValue(v1Value, out var mapped))
+            return mapped;
+
+        return InferDataEntryTypeFromName(wcName);
+    }
+
+    private static string? InferDataEntryTypeFromName(string name)
+    {
+        var lower = name.ToLowerInvariant();
+        if (lower.Contains("material") && lower.Contains("queue")) return "MatQueue-Material";
+        if (lower.Contains("fitup") && lower.Contains("queue")) return "MatQueue-Fitup";
+        if (lower.Contains("rt") && lower.Contains("x") || lower.Contains("real time")) return "MatQueue-Shell";
+        if (lower.Contains("spot") && lower.Contains("x")) return "Spot";
+        if (lower.Contains("long seam") && lower.Contains("insp")) return "Barcode-LongSeamInsp";
+        if (lower.Contains("long seam")) return "Barcode-LongSeam";
+        if (lower.Contains("round seam") && lower.Contains("insp")) return "Barcode-RoundSeamInsp";
+        if (lower.Contains("round seam")) return "Barcode-RoundSeam";
+        if (lower.Contains("fitup")) return "Fitup";
+        if (lower.Contains("nameplate") || lower.Contains("data plate")) return "DataPlate";
+        if (lower.Contains("hydro")) return "Hydro";
+        if (lower.Contains("roll")) return "Rolls";
+        return null;
     }
 
     private static Guid InferWorkCenterType(string name, Dictionary<string, Guid> types)

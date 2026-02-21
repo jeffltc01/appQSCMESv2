@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { WorkCenterConfigScreen } from './WorkCenterConfigScreen.tsx';
-import { adminWorkCenterApi } from '../../api/endpoints.ts';
+import { adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
+    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1 },
     logout: vi.fn(),
   }),
 }));
@@ -15,6 +15,13 @@ vi.mock('../../auth/AuthContext.tsx', () => ({
 vi.mock('../../api/endpoints.ts', () => ({
   adminWorkCenterApi: {
     getGrouped: vi.fn(),
+    getProductionLineConfigs: vi.fn(),
+    createProductionLineConfig: vi.fn(),
+    updateProductionLineConfig: vi.fn(),
+    deleteProductionLineConfig: vi.fn(),
+  },
+  productionLineApi: {
+    getAll: vi.fn(),
   },
 }));
 
@@ -37,11 +44,8 @@ const mockGroups = [
     siteConfigs: [
       {
         workCenterId: 'wc1',
-        plantId: 'p1',
-        plantName: 'Cleveland',
         siteName: 'Rolls 1',
         numberOfWelders: 2,
-        productionLineId: 'pl1',
         materialQueueForWCId: null,
         materialQueueForWCName: null,
       },
@@ -49,9 +53,28 @@ const mockGroups = [
   },
 ];
 
+const mockPlConfigs = [
+  {
+    id: 'wcpl1',
+    workCenterId: 'g1',
+    productionLineId: 'pl1',
+    productionLineName: 'Line 1',
+    plantName: 'Cleveland',
+    displayName: 'Rolls Station A',
+    numberOfWelders: 3,
+  },
+];
+
+const mockProductionLines = [
+  { id: 'pl1', name: 'Line 1', plantId: 'p1', plantName: 'Cleveland' },
+  { id: 'pl2', name: 'Line 2', plantId: 'p1', plantName: 'Cleveland' },
+];
+
 describe('WorkCenterConfigScreen', () => {
   beforeEach(() => {
     vi.mocked(adminWorkCenterApi.getGrouped).mockResolvedValue(mockGroups);
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue(mockPlConfigs);
+    vi.mocked(productionLineApi.getAll).mockResolvedValue(mockProductionLines);
   });
 
   it('renders loading state initially', async () => {
@@ -72,15 +95,6 @@ describe('WorkCenterConfigScreen', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
     });
-    expect(screen.getByText('Cleveland')).toBeInTheDocument();
-  });
-
-  it('does not show Add button', async () => {
-    renderScreen();
-    await waitFor(() => {
-      expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
-    });
-    expect(screen.queryByRole('button', { name: /Add/i })).not.toBeInTheDocument();
   });
 
   it('displays correct title', async () => {
@@ -90,10 +104,44 @@ describe('WorkCenterConfigScreen', () => {
 
   it('renders without error when no groups', async () => {
     vi.mocked(adminWorkCenterApi.getGrouped).mockResolvedValue([]);
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue([]);
     renderScreen();
     await waitFor(() =>
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument(),
     );
     expect(screen.getByText('Work Center Config')).toBeInTheDocument();
+  });
+
+  it('shows per-production-line section on card', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Per-Production Line')).toBeInTheDocument();
+    });
+  });
+
+  it('shows per-line config data from API', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
+      expect(screen.getByText('Welders: 3')).toBeInTheDocument();
+      expect(screen.getByText('Line 1 (Cleveland)')).toBeInTheDocument();
+    });
+  });
+
+  it('shows action buttons for admin user', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
+    });
+    const allButtons = screen.getAllByRole('button');
+    expect(allButtons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows message when no per-line overrides', async () => {
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue([]);
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('No per-line overrides configured.')).toBeInTheDocument();
+    });
   });
 });

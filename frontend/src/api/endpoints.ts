@@ -39,6 +39,8 @@ import type {
   CreateBarcodeCardRequest,
   SetPlantGearRequest,
   CreateActiveSessionRequest,
+  CreateWorkCenterProductionLineRequest,
+  UpdateWorkCenterProductionLineRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -75,6 +77,7 @@ import type {
   AdminBarcodeCard,
   PlantWithGear,
   ActiveSession,
+  WorkCenterProductionLine,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -89,8 +92,8 @@ export const siteApi = {
 };
 
 export const workCenterApi = {
-  getWorkCenters: (siteCode: string) =>
-    api.get<WorkCenter[]>(`/workcenters?siteCode=${encodeURIComponent(siteCode)}`),
+  getWorkCenters: () =>
+    api.get<WorkCenter[]>('/workcenters'),
   getWelders: (wcId: string) =>
     api.get<Welder[]>(`/workcenters/${wcId}/welders`),
   addWelder: (wcId: string, employeeNumber: string) =>
@@ -279,6 +282,16 @@ export const adminWorkCenterApi = {
   getGrouped: () => api.get<AdminWorkCenterGroup[]>('/workcenters/admin/grouped'),
   updateConfig: (id: string, req: UpdateWorkCenterConfigRequest) => api.put<AdminWorkCenter>(`/workcenters/${id}/config`, req),
   updateGroup: (groupId: string, req: UpdateWorkCenterGroupRequest) => api.put<AdminWorkCenterGroup>(`/workcenters/admin/group/${groupId}`, req),
+  getProductionLineConfigs: (wcId: string) =>
+    api.get<WorkCenterProductionLine[]>(`/workcenters/${wcId}/production-lines`),
+  getProductionLineConfig: (wcId: string, plId: string) =>
+    api.get<WorkCenterProductionLine>(`/workcenters/${wcId}/production-lines/${plId}`),
+  createProductionLineConfig: (wcId: string, req: CreateWorkCenterProductionLineRequest) =>
+    api.post<WorkCenterProductionLine>(`/workcenters/${wcId}/production-lines`, req),
+  updateProductionLineConfig: (wcId: string, plId: string, req: UpdateWorkCenterProductionLineRequest) =>
+    api.put<WorkCenterProductionLine>(`/workcenters/${wcId}/production-lines/${plId}`, req),
+  deleteProductionLineConfig: (wcId: string, plId: string) =>
+    api.delete<void>(`/workcenters/${wcId}/production-lines/${plId}`),
 };
 
 export const adminCharacteristicApi = {

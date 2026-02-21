@@ -4,6 +4,7 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import type { MaterialQueueItem, ProductListItem, Vendor } from '../../types/domain.ts';
 import { workCenterApi, materialQueueApi, productApi, vendorApi } from '../../api/endpoints.ts';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import styles from './FitupQueueScreen.module.css';
 
 interface FormData {
@@ -23,6 +24,7 @@ const emptyForm: FormData = {
 
 export function FitupQueueScreen(props: WorkCenterProps) {
   const { workCenterId, showScanResult, registerBarcodeHandler, materialQueueForWCId } = props;
+  const { user } = useAuth();
   const targetWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
@@ -48,14 +50,15 @@ export function FitupQueueScreen(props: WorkCenterProps) {
 
   const loadLookups = useCallback(async () => {
     try {
+      const siteCode = user?.plantCode;
       const [p, v] = await Promise.all([
-        productApi.getProducts('head'),
-        vendorApi.getVendors('head'),
+        productApi.getProducts('head', siteCode),
+        vendorApi.getVendors('head', siteCode),
       ]);
       setProducts(p);
       setVendors(v);
     } catch { /* keep empty */ }
-  }, []);
+  }, [user?.plantCode]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {

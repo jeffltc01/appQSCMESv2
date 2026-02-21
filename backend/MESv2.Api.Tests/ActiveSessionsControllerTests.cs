@@ -50,7 +50,7 @@ public class ActiveSessionsControllerTests
             UserId = userId,
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow,
             LastHeartbeatDateTime = DateTime.UtcNow
         });
@@ -77,7 +77,7 @@ public class ActiveSessionsControllerTests
             UserId = userId,
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow.AddMinutes(-30),
             LastHeartbeatDateTime = DateTime.UtcNow.AddMinutes(-10)
         });
@@ -101,7 +101,7 @@ public class ActiveSessionsControllerTests
         {
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId
         };
 
@@ -123,7 +123,7 @@ public class ActiveSessionsControllerTests
             UserId = userId,
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow.AddHours(-1),
             LastHeartbeatDateTime = DateTime.UtcNow.AddHours(-1)
         });
@@ -133,7 +133,7 @@ public class ActiveSessionsControllerTests
         {
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id
+            WorkCenterId = TestHelpers.wcRollsId
         };
 
         await controller.Upsert(dto, CancellationToken.None);
@@ -170,7 +170,7 @@ public class ActiveSessionsControllerTests
             UserId = userId,
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = oldTime,
             LastHeartbeatDateTime = oldTime
         });
@@ -203,7 +203,7 @@ public class ActiveSessionsControllerTests
             UserId = userId,
             SiteCode = "PLT1",
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow,
             LastHeartbeatDateTime = DateTime.UtcNow
         });

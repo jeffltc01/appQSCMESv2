@@ -28,6 +28,8 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T)
 export interface TabletCache {
   cachedWorkCenterId: string;
   cachedWorkCenterName: string;
+  cachedWorkCenterDisplayName: string;
+  cachedDataEntryType: string;
   cachedProductionLineId: string;
   cachedProductionLineName: string;
   cachedAssetId: string;
@@ -43,6 +45,8 @@ export function getTabletCache(): TabletCache | null {
     return {
       cachedWorkCenterId: wcId,
       cachedWorkCenterName: localStorage.getItem('cachedWorkCenterName') ?? '',
+      cachedWorkCenterDisplayName: localStorage.getItem('cachedWorkCenterDisplayName') ?? localStorage.getItem('cachedWorkCenterName') ?? '',
+      cachedDataEntryType: localStorage.getItem('cachedDataEntryType') ?? '',
       cachedProductionLineId: localStorage.getItem('cachedProductionLineId') ?? '',
       cachedProductionLineName: localStorage.getItem('cachedProductionLineName') ?? '',
       cachedAssetId: localStorage.getItem('cachedAssetId') ?? '',
@@ -58,6 +62,8 @@ export function getTabletCache(): TabletCache | null {
 export function setTabletCache(cache: TabletCache) {
   localStorage.setItem('cachedWorkCenterId', cache.cachedWorkCenterId);
   localStorage.setItem('cachedWorkCenterName', cache.cachedWorkCenterName);
+  localStorage.setItem('cachedWorkCenterDisplayName', cache.cachedWorkCenterDisplayName);
+  localStorage.setItem('cachedDataEntryType', cache.cachedDataEntryType);
   localStorage.setItem('cachedProductionLineId', cache.cachedProductionLineId);
   localStorage.setItem('cachedProductionLineName', cache.cachedProductionLineName);
   localStorage.setItem('cachedAssetId', cache.cachedAssetId);

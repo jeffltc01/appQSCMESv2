@@ -53,7 +53,7 @@ The top bar provides at-a-glance context: where the user is, who they are, and w
 
 | Element | Position | Description |
 |---|---|---|
-| **Work Center Name** | Left | The name of the work center this tablet is assigned to (read from `cachedWorkCenterName` in `localStorage`).  We may have space issues, but this should also include the production line and must include the Asset name. |
+| **Work Center Name** | Left | The **display name** of the work center at this production line (read from `cachedWorkCenterDisplayName` in `localStorage`; falls back to `cachedWorkCenterName`). This comes from the `WorkCenterProductionLine` configuration and may differ from the base `WorkCenter.Name`. Must also include the production line and asset name. |
 | **Operator** | Center | The currently logged-in operator's display name. |
 | **Welder(s)** | Right | List of current welder(s) at this work center. An operator who logged in with the Welder toggle ON is automatically added. Additional welders can be added/removed via this widget.  To add a Welder, a popup should show that allows the welder to enter their employee number and then they would be added to the welder's list. |
 
@@ -61,8 +61,8 @@ The top bar provides at-a-glance context: where the user is, who they are, and w
 
 | Property | Value |
 |---|---|
-| **Source** | `cachedWorkCenterName`, `cachedProductionLineName`, and `cachedAssetName` from `localStorage` |
-| **Display format** | `{WorkCenterName} · {ProductionLineName} · {AssetName}` (e.g., "Long Seam · Main Line · Longseam A"). Use a separator that is visually lightweight (middle dot, pipe, or dash). |
+| **Source** | `cachedWorkCenterDisplayName` (preferred) or `cachedWorkCenterName` (fallback), `cachedProductionLineName`, and `cachedAssetName` from `localStorage` |
+| **Display format** | `{DisplayName} · {ProductionLineName} · {AssetName}` (e.g., "Long Seam · Main Line · Longseam A"). Use a separator that is visually lightweight (middle dot, pipe, or dash). |
 | **Font** | Roboto, weight 600–700 for work center name; weight 400 for production line and asset if space is tight |
 | **Color** | White on primary background |
 | **Space constraints** | If the combined string exceeds the allotted space, abbreviate or stack vertically (work center on top, line/asset on a second smaller line). The Asset name must always be visible. |
@@ -91,7 +91,7 @@ The Welder(s) section displays currently active welders at this work center and 
 
 #### Welder Minimum Enforcement (Welder Gate)
 
-Certain work centers require a minimum number of active welders before production data can be logged. This is driven by the `NumberOfWelders` field on the WorkCenter entity (0 = no welders required, 1+ = that many welders must be signed in). The value is cached in `localStorage` (`cachedNumberOfWelders`) during Tablet Setup so the operator layout can enforce it immediately.
+Certain work centers require a minimum number of active welders before production data can be logged. This is driven by the `NumberOfWelders` field — sourced from the `WorkCenterProductionLine` configuration if one exists for the selected WC/PL combination, otherwise falling back to the default `WorkCenter.NumberOfWelders` (0 = no welders required, 1+ = that many welders must be signed in). The value is cached in `localStorage` (`cachedNumberOfWelders`) during Tablet Setup so the operator layout can enforce it immediately.
 
 **Blocking Dialog (Welder Gate):**
 
@@ -342,6 +342,30 @@ This table summarizes how the External Input toggle affects each area of the lay
 | **Bottom Bar** | Only the External Input toggle is tappable (to turn it off) | Fully interactive |
 
 **Note on Welder widget in External Input mode**: The Welder widget in the top bar should remain functional even in External Input mode if adding a welder can be done via barcode scan. If not, the user must toggle External Input off to manage welders manually.
+
+---
+
+## 7b. Work Center Screen Routing (DataEntryType)
+
+The operator layout determines which work center content screen to render based on the `DataEntryType` cached in `localStorage` (`cachedDataEntryType`). This replaces the fragile approach of matching on the work center name.
+
+| DataEntryType | Screen |
+|---|---|
+| `Rolls` | Rolls Screen |
+| `Barcode-LongSeam` | Long Seam Screen |
+| `Barcode-LongSeamInsp` | Long Seam Inspection Screen |
+| `Barcode-RoundSeam` | Round Seam Screen |
+| `Barcode-RoundSeamInsp` | Round Seam Inspection Screen |
+| `Fitup` | Fitup Screen |
+| `Hydro` | Hydro Screen |
+| `Spot` | Spot X-ray Screen |
+| `DataPlate` | Nameplate Screen |
+| `RealTimeXray` | RT X-ray Queue Screen |
+| `MatQueue-Material` | Rolls Material Screen |
+| `MatQueue-Fitup` | Fitup Queue Screen |
+| `MatQueue-Shell` | RT X-ray Queue Screen |
+
+Each `DataEntryType` maps directly to a single screen component with no secondary routing needed. If the `DataEntryType` does not match any known value, a fallback message is displayed.
 
 ---
 

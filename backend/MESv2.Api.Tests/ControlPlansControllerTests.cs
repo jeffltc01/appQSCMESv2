@@ -16,7 +16,7 @@ public class ControlPlansControllerTests
     private ControlPlan SeedControlPlan(Data.MesDbContext db)
     {
         var charId = db.Characteristics.First().Id;
-        var wcId = TestHelpers.WorkCenter1Plt1Id;
+        var wcId = TestHelpers.wcRollsId;
         var cp = new ControlPlan
         {
             Id = Guid.NewGuid(),

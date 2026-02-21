@@ -21,11 +21,9 @@ export interface ProductionLineAdmin {
 export interface WorkCenter {
   id: string;
   name: string;
-  plantId: string;
   workCenterTypeId: string;
   workCenterTypeName: string;
   numberOfWelders: number;
-  productionLineId?: string;
   dataEntryType?: string;
   materialQueueForWCId?: string;
 }
@@ -323,7 +321,6 @@ export interface AdminWorkCenter {
   id: string;
   name: string;
   workCenterTypeName: string;
-  plantName: string;
   numberOfWelders: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
@@ -340,13 +337,20 @@ export interface AdminWorkCenterGroup {
 
 export interface WorkCenterSiteConfig {
   workCenterId: string;
-  plantId: string;
-  plantName: string;
   siteName: string;
   numberOfWelders: number;
-  productionLineId?: string;
   materialQueueForWCId?: string;
   materialQueueForWCName?: string;
+}
+
+export interface WorkCenterProductionLine {
+  id: string;
+  workCenterId: string;
+  productionLineId: string;
+  productionLineName: string;
+  plantName: string;
+  displayName: string;
+  numberOfWelders: number;
 }
 
 export interface AdminCharacteristic {

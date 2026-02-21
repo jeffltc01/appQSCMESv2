@@ -4,6 +4,13 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { RollsMaterialScreen } from './RollsMaterialScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
 
+vi.mock('../../auth/AuthContext.tsx', () => ({
+  useAuth: () => ({
+    user: { plantCode: '000', plantName: 'Cleveland', displayName: 'Test User' },
+    logout: vi.fn(),
+  }),
+}));
+
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: { getMaterialQueue: vi.fn().mockResolvedValue([]) },
   materialQueueApi: { addItem: vi.fn(), updateItem: vi.fn(), deleteItem: vi.fn() },

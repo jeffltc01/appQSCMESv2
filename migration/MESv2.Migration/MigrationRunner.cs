@@ -303,18 +303,34 @@ public class MigrationRunner
         var plants = await db.Plants.ToDictionaryAsync(p => p.Code, p => p.Id);
         var lines = await db.ProductionLines.ToListAsync();
         int migrated = 0;
+        var wcplRecords = new List<WorkCenterProductionLine>();
 
         foreach (var row in list)
         {
             try
             {
-                var entity = WorkCenterMapper.Map(row, wcTypes, plants, lines);
-                if (entity == null) { _log.IncrementSkipped(); continue; }
+                var result = WorkCenterMapper.Map(row, wcTypes, plants, lines);
+                if (result == null) { _log.IncrementSkipped(); continue; }
+
+                var entity = result.WorkCenter;
                 var existing = await db.WorkCenters.FindAsync(entity.Id);
                 if (existing != null)
                     db.Entry(existing).CurrentValues.SetValues(entity);
                 else
                     db.WorkCenters.Add(entity);
+
+                if (result.ProductionLineId.HasValue)
+                {
+                    wcplRecords.Add(new WorkCenterProductionLine
+                    {
+                        Id = Guid.NewGuid(),
+                        WorkCenterId = entity.Id,
+                        ProductionLineId = result.ProductionLineId.Value,
+                        DisplayName = entity.Name,
+                        NumberOfWelders = entity.NumberOfWelders,
+                    });
+                }
+
                 migrated++;
             }
             catch (Exception ex)
@@ -325,6 +341,23 @@ public class MigrationRunner
         }
         await db.SaveChangesAsync();
         _log.IncrementMigrated(migrated);
+
+        // Create WorkCenterProductionLine records
+        int wcplMigrated = 0;
+        foreach (var wcpl in wcplRecords)
+        {
+            var exists = await db.WorkCenterProductionLines
+                .AnyAsync(x => x.WorkCenterId == wcpl.WorkCenterId && x.ProductionLineId == wcpl.ProductionLineId);
+            if (!exists)
+            {
+                db.WorkCenterProductionLines.Add(wcpl);
+                wcplMigrated++;
+            }
+        }
+        if (wcplMigrated > 0)
+            await db.SaveChangesAsync();
+        Console.WriteLine($"  Created {wcplMigrated} WorkCenterProductionLine records.");
+
         sw.Stop();
         _log.EndTable(sw.Elapsed);
     }
@@ -339,10 +372,18 @@ public class MigrationRunner
 
         using var db = _dbFactory();
         var plants = await db.Plants.ToDictionaryAsync(p => p.Code, p => p.Id);
-        var workCenters = await db.WorkCenters
-            .Select(w => new { w.Id, w.Name, w.PlantId })
-            .ToListAsync();
-        var wcTuples = workCenters.Select(w => (w.Id, w.Name, w.PlantId)).ToList();
+
+        // Derive PlantId for each work center via WorkCenterProductionLine junction
+        var wcPlantLookup = await db.WorkCenterProductionLines
+            .Include(wcpl => wcpl.ProductionLine)
+            .GroupBy(wcpl => wcpl.WorkCenterId)
+            .Select(g => new { WorkCenterId = g.Key, PlantId = g.First().ProductionLine.PlantId })
+            .ToDictionaryAsync(x => x.WorkCenterId, x => x.PlantId);
+
+        var wcNames = await db.WorkCenters.ToDictionaryAsync(w => w.Id, w => w.Name);
+        var wcTuples = wcNames.Select(kvp =>
+            (kvp.Key, kvp.Value, wcPlantLookup.GetValueOrDefault(kvp.Key, Guid.Empty))
+        ).ToList();
 
         foreach (var row in list)
         {

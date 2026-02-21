@@ -19,7 +19,7 @@ public class NameplateServiceTests
         {
             SerialNumber = "W00100001",
             ProductId = TestProductId,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId
         });
 
@@ -37,7 +37,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             SerialNumber = "W00100002",
             ProductId = TestProductId,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId,
             Timestamp = DateTime.UtcNow
         });
@@ -50,7 +50,7 @@ public class NameplateServiceTests
             {
                 SerialNumber = "W00100002",
                 ProductId = TestProductId,
-                WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
                 OperatorId = TestHelpers.TestUserId
             }));
     }
@@ -65,7 +65,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             SerialNumber = "W00100003",
             ProductId = TestProductId,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId,
             Timestamp = DateTime.UtcNow
         });

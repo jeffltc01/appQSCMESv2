@@ -9,7 +9,7 @@ import {
   type OptionOnSelectData,
 } from '@fluentui/react-components';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import { workCenterApi, productionLineApi, assetApi, tabletSetupApi } from '../../api/endpoints.ts';
+import { workCenterApi, productionLineApi, assetApi, tabletSetupApi, adminWorkCenterApi } from '../../api/endpoints.ts';
 import { setTabletCache } from '../../hooks/useLocalStorage.ts';
 import type { WorkCenter, ProductionLine, Asset } from '../../types/domain.ts';
 import styles from './TabletSetupScreen.module.css';
@@ -47,7 +47,7 @@ export function TabletSetupScreen() {
     setLoading(true);
     try {
       const [wcs, pls] = await Promise.all([
-        workCenterApi.getWorkCenters(user.plantCode),
+        workCenterApi.getWorkCenters(),
         productionLineApi.getProductionLines(user.plantCode),
       ]);
       setWorkCenters(wcs);
@@ -112,15 +112,28 @@ export function TabletSetupScreen() {
       const pl = productionLines.find((p) => p.id === selectedPlId);
       const asset = assets.find((a) => a.id === selectedAssetId);
 
+      let displayName = wc?.name ?? '';
+      let numberOfWelders = wc?.numberOfWelders ?? 0;
+
+      try {
+        const plConfig = await adminWorkCenterApi.getProductionLineConfig(selectedWcId, selectedPlId);
+        displayName = plConfig.displayName;
+        numberOfWelders = plConfig.numberOfWelders;
+      } catch {
+        // No per-line config exists; fall back to WorkCenter defaults
+      }
+
       setTabletCache({
         cachedWorkCenterId: selectedWcId,
         cachedWorkCenterName: wc?.name ?? '',
+        cachedWorkCenterDisplayName: displayName,
+        cachedDataEntryType: wc?.dataEntryType ?? '',
         cachedProductionLineId: selectedPlId,
         cachedProductionLineName: pl?.name ?? '',
         cachedAssetId: selectedAssetId,
         cachedAssetName: asset?.name ?? '',
         cachedMaterialQueueForWCId: wc?.materialQueueForWCId,
-        cachedNumberOfWelders: wc?.numberOfWelders ?? 0,
+        cachedNumberOfWelders: numberOfWelders,
       });
 
       navigate('/operator');

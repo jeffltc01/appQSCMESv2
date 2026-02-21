@@ -19,6 +19,9 @@ vi.mock('../../api/endpoints', () => ({
   tabletSetupApi: {
     save: vi.fn(),
   },
+  adminWorkCenterApi: {
+    getProductionLineConfig: vi.fn(),
+  },
 }));
 
 vi.mock('../../auth/AuthContext', async () => {
@@ -81,7 +84,7 @@ describe('TabletSetupScreen', () => {
 
   it('loads work centers and production lines', async () => {
     vi.mocked(workCenterApi.getWorkCenters).mockResolvedValue([
-      { id: 'wc1', name: 'Rolls 1', plantId: 'p1', workCenterTypeId: 't1', workCenterTypeName: 'Rolls', numberOfWelders: 1 },
+      { id: 'wc1', name: 'Rolls 1', workCenterTypeId: 't1', workCenterTypeName: 'Rolls', numberOfWelders: 1 },
     ]);
     vi.mocked(productionLineApi.getProductionLines).mockResolvedValue([
       { id: 'pl1', name: 'Line 1', plantId: 'p1' },
@@ -89,7 +92,7 @@ describe('TabletSetupScreen', () => {
 
     renderSetup();
     await waitFor(() => {
-      expect(workCenterApi.getWorkCenters).toHaveBeenCalledWith('PLT1');
+      expect(workCenterApi.getWorkCenters).toHaveBeenCalled();
     });
   });
 
@@ -106,7 +109,7 @@ describe('TabletSetupScreen', () => {
 
   it('caches values to localStorage on save', async () => {
     vi.mocked(workCenterApi.getWorkCenters).mockResolvedValue([
-      { id: 'wc1', name: 'Rolls 1', plantId: 'p1', workCenterTypeId: 't1', workCenterTypeName: 'Rolls', numberOfWelders: 1 },
+      { id: 'wc1', name: 'Rolls 1', workCenterTypeId: 't1', workCenterTypeName: 'Rolls', numberOfWelders: 1 },
     ]);
     vi.mocked(productionLineApi.getProductionLines).mockResolvedValue([
       { id: 'pl1', name: 'Line 1', plantId: 'p1' },

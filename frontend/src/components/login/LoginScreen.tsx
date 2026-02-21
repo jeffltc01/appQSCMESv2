@@ -133,11 +133,13 @@ export function LoginScreen() {
       <div className={styles.form}>
         <div className={styles.logoSection}>
           <img src={qscLogo} alt="Quality Steel Corporation" className={styles.logo} />
-          <h1 className={styles.title}>MES Login</h1>
-          <span className={styles.version}>v2.0.0</span>
+          <div className={styles.titleBlock}>
+            <h1 className={styles.title}>MES Login</h1>
+            <span className={styles.version}>v2.0.0</span>
+          </div>
         </div>
 
-        <div className={styles.field}>
+        <div className={styles.welderField}>
           <Label className={styles.label}>Welder</Label>
           <Switch
             checked={isWelder}
@@ -147,45 +149,47 @@ export function LoginScreen() {
           />
         </div>
 
-        <div className={styles.field}>
-          <Label htmlFor="emp-input" className={styles.label}>
-            Employee No.
-          </Label>
-          <Input
-            id="emp-input"
-            ref={empInputRef}
-            type="password"
-            inputMode="numeric"
-            value={employeeNumber}
-            onChange={(_, data) => handleEmployeeNumberChange(data.value)}
-            onBlur={handleEmployeeBlur}
-            onKeyDown={handleKeyDown}
-            className={styles.input}
-            size="large"
-            appearance="outline"
-          />
-          {empError && <span className={styles.error}>{empError}</span>}
-          {configLoading && <Spinner size="tiny" className={styles.spinner} />}
-        </div>
-
-        {loginConfig?.requiresPin && (
+        <div className={styles.credentialsRow}>
           <div className={styles.field}>
-            <Label htmlFor="pin-input" className={styles.label}>
-              PIN
+            <Label htmlFor="emp-input" className={styles.label}>
+              Employee No.
             </Label>
             <Input
-              id="pin-input"
+              id="emp-input"
+              ref={empInputRef}
               type="password"
               inputMode="numeric"
-              value={pin}
-              onChange={(_, data) => setPin(data.value)}
+              value={employeeNumber}
+              onChange={(_, data) => handleEmployeeNumberChange(data.value)}
+              onBlur={handleEmployeeBlur}
               onKeyDown={handleKeyDown}
               className={styles.input}
               size="large"
               appearance="outline"
             />
+            {empError && <span className={styles.error}>{empError}</span>}
+            {configLoading && <Spinner size="tiny" className={styles.spinner} />}
           </div>
-        )}
+
+          {loginConfig?.requiresPin && (
+            <div className={styles.field}>
+              <Label htmlFor="pin-input" className={styles.label}>
+                PIN
+              </Label>
+              <Input
+                id="pin-input"
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={(_, data) => setPin(data.value)}
+                onKeyDown={handleKeyDown}
+                className={styles.input}
+                size="large"
+                appearance="outline"
+              />
+            </div>
+          )}
+        </div>
 
         <div className={styles.field}>
           <Label htmlFor="site-select" className={styles.label}>

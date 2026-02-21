@@ -4,11 +4,11 @@ namespace MESv2.Api.Services;
 
 public interface IWorkCenterService
 {
-    Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(string siteCode, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WelderDto>> GetWeldersAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default);
     Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default);
-    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string date, int limit, CancellationToken cancellationToken = default);
+    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string siteCode, string date, int limit, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default);
     Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task ReportFaultAsync(Guid wcId, string description, CancellationToken cancellationToken = default);

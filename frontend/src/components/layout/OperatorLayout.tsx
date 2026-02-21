@@ -69,7 +69,7 @@ export function OperatorLayout() {
   useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
     loadNumberOfWelders();
-  }, [cache?.cachedWorkCenterId, user?.plantCode]);
+  }, [cache?.cachedWorkCenterId]);
 
   useEffect(() => {
     if (user && isWelder && cache?.cachedWorkCenterId) {
@@ -119,9 +119,9 @@ export function OperatorLayout() {
   }, [cache?.cachedWorkCenterId]);
 
   const loadNumberOfWelders = useCallback(async () => {
-    if (!cache?.cachedWorkCenterId || !user?.plantCode) return;
+    if (!cache?.cachedWorkCenterId) return;
     try {
-      const wcs = await workCenterApi.getWorkCenters(user.plantCode);
+      const wcs = await workCenterApi.getWorkCenters();
       const wc = wcs.find((w) => w.id === cache.cachedWorkCenterId);
       if (wc) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,7 +144,7 @@ export function OperatorLayout() {
         localStorage.setItem('cachedNumberOfWelders', '1');
       }
     }
-  }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName, user?.plantCode]);
+  }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName]);
 
   const dismissScanResult = useCallback(() => {
     if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
@@ -233,12 +233,12 @@ export function OperatorLayout() {
     navigate('/tablet-setup');
   }, [navigate]);
 
-  const wcName = cache?.cachedWorkCenterName?.toLowerCase() ?? '';
+  const dataEntryType = cache?.cachedDataEntryType ?? '';
   const supportsExternalInput = !(
-    wcName.includes('rolls material') || wcName.includes('rolls mat') ||
-    wcName.includes('fitup queue') || wcName.includes('fit-up queue') || wcName.includes('fit up queue') ||
-    wcName.includes('nameplate') || wcName.includes('data plate') ||
-    (wcName.includes('spot') && wcName.includes('xray')) || wcName.includes('spot x-ray')
+    dataEntryType === 'MatQueue-Material' ||
+    dataEntryType === 'MatQueue-Fitup' ||
+    dataEntryType === 'DataPlate' ||
+    dataEntryType === 'Spot'
   );
 
   const wcProps = {
@@ -258,7 +258,7 @@ export function OperatorLayout() {
   return (
     <div className={styles.shell}>
       <TopBar
-        workCenterName={cache?.cachedWorkCenterName ?? ''}
+        workCenterName={cache?.cachedWorkCenterDisplayName || cache?.cachedWorkCenterName || ''}
         productionLineName={cache?.cachedProductionLineName ?? ''}
         assetName={cache?.cachedAssetName ?? ''}
         operatorName={user?.displayName ?? ''}
@@ -386,33 +386,27 @@ export interface WorkCenterProps {
 
 function WorkCenterRouter(props: WorkCenterProps) {
   const cache = getTabletCache();
-  const wcName = cache?.cachedWorkCenterName?.toLowerCase() ?? '';
+  const dataEntryType = cache?.cachedDataEntryType ?? '';
 
-  if (wcName.includes('rolls material') || wcName.includes('rolls mat'))
-    return <RollsMaterialScreen {...props} />;
-  if (wcName.includes('rolls')) return <RollsScreen {...props} />;
-  if (wcName.includes('long seam insp')) return <LongSeamInspScreen {...props} />;
-  if (wcName.includes('long seam')) return <LongSeamScreen {...props} />;
-  if (wcName.includes('fitup queue') || wcName.includes('fit-up queue') || wcName.includes('fit up queue'))
-    return <FitupQueueScreen {...props} />;
-  if (wcName.includes('fitup') || wcName.includes('fit-up') || wcName.includes('fit up'))
-    return <FitupScreen {...props} />;
-  if (wcName.includes('round seam insp'))
-    return <RoundSeamInspScreen {...props} />;
-  if (wcName.includes('round seam'))
-    return <RoundSeamScreen {...props} />;
-  if (wcName.includes('rt') && wcName.includes('xray') || wcName.includes('rt x-ray') || wcName.includes('real time'))
-    return <RtXrayQueueScreen {...props} />;
-  if (wcName.includes('spot') && wcName.includes('xray') || wcName.includes('spot x-ray'))
-    return <SpotXrayScreen {...props} />;
-  if (wcName.includes('nameplate') || wcName.includes('data plate'))
-    return <NameplateScreen {...props} />;
-  if (wcName.includes('hydro'))
-    return <HydroScreen {...props} />;
+  switch (dataEntryType) {
+    case 'Rolls':              return <RollsScreen {...props} />;
+    case 'Fitup':              return <FitupScreen {...props} />;
+    case 'Hydro':              return <HydroScreen {...props} />;
+    case 'Spot':               return <SpotXrayScreen {...props} />;
+    case 'DataPlate':          return <NameplateScreen {...props} />;
+    case 'RealTimeXray':       return <RtXrayQueueScreen {...props} />;
+    case 'MatQueue-Material':  return <RollsMaterialScreen {...props} />;
+    case 'MatQueue-Fitup':     return <FitupQueueScreen {...props} />;
+    case 'MatQueue-Shell':     return <RtXrayQueueScreen {...props} />;
+    case 'Barcode-LongSeam':     return <LongSeamScreen {...props} />;
+    case 'Barcode-LongSeamInsp': return <LongSeamInspScreen {...props} />;
+    case 'Barcode-RoundSeam':    return <RoundSeamScreen {...props} />;
+    case 'Barcode-RoundSeamInsp': return <RoundSeamInspScreen {...props} />;
+  }
 
   return (
     <div style={{ padding: 40, textAlign: 'center', color: '#868686' }}>
-      <h2>Work Center: {cache?.cachedWorkCenterName ?? 'Unknown'}</h2>
+      <h2>Work Center: {cache?.cachedWorkCenterDisplayName || cache?.cachedWorkCenterName || 'Unknown'}</h2>
       <p>No specific screen configured for this work center type.</p>
     </div>
   );

@@ -117,7 +117,7 @@ export function AssetManagementScreen() {
           selectedOptions={[workCenterId]}
           onOptionSelect={(_, d) => { if (d.optionValue) setWorkCenterId(d.optionValue); }}
         >
-          {workCenters.map(w => <Option key={w.id} value={w.id} text={`${w.name} (${w.plantName})`}>{w.name} ({w.plantName})</Option>)}
+          {workCenters.map(w => <Option key={w.id} value={w.id} text={w.name}>{w.name}</Option>)}
         </Dropdown>
         <Label>Production Line</Label>
         <Dropdown

@@ -42,6 +42,7 @@ public class MesDbContext : DbContext
     public DbSet<ActiveSession> ActiveSessions => Set<ActiveSession>();
     public DbSet<SpotXrayIncrement> SpotXrayIncrements => Set<SpotXrayIncrement>();
     public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
+    public DbSet<WorkCenterProductionLine> WorkCenterProductionLines => Set<WorkCenterProductionLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -85,19 +86,9 @@ public class MesDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<WorkCenter>()
-            .HasOne(w => w.Plant)
-            .WithMany(p => p.WorkCenters)
-            .HasForeignKey(w => w.PlantId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<WorkCenter>()
             .HasOne(w => w.WorkCenterType)
             .WithMany(t => t.WorkCenters)
             .HasForeignKey(w => w.WorkCenterTypeId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<WorkCenter>()
-            .HasOne(w => w.ProductionLine)
-            .WithMany(l => l.WorkCenters)
-            .HasForeignKey(w => w.ProductionLineId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Asset>()
@@ -440,6 +431,17 @@ public class MesDbContext : DbContext
             .HasForeignKey(s => s.ModifiedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<WorkCenterProductionLine>()
+            .HasOne(wcpl => wcpl.WorkCenter)
+            .WithMany(w => w.WorkCenterProductionLines)
+            .HasForeignKey(wcpl => wcpl.WorkCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkCenterProductionLine>()
+            .HasOne(wcpl => wcpl.ProductionLine)
+            .WithMany()
+            .HasForeignKey(wcpl => wcpl.ProductionLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
@@ -457,6 +459,9 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.SiteCode);
         modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.ManufacturingLogId);
         modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.SiteCode);
+        modelBuilder.Entity<WorkCenterProductionLine>()
+            .HasIndex(wcpl => new { wcpl.WorkCenterId, wcpl.ProductionLineId })
+            .IsUnique();
 
     }
 }

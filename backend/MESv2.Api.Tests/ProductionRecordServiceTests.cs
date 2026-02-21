@@ -24,7 +24,7 @@ public class ProductionRecordServiceTests
         var dto = new CreateProductionRecordDto
         {
             SerialNumber = "SN-001",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
@@ -50,7 +50,7 @@ public class ProductionRecordServiceTests
         var dto = new CreateProductionRecordDto
         {
             SerialNumber = "SN-CATCHUP",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
@@ -86,7 +86,7 @@ public class ProductionRecordServiceTests
         var dto = new CreateProductionRecordDto
         {
             SerialNumber = "SN-WELDER",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
@@ -116,7 +116,7 @@ public class ProductionRecordServiceTests
         {
             Id = Guid.NewGuid(),
             SerialNumberId = serial.Id,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
@@ -128,7 +128,7 @@ public class ProductionRecordServiceTests
         var dto = new CreateProductionRecordDto
         {
             SerialNumber = "SN-DUP",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,

@@ -27,13 +27,21 @@ public class WorkCenterDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public Guid PlantId { get; set; }
     public Guid WorkCenterTypeId { get; set; }
     public string WorkCenterTypeName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
-    public Guid? ProductionLineId { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+}
+
+public class WorkCenterProductionLineDto
+{
+    public Guid Id { get; set; }
+    public Guid WorkCenterId { get; set; }
+    public Guid ProductionLineId { get; set; }
+    public string ProductionLineName { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+    public int NumberOfWelders { get; set; }
 }
 
 public class AssetDto

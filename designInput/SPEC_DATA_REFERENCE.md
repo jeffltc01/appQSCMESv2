@@ -381,7 +381,10 @@ Shared across all sites (no SiteCode). Production records are tagged with the si
 | Value | Screen Component |
 |---|---|
 | `Rolls` | Rolls work center |
-| `Barcode` | Scan-driven stations (Long Seam, Long Seam Inspection, Round Seam, Round Seam Inspection). **Note:** These four share a DataEntryType but have distinct workflows — Long Seam is a simple scan-through, Long Seam Inspection adds defect entry mode, Round Seam requires a Setup Screen for per-seam welder assignments, and Round Seam Inspection adds characteristic selection to defect entry. The frontend component must branch based on the specific WorkCenterName or additional configuration. |
+| `Barcode-LongSeam` | Long Seam — scan-driven with simple pass-through workflow |
+| `Barcode-LongSeamInsp` | Long Seam Inspection — scan-driven with defect entry mode |
+| `Barcode-RoundSeam` | Round Seam — scan-driven with Setup Screen for per-seam welder assignments |
+| `Barcode-RoundSeamInsp` | Round Seam Inspection — scan-driven with characteristic selection for defect entry |
 | `Fitup` | Fitup assembly |
 | `Hydro` | Hydrostatic testing |
 | `Spot` | Spot X-ray |
@@ -408,6 +411,28 @@ Shared across all sites (no SiteCode). Production records are tagged with the si
 | 8.0 | Nameplate |
 | 9.0 | Hydro |
 | 1000 | Material Handling screens |
+
+### 8.3 WorkCenterProductionLine (Per-Line Configuration)
+
+> Management screen: **Quality Manager (3.0) and above** — full CRUD on per-line configurations. Base Work Center config (Name, DataEntryType, MaterialQueueForWCId) is **Administrator (1.0) only**.
+
+This junction entity allows per-production-line overrides for work center settings that may vary by line.
+
+| Field | Type | Description |
+|---|---|---|
+| **Id** | GUID (PK) | Unique identifier |
+| **WorkCenterId** | GUID (FK), NOT NULL | References the base Work Center |
+| **ProductionLineId** | GUID (FK), NOT NULL | References the Production Line |
+| **DisplayName** | string, NOT NULL | The name shown to operators for this WC at this production line. May differ from the base `WorkCenter.Name`. |
+| **NumberOfWelders** | int, NOT NULL | Overrides `WorkCenter.NumberOfWelders` for this specific production line. Used by the Welder Gate. |
+
+**Unique constraint**: `(WorkCenterId, ProductionLineId)` — each work center can have at most one configuration per production line.
+
+**Behavior:**
+- When a tablet is configured (Tablet Setup), the system fetches the `WorkCenterProductionLine` record for the selected WC + PL combination.
+- If a record exists, `DisplayName` and `NumberOfWelders` from this entity are cached in `localStorage` and used on the operator screen.
+- If no record exists, the system falls back to `WorkCenter.Name` and `WorkCenter.NumberOfWelders`.
+- The `WorkCenter.DataEntryType` is always sourced from the base Work Center (not overridden per line), as it determines the screen component to load.
 
 ---
 
@@ -621,7 +646,8 @@ See [SPEC_WC_FITUP_QUEUE.md](SPEC_WC_FITUP_QUEUE.md) for full card lifecycle and
 | **Control Plans** | Quality Director (2.0)+ | Edit only |
 | **Defect Codes** | Quality Director (2.0)+ | Full CRUD (AllowDelete respected) |
 | **Defect Locations** | Quality Director (2.0)+ | Full CRUD |
-| **Work Centers** | Quality Director (2.0)+ | Edit only |
+| **Work Centers (base config)** | Administrator (1.0) | Edit Name, DataEntryType, MaterialQueueForWCId |
+| **Work Centers (per-line config)** | Quality Manager (3.0)+ | CRUD on WorkCenterProductionLine (DisplayName, NumberOfWelders) |
 | **Plant Gear (change current)** | Operations Director (2.0)+ | Change current gear on Site |
 | **Assets** | Quality Manager (3.0)+ | Add/edit, no delete (soft delete) |
 | **Vendors** | Quality Manager (3.0)+ | Full CRUD |

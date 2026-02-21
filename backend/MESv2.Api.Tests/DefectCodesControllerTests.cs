@@ -40,7 +40,7 @@ public class DefectCodesControllerTests
     public async Task Create_AddsCodeWithWorkCenters()
     {
         var controller = CreateController(out var db);
-        var wcId = TestHelpers.WorkCenter1Plt1Id;
+        var wcId = TestHelpers.wcRollsId;
 
         var dto = new CreateDefectCodeDto
         {
@@ -66,7 +66,7 @@ public class DefectCodesControllerTests
         var controller = CreateController(out var db);
         var code = new DefectCode { Id = Guid.NewGuid(), Code = "300", Name = "Old Name" };
         db.DefectCodes.Add(code);
-        db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = code.Id, WorkCenterId = TestHelpers.WorkCenter1Plt1Id, EarliestDetectionWorkCenterId = TestHelpers.WorkCenter1Plt1Id });
+        db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = code.Id, WorkCenterId = TestHelpers.wcRollsId, EarliestDetectionWorkCenterId = TestHelpers.wcRollsId });
         await db.SaveChangesAsync();
 
         var dto = new UpdateDefectCodeDto
@@ -126,7 +126,7 @@ public class DefectCodesControllerTests
         var controller = CreateController(out var db);
         var code = new DefectCode { Id = Guid.NewGuid(), Code = "400", Name = "To Delete" };
         db.DefectCodes.Add(code);
-        db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = code.Id, WorkCenterId = TestHelpers.WorkCenter1Plt1Id, EarliestDetectionWorkCenterId = TestHelpers.WorkCenter1Plt1Id });
+        db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = code.Id, WorkCenterId = TestHelpers.wcRollsId, EarliestDetectionWorkCenterId = TestHelpers.wcRollsId });
         await db.SaveChangesAsync();
 
         var result = await controller.Delete(code.Id, CancellationToken.None);

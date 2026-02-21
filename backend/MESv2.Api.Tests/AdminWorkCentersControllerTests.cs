@@ -58,39 +58,29 @@ public class AdminWorkCentersControllerTests
             Assert.All(group.SiteConfigs, sc =>
             {
                 Assert.NotEqual(Guid.Empty, sc.WorkCenterId);
-                Assert.False(string.IsNullOrEmpty(sc.PlantName));
             });
         }
     }
 
     [Fact]
-    public async Task UpdateGroup_ModifiesDataEntryTypeAndSiteNames()
+    public async Task UpdateGroup_ModifiesBaseNameAndDataEntryType()
     {
         var controller = CreateController(out var db);
-        var firstWc = await db.WorkCenters.FirstAsync(w => w.Name == "Rolls 1");
-        var groupId = firstWc.WorkCenterGroupId;
-
-        var groupWcs = await db.WorkCenters.Where(w => w.WorkCenterGroupId == groupId).ToListAsync();
-        var siteConfigs = groupWcs.Select(w => new UpdateSiteConfigDto
-        {
-            WorkCenterId = w.Id,
-            SiteName = "Modified " + w.Name,
-            NumberOfWelders = 10,
-        }).ToList();
+        var firstWc = await db.WorkCenters.FirstAsync(w => w.Name == "Rolls");
+        var groupId = firstWc.Id;
 
         var dto = new UpdateWorkCenterGroupDto
         {
-            BaseName = "Modified Rolls 1",
-            DataEntryType = "Barcode",
-            SiteConfigs = siteConfigs
+            BaseName = "Modified Rolls",
+            DataEntryType = "Barcode-LongSeam",
         };
 
         var result = await controller.UpdateGroup(groupId, dto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var updated = Assert.IsType<AdminWorkCenterGroupDto>(ok.Value);
-        Assert.Equal("Barcode", updated.DataEntryType);
-        Assert.All(updated.SiteConfigs, sc => Assert.Equal(10, sc.NumberOfWelders));
+        Assert.Equal("Modified Rolls", updated.BaseName);
+        Assert.Equal("Barcode-LongSeam", updated.DataEntryType);
     }
 
     [Fact]
@@ -100,8 +90,7 @@ public class AdminWorkCentersControllerTests
         var dto = new UpdateWorkCenterGroupDto
         {
             BaseName = "X",
-            DataEntryType = "standard",
-            SiteConfigs = new List<UpdateSiteConfigDto>()
+            DataEntryType = "Rolls",
         };
         var result = await controller.UpdateGroup(Guid.NewGuid(), dto, CancellationToken.None);
         Assert.IsType<NotFoundResult>(result.Result);
@@ -111,7 +100,7 @@ public class AdminWorkCentersControllerTests
     public async Task UpdateConfig_ModifiesNumberOfWelders()
     {
         var controller = CreateController(out var db);
-        var wc = db.WorkCenters.First(w => w.Name == "Rolls 1");
+        var wc = db.WorkCenters.First(w => w.Name == "Rolls");
 
         var dto = new UpdateWorkCenterConfigDto { NumberOfWelders = 5, DataEntryType = "standard" };
         var result = await controller.UpdateConfig(wc.Id, dto, CancellationToken.None);
@@ -129,5 +118,156 @@ public class AdminWorkCentersControllerTests
         var dto = new UpdateWorkCenterConfigDto { NumberOfWelders = 1 };
         var result = await controller.UpdateConfig(Guid.NewGuid(), dto, CancellationToken.None);
         Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    // ---- WorkCenterProductionLine endpoint tests ----
+
+    [Fact]
+    public async Task GetProductionLineConfigs_ReturnsSeededRecords()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetProductionLineConfigs(TestHelpers.wcRollsId, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminWorkCenterProductionLineDto>>(ok.Value).ToList();
+        Assert.True(list.Count >= 1);
+        Assert.All(list, pl =>
+        {
+            Assert.Equal(TestHelpers.wcRollsId, pl.WorkCenterId);
+            Assert.False(string.IsNullOrEmpty(pl.DisplayName));
+        });
+    }
+
+    [Fact]
+    public async Task GetProductionLineConfig_ReturnsSingleRecord()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetProductionLineConfig(
+            TestHelpers.wcRollsId, TestHelpers.ProductionLine1Plt1Id, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var dto = Assert.IsType<WorkCenterProductionLineDto>(ok.Value);
+        Assert.Equal(TestHelpers.wcRollsId, dto.WorkCenterId);
+        Assert.Equal(TestHelpers.ProductionLine1Plt1Id, dto.ProductionLineId);
+        Assert.Equal("Rolls", dto.DisplayName);
+    }
+
+    [Fact]
+    public async Task GetProductionLineConfig_ReturnsNotFound_WhenMissing()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetProductionLineConfig(
+            TestHelpers.wcRollsId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task CreateProductionLineConfig_CreatesNewRecord()
+    {
+        var controller = CreateController(out var db);
+
+        var newPlId = Guid.NewGuid();
+        db.ProductionLines.Add(new MESv2.Api.Models.ProductionLine
+        {
+            Id = newPlId,
+            Name = "New Test Line",
+            PlantId = TestHelpers.PlantPlt1Id
+        });
+        await db.SaveChangesAsync();
+
+        var dto = new CreateWorkCenterProductionLineDto
+        {
+            ProductionLineId = newPlId,
+            DisplayName = "Rolls - New Line",
+            NumberOfWelders = 3
+        };
+
+        var result = await controller.CreateProductionLineConfig(
+            TestHelpers.wcRollsId, dto, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var created = Assert.IsType<AdminWorkCenterProductionLineDto>(ok.Value);
+        Assert.Equal("Rolls - New Line", created.DisplayName);
+        Assert.Equal(3, created.NumberOfWelders);
+        Assert.Equal("New Test Line", created.ProductionLineName);
+    }
+
+    [Fact]
+    public async Task CreateProductionLineConfig_ReturnsConflict_WhenDuplicate()
+    {
+        var controller = CreateController(out _);
+        var dto = new CreateWorkCenterProductionLineDto
+        {
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            DisplayName = "Duplicate",
+            NumberOfWelders = 1
+        };
+
+        var result = await controller.CreateProductionLineConfig(
+            TestHelpers.wcRollsId, dto, CancellationToken.None);
+
+        Assert.IsType<ConflictObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task UpdateProductionLineConfig_ModifiesDisplayNameAndWelders()
+    {
+        var controller = CreateController(out _);
+        var dto = new UpdateWorkCenterProductionLineDto
+        {
+            DisplayName = "Updated Rolls",
+            NumberOfWelders = 5
+        };
+
+        var result = await controller.UpdateProductionLineConfig(
+            TestHelpers.wcRollsId, TestHelpers.ProductionLine1Plt1Id, dto, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var updated = Assert.IsType<AdminWorkCenterProductionLineDto>(ok.Value);
+        Assert.Equal("Updated Rolls", updated.DisplayName);
+        Assert.Equal(5, updated.NumberOfWelders);
+    }
+
+    [Fact]
+    public async Task UpdateProductionLineConfig_ReturnsNotFound_WhenMissing()
+    {
+        var controller = CreateController(out _);
+        var dto = new UpdateWorkCenterProductionLineDto
+        {
+            DisplayName = "X",
+            NumberOfWelders = 1
+        };
+
+        var result = await controller.UpdateProductionLineConfig(
+            TestHelpers.wcRollsId, Guid.NewGuid(), dto, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task DeleteProductionLineConfig_RemovesRecord()
+    {
+        var controller = CreateController(out var db);
+        var countBefore = await db.WorkCenterProductionLines
+            .CountAsync(x => x.WorkCenterId == TestHelpers.wcRollsId);
+
+        var result = await controller.DeleteProductionLineConfig(
+            TestHelpers.wcRollsId, TestHelpers.ProductionLine1Plt1Id, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        var countAfter = await db.WorkCenterProductionLines
+            .CountAsync(x => x.WorkCenterId == TestHelpers.wcRollsId);
+        Assert.Equal(countBefore - 1, countAfter);
+    }
+
+    [Fact]
+    public async Task DeleteProductionLineConfig_ReturnsNotFound_WhenMissing()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.DeleteProductionLineConfig(
+            TestHelpers.wcRollsId, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
     }
 }

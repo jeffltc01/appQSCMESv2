@@ -176,7 +176,6 @@ public class AdminWorkCenterDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string WorkCenterTypeName { get; set; } = string.Empty;
-    public string PlantName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
@@ -202,11 +201,8 @@ public class AdminWorkCenterGroupDto
 public class WorkCenterSiteConfigDto
 {
     public Guid WorkCenterId { get; set; }
-    public Guid PlantId { get; set; }
-    public string PlantName { get; set; } = string.Empty;
     public string SiteName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
-    public Guid? ProductionLineId { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
     public string? MaterialQueueForWCName { get; set; }
 }
@@ -215,15 +211,32 @@ public class UpdateWorkCenterGroupDto
 {
     public string BaseName { get; set; } = string.Empty;
     public string? DataEntryType { get; set; }
-    public List<UpdateSiteConfigDto> SiteConfigs { get; set; } = new();
+    public Guid? MaterialQueueForWCId { get; set; }
 }
 
-public class UpdateSiteConfigDto
+// ---- Work Center Production Lines ----
+public class AdminWorkCenterProductionLineDto
 {
+    public Guid Id { get; set; }
     public Guid WorkCenterId { get; set; }
-    public string SiteName { get; set; } = string.Empty;
+    public Guid ProductionLineId { get; set; }
+    public string ProductionLineName { get; set; } = string.Empty;
+    public string PlantName { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
-    public Guid? MaterialQueueForWCId { get; set; }
+}
+
+public class CreateWorkCenterProductionLineDto
+{
+    public Guid ProductionLineId { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public int NumberOfWelders { get; set; }
+}
+
+public class UpdateWorkCenterProductionLineDto
+{
+    public string DisplayName { get; set; } = string.Empty;
+    public int NumberOfWelders { get; set; }
 }
 
 // ---- Characteristics ----

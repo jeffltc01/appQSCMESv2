@@ -47,7 +47,7 @@ public class SerialNumberServiceTests
         db.Assemblies.Add(new Assembly
         {
             Id = Guid.NewGuid(), AlphaCode = "AA", TankSize = 500,
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id, AssetId = TestHelpers.TestAssetId,
+            WorkCenterId = TestHelpers.wcRollsId, AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id, OperatorId = TestHelpers.TestUserId, Timestamp = DateTime.UtcNow
         });
         db.TraceabilityLogs.Add(new TraceabilityLog

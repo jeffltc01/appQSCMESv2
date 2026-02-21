@@ -17,15 +17,24 @@
 }
 
 .logoSection {
-  text-align: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 64px;
   margin-bottom: 16px;
 }
 
 .logo {
-  max-width: 280px;
+  max-width: 160px;
   width: 100%;
   height: auto;
-  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .title {
@@ -39,6 +48,18 @@
 .version {
   color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
+}
+
+.credentialsRow {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+}
+
+.credentialsRow .field {
+  flex: 1;
+  min-width: 0;
 }
 
 .field {
@@ -55,7 +76,10 @@
 }
 
 .input {
-  min-height: 56px;
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  width: 100% !important;
   background: #ffffff !important;
   border-radius: 0 !important;
 }
@@ -66,7 +90,7 @@
 }
 
 .dropdown {
-  min-height: 56px;
+  width: 100% !important;
   background: #ffffff !important;
   border-radius: 0 !important;
 }
@@ -74,11 +98,34 @@
 .dropdown button {
   background: #ffffff !important;
   color: #212529 !important;
-  min-height: 56px;
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.welderField {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  position: relative;
 }
 
 .toggle {
   align-self: flex-start;
+}
+
+.toggle :global(.fui-Switch__indicator) {
+  background: #868686 !important;
+  border-color: #a0a0a0 !important;
+}
+
+.toggle:has(input:checked) :global(.fui-Switch__indicator) {
+  background: #2b3b84 !important;
+  border: 1.5px solid #ffffff !important;
 }
 
 .error {

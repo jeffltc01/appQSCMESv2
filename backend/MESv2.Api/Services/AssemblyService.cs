@@ -17,7 +17,7 @@ public class AssemblyService : IAssemblyService
     public async Task<string> GetNextAlphaCodeAsync(Guid plantId, CancellationToken cancellationToken = default)
     {
         var existing = await _db.Assemblies
-            .Where(a => a.WorkCenter.PlantId == plantId)
+            .Where(a => a.ProductionLine.PlantId == plantId)
             .Select(a => a.AlphaCode)
             .ToListAsync(cancellationToken);
 
@@ -42,11 +42,16 @@ public class AssemblyService : IAssemblyService
 
     public async Task<CreateAssemblyResponseDto> CreateAsync(CreateAssemblyDto dto, CancellationToken cancellationToken = default)
     {
-        var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
+        var wc = await _db.WorkCenters
+            .FirstOrDefaultAsync(w => w.Id == dto.WorkCenterId, cancellationToken);
         if (wc == null)
             throw new ArgumentException("Work center not found.");
 
-        var alphaCode = await GetNextAlphaCodeAsync(wc.PlantId, cancellationToken);
+        var plantId = await _db.ProductionLines
+            .Where(p => p.Id == dto.ProductionLineId)
+            .Select(p => p.PlantId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var alphaCode = await GetNextAlphaCodeAsync(plantId, cancellationToken);
 
         var assembly = new Assembly
         {

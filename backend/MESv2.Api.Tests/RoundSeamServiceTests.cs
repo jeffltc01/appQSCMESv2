@@ -12,7 +12,7 @@ public class RoundSeamServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new RoundSeamService(db);
 
-        var result = await sut.SaveSetupAsync(TestHelpers.WorkCenter1Plt1Id, new CreateRoundSeamSetupDto
+        var result = await sut.SaveSetupAsync(TestHelpers.wcRollsId, new CreateRoundSeamSetupDto
         {
             TankSize = 500,
             Rs1WelderId = TestHelpers.TestUserId,
@@ -30,7 +30,7 @@ public class RoundSeamServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new RoundSeamService(db);
 
-        var result = await sut.GetSetupAsync(TestHelpers.WorkCenter1Plt1Id);
+        var result = await sut.GetSetupAsync(TestHelpers.wcRollsId);
         Assert.Null(result);
     }
 
@@ -41,7 +41,7 @@ public class RoundSeamServiceTests
         db.RoundSeamSetups.Add(new RoundSeamSetup
         {
             Id = Guid.NewGuid(),
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             TankSize = 1000,
             Rs1WelderId = TestHelpers.TestUserId,
             Rs2WelderId = TestHelpers.TestUserId,
@@ -51,7 +51,7 @@ public class RoundSeamServiceTests
         await db.SaveChangesAsync();
 
         var sut = new RoundSeamService(db);
-        var result = await sut.GetSetupAsync(TestHelpers.WorkCenter1Plt1Id);
+        var result = await sut.GetSetupAsync(TestHelpers.wcRollsId);
 
         Assert.NotNull(result);
         Assert.Equal(1000, result.TankSize);
@@ -74,7 +74,7 @@ public class RoundSeamServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new RoundSeamService(db);
 
-        var result = await sut.SaveSetupAsync(TestHelpers.WorkCenter1Plt1Id, new CreateRoundSeamSetupDto
+        var result = await sut.SaveSetupAsync(TestHelpers.wcRollsId, new CreateRoundSeamSetupDto
         {
             TankSize = 1500,
             Rs1WelderId = TestHelpers.TestUserId,

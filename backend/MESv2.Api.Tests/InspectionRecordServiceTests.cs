@@ -15,7 +15,7 @@ public class InspectionRecordServiceTests
         var dto = new CreateInspectionRecordDto
         {
             SerialNumber = "SN-INSP-001",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
         };
@@ -24,7 +24,7 @@ public class InspectionRecordServiceTests
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("SN-INSP-001", result.SerialNumber);
-        Assert.Equal(TestHelpers.WorkCenter1Plt1Id, result.WorkCenterId);
+        Assert.Equal(TestHelpers.wcRollsId, result.WorkCenterId);
         Assert.Equal(TestHelpers.TestUserId, result.OperatorId);
         Assert.Empty(result.Defects);
 
@@ -48,7 +48,7 @@ public class InspectionRecordServiceTests
         var dto = new CreateInspectionRecordDto
         {
             SerialNumber = "SN-INSP-002",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>
             {

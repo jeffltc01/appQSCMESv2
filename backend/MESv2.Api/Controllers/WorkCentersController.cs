@@ -20,9 +20,9 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<WorkCenterDto>>> GetWorkCenters([FromQuery] string siteCode, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<WorkCenterDto>>> GetWorkCenters(CancellationToken cancellationToken)
     {
-        var list = await _workCenterService.GetWorkCentersAsync(siteCode, cancellationToken);
+        var list = await _workCenterService.GetWorkCentersAsync(cancellationToken);
         return Ok(list);
     }
 
@@ -52,9 +52,9 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] string date, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] string siteCode, [FromQuery] string date, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetHistoryAsync(id, date, limit, cancellationToken);
+        var result = await _workCenterService.GetHistoryAsync(id, siteCode, date, limit, cancellationToken);
         return Ok(result);
     }
 
@@ -174,14 +174,12 @@ public class WorkCentersController : ControllerBase
     {
         var list = await _db.WorkCenters
             .Include(w => w.WorkCenterType)
-            .Include(w => w.Plant)
-            .OrderBy(w => w.Plant.Code).ThenBy(w => w.Name)
+            .OrderBy(w => w.Name)
             .Select(w => new AdminWorkCenterDto
             {
                 Id = w.Id,
                 Name = w.Name,
                 WorkCenterTypeName = w.WorkCenterType.Name,
-                PlantName = w.Plant.Name,
                 NumberOfWelders = w.NumberOfWelders,
                 DataEntryType = w.DataEntryType,
                 MaterialQueueForWCId = w.MaterialQueueForWCId,
@@ -196,34 +194,28 @@ public class WorkCentersController : ControllerBase
     {
         var wcs = await _db.WorkCenters
             .Include(w => w.WorkCenterType)
-            .Include(w => w.Plant)
             .Include(w => w.MaterialQueueForWC)
             .OrderBy(w => w.Name)
             .ToListAsync(cancellationToken);
 
         var groups = wcs
-            .GroupBy(w => w.WorkCenterGroupId)
-            .Select(g =>
+            .Select(w => new AdminWorkCenterGroupDto
             {
-                var first = g.First();
-                return new AdminWorkCenterGroupDto
+                GroupId = w.Id,
+                BaseName = w.Name,
+                WorkCenterTypeName = w.WorkCenterType.Name,
+                DataEntryType = w.DataEntryType,
+                SiteConfigs = new List<WorkCenterSiteConfigDto>
                 {
-                    GroupId = g.Key,
-                    BaseName = first.Name,
-                    WorkCenterTypeName = first.WorkCenterType.Name,
-                    DataEntryType = first.DataEntryType,
-                    SiteConfigs = g.OrderBy(w => w.Plant.Code).Select(w => new WorkCenterSiteConfigDto
+                    new()
                     {
                         WorkCenterId = w.Id,
-                        PlantId = w.PlantId,
-                        PlantName = w.Plant.Name,
                         SiteName = w.Name,
                         NumberOfWelders = w.NumberOfWelders,
-                        ProductionLineId = w.ProductionLineId,
                         MaterialQueueForWCId = w.MaterialQueueForWCId,
                         MaterialQueueForWCName = w.MaterialQueueForWC?.Name,
-                    }).ToList()
-                };
+                    }
+                }
             })
             .OrderBy(g => g.BaseName)
             .ToList();
@@ -234,58 +226,41 @@ public class WorkCentersController : ControllerBase
     [HttpPut("admin/group/{groupId:guid}")]
     public async Task<ActionResult<AdminWorkCenterGroupDto>> UpdateGroup(Guid groupId, [FromBody] UpdateWorkCenterGroupDto dto, CancellationToken cancellationToken)
     {
-        var wcs = await _db.WorkCenters
+        var wc = await _db.WorkCenters
             .Include(w => w.WorkCenterType)
-            .Include(w => w.Plant)
-            .Where(w => w.WorkCenterGroupId == groupId)
-            .ToListAsync(cancellationToken);
+            .FirstOrDefaultAsync(w => w.Id == groupId, cancellationToken);
 
-        if (wcs.Count == 0) return NotFound();
+        if (wc == null) return NotFound();
 
-        foreach (var wc in wcs)
-        {
-            wc.DataEntryType = dto.DataEntryType;
-
-            var siteConfig = dto.SiteConfigs.FirstOrDefault(sc => sc.WorkCenterId == wc.Id);
-            if (siteConfig != null)
-            {
-                wc.Name = siteConfig.SiteName;
-                wc.NumberOfWelders = siteConfig.NumberOfWelders;
-                wc.MaterialQueueForWCId = siteConfig.MaterialQueueForWCId;
-            }
-            else
-            {
-                wc.Name = dto.BaseName;
-            }
-        }
+        wc.Name = dto.BaseName;
+        wc.DataEntryType = dto.DataEntryType;
+        wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        var first = wcs.First();
-        var mqNames = new Dictionary<Guid, string>();
-        var mqIds = wcs.Where(w => w.MaterialQueueForWCId.HasValue).Select(w => w.MaterialQueueForWCId!.Value).Distinct().ToList();
-        if (mqIds.Count > 0)
+        string? mqName = null;
+        if (wc.MaterialQueueForWCId.HasValue)
         {
-            mqNames = await _db.WorkCenters.Where(w => mqIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, cancellationToken);
+            mqName = (await _db.WorkCenters.FindAsync(new object[] { wc.MaterialQueueForWCId.Value }, cancellationToken))?.Name;
         }
 
         return Ok(new AdminWorkCenterGroupDto
         {
             GroupId = groupId,
-            BaseName = first.Name,
-            WorkCenterTypeName = first.WorkCenterType.Name,
-            DataEntryType = first.DataEntryType,
-            SiteConfigs = wcs.OrderBy(w => w.Plant.Code).Select(w => new WorkCenterSiteConfigDto
+            BaseName = wc.Name,
+            WorkCenterTypeName = wc.WorkCenterType.Name,
+            DataEntryType = wc.DataEntryType,
+            SiteConfigs = new List<WorkCenterSiteConfigDto>
             {
-                WorkCenterId = w.Id,
-                PlantId = w.PlantId,
-                PlantName = w.Plant.Name,
-                SiteName = w.Name,
-                NumberOfWelders = w.NumberOfWelders,
-                ProductionLineId = w.ProductionLineId,
-                MaterialQueueForWCId = w.MaterialQueueForWCId,
-                MaterialQueueForWCName = w.MaterialQueueForWCId.HasValue && mqNames.ContainsKey(w.MaterialQueueForWCId.Value) ? mqNames[w.MaterialQueueForWCId.Value] : null,
-            }).ToList()
+                new()
+                {
+                    WorkCenterId = wc.Id,
+                    SiteName = wc.Name,
+                    NumberOfWelders = wc.NumberOfWelders,
+                    MaterialQueueForWCId = wc.MaterialQueueForWCId,
+                    MaterialQueueForWCName = mqName,
+                }
+            }
         });
     }
 
@@ -294,7 +269,6 @@ public class WorkCentersController : ControllerBase
     {
         var wc = await _db.WorkCenters
             .Include(w => w.WorkCenterType)
-            .Include(w => w.Plant)
             .FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
         if (wc == null) return NotFound();
 
@@ -313,11 +287,128 @@ public class WorkCentersController : ControllerBase
         {
             Id = wc.Id, Name = wc.Name,
             WorkCenterTypeName = wc.WorkCenterType.Name,
-            PlantName = wc.Plant.Name,
             NumberOfWelders = wc.NumberOfWelders,
             DataEntryType = wc.DataEntryType,
             MaterialQueueForWCId = wc.MaterialQueueForWCId,
             MaterialQueueForWCName = mqName
         });
+    }
+
+    // ---- Work Center Production Line endpoints ----
+
+    [HttpGet("{wcId:guid}/production-lines")]
+    public async Task<ActionResult<IEnumerable<AdminWorkCenterProductionLineDto>>> GetProductionLineConfigs(Guid wcId, CancellationToken cancellationToken)
+    {
+        var list = await _db.WorkCenterProductionLines
+            .Include(wcpl => wcpl.ProductionLine).ThenInclude(pl => pl.Plant)
+            .Where(wcpl => wcpl.WorkCenterId == wcId)
+            .OrderBy(wcpl => wcpl.ProductionLine.Name)
+            .Select(wcpl => new AdminWorkCenterProductionLineDto
+            {
+                Id = wcpl.Id,
+                WorkCenterId = wcpl.WorkCenterId,
+                ProductionLineId = wcpl.ProductionLineId,
+                ProductionLineName = wcpl.ProductionLine.Name,
+                PlantName = wcpl.ProductionLine.Plant.Name,
+                DisplayName = wcpl.DisplayName,
+                NumberOfWelders = wcpl.NumberOfWelders,
+            })
+            .ToListAsync(cancellationToken);
+        return Ok(list);
+    }
+
+    [HttpGet("{wcId:guid}/production-lines/{plId:guid}")]
+    public async Task<ActionResult<WorkCenterProductionLineDto>> GetProductionLineConfig(Guid wcId, Guid plId, CancellationToken cancellationToken)
+    {
+        var wcpl = await _db.WorkCenterProductionLines
+            .Include(x => x.ProductionLine)
+            .FirstOrDefaultAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == plId, cancellationToken);
+
+        if (wcpl == null) return NotFound();
+
+        return Ok(new WorkCenterProductionLineDto
+        {
+            Id = wcpl.Id,
+            WorkCenterId = wcpl.WorkCenterId,
+            ProductionLineId = wcpl.ProductionLineId,
+            ProductionLineName = wcpl.ProductionLine.Name,
+            DisplayName = wcpl.DisplayName,
+            NumberOfWelders = wcpl.NumberOfWelders,
+        });
+    }
+
+    [HttpPost("{wcId:guid}/production-lines")]
+    public async Task<ActionResult<AdminWorkCenterProductionLineDto>> CreateProductionLineConfig(Guid wcId, [FromBody] CreateWorkCenterProductionLineDto dto, CancellationToken cancellationToken)
+    {
+        var wc = await _db.WorkCenters.FindAsync(new object[] { wcId }, cancellationToken);
+        if (wc == null) return NotFound();
+
+        var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
+        if (pl == null) return BadRequest(new { message = "Production line not found." });
+
+        var exists = await _db.WorkCenterProductionLines
+            .AnyAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == dto.ProductionLineId, cancellationToken);
+        if (exists) return Conflict(new { message = "Configuration already exists for this work center and production line." });
+
+        var entity = new MESv2.Api.Models.WorkCenterProductionLine
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            ProductionLineId = dto.ProductionLineId,
+            DisplayName = dto.DisplayName,
+            NumberOfWelders = dto.NumberOfWelders,
+        };
+
+        _db.WorkCenterProductionLines.Add(entity);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new AdminWorkCenterProductionLineDto
+        {
+            Id = entity.Id,
+            WorkCenterId = entity.WorkCenterId,
+            ProductionLineId = entity.ProductionLineId,
+            ProductionLineName = pl.Name,
+            PlantName = pl.Plant.Name,
+            DisplayName = entity.DisplayName,
+            NumberOfWelders = entity.NumberOfWelders,
+        });
+    }
+
+    [HttpPut("{wcId:guid}/production-lines/{plId:guid}")]
+    public async Task<ActionResult<AdminWorkCenterProductionLineDto>> UpdateProductionLineConfig(Guid wcId, Guid plId, [FromBody] UpdateWorkCenterProductionLineDto dto, CancellationToken cancellationToken)
+    {
+        var wcpl = await _db.WorkCenterProductionLines
+            .Include(x => x.ProductionLine).ThenInclude(pl => pl.Plant)
+            .FirstOrDefaultAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == plId, cancellationToken);
+
+        if (wcpl == null) return NotFound();
+
+        wcpl.DisplayName = dto.DisplayName;
+        wcpl.NumberOfWelders = dto.NumberOfWelders;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new AdminWorkCenterProductionLineDto
+        {
+            Id = wcpl.Id,
+            WorkCenterId = wcpl.WorkCenterId,
+            ProductionLineId = wcpl.ProductionLineId,
+            ProductionLineName = wcpl.ProductionLine.Name,
+            PlantName = wcpl.ProductionLine.Plant.Name,
+            DisplayName = wcpl.DisplayName,
+            NumberOfWelders = wcpl.NumberOfWelders,
+        });
+    }
+
+    [HttpDelete("{wcId:guid}/production-lines/{plId:guid}")]
+    public async Task<ActionResult> DeleteProductionLineConfig(Guid wcId, Guid plId, CancellationToken cancellationToken)
+    {
+        var wcpl = await _db.WorkCenterProductionLines
+            .FirstOrDefaultAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == plId, cancellationToken);
+
+        if (wcpl == null) return NotFound();
+
+        _db.WorkCenterProductionLines.Remove(wcpl);
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
     }
 }

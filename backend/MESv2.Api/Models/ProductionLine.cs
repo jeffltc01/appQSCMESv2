@@ -7,5 +7,4 @@ public class ProductionLine
     public Guid PlantId { get; set; }
 
     public Plant Plant { get; set; } = null!;
-    public ICollection<WorkCenter> WorkCenters { get; set; } = new List<WorkCenter>();
 }

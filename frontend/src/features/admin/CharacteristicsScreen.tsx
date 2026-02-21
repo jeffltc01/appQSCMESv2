@@ -144,7 +144,7 @@ export function CharacteristicsScreen() {
           {workCenters.filter(wc => wc.workCenterTypeName === 'Inspection').map(wc => (
             <label key={wc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
               <input type="checkbox" checked={selectedWcIds.includes(wc.id)} onChange={() => toggleWc(wc.id)} />
-              {wc.name} ({wc.plantName})
+              {wc.name}
             </label>
           ))}
         </div>

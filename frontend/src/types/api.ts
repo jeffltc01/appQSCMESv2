@@ -286,14 +286,18 @@ export interface UpdateWorkCenterConfigRequest {
 export interface UpdateWorkCenterGroupRequest {
   baseName: string;
   dataEntryType?: string;
-  siteConfigs: UpdateSiteConfigRequest[];
+  materialQueueForWCId?: string;
 }
 
-export interface UpdateSiteConfigRequest {
-  workCenterId: string;
-  siteName: string;
+export interface CreateWorkCenterProductionLineRequest {
+  productionLineId: string;
+  displayName: string;
   numberOfWelders: number;
-  materialQueueForWCId?: string;
+}
+
+export interface UpdateWorkCenterProductionLineRequest {
+  displayName: string;
+  numberOfWelders: number;
 }
 
 export interface UpdateCharacteristicRequest {

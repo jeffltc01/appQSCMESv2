@@ -17,7 +17,7 @@ public class HydroServiceTests
             AssemblyAlphaCode = "AA",
             NameplateSerialNumber = "W00100001",
             Result = "ACCEPTED",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
         });
@@ -38,7 +38,7 @@ public class HydroServiceTests
             AssemblyAlphaCode = "AB",
             NameplateSerialNumber = "W00100002",
             Result = "ACCEPTED",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
         });

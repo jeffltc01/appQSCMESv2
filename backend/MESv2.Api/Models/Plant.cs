@@ -10,7 +10,6 @@ public class Plant
 
     public PlantGear? CurrentPlantGear { get; set; }
     public ICollection<ProductionLine> ProductionLines { get; set; } = new List<ProductionLine>();
-    public ICollection<WorkCenter> WorkCenters { get; set; } = new List<WorkCenter>();
     public ICollection<User> Users { get; set; } = new List<User>();
     public ICollection<PlantGear> PlantGears { get; set; } = new List<PlantGear>();
 }

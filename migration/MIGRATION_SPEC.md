@@ -49,8 +49,9 @@ Migration runs in strict dependency order. Tables that need special logic have d
 | 1b | `mesPlantGears` | `PlantGear` | Duplicate each gear x 3 plants; deterministic IDs |
 | 1c | `mesSite` | `Plant` | Second pass: update `CurrentPlantGearId` to plant-specific gear |
 | 2 | `mesProductionLine` | `ProductionLine` | `SiteNo` resolved to `PlantId` via Plant.Code lookup |
-| 3 | `mesWorkCenter` | `WorkCenter` | `SiteCode` to `PlantId`; `WorkCenterTypeId` inferred from name; `ProductionLineId` matched to first line at same plant |
-| 4 | `mesAsset` | `Asset` | No V1 WC FK. Matched by name convention ("Rolls 1 Asset" -> "Rolls 1" WC at same site). Logged warning if no match. |
+| 3a | `mesWorkCenter` | `WorkCenter` | `SiteCode` to `PlantId`; `WorkCenterTypeId` inferred from name; `DataEntryType` resolved via map + name inference (see below) |
+| 3b | (derived) | `WorkCenterProductionLine` | Created from each WC + first production line at same plant. `DisplayName` = WC name, `NumberOfWelders` = WC default |
+| 4 | `mesAsset` | `Asset` | No V1 WC FK. Matched by name convention ("Rolls 1 Asset" -> "Rolls 1" WC at same site). PlantId derived via WorkCenterProductionLine junction. Logged warning if no match. |
 | 5 | `mesProductType` | `ProductType` | Direct map |
 | 6 | `mesProduct` | `Product` | `ProductTypeId` is GUID stored as `nvarchar(50)` in V1; parsed to GUID |
 | 7 | `mesUser` | `User` | `UserType` int -> `RoleTier`/`RoleName`; `Pin` -> BCrypt `PinHash`; `DisplayName` = First + Last; `IsCertifiedWelder` defaults false; `IsDisabled` -> `!IsActive` |
@@ -79,6 +80,21 @@ Migration runs in strict dependency order. Tables that need special logic have d
 | 25 | `mesChangeLog` | `ChangeLog` | Direct map |
 | 26 | `mesSpotXrayIncrement` | `SpotXrayIncrement` | `ManufacturingLogId` preserved (FK to `ProductionRecord`). All seam shot/result/welder columns carried as strings. `IsDraft` int -> bool. |
 | 27 | `mesSiteSchedule` | `SiteSchedule` | Direct map. Filtered by `IsTest = 0`. No V2 screen; migrated for reporting continuity. |
+
+## DataEntryType Migration
+
+V1 `mesWorkCenter.DataEntryType` values are inconsistent (often NULL). The mapper applies a two-step resolution:
+
+1. **Map known V1 values:** `"Rolls"` -> `"Rolls"`, `"LS"` -> `"Barcode"`, `"Barcode"` -> `"Barcode"`, `"Fitup"` -> `"Fitup"`, `"Hydro"` -> `"Hydro"`, `"Spot"` -> `"Spot"`, `"DataPlate"` -> `"DataPlate"`
+2. **Infer from WC name** when V1 value is null or unrecognized: e.g. names containing "long seam" -> `"Barcode"`, "fitup queue" -> `"MatQueue-Fitup"`, "rolls material" -> `"MatQueue-Material"`, "rt x-ray" -> `"MatQueue-Shell"`, etc.
+
+## WorkCenterProductionLine Migration
+
+After migrating WorkCenters, the runner creates one `WorkCenterProductionLine` record per WC using the first production line at the same plant. Initial values:
+- `DisplayName` = `WorkCenter.Name`
+- `NumberOfWelders` = `WorkCenter.NumberOfWelders`
+
+These serve as baseline per-line overrides that admins can customize post-migration.
 
 ## V1 Tables NOT Migrated
 

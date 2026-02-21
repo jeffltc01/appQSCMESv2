@@ -17,12 +17,10 @@ public class WorkCenterService : IWorkCenterService
         _db = db;
     }
 
-    public async Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(string siteCode, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(CancellationToken cancellationToken = default)
     {
         var list = await _db.WorkCenters
-            .Include(w => w.Plant)
             .Include(w => w.WorkCenterType)
-            .Where(w => w.Plant.Code == siteCode)
             .OrderBy(w => w.Name)
             .ToListAsync(cancellationToken);
 
@@ -30,11 +28,9 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = w.Id,
             Name = w.Name,
-            PlantId = w.PlantId,
             WorkCenterTypeId = w.WorkCenterTypeId,
             WorkCenterTypeName = w.WorkCenterType.Name,
             NumberOfWelders = w.NumberOfWelders,
-            ProductionLineId = w.ProductionLineId,
             DataEntryType = w.DataEntryType,
             MaterialQueueForWCId = w.MaterialQueueForWCId
         }).ToList();
@@ -83,12 +79,12 @@ public class WorkCenterService : IWorkCenterService
         }
     }
 
-    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string date, int limit, CancellationToken cancellationToken = default)
+    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string siteCode, string date, int limit, CancellationToken cancellationToken = default)
     {
         if (!DateTime.TryParse(date, out var dateParsed))
             dateParsed = DateTime.UtcNow.Date;
 
-        var tz = await GetPlantTimeZoneForWorkCenterAsync(wcId, cancellationToken);
+        var tz = await GetPlantTimeZoneAsync(siteCode, cancellationToken);
         var localDate = dateParsed.Date;
         var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
         var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
@@ -426,11 +422,11 @@ public class WorkCenterService : IWorkCenterService
         CreatedAt = m.CreatedAt
     };
 
-    private async Task<TimeZoneInfo> GetPlantTimeZoneForWorkCenterAsync(Guid wcId, CancellationToken cancellationToken)
+    private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(string siteCode, CancellationToken cancellationToken)
     {
-        var tzId = await _db.WorkCenters
-            .Where(w => w.Id == wcId)
-            .Select(w => w.Plant.TimeZoneId)
+        var tzId = await _db.Plants
+            .Where(p => p.Code == siteCode)
+            .Select(p => p.TimeZoneId)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (!string.IsNullOrEmpty(tzId))

@@ -32,7 +32,7 @@ public class AdminAssetsControllerTests
         var dto = new CreateAssetDto
         {
             Name = "New Asset",
-            WorkCenterId = TestHelpers.WorkCenter1Plt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             LimbleIdentifier = "LMB-001"
         };
@@ -51,11 +51,11 @@ public class AdminAssetsControllerTests
     public async Task UpdateAsset_ModifiesFields()
     {
         var controller = CreateController(out var db);
-        var asset = new Asset { Id = Guid.NewGuid(), Name = "Old Asset", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
+        var asset = new Asset { Id = Guid.NewGuid(), Name = "Old Asset", WorkCenterId = TestHelpers.wcRollsId, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        var dto = new UpdateAssetDto { Name = "Updated Asset", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, ProductionLineId = TestHelpers.ProductionLine1Plt1Id, LimbleIdentifier = "LMB-002" };
+        var dto = new UpdateAssetDto { Name = "Updated Asset", WorkCenterId = TestHelpers.wcRollsId, ProductionLineId = TestHelpers.ProductionLine1Plt1Id, LimbleIdentifier = "LMB-002" };
         var result = await controller.UpdateAsset(asset.Id, dto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -83,7 +83,7 @@ public class AdminAssetsControllerTests
     public async Task UpdateAsset_ReturnsNotFound_WhenMissing()
     {
         var controller = CreateController(out _);
-        var dto = new UpdateAssetDto { Name = "X", WorkCenterId = TestHelpers.WorkCenter1Plt1Id, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
+        var dto = new UpdateAssetDto { Name = "X", WorkCenterId = TestHelpers.wcRollsId, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
         var result = await controller.UpdateAsset(Guid.NewGuid(), dto, CancellationToken.None);
         Assert.IsType<NotFoundResult>(result.Result);
     }
