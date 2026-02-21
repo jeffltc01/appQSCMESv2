@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
@@ -14,11 +15,13 @@ public class AuthService : IAuthService
 {
     private readonly MesDbContext _db;
     private readonly IConfiguration _config;
+    private readonly IHostEnvironment _env;
 
-    public AuthService(MesDbContext db, IConfiguration config)
+    public AuthService(MesDbContext db, IConfiguration config, IHostEnvironment env)
     {
         _db = db;
         _config = config;
+        _env = env;
     }
 
     public async Task<LoginConfigDto?> GetLoginConfigAsync(string empNo, CancellationToken cancellationToken = default)
@@ -47,9 +50,13 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        if (user.RequirePinForLogin && string.IsNullOrEmpty(pin))
-            return null;
-        // Optional: verify pin against user.PinHash if you add hashing
+        if (user.RequirePinForLogin)
+        {
+            if (string.IsNullOrEmpty(pin))
+                return null;
+            if (string.IsNullOrEmpty(user.PinHash) || !BCrypt.Net.BCrypt.Verify(pin, user.PinHash))
+                return null;
+        }
 
         var token = GenerateJwt(user);
         var userDto = new UserDto
@@ -70,9 +77,35 @@ public class AuthService : IAuthService
         return new LoginResultDto { Token = token, User = userDto };
     }
 
+    public async Task<bool> ChangePinAsync(Guid userId, string? currentPin, string newPin, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(newPin) || newPin.Length < 4 || newPin.Length > 6 || !newPin.All(char.IsDigit))
+            return false;
+
+        var user = await _db.Users.FindAsync(new object[] { userId }, cancellationToken);
+        if (user == null)
+            return false;
+
+        if (!string.IsNullOrEmpty(user.PinHash))
+        {
+            if (string.IsNullOrEmpty(currentPin) || !BCrypt.Net.BCrypt.Verify(currentPin, user.PinHash))
+                return false;
+        }
+
+        user.PinHash = BCrypt.Net.BCrypt.HashPassword(newPin);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private string GenerateJwt(User user)
     {
-        var key = _config["Jwt:Key"] ?? "dev-secret-key-min-32-chars-long-for-hs256";
+        string key;
+        if (_env.IsDevelopment())
+            key = _config["Jwt:Key"] ?? "dev-secret-key-min-32-chars-long-for-hs256";
+        else
+            key = _config["Jwt:Key"]
+                ?? throw new InvalidOperationException("Jwt:Key must be configured in non-Development environments.");
+
         var keyBytes = Encoding.UTF8.GetBytes(key);
         var signingKey = new SymmetricSecurityKey(keyBytes);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);

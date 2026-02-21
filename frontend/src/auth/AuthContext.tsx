@@ -1,4 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { setAuthToken } from '../api/apiClient.ts';
+
+const SESSION_KEY = 'mes_auth';
 
 export interface AuthUser {
   id: string;
@@ -26,21 +29,38 @@ interface AuthContextValue extends AuthState {
   isAuthenticated: boolean;
 }
 
+function loadPersistedState(): AuthState {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as AuthState;
+      if (parsed.token) {
+        setAuthToken(parsed.token);
+        return parsed;
+      }
+    }
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+  return { user: null, token: null, isWelder: false };
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    token: null,
-    isWelder: false,
-  });
+  const [state, setState] = useState<AuthState>(loadPersistedState);
 
   const login = useCallback((token: string, user: AuthUser, isWelder: boolean) => {
-    setState({ user, token, isWelder });
+    const next: AuthState = { user, token, isWelder };
+    setState(next);
+    setAuthToken(token);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
   }, []);
 
   const logout = useCallback(() => {
     setState({ user: null, token: null, isWelder: false });
+    setAuthToken(null);
+    sessionStorage.removeItem(SESSION_KEY);
   }, []);
 
   const value: AuthContextValue = {

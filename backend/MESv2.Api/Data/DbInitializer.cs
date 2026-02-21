@@ -4,6 +4,69 @@ namespace MESv2.Api.Data;
 
 public static class DbInitializer
 {
+    /// <summary>
+    /// Seeds only system reference data that must exist in all environments
+    /// (work center types, annotation types, etc.). Idempotent -- skips if data already exists.
+    /// Called on SQL Server (Azure SQL) startup after migrations.
+    /// </summary>
+    public static void SeedReferenceData(MesDbContext context)
+    {
+        if (context.WorkCenterTypes.Any())
+            return;
+
+        var wctRollsId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var wctLongSeamId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var wctInspectionId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var wctFitupId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+        var wctRoundSeamId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        var wctNameplateId = Guid.Parse("f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0");
+        var wctHydroId = Guid.Parse("f1f1f1f1-f1f1-f1f1-f1f1-f1f1f1f1f1f1");
+        var wctXrayId = Guid.Parse("f2f2f2f2-f2f2-f2f2-f2f2-f2f2f2f2f2f2");
+        var wctSpotXrayId = Guid.Parse("f3f3f3f3-f3f3-f3f3-f3f3-f3f3f3f3f3f3");
+        var wctMaterialQueueId = Guid.Parse("f4f4f4f4-f4f4-f4f4-f4f4-f4f4f4f4f4f4");
+
+        context.WorkCenterTypes.AddRange(
+            new WorkCenterType { Id = wctRollsId, Name = "Rolls" },
+            new WorkCenterType { Id = wctLongSeamId, Name = "Long Seam" },
+            new WorkCenterType { Id = wctInspectionId, Name = "Inspection" },
+            new WorkCenterType { Id = wctFitupId, Name = "Fitup" },
+            new WorkCenterType { Id = wctRoundSeamId, Name = "Round Seam" },
+            new WorkCenterType { Id = wctNameplateId, Name = "Nameplate" },
+            new WorkCenterType { Id = wctHydroId, Name = "Hydro" },
+            new WorkCenterType { Id = wctXrayId, Name = "X-Ray" },
+            new WorkCenterType { Id = wctSpotXrayId, Name = "Spot X-Ray" },
+            new WorkCenterType { Id = wctMaterialQueueId, Name = "Material Queue" }
+        );
+
+        if (!context.AnnotationTypes.Any())
+        {
+            context.AnnotationTypes.AddRange(
+                new AnnotationType { Id = Guid.Parse("a1000001-0000-0000-0000-000000000001"), Name = "Note", Abbreviation = "N", RequiresResolution = false, OperatorCanCreate = true, DisplayColor = "#cc00ff" },
+                new AnnotationType { Id = Guid.Parse("a1000002-0000-0000-0000-000000000002"), Name = "AI Review", Abbreviation = "AI", RequiresResolution = false, OperatorCanCreate = false, DisplayColor = "#33cc33" },
+                new AnnotationType { Id = Guid.Parse("a1000003-0000-0000-0000-000000000003"), Name = "Defect", Abbreviation = "D", RequiresResolution = true, OperatorCanCreate = true, DisplayColor = "#ff0000" },
+                new AnnotationType { Id = Guid.Parse("a1000004-0000-0000-0000-000000000004"), Name = "Internal Review", Abbreviation = "IR", RequiresResolution = false, OperatorCanCreate = false, DisplayColor = "#0099ff" },
+                new AnnotationType { Id = Guid.Parse("a1000005-0000-0000-0000-000000000005"), Name = "Correction Needed", Abbreviation = "C", RequiresResolution = true, OperatorCanCreate = true, DisplayColor = "#ffff00" }
+            );
+        }
+
+        if (!context.ProductTypes.Any())
+        {
+            context.ProductTypes.AddRange(
+                new ProductType { Id = Guid.Parse("a1111111-1111-1111-1111-111111111111"), Name = "Plate", SystemTypeName = "plate" },
+                new ProductType { Id = Guid.Parse("a2222222-2222-2222-2222-222222222222"), Name = "Head", SystemTypeName = "head" },
+                new ProductType { Id = Guid.Parse("a3333333-3333-3333-3333-333333333333"), Name = "Shell", SystemTypeName = "shell" },
+                new ProductType { Id = Guid.Parse("a4444444-4444-4444-4444-444444444444"), Name = "Assembled Tank", SystemTypeName = "assembled" },
+                new ProductType { Id = Guid.Parse("a5555555-5555-5555-5555-555555555555"), Name = "Sellable Tank", SystemTypeName = "sellable" },
+                new ProductType { Id = Guid.Parse("a6666666-6666-6666-6666-666666666666"), Name = "Plasma", SystemTypeName = "plasma" }
+            );
+        }
+
+        context.SaveChanges();
+    }
+
+    /// <summary>
+    /// Full seed for local development (SQLite). Includes reference data plus test data.
+    /// </summary>
     public static void Seed(MesDbContext context)
     {
         if (context.Plants.Any())
@@ -136,7 +199,7 @@ public static class DbInitializer
             new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888801"), EmployeeNumber = "EMP002", FirstName = "Sarah", LastName = "Miller", DisplayName = "Sarah Miller", RoleTier = 6.0m, RoleName = "Operator", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false, PinHash = null },
             new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888802"), EmployeeNumber = "EMP003", FirstName = "Mike", LastName = "Rodriguez", DisplayName = "Mike Rodriguez", RoleTier = 6.0m, RoleName = "Operator", DefaultSiteId = plant1Id, IsCertifiedWelder = true, RequirePinForLogin = false, PinHash = null },
             new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888803"), EmployeeNumber = "EMP004", FirstName = "Tom", LastName = "Wilson", DisplayName = "Tom Wilson", RoleTier = 6.0m, RoleName = "Operator", DefaultSiteId = plant2Id, IsCertifiedWelder = true, RequirePinForLogin = false, PinHash = null },
-            new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888804"), EmployeeNumber = "EMP005", FirstName = "Lisa", LastName = "Chen", DisplayName = "Lisa Chen", RoleTier = 4.0m, RoleName = "Supervisor", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false, PinHash = null }
+            new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888804"), EmployeeNumber = "EMP005", FirstName = "Lisa", LastName = "Chen", DisplayName = "Lisa Chen", RoleTier = 4.0m, RoleName = "Supervisor", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = true, PinHash = BCrypt.Net.BCrypt.HashPassword("1234") }
         );
 
         context.Vendors.AddRange(

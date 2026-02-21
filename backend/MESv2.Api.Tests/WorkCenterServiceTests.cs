@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using MESv2.Api.Data;
 using MESv2.Api.Models;
 using MESv2.Api.Services;
@@ -15,7 +16,7 @@ public class WorkCenterServiceTests
     public async Task GetWorkCenters_ReturnsAllWorkCenters()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
 
         var result = await sut.GetWorkCentersAsync();
 
@@ -41,7 +42,7 @@ public class WorkCenterServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
 
         var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId);
 
@@ -83,7 +84,7 @@ public class WorkCenterServiceTests
     public async Task GetHistory_ReturnsRecordsForLocalDate_UsingPlantTimezone()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
 
         // Cleveland plant uses America/Chicago (UTC-6 standard / UTC-5 DST).
         // Create a record at 2026-03-15 03:00 UTC = 2026-03-14 22:00 CDT (still March 14 locally)
@@ -101,7 +102,7 @@ public class WorkCenterServiceTests
     public async Task GetHistory_ExcludesRecordsOutsideLocalDay()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
 
         // Record at 2026-03-15 03:00 UTC = March 14 22:00 CDT
         SeedProductionRecord(db, TestHelpers.wcRollsId, new DateTime(2026, 3, 15, 3, 0, 0, DateTimeKind.Utc));
@@ -117,7 +118,7 @@ public class WorkCenterServiceTests
     public async Task GetHistory_HandlesMultipleRecords_SameLocalDay()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
 
         // Both timestamps fall within Feb 20 Central time (UTC-6):
         //   06:00 UTC = 00:00 CST, 23:59 UTC = 17:59 CST
@@ -144,7 +145,7 @@ public class WorkCenterServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
 
         var result = await sut.GetDefectCodesAsync(TestHelpers.wcRollsId);
 
@@ -166,7 +167,7 @@ public class WorkCenterServiceTests
         db.DefectWorkCenters.Add(new DefectWorkCenter { Id = Guid.NewGuid(), DefectCodeId = inactiveId, WorkCenterId = TestHelpers.wcRollsId });
         await db.SaveChangesAsync();
 
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
         var result = await sut.GetDefectCodesAsync(TestHelpers.wcRollsId);
 
         Assert.Single(result);
@@ -181,7 +182,7 @@ public class WorkCenterServiceTests
         user.IsCertifiedWelder = false;
         await db.SaveChangesAsync();
 
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
         var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
 
         Assert.Null(result);
@@ -195,7 +196,7 @@ public class WorkCenterServiceTests
         user.IsCertifiedWelder = true;
         await db.SaveChangesAsync();
 
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
         var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
 
         Assert.NotNull(result);
@@ -212,7 +213,7 @@ public class WorkCenterServiceTests
         user.IsActive = false;
         await db.SaveChangesAsync();
 
-        var sut = new WorkCenterService(db);
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
         var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
 
         Assert.Null(result);

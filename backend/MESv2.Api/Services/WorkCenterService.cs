@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
@@ -8,13 +7,13 @@ namespace MESv2.Api.Services;
 
 public class WorkCenterService : IWorkCenterService
 {
-    private static readonly ConcurrentDictionary<Guid, List<WelderDto>> WeldersByWorkCenter = new();
-
     private readonly MesDbContext _db;
+    private readonly ILogger<WorkCenterService> _logger;
 
-    public WorkCenterService(MesDbContext db)
+    public WorkCenterService(MesDbContext db, ILogger<WorkCenterService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(CancellationToken cancellationToken = default)
@@ -36,10 +35,20 @@ public class WorkCenterService : IWorkCenterService
         }).ToList();
     }
 
-    public Task<IReadOnlyList<WelderDto>> GetWeldersAsync(Guid wcId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WelderDto>> GetWeldersAsync(Guid wcId, CancellationToken cancellationToken = default)
     {
-        var list = WeldersByWorkCenter.GetValueOrDefault(wcId) ?? new List<WelderDto>();
-        return Task.FromResult<IReadOnlyList<WelderDto>>(list);
+        var welders = await _db.WorkCenterWelders
+            .Include(w => w.User)
+            .Where(w => w.WorkCenterId == wcId)
+            .OrderBy(w => w.AssignedAt)
+            .ToListAsync(cancellationToken);
+
+        return welders.Select(w => new WelderDto
+        {
+            UserId = w.UserId,
+            DisplayName = w.User.DisplayName,
+            EmployeeNumber = w.User.EmployeeNumber
+        }).ToList();
     }
 
     public async Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default)
@@ -49,34 +58,43 @@ public class WorkCenterService : IWorkCenterService
         if (user == null)
             return null;
 
-        var welder = new WelderDto
+        var existing = await _db.WorkCenterWelders
+            .AnyAsync(w => w.WorkCenterId == wcId && w.UserId == user.Id, cancellationToken);
+        if (existing)
+            return new WelderDto
+            {
+                UserId = user.Id,
+                DisplayName = user.DisplayName,
+                EmployeeNumber = user.EmployeeNumber
+            };
+
+        _db.WorkCenterWelders.Add(new WorkCenterWelder
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = wcId,
+            UserId = user.Id,
+            AssignedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return new WelderDto
         {
             UserId = user.Id,
             DisplayName = user.DisplayName,
             EmployeeNumber = user.EmployeeNumber
         };
-
-        var list = WeldersByWorkCenter.GetOrAdd(wcId, _ => new List<WelderDto>());
-        lock (list)
-        {
-            if (list.Any(w => w.UserId == user.Id))
-                return welder;
-            list.Add(welder);
-        }
-
-        return welder;
     }
 
-    public Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default)
+    public async Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default)
     {
-        if (!WeldersByWorkCenter.TryGetValue(wcId, out var list))
-            return Task.FromResult(false);
+        var entry = await _db.WorkCenterWelders
+            .FirstOrDefaultAsync(w => w.WorkCenterId == wcId && w.UserId == userId, cancellationToken);
+        if (entry == null)
+            return false;
 
-        lock (list)
-        {
-            var removed = list.RemoveAll(w => w.UserId == userId) > 0;
-            return Task.FromResult(removed);
-        }
+        _db.WorkCenterWelders.Remove(entry);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string siteCode, string date, int limit, CancellationToken cancellationToken = default)
@@ -180,7 +198,7 @@ public class WorkCenterService : IWorkCenterService
 
     public Task ReportFaultAsync(Guid wcId, string description, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"[Fault] WorkCenter={wcId}, Description={description}");
+        _logger.LogWarning("Fault reported: WorkCenter={WorkCenterId}, Description={Description}", wcId, description);
         return Task.CompletedTask;
     }
 

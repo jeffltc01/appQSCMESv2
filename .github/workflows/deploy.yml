@@ -79,6 +79,19 @@ jobs:
       - name: Run backend tests
         run: dotnet test backend/MESv2.Api.Tests --configuration Release --verbosity normal
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
+
+      - name: Run frontend tests
+        working-directory: ${{ env.FRONTEND_PATH }}
+        run: |
+          npm ci
+          npm test
+
   deploy-test:
     name: Deploy to Test
     needs: [build-backend, build-frontend, test]

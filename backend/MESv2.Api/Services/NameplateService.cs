@@ -8,10 +8,12 @@ namespace MESv2.Api.Services;
 public class NameplateService : INameplateService
 {
     private readonly MesDbContext _db;
+    private readonly ILogger<NameplateService> _logger;
 
-    public NameplateService(MesDbContext db)
+    public NameplateService(MesDbContext db, ILogger<NameplateService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<NameplateRecordResponseDto> CreateAsync(CreateNameplateRecordDto dto, CancellationToken cancellationToken = default)
@@ -60,7 +62,7 @@ public class NameplateService : INameplateService
 
     public Task ReprintAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"[NiceLabel] Reprint request for NameplateRecord {id}");
+        _logger.LogInformation("NiceLabel reprint requested for NameplateRecord {NameplateRecordId}", id);
         return Task.CompletedTask;
     }
 }

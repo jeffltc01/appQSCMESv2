@@ -52,6 +52,7 @@ public class AdminUserDto
     public string DefaultSiteName { get; set; } = string.Empty;
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
+    public bool HasPin { get; set; }
     public int UserType { get; set; }
     public bool IsActive { get; set; }
 }
@@ -67,6 +68,7 @@ public class CreateUserDto
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
+    public string? Pin { get; set; }
     public int UserType { get; set; }
 }
 
@@ -81,8 +83,15 @@ public class UpdateUserDto
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
+    public string? Pin { get; set; }
     public int UserType { get; set; }
     public bool IsActive { get; set; } = true;
+}
+
+public class ChangePinDto
+{
+    public string? CurrentPin { get; set; }
+    public string NewPin { get; set; } = string.Empty;
 }
 
 // ---- Vendors ----

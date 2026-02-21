@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using MESv2.Api.DTOs;
 using MESv2.Api.Models;
 using MESv2.Api.Services;
@@ -14,7 +15,7 @@ public class NameplateServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         SeedProduct(db);
 
-        var sut = new NameplateService(db);
+        var sut = new NameplateService(db, NullLogger<NameplateService>.Instance);
         var result = await sut.CreateAsync(new CreateNameplateRecordDto
         {
             SerialNumber = "W00100001",
@@ -43,7 +44,7 @@ public class NameplateServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new NameplateService(db);
+        var sut = new NameplateService(db, NullLogger<NameplateService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.CreateAsync(new CreateNameplateRecordDto
@@ -71,7 +72,7 @@ public class NameplateServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new NameplateService(db);
+        var sut = new NameplateService(db, NullLogger<NameplateService>.Instance);
         var result = await sut.GetBySerialAsync("W00100003");
 
         Assert.NotNull(result);
@@ -82,7 +83,7 @@ public class NameplateServiceTests
     public async Task GetBySerial_NotFound_ReturnsNull()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var sut = new NameplateService(db);
+        var sut = new NameplateService(db, NullLogger<NameplateService>.Instance);
         var result = await sut.GetBySerialAsync("NONEXISTENT");
         Assert.Null(result);
     }

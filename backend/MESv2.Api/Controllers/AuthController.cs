@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MESv2.Api.DTOs;
 using MESv2.Api.Services;
@@ -27,5 +29,20 @@ public class AuthController : ControllerBase
         if (result == null)
             return Unauthorized();
         return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPut("pin")]
+    public async Task<IActionResult> ChangePin([FromBody] ChangePinDto dto, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var success = await _authService.ChangePinAsync(userId, dto.CurrentPin, dto.NewPin, cancellationToken);
+        if (!success)
+            return BadRequest(new { message = "PIN change failed. Verify your current PIN and ensure the new PIN is 4-6 digits." });
+
+        return Ok(new { message = "PIN changed successfully." });
     }
 }

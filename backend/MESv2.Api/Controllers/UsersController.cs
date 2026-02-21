@@ -48,6 +48,7 @@ public class UsersController : ControllerBase
                 DefaultSiteName = u.DefaultSite.Name,
                 IsCertifiedWelder = u.IsCertifiedWelder,
                 RequirePinForLogin = u.RequirePinForLogin,
+                HasPin = u.PinHash != null,
                 UserType = (int)u.UserType,
                 IsActive = u.IsActive
             })
@@ -91,6 +92,8 @@ public class UsersController : ControllerBase
             RequirePinForLogin = dto.RequirePinForLogin,
             UserType = (Models.UserType)dto.UserType
         };
+        if (!string.IsNullOrEmpty(dto.Pin))
+            user.PinHash = BCrypt.Net.BCrypt.HashPassword(dto.Pin);
         _db.Users.Add(user);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -108,6 +111,7 @@ public class UsersController : ControllerBase
             DefaultSiteName = site?.Name ?? "",
             IsCertifiedWelder = user.IsCertifiedWelder,
             RequirePinForLogin = user.RequirePinForLogin,
+            HasPin = !string.IsNullOrEmpty(user.PinHash),
             UserType = (int)user.UserType,
             IsActive = user.IsActive
         });
@@ -128,6 +132,8 @@ public class UsersController : ControllerBase
         user.DefaultSiteId = dto.DefaultSiteId;
         user.IsCertifiedWelder = dto.IsCertifiedWelder;
         user.RequirePinForLogin = dto.RequirePinForLogin;
+        if (!string.IsNullOrEmpty(dto.Pin))
+            user.PinHash = BCrypt.Net.BCrypt.HashPassword(dto.Pin);
         user.UserType = (Models.UserType)dto.UserType;
         user.IsActive = dto.IsActive;
 
@@ -147,6 +153,7 @@ public class UsersController : ControllerBase
             DefaultSiteName = site?.Name ?? "",
             IsCertifiedWelder = user.IsCertifiedWelder,
             RequirePinForLogin = user.RequirePinForLogin,
+            HasPin = !string.IsNullOrEmpty(user.PinHash),
             UserType = (int)user.UserType,
             IsActive = user.IsActive
         });
@@ -172,6 +179,7 @@ public class UsersController : ControllerBase
             DefaultSiteName = user.DefaultSite?.Name ?? "",
             IsCertifiedWelder = user.IsCertifiedWelder,
             RequirePinForLogin = user.RequirePinForLogin,
+            HasPin = !string.IsNullOrEmpty(user.PinHash),
             UserType = (int)user.UserType,
             IsActive = user.IsActive
         });

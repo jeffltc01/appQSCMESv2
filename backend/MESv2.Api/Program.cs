@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MESv2.Api.Data;
@@ -31,7 +33,20 @@ builder.Services.AddScoped<INameplateService, NameplateService>();
 builder.Services.AddScoped<IHydroService, HydroService>();
 builder.Services.AddScoped<IXrayQueueService, XrayQueueService>();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "dev-secret-key-min-32-chars-long-for-hs256";
+// --- JWT configuration ---
+string jwtKey;
+if (builder.Environment.IsDevelopment())
+{
+    jwtKey = builder.Configuration["Jwt:Key"] ?? "dev-secret-key-min-32-chars-long-for-hs256";
+}
+else
+{
+    jwtKey = builder.Configuration["Jwt:Key"]
+        ?? throw new InvalidOperationException(
+            "Jwt:Key must be configured in non-Development environments. " +
+            "Set it via Azure App Settings or Key Vault.");
+}
+
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -50,8 +65,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? ["http://localhost:5173"];
+// --- CORS configuration ---
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+
+if (!builder.Environment.IsDevelopment() && (configuredOrigins == null || configuredOrigins.Length == 0))
+{
+    throw new InvalidOperationException(
+        "Cors:AllowedOrigins must be configured in non-Development environments. " +
+        "Set Cors__AllowedOrigins__0 in Azure App Settings.");
+}
+
+var allowedOrigins = configuredOrigins ?? ["http://localhost:5173"];
 
 builder.Services.AddCors(options =>
 {
@@ -65,8 +89,19 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
+// --- Health checks ---
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<MesDbContext>("database");
+
+// --- Application Insights ---
+if (!string.IsNullOrEmpty(builder.Configuration["ApplicationInsights:ConnectionString"]))
+{
+    builder.Services.AddApplicationInsightsTelemetry();
+}
+
 var app = builder.Build();
 
+// --- Database initialization ---
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MesDbContext>();
@@ -74,12 +109,40 @@ using (var scope = app.Services.CreateScope())
     if (context.Database.IsSqlServer())
     {
         context.Database.Migrate();
+        DbInitializer.SeedReferenceData(context);
     }
     else
     {
         context.Database.EnsureCreated();
         DbInitializer.Seed(context);
     }
+}
+
+// --- Global exception handler (non-Development) ---
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async httpContext =>
+        {
+            var logger = httpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            var exceptionFeature = httpContext.Features.Get<IExceptionHandlerFeature>();
+
+            if (exceptionFeature?.Error is not null)
+            {
+                logger.LogError(exceptionFeature.Error,
+                    "Unhandled exception on {Method} {Path}",
+                    httpContext.Request.Method,
+                    httpContext.Request.Path);
+            }
+
+            httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            httpContext.Response.ContentType = "application/json";
+
+            var payload = JsonSerializer.Serialize(new { message = "An internal server error occurred." });
+            await httpContext.Response.WriteAsync(payload);
+        });
+    });
 }
 
 if (app.Environment.IsDevelopment())
@@ -92,5 +155,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/healthz");
 
 app.Run();

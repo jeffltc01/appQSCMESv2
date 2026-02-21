@@ -43,6 +43,7 @@ public class MesDbContext : DbContext
     public DbSet<SpotXrayIncrement> SpotXrayIncrements => Set<SpotXrayIncrement>();
     public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
     public DbSet<WorkCenterProductionLine> WorkCenterProductionLines => Set<WorkCenterProductionLine>();
+    public DbSet<WorkCenterWelder> WorkCenterWelders => Set<WorkCenterWelder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -442,6 +443,17 @@ public class MesDbContext : DbContext
             .HasForeignKey(wcpl => wcpl.ProductionLineId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<WorkCenterWelder>()
+            .HasOne(w => w.WorkCenter)
+            .WithMany()
+            .HasForeignKey(w => w.WorkCenterId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkCenterWelder>()
+            .HasOne(w => w.User)
+            .WithMany()
+            .HasForeignKey(w => w.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
@@ -461,6 +473,9 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.SiteCode);
         modelBuilder.Entity<WorkCenterProductionLine>()
             .HasIndex(wcpl => new { wcpl.WorkCenterId, wcpl.ProductionLineId })
+            .IsUnique();
+        modelBuilder.Entity<WorkCenterWelder>()
+            .HasIndex(w => new { w.WorkCenterId, w.UserId })
             .IsUnique();
 
     }
