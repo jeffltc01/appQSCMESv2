@@ -79,7 +79,7 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<ActiveSession>()
             .HasIndex(s => s.UserId);
         modelBuilder.Entity<ActiveSession>()
-            .HasIndex(s => s.SiteCode);
+            .HasIndex(s => s.PlantId);
 
         modelBuilder.Entity<ProductionLine>()
             .HasOne(p => p.Plant)
@@ -481,10 +481,10 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<NameplateRecord>().HasIndex(n => n.SerialNumber);
         modelBuilder.Entity<HydroRecord>().HasIndex(h => h.AssemblyAlphaCode);
         modelBuilder.Entity<RoundSeamSetup>().HasIndex(r => new { r.WorkCenterId, r.CreatedAt });
-        modelBuilder.Entity<Vendor>().HasIndex(v => new { v.VendorType, v.SiteCode });
-        modelBuilder.Entity<SerialNumber>().HasIndex(s => s.SiteCode);
+        modelBuilder.Entity<Vendor>().HasIndex(v => new { v.VendorType, v.PlantIds });
+        modelBuilder.Entity<SerialNumber>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.ManufacturingLogId);
-        modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.SiteCode);
+        modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<WorkCenterProductionLine>()
             .HasIndex(wcpl => new { wcpl.WorkCenterId, wcpl.ProductionLineId })
             .IsUnique();

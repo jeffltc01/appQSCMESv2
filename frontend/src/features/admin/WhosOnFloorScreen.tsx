@@ -13,12 +13,12 @@ export function WhosOnFloorScreen() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!user?.plantCode) return;
+    if (!user?.defaultSiteId) return;
     setLoading(true);
-    try { setSessions(await activeSessionApi.getBySite(user.plantCode)); }
+    try { setSessions(await activeSessionApi.getBySite(user.defaultSiteId)); }
     catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [user?.plantCode]);
+  }, [user?.defaultSiteId]);
 
   useEffect(() => { load(); }, [load]);
 

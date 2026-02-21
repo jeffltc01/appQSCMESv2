@@ -111,8 +111,8 @@ export const workCenterApi = {
     api.post<Welder>(`/workcenters/${wcId}/welders`, { employeeNumber }),
   removeWelder: (wcId: string, userId: string) =>
     api.delete<void>(`/workcenters/${wcId}/welders/${userId}`),
-  getHistory: (wcId: string, date: string) =>
-    api.get<WCHistoryData>(`/workcenters/${wcId}/history?date=${date}&limit=5`),
+  getHistory: (wcId: string, date: string, plantId: string) =>
+    api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&date=${date}&limit=5`),
   getQueueTransactions: (wcId: string, limit = 5) =>
     api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}`),
   getMaterialQueue: (wcId: string, type?: string) =>
@@ -132,8 +132,8 @@ export const workCenterApi = {
 };
 
 export const productionLineApi = {
-  getProductionLines: (siteCode: string) =>
-    api.get<ProductionLine[]>(`/productionlines?siteCode=${encodeURIComponent(siteCode)}`),
+  getProductionLines: (plantId: string) =>
+    api.get<ProductionLine[]>(`/productionlines?plantId=${encodeURIComponent(plantId)}`),
   getAll: () =>
     api.get<ProductionLineAdmin[]>('/productionlines/all'),
 };
@@ -193,19 +193,19 @@ export const materialQueueApi = {
 };
 
 export const productApi = {
-  getProducts: (type?: string, siteCode?: string) => {
+  getProducts: (type?: string, plantId?: string) => {
     const params = new URLSearchParams();
     if (type) params.set('type', type);
-    if (siteCode) params.set('siteCode', siteCode);
+    if (plantId) params.set('plantId', plantId);
     return api.get<ProductListItem[]>(`/products?${params}`);
   },
 };
 
 export const vendorApi = {
-  getVendors: (type?: string, siteCode?: string) => {
+  getVendors: (type?: string, plantId?: string) => {
     const params = new URLSearchParams();
     if (type) params.set('type', type);
-    if (siteCode) params.set('siteCode', siteCode);
+    if (plantId) params.set('plantId', plantId);
     return api.get<Vendor[]>(`/vendors?${params}`);
   },
 };
@@ -247,8 +247,8 @@ export const hydroApi = {
 };
 
 export const barcodeCardApi = {
-  getCards: (wcId: string, siteCode?: string) => {
-    const params = siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : '';
+  getCards: (wcId: string, plantId?: string) => {
+    const params = plantId ? `?plantId=${encodeURIComponent(plantId)}` : '';
     return api.get<BarcodeCardInfo[]>(`/workcenters/${wcId}/barcode-cards${params}`);
   },
 };
@@ -356,7 +356,7 @@ export const adminAnnotationApi = {
 };
 
 export const activeSessionApi = {
-  getBySite: (siteCode: string) => api.get<ActiveSession[]>(`/active-sessions?siteCode=${encodeURIComponent(siteCode)}`),
+  getBySite: (plantId: string) => api.get<ActiveSession[]>(`/active-sessions?plantId=${encodeURIComponent(plantId)}`),
   upsert: (req: CreateActiveSessionRequest) => api.post<void>('/active-sessions', req),
   heartbeat: () => api.put<void>('/active-sessions/heartbeat'),
   endSession: () => api.delete<void>('/active-sessions'),

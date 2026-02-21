@@ -35,14 +35,14 @@ export function OperatorLayout() {
   const cache = getTabletCache();
 
   const sessionData = useMemo(() => {
-    if (!cache?.cachedWorkCenterId || !cache.cachedProductionLineId || !user?.plantCode) return undefined;
+    if (!cache?.cachedWorkCenterId || !cache.cachedProductionLineId || !user?.defaultSiteId) return undefined;
     return {
       workCenterId: cache.cachedWorkCenterId,
       productionLineId: cache.cachedProductionLineId,
       assetId: cache.cachedAssetId || undefined,
-      siteCode: user.plantCode,
+      plantId: user.defaultSiteId,
     };
-  }, [cache?.cachedWorkCenterId, cache?.cachedProductionLineId, cache?.cachedAssetId, user?.plantCode]);
+  }, [cache?.cachedWorkCenterId, cache?.cachedProductionLineId, cache?.cachedAssetId, user?.defaultSiteId]);
 
   useHeartbeat(!!cache?.cachedWorkCenterId, sessionData);
 
@@ -128,16 +128,16 @@ export function OperatorLayout() {
   }, [cache?.cachedWorkCenterId]);
 
   const loadHistory = useCallback(async () => {
-    if (!cache?.cachedWorkCenterId) return;
+    if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;
     try {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, today);
+      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, today, user.defaultSiteId);
       setHistoryData(data);
     } catch {
       // Keep stale data
     }
-  }, [cache?.cachedWorkCenterId]);
+  }, [cache?.cachedWorkCenterId, user?.defaultSiteId]);
 
   const loadNumberOfWelders = useCallback(async () => {
     if (!cache?.cachedWorkCenterId) return;
@@ -175,7 +175,7 @@ export function OperatorLayout() {
   const showScanResult = useCallback((result: ScanResult) => {
     if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
     setScanResult(result);
-    const delay = result.type === 'success' ? 1000 : 10000;
+    const delay = result.type === 'success' ? 1000 : 5000;
     scanTimerRef.current = setTimeout(() => { scanTimerRef.current = null; setScanResult(null); }, delay);
   }, []);
 
@@ -336,7 +336,7 @@ export function OperatorLayout() {
         <ScanOverlay
           result={scanResult}
           onDismiss={dismissScanResult}
-          autoCloseMs={scanResult.type === 'error' ? 10000 : undefined}
+          autoCloseMs={scanResult.type === 'error' ? 5000 : undefined}
         />
       )}
 

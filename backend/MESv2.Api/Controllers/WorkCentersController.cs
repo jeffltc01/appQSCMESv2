@@ -62,9 +62,9 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] string siteCode, [FromQuery] string date, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] string date, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetHistoryAsync(id, siteCode, date, limit, cancellationToken);
+        var result = await _workCenterService.GetHistoryAsync(id, plantId, date, limit, cancellationToken);
         return Ok(result);
     }
 
@@ -188,9 +188,9 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/barcode-cards")]
-    public async Task<ActionResult<IEnumerable<BarcodeCardDto>>> GetBarcodeCards(Guid id, [FromQuery] string? siteCode, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<BarcodeCardDto>>> GetBarcodeCards(Guid id, [FromQuery] Guid? plantId, CancellationToken cancellationToken)
     {
-        var list = await _workCenterService.GetBarcodeCardsAsync(siteCode, cancellationToken);
+        var list = await _workCenterService.GetBarcodeCardsAsync(plantId, cancellationToken);
         return Ok(list);
     }
 

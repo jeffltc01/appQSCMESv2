@@ -13,7 +13,7 @@ public class ProductService : IProductService
         _db = db;
     }
 
-    public async Task<IReadOnlyList<ProductListDto>> GetProductsAsync(string? type, string? siteCode, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ProductListDto>> GetProductsAsync(string? type, string? plantId, CancellationToken cancellationToken = default)
     {
         var query = _db.Products.Include(p => p.ProductType).Where(p => p.IsActive).AsQueryable();
 
@@ -36,7 +36,7 @@ public class ProductService : IProductService
         }).ToList();
     }
 
-    public async Task<IReadOnlyList<VendorDto>> GetVendorsAsync(string? type, string? siteCode, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<VendorDto>> GetVendorsAsync(string? type, string? plantId, CancellationToken cancellationToken = default)
     {
         var query = _db.Vendors.Where(v => v.IsActive);
 
@@ -47,11 +47,11 @@ public class ProductService : IProductService
             .OrderBy(v => v.Name)
             .ToListAsync(cancellationToken);
 
-        if (!string.IsNullOrEmpty(siteCode))
+        if (!string.IsNullOrEmpty(plantId))
         {
             list = list.Where(v =>
-                !string.IsNullOrEmpty(v.SiteCode) &&
-                v.SiteCode.Split(',').Select(s => s.Trim()).Contains(siteCode)
+                !string.IsNullOrEmpty(v.PlantIds) &&
+                v.PlantIds.Split(',').Select(s => s.Trim()).Contains(plantId)
             ).ToList();
         }
 

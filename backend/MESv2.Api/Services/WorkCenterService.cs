@@ -105,12 +105,12 @@ public class WorkCenterService : IWorkCenterService
         return true;
     }
 
-    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string siteCode, string date, int limit, CancellationToken cancellationToken = default)
+    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string date, int limit, CancellationToken cancellationToken = default)
     {
         if (!DateTime.TryParse(date, out var dateParsed))
             dateParsed = DateTime.UtcNow.Date;
 
-        var tz = await GetPlantTimeZoneAsync(siteCode, cancellationToken);
+        var tz = await GetPlantTimeZoneAsync(plantId, cancellationToken);
         var localDate = dateParsed.Date;
         var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
         var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
@@ -262,28 +262,28 @@ public class WorkCenterService : IWorkCenterService
         return list.Select(c => new CharacteristicDto { Id = c.Id, Name = c.Name }).ToList();
     }
 
-    private async Task<string> GetSiteCodeForWorkCenter(Guid wcId, CancellationToken cancellationToken)
+    private async Task<Guid> GetPlantIdForWorkCenter(Guid wcId, CancellationToken cancellationToken)
     {
-        var siteCode = await _db.WorkCenterProductionLines
+        var plantId = await _db.WorkCenterProductionLines
             .Where(wpl => wpl.WorkCenterId == wcId)
-            .Select(wpl => wpl.ProductionLine.Plant.Code)
+            .Select(wpl => wpl.ProductionLine.PlantId)
             .FirstOrDefaultAsync(cancellationToken);
-        return siteCode ?? string.Empty;
+        return plantId;
     }
 
-    private async Task<SerialNumber> FindOrCreateSerialAsync(string serialString, string siteCode, Guid? productId,
+    private async Task<SerialNumber> FindOrCreateSerialAsync(string serialString, Guid plantId, Guid? productId,
         Guid? millVendorId, Guid? processorVendorId, Guid? headsVendorId,
         string? heatNumber, string? coilNumber, string? lotNumber, CancellationToken cancellationToken)
     {
         var existing = await _db.SerialNumbers
-            .FirstOrDefaultAsync(s => s.Serial == serialString && s.SiteCode == siteCode, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Serial == serialString && s.PlantId == plantId, cancellationToken);
         if (existing != null) return existing;
 
         var serial = new SerialNumber
         {
             Id = Guid.NewGuid(),
             Serial = serialString,
-            SiteCode = siteCode,
+            PlantId = plantId,
             ProductId = productId,
             MillVendorId = millVendorId,
             ProcessorVendorId = processorVendorId,
@@ -307,9 +307,9 @@ public class WorkCenterService : IWorkCenterService
 
         var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
 
-        var siteCode = await GetSiteCodeForWorkCenter(wcId, cancellationToken);
+        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
         var serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilNumber}";
-        var serial = await FindOrCreateSerialAsync(serialString, siteCode, dto.ProductId,
+        var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
             dto.VendorMillId, dto.VendorProcessorId, null,
             dto.HeatNumber, dto.CoilNumber, dto.LotNumber, cancellationToken);
 
@@ -421,14 +421,14 @@ public class WorkCenterService : IWorkCenterService
 
         var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
 
-        var siteCode = await GetSiteCodeForWorkCenter(wcId, cancellationToken);
+        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
         string serialString;
         if (!string.IsNullOrEmpty(dto.LotNumber))
             serialString = $"Lot {dto.LotNumber}";
         else
             serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilSlabNumber}";
 
-        var serial = await FindOrCreateSerialAsync(serialString, siteCode, dto.ProductId,
+        var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
             null, null, dto.VendorHeadId,
             dto.HeatNumber, null, dto.LotNumber, cancellationToken);
 
@@ -535,7 +535,7 @@ public class WorkCenterService : IWorkCenterService
         return true;
     }
 
-    public async Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(string? siteCode, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(Guid? plantId, CancellationToken cancellationToken = default)
     {
         var cards = await _db.BarcodeCards.ToListAsync(cancellationToken);
         var assignedCardIds = await _db.MaterialQueueItems
@@ -568,10 +568,10 @@ public class WorkCenterService : IWorkCenterService
         CreatedAt = m.CreatedAt
     };
 
-    private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(string siteCode, CancellationToken cancellationToken)
+    private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(Guid plantId, CancellationToken cancellationToken)
     {
         var tzId = await _db.Plants
-            .Where(p => p.Code == siteCode)
+            .Where(p => p.Id == plantId)
             .Select(p => p.TimeZoneId)
             .FirstOrDefaultAsync(cancellationToken);
 

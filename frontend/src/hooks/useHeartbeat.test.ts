@@ -16,7 +16,7 @@ const mockSession: CreateActiveSessionRequest = {
   workCenterId: 'wc-1',
   productionLineId: 'pl-1',
   assetId: undefined,
-  siteCode: '000',
+  plantId: '11111111-1111-1111-1111-111111111111',
 };
 
 describe('useHeartbeat', () => {

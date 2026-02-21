@@ -9,7 +9,7 @@ public interface IWorkCenterService
     Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default);
     Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default);
     Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default);
-    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, string siteCode, string date, int limit, CancellationToken cancellationToken = default);
+    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string date, int limit, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default);
     Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task ReportFaultAsync(Guid wcId, string description, CancellationToken cancellationToken = default);
@@ -23,6 +23,6 @@ public interface IWorkCenterService
     Task<MaterialQueueItemDto> AddFitupQueueItemAsync(Guid wcId, CreateFitupQueueItemDto dto, CancellationToken cancellationToken = default);
     Task<MaterialQueueItemDto?> UpdateFitupQueueItemAsync(Guid wcId, Guid itemId, UpdateFitupQueueItemDto dto, CancellationToken cancellationToken = default);
     Task<bool> DeleteFitupQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(string? siteCode, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(Guid? plantId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, CancellationToken cancellationToken = default);
 }

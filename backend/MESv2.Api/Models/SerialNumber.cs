@@ -5,7 +5,7 @@ public class SerialNumber
     public Guid Id { get; set; }
     public string Serial { get; set; } = string.Empty;
     public Guid? ProductId { get; set; }
-    public string SiteCode { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
     public string? Notes { get; set; }
     public Guid? MillVendorId { get; set; }
     public Guid? ProcessorVendorId { get; set; }

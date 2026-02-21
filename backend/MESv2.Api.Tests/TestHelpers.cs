@@ -11,6 +11,8 @@ namespace MESv2.Api.Tests;
 public static class TestHelpers
 {
     public static readonly Guid PlantPlt1Id = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid PlantPlt2Id = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid PlantPlt3Id = Guid.Parse("33333333-3333-3333-3333-333333333333");
     public static readonly Guid WorkCenterTypeRollsId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid ProductionLine1Plt1Id = Guid.Parse("e1111111-1111-1111-1111-111111111111");
     public static readonly Guid TestUserId = Guid.Parse("99999999-9999-9999-9999-999999999999");

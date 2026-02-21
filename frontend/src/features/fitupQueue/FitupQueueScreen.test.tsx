@@ -36,7 +36,7 @@ describe('FitupQueueScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
-      user: { plantCode: '000', plantName: 'Cleveland', displayName: 'Test User' },
+      user: { defaultSiteId: '11111111-1111-1111-1111-111111111111', plantName: 'Cleveland', displayName: 'Test User' },
       logout: vi.fn(),
     });
   });
@@ -61,21 +61,21 @@ describe('FitupQueueScreen', () => {
     expect(screen.getByText(/no material in queue/i)).toBeInTheDocument();
   });
 
-  it('fetches vendors with correct type and siteCode', async () => {
+  it('fetches vendors with correct type and plantId', async () => {
     renderScreen();
     await waitFor(() => {
-      expect(vendorApi.getVendors).toHaveBeenCalledWith('head', '000');
+      expect(vendorApi.getVendors).toHaveBeenCalledWith('head', '11111111-1111-1111-1111-111111111111');
     });
   });
 
-  it('fetches products with correct type and siteCode', async () => {
+  it('fetches products with correct type and plantId', async () => {
     renderScreen();
     await waitFor(() => {
-      expect(productApi.getProducts).toHaveBeenCalledWith('head', '000');
+      expect(productApi.getProducts).toHaveBeenCalledWith('head', '11111111-1111-1111-1111-111111111111');
     });
   });
 
-  it('passes undefined siteCode when plantCode is missing', async () => {
+  it('passes undefined plantId when defaultSiteId is missing', async () => {
     mockUseAuth.mockReturnValue({
       user: { plantName: 'Unknown', displayName: 'Test User' },
       logout: vi.fn(),

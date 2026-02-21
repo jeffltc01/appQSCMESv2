@@ -7,7 +7,7 @@ import { activeSessionApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
-    user: { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin' },
+    user: { defaultSiteId: '11111111-1111-1111-1111-111111111111', plantName: 'Cleveland', displayName: 'Test Admin' },
     logout: vi.fn(),
   }),
 }));
@@ -34,7 +34,7 @@ const mockActiveSessions = [
     userId: 'u1',
     userDisplayName: 'John Doe',
     employeeNumber: 'EMP001',
-    siteCode: 'PLT1',
+    plantId: '11111111-1111-1111-1111-111111111111',
     productionLineId: 'pl1',
     productionLineName: 'Line 1',
     workCenterId: 'wc1',
@@ -80,12 +80,12 @@ describe("WhosOnFloorScreen", () => {
     });
   });
 
-  it('calls getBySite with user plantCode', async () => {
+  it('calls getBySite with user defaultSiteId', async () => {
     renderScreen();
     await waitFor(() =>
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument(),
     );
-    expect(activeSessionApi.getBySite).toHaveBeenCalledWith('PLT1');
+    expect(activeSessionApi.getBySite).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111');
   });
 
   it("displays correct title", async () => {

@@ -31,7 +31,7 @@ public class ActiveSessionsControllerTests
     public async Task GetBySite_ReturnsEmptyWhenNoSessions()
     {
         var controller = CreateController(out _);
-        var result = await controller.GetBySite("PLT1", CancellationToken.None);
+        var result = await controller.GetBySite(TestHelpers.PlantPlt1Id, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<ActiveSessionDto>>(ok.Value).ToList();
@@ -48,7 +48,7 @@ public class ActiveSessionsControllerTests
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow,
@@ -56,7 +56,7 @@ public class ActiveSessionsControllerTests
         });
         await db.SaveChangesAsync();
 
-        var result = await controller.GetBySite("PLT1", CancellationToken.None);
+        var result = await controller.GetBySite(TestHelpers.PlantPlt1Id, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<ActiveSessionDto>>(ok.Value).ToList();
@@ -75,7 +75,7 @@ public class ActiveSessionsControllerTests
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow.AddMinutes(-30),
@@ -83,7 +83,7 @@ public class ActiveSessionsControllerTests
         });
         await db.SaveChangesAsync();
 
-        var result = await controller.GetBySite("PLT1", CancellationToken.None);
+        var result = await controller.GetBySite(TestHelpers.PlantPlt1Id, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<ActiveSessionDto>>(ok.Value).ToList();
@@ -99,7 +99,7 @@ public class ActiveSessionsControllerTests
 
         var dto = new CreateActiveSessionDto
         {
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId
@@ -121,7 +121,7 @@ public class ActiveSessionsControllerTests
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow.AddHours(-1),
@@ -131,7 +131,7 @@ public class ActiveSessionsControllerTests
 
         var dto = new CreateActiveSessionDto
         {
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId
         };
@@ -152,7 +152,7 @@ public class ActiveSessionsControllerTests
             HttpContext = new DefaultHttpContext()
         };
 
-        var dto = new CreateActiveSessionDto { SiteCode = "PLT1", ProductionLineId = Guid.NewGuid(), WorkCenterId = Guid.NewGuid() };
+        var dto = new CreateActiveSessionDto { PlantId = TestHelpers.PlantPlt1Id, ProductionLineId = Guid.NewGuid(), WorkCenterId = Guid.NewGuid() };
         var result = await controller.Upsert(dto, CancellationToken.None);
         Assert.IsType<UnauthorizedResult>(result);
     }
@@ -168,7 +168,7 @@ public class ActiveSessionsControllerTests
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = oldTime,
@@ -201,7 +201,7 @@ public class ActiveSessionsControllerTests
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            SiteCode = "PLT1",
+            PlantId = TestHelpers.PlantPlt1Id,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             WorkCenterId = TestHelpers.wcRollsId,
             LoginDateTime = DateTime.UtcNow,

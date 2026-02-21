@@ -19,14 +19,14 @@ public class ActiveSessionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ActiveSessionDto>>> GetBySite([FromQuery] string siteCode, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<ActiveSessionDto>>> GetBySite([FromQuery] Guid plantId, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
         var list = await _db.ActiveSessions
             .Include(s => s.User)
             .Include(s => s.WorkCenter)
             .Include(s => s.ProductionLine)
-            .Where(s => s.SiteCode == siteCode)
+            .Where(s => s.PlantId == plantId)
             .OrderBy(s => s.ProductionLine.Name).ThenBy(s => s.WorkCenter.Name)
             .Select(s => new ActiveSessionDto
             {
@@ -34,7 +34,7 @@ public class ActiveSessionsController : ControllerBase
                 UserId = s.UserId,
                 UserDisplayName = s.User.DisplayName,
                 EmployeeNumber = s.User.EmployeeNumber,
-                SiteCode = s.SiteCode,
+                PlantId = s.PlantId,
                 ProductionLineId = s.ProductionLineId,
                 ProductionLineName = s.ProductionLine.Name,
                 WorkCenterId = s.WorkCenterId,
@@ -59,7 +59,7 @@ public class ActiveSessionsController : ControllerBase
         var now = DateTime.UtcNow;
         if (existing != null)
         {
-            existing.SiteCode = dto.SiteCode;
+            existing.PlantId = dto.PlantId;
             existing.ProductionLineId = dto.ProductionLineId;
             existing.WorkCenterId = dto.WorkCenterId;
             existing.AssetId = dto.AssetId;
@@ -72,7 +72,7 @@ public class ActiveSessionsController : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 UserId = userId.Value,
-                SiteCode = dto.SiteCode,
+                PlantId = dto.PlantId,
                 ProductionLineId = dto.ProductionLineId,
                 WorkCenterId = dto.WorkCenterId,
                 AssetId = dto.AssetId,

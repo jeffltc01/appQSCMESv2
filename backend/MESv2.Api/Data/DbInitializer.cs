@@ -204,13 +204,13 @@ public static class DbInitializer
         );
 
         context.Vendors.AddRange(
-            new Vendor { Id = Guid.Parse("51000001-0000-0000-0000-000000000001"), Name = "Nucor Steel", VendorType = "mill", SiteCode = "000,600,700", IsActive = true },
-            new Vendor { Id = Guid.Parse("51000002-0000-0000-0000-000000000002"), Name = "Steel Dynamics", VendorType = "mill", SiteCode = "000,600", IsActive = true },
-            new Vendor { Id = Guid.Parse("51000003-0000-0000-0000-000000000003"), Name = "NLMK", VendorType = "mill", SiteCode = "700", IsActive = true },
-            new Vendor { Id = Guid.Parse("52000001-0000-0000-0000-000000000001"), Name = "Metals USA", VendorType = "processor", SiteCode = "000,600,700", IsActive = true },
-            new Vendor { Id = Guid.Parse("52000002-0000-0000-0000-000000000002"), Name = "Steel Technologies", VendorType = "processor", SiteCode = "000", IsActive = true },
-            new Vendor { Id = Guid.Parse("53000001-0000-0000-0000-000000000001"), Name = "CMF Inc", VendorType = "head", SiteCode = "000,600", IsActive = true },
-            new Vendor { Id = Guid.Parse("53000002-0000-0000-0000-000000000002"), Name = "Compco Industries", VendorType = "head", SiteCode = "000,600,700", IsActive = true }
+            new Vendor { Id = Guid.Parse("51000001-0000-0000-0000-000000000001"), Name = "Nucor Steel", VendorType = "mill", PlantIds = $"{plant1Id},{plant2Id},{plant3Id}", IsActive = true },
+            new Vendor { Id = Guid.Parse("51000002-0000-0000-0000-000000000002"), Name = "Steel Dynamics", VendorType = "mill", PlantIds = $"{plant1Id},{plant2Id}", IsActive = true },
+            new Vendor { Id = Guid.Parse("51000003-0000-0000-0000-000000000003"), Name = "NLMK", VendorType = "mill", PlantIds = $"{plant3Id}", IsActive = true },
+            new Vendor { Id = Guid.Parse("52000001-0000-0000-0000-000000000001"), Name = "Metals USA", VendorType = "processor", PlantIds = $"{plant1Id},{plant2Id},{plant3Id}", IsActive = true },
+            new Vendor { Id = Guid.Parse("52000002-0000-0000-0000-000000000002"), Name = "Steel Technologies", VendorType = "processor", PlantIds = $"{plant1Id}", IsActive = true },
+            new Vendor { Id = Guid.Parse("53000001-0000-0000-0000-000000000001"), Name = "CMF Inc", VendorType = "head", PlantIds = $"{plant1Id},{plant2Id}", IsActive = true },
+            new Vendor { Id = Guid.Parse("53000002-0000-0000-0000-000000000002"), Name = "Compco Industries", VendorType = "head", PlantIds = $"{plant1Id},{plant2Id},{plant3Id}", IsActive = true }
         );
 
         context.PlantGears.AddRange(

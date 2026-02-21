@@ -41,5 +41,5 @@ export function useHeartbeat(active: boolean, session?: CreateActiveSessionReque
       cancelled = true;
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [active, session?.workCenterId, session?.productionLineId, session?.assetId, session?.siteCode]);
+  }, [active, session?.workCenterId, session?.productionLineId, session?.assetId, session?.plantId]);
 }

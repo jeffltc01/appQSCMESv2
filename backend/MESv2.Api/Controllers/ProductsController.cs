@@ -23,10 +23,10 @@ public class ProductsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductListDto>>> GetProducts(
         [FromQuery] string? type,
-        [FromQuery] string? siteCode,
+        [FromQuery] string? plantId,
         CancellationToken cancellationToken)
     {
-        var list = await _productService.GetProductsAsync(type, siteCode, cancellationToken);
+        var list = await _productService.GetProductsAsync(type, plantId, cancellationToken);
         return Ok(list);
     }
 

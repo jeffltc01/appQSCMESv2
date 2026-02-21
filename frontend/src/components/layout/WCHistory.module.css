@@ -82,6 +82,33 @@
   color: #212529;
 }
 
+.queueTableHeader {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #212529;
+  align-items: end;
+}
+
+.queueRow {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 16px;
+  color: #212529;
+  border-bottom: 1px solid #e9ecef;
+  align-items: center;
+}
+
+.queueRow:hover {
+  background: #f1f3f5;
+}
+
 .noRecords {
   font-size: 16px;
   color: #868686;

@@ -302,7 +302,7 @@ export interface AdminVendor {
   id: string;
   name: string;
   vendorType: string;
-  siteCode?: string;
+  plantIds?: string;
   isActive: boolean;
 }
 
@@ -422,7 +422,7 @@ export interface ActiveSession {
   userId: string;
   userDisplayName: string;
   employeeNumber: string;
-  siteCode: string;
+  plantId: string;
   productionLineId: string;
   productionLineName: string;
   workCenterId: string;

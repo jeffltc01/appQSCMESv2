@@ -3,7 +3,7 @@ namespace MESv2.Api.Models;
 public class SiteSchedule
 {
     public Guid Id { get; set; }
-    public string SiteCode { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
     public decimal Quantity { get; set; }
     public decimal QuantityComplete { get; set; }
     public int TankSize { get; set; }

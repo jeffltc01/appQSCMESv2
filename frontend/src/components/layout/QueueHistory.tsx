@@ -12,10 +12,9 @@ export function QueueHistory({ transactions }: QueueHistoryProps) {
         <span className={styles.headerCount}>Recent Queue Activity</span>
       </div>
 
-      <div className={styles.tableHeader}>
-        <span className={styles.colDateTime}>Time</span>
+      <div className={styles.queueTableHeader}>
+        <span className={styles.colDateTime}>Date/Time</span>
         <span className={styles.colSerial}>Item</span>
-        <span className={styles.colSize}>Action</span>
       </div>
 
       <div className={styles.tableBody}>
@@ -24,16 +23,20 @@ export function QueueHistory({ transactions }: QueueHistoryProps) {
         ) : (
           transactions.map((tx) => {
             const dt = new Date(tx.timestamp);
+            const dateStr = dt.toLocaleDateString('en-US', {
+              month: 'numeric',
+              day: 'numeric',
+            });
             const timeStr = dt.toLocaleTimeString('en-US', {
               hour: 'numeric',
               minute: '2-digit',
               hour12: true,
             });
+            const dtStr = `${dateStr} ${timeStr}`;
             return (
-              <div key={tx.id} className={styles.row}>
-                <span className={styles.colDateTime}>{timeStr}</span>
+              <div key={tx.id} className={styles.queueRow}>
+                <span className={styles.colDateTime}>{dtStr}</span>
                 <span className={styles.colSerial}>{tx.itemSummary}</span>
-                <span className={styles.colSize}>{tx.action}</span>
               </div>
             );
           })

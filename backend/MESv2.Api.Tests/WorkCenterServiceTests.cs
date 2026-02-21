@@ -92,8 +92,8 @@ public class WorkCenterServiceTests
         SeedProductionRecord(db, TestHelpers.wcRollsId, utcTimestamp);
         await db.SaveChangesAsync();
 
-        // Querying for March 14 (local) should find this record. Site code "000" = Cleveland (America/Chicago).
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, "000", "2026-03-14", 10);
+        // Querying for March 14 (local) should find this record. PlantPlt1Id = Cleveland (America/Chicago).
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-03-14", 10);
         Assert.Equal(1, result.DayCount);
         Assert.Single(result.RecentRecords);
     }
@@ -109,7 +109,7 @@ public class WorkCenterServiceTests
         await db.SaveChangesAsync();
 
         // Querying for March 15 (local) should NOT find this record (it's March 14 in Central time)
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, "000", "2026-03-15", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-03-15", 10);
         Assert.Equal(0, result.DayCount);
         Assert.Empty(result.RecentRecords);
     }
@@ -126,7 +126,7 @@ public class WorkCenterServiceTests
         SeedProductionRecord(db, TestHelpers.wcRollsId, new DateTime(2026, 2, 20, 23, 59, 0, DateTimeKind.Utc));
         await db.SaveChangesAsync();
 
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, "000", "2026-02-20", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
         Assert.Equal(2, result.DayCount);
         Assert.Equal(2, result.RecentRecords.Count);
     }

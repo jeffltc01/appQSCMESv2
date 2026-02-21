@@ -4,7 +4,7 @@ public class ActiveSession
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public string SiteCode { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
     public Guid ProductionLineId { get; set; }
     public Guid WorkCenterId { get; set; }
     public Guid? AssetId { get; set; }

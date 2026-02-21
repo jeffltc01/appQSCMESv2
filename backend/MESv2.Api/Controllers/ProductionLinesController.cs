@@ -18,11 +18,10 @@ public class ProductionLinesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductionLineDto>>> GetProductionLines([FromQuery] string siteCode, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<ProductionLineDto>>> GetProductionLines([FromQuery] Guid plantId, CancellationToken cancellationToken)
     {
         var list = await _db.ProductionLines
-            .Include(l => l.Plant)
-            .Where(l => l.Plant.Code == siteCode)
+            .Where(l => l.PlantId == plantId)
             .OrderBy(l => l.Name)
             .Select(l => new ProductionLineDto { Id = l.Id, Name = l.Name, PlantId = l.PlantId })
             .ToListAsync(cancellationToken);

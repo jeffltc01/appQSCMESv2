@@ -238,13 +238,13 @@ export interface UpdateUserRequest {
 export interface CreateVendorRequest {
   name: string;
   vendorType: string;
-  siteCode?: string;
+  plantIds?: string;
 }
 
 export interface UpdateVendorRequest {
   name: string;
   vendorType: string;
-  siteCode?: string;
+  plantIds?: string;
   isActive: boolean;
 }
 
@@ -346,7 +346,7 @@ export interface CreateActiveSessionRequest {
   workCenterId: string;
   productionLineId: string;
   assetId?: string;
-  siteCode: string;
+  plantId: string;
 }
 
 export interface CreateProductionLineRequest {

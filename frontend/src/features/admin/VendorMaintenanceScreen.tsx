@@ -11,17 +11,17 @@ import styles from './CardList.module.css';
 
 const vendorTypeOptions = ['mill', 'processor', 'head'];
 
-function parseSiteCodes(raw?: string | null): string[] {
+function parsePlantIds(raw?: string | null): string[] {
   if (!raw) return [];
   return raw.split(',').map(s => s.trim()).filter(Boolean);
 }
 
-function joinSiteCodes(codes: string[]): string | undefined {
-  return codes.length > 0 ? codes.join(',') : undefined;
+function joinPlantIds(ids: string[]): string | undefined {
+  return ids.length > 0 ? ids.join(',') : undefined;
 }
 
-function siteCodesToNames(codes: string[], sites: Plant[]): string[] {
-  return codes.map(c => sites.find(s => s.code === c)?.name ?? c);
+function plantIdsToNames(ids: string[], sites: Plant[]): string[] {
+  return ids.map(id => sites.find(s => s.id === id)?.name ?? id);
 }
 
 export function VendorMaintenanceScreen() {
@@ -65,35 +65,35 @@ export function VendorMaintenanceScreen() {
     setEditing(item);
     setName(item.name); setVendorType(item.vendorType);
     if (isSiteScoped) {
-      const codes = parseSiteCodes(item.siteCode);
-      setSelectedSites(codes.includes(user!.plantCode) ? [user!.plantCode] : []);
+      const ids = parsePlantIds(item.plantIds);
+      setSelectedSites(ids.includes(user!.defaultSiteId) ? [user!.defaultSiteId] : []);
     } else {
-      setSelectedSites(parseSiteCodes(item.siteCode));
+      setSelectedSites(parsePlantIds(item.plantIds));
     }
     setIsActive(item.isActive);
     setError(''); setModalOpen(true);
   };
 
-  const buildMergedSiteCodes = (): string | undefined => {
-    if (!isSiteScoped) return joinSiteCodes(selectedSites);
-    const originalCodes = editing ? parseSiteCodes(editing.siteCode) : [];
-    const otherSites = originalCodes.filter(c => c !== user!.plantCode);
-    const mySiteSelected = selectedSites.includes(user!.plantCode);
-    const merged = mySiteSelected ? [...otherSites, user!.plantCode] : otherSites;
-    return joinSiteCodes(merged);
+  const buildMergedPlantIds = (): string | undefined => {
+    if (!isSiteScoped) return joinPlantIds(selectedSites);
+    const originalIds = editing ? parsePlantIds(editing.plantIds) : [];
+    const otherSites = originalIds.filter(id => id !== user!.defaultSiteId);
+    const mySiteSelected = selectedSites.includes(user!.defaultSiteId);
+    const merged = mySiteSelected ? [...otherSites, user!.defaultSiteId] : otherSites;
+    return joinPlantIds(merged);
   };
 
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      const mergedSiteCode = buildMergedSiteCodes();
+      const mergedPlantIds = buildMergedPlantIds();
       if (editing) {
         const updated = await adminVendorApi.update(editing.id, {
-          name, vendorType, siteCode: mergedSiteCode, isActive,
+          name, vendorType, plantIds: mergedPlantIds, isActive,
         });
         setItems(prev => prev.map(v => v.id === updated.id ? updated : v));
       } else {
-        const created = await adminVendorApi.create({ name, vendorType, siteCode: mergedSiteCode });
+        const created = await adminVendorApi.create({ name, vendorType, plantIds: mergedPlantIds });
         setItems(prev => [...prev, created]);
       }
       setModalOpen(false);
@@ -138,8 +138,8 @@ export function VendorMaintenanceScreen() {
                 <span className={styles.cardFieldLabel}>Sites</span>
                 <span className={styles.cardFieldValue}>
                   {(() => {
-                    const codes = parseSiteCodes(item.siteCode);
-                    const names = siteCodesToNames(codes, sites);
+                    const ids = parsePlantIds(item.plantIds);
+                    const names = plantIdsToNames(ids, sites);
                     return names.length > 0 ? names.map(n => (
                       <span key={n} className={`${styles.badge} ${styles.badgeBlue}`} style={{ marginRight: 4 }}>
                         {n}
@@ -182,17 +182,17 @@ export function VendorMaintenanceScreen() {
         <Label>Sites</Label>
         {isSiteScoped ? (
           <Checkbox
-            label={`${user?.plantName ?? ''} (${user?.plantCode ?? ''})`}
-            checked={selectedSites.includes(user!.plantCode)}
+            label={`${user?.plantName ?? ''}`}
+            checked={selectedSites.includes(user!.defaultSiteId)}
             onChange={(_, d) => {
-              setSelectedSites(d.checked ? [user!.plantCode] : []);
+              setSelectedSites(d.checked ? [user!.defaultSiteId] : []);
             }}
           />
         ) : (
           <Dropdown
             multiselect
             value={selectedSites.length > 0
-              ? selectedSites.map(c => sites.find(s => s.code === c)?.name ?? c).join(', ')
+              ? selectedSites.map(id => sites.find(s => s.id === id)?.name ?? id).join(', ')
               : ''}
             selectedOptions={selectedSites}
             onOptionSelect={(_, d: OptionOnSelectData) => {
@@ -201,7 +201,7 @@ export function VendorMaintenanceScreen() {
             placeholder="Select sites..."
           >
             {sites.map(s => (
-              <Option key={s.code} value={s.code} text={`${s.name} (${s.code})`}>
+              <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>
                 {s.name} ({s.code})
               </Option>
             ))}

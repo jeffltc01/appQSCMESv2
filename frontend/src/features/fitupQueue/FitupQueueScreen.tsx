@@ -45,15 +45,15 @@ export function FitupQueueScreen(props: WorkCenterProps) {
 
   const loadLookups = useCallback(async () => {
     try {
-      const siteCode = user?.plantCode;
+      const plantId = user?.defaultSiteId;
       const [p, v] = await Promise.all([
-        productApi.getProducts('head', siteCode),
-        vendorApi.getVendors('head', siteCode),
+        productApi.getProducts('head', plantId),
+        vendorApi.getVendors('head', plantId),
       ]);
       setProducts(p);
       setVendors(v);
     } catch { /* keep empty */ }
-  }, [user?.plantCode]);
+  }, [user?.defaultSiteId]);
 
   useEffect(() => {
     loadQueue();

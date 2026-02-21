@@ -8,6 +8,10 @@ namespace MESv2.Api.Tests;
 
 public class VendorsControllerTests
 {
+    private static readonly string Plt1 = TestHelpers.PlantPlt1Id.ToString();
+    private static readonly string Plt2 = TestHelpers.PlantPlt2Id.ToString();
+    private static readonly string Plt3 = TestHelpers.PlantPlt3Id.ToString();
+
     private VendorsController CreateController(out Data.MesDbContext db)
     {
         db = TestHelpers.CreateInMemoryContext();
@@ -15,25 +19,25 @@ public class VendorsControllerTests
         return new VendorsController(productService, db);
     }
 
-    private static void SeedSiteSpecificVendors(Data.MesDbContext db)
+    private static void SeedPlantSpecificVendors(Data.MesDbContext db)
     {
         db.Vendors.AddRange(
-            new Vendor { Id = Guid.NewGuid(), Name = "Global Mill", VendorType = "mill", SiteCode = null, IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", SiteCode = "000", IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", SiteCode = "000,600", IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "WJ Only Mill", VendorType = "mill", SiteCode = "700", IsActive = true },
-            new Vendor { Id = Guid.NewGuid(), Name = "Inactive Cleveland Mill", VendorType = "mill", SiteCode = "000", IsActive = false }
+            new Vendor { Id = Guid.NewGuid(), Name = "Global Mill", VendorType = "mill", PlantIds = null, IsActive = true },
+            new Vendor { Id = Guid.NewGuid(), Name = "Cleveland Mill", VendorType = "mill", PlantIds = Plt1, IsActive = true },
+            new Vendor { Id = Guid.NewGuid(), Name = "Multi Mill", VendorType = "mill", PlantIds = $"{Plt1},{Plt2}", IsActive = true },
+            new Vendor { Id = Guid.NewGuid(), Name = "WJ Only Mill", VendorType = "mill", PlantIds = Plt3, IsActive = true },
+            new Vendor { Id = Guid.NewGuid(), Name = "Inactive Cleveland Mill", VendorType = "mill", PlantIds = Plt1, IsActive = false }
         );
         db.SaveChanges();
     }
 
     [Fact]
-    public async Task GetVendors_WithSiteCode_ReturnsOnlyExplicitlyMatchingVendors()
+    public async Task GetVendors_WithPlantId_ReturnsOnlyExplicitlyMatchingVendors()
     {
         var controller = CreateController(out var db);
-        SeedSiteSpecificVendors(db);
+        SeedPlantSpecificVendors(db);
 
-        var result = await controller.GetVendors("mill", "000", CancellationToken.None);
+        var result = await controller.GetVendors("mill", Plt1, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<VendorDto>>(ok.Value).ToList();
@@ -45,10 +49,10 @@ public class VendorsControllerTests
     }
 
     [Fact]
-    public async Task GetVendors_WithoutSiteCode_ReturnsAllActiveVendors()
+    public async Task GetVendors_WithoutPlantId_ReturnsAllActiveVendors()
     {
         var controller = CreateController(out var db);
-        SeedSiteSpecificVendors(db);
+        SeedPlantSpecificVendors(db);
 
         var result = await controller.GetVendors("mill", null, CancellationToken.None);
 
@@ -62,12 +66,12 @@ public class VendorsControllerTests
     }
 
     [Fact]
-    public async Task GetVendors_SiteCode700_ExcludesClevelandSpecific()
+    public async Task GetVendors_PlantId3_ExcludesClevelandSpecific()
     {
         var controller = CreateController(out var db);
-        SeedSiteSpecificVendors(db);
+        SeedPlantSpecificVendors(db);
 
-        var result = await controller.GetVendors("mill", "700", CancellationToken.None);
+        var result = await controller.GetVendors("mill", Plt3, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<VendorDto>>(ok.Value).ToList();

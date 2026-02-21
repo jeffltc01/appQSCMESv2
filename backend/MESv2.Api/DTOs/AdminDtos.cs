@@ -100,7 +100,7 @@ public class AdminVendorDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string VendorType { get; set; } = string.Empty;
-    public string? SiteCode { get; set; }
+    public string? PlantIds { get; set; }
     public bool IsActive { get; set; }
 }
 
@@ -108,14 +108,14 @@ public class CreateVendorDto
 {
     public string Name { get; set; } = string.Empty;
     public string VendorType { get; set; } = string.Empty;
-    public string? SiteCode { get; set; }
+    public string? PlantIds { get; set; }
 }
 
 public class UpdateVendorDto
 {
     public string Name { get; set; } = string.Empty;
     public string VendorType { get; set; } = string.Empty;
-    public string? SiteCode { get; set; }
+    public string? PlantIds { get; set; }
     public bool IsActive { get; set; }
 }
 
@@ -366,7 +366,7 @@ public class ActiveSessionDto
     public Guid UserId { get; set; }
     public string UserDisplayName { get; set; } = string.Empty;
     public string EmployeeNumber { get; set; } = string.Empty;
-    public string SiteCode { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
     public Guid ProductionLineId { get; set; }
     public string ProductionLineName { get; set; } = string.Empty;
     public Guid WorkCenterId { get; set; }
@@ -381,7 +381,7 @@ public class CreateActiveSessionDto
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public Guid? AssetId { get; set; }
-    public string SiteCode { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
 }
 
 // ---- Product Types (reference) ----

@@ -48,7 +48,7 @@ export function TabletSetupScreen() {
     try {
       const [wcs, pls] = await Promise.all([
         workCenterApi.getWorkCenters(),
-        productionLineApi.getProductionLines(user.plantCode),
+        productionLineApi.getProductionLines(user.defaultSiteId),
       ]);
       setWorkCenters(wcs);
       setProductionLines(pls);

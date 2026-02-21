@@ -23,10 +23,10 @@ public class VendorsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<VendorDto>>> GetVendors(
         [FromQuery] string? type,
-        [FromQuery] string? siteCode,
+        [FromQuery] string? plantId,
         CancellationToken cancellationToken)
     {
-        var list = await _productService.GetVendorsAsync(type, siteCode, cancellationToken);
+        var list = await _productService.GetVendorsAsync(type, plantId, cancellationToken);
         return Ok(list);
     }
 
@@ -40,7 +40,7 @@ public class VendorsController : ControllerBase
                 Id = v.Id,
                 Name = v.Name,
                 VendorType = v.VendorType,
-                SiteCode = v.SiteCode,
+                PlantIds = v.PlantIds,
                 IsActive = v.IsActive
             })
             .ToListAsync(cancellationToken);
@@ -55,12 +55,12 @@ public class VendorsController : ControllerBase
             Id = Guid.NewGuid(),
             Name = dto.Name,
             VendorType = dto.VendorType,
-            SiteCode = dto.SiteCode,
+            PlantIds = dto.PlantIds,
             IsActive = true
         };
         _db.Vendors.Add(vendor);
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, SiteCode = vendor.SiteCode, IsActive = vendor.IsActive });
+        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, PlantIds = vendor.PlantIds, IsActive = vendor.IsActive });
     }
 
     [HttpPut("{id:guid}")]
@@ -70,10 +70,10 @@ public class VendorsController : ControllerBase
         if (vendor == null) return NotFound();
         vendor.Name = dto.Name;
         vendor.VendorType = dto.VendorType;
-        vendor.SiteCode = dto.SiteCode;
+        vendor.PlantIds = dto.PlantIds;
         vendor.IsActive = dto.IsActive;
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, SiteCode = vendor.SiteCode, IsActive = vendor.IsActive });
+        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, PlantIds = vendor.PlantIds, IsActive = vendor.IsActive });
     }
 
     [HttpDelete("{id:guid}")]
@@ -83,6 +83,6 @@ public class VendorsController : ControllerBase
         if (vendor == null) return NotFound();
         vendor.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
-        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, SiteCode = vendor.SiteCode, IsActive = vendor.IsActive });
+        return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, PlantIds = vendor.PlantIds, IsActive = vendor.IsActive });
     }
 }

@@ -44,17 +44,17 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
 
   const loadLookups = useCallback(async () => {
     try {
-      const siteCode = user?.plantCode;
+      const plantId = user?.defaultSiteId;
       const [p, m, pr] = await Promise.all([
-        productApi.getProducts('plate', siteCode),
-        vendorApi.getVendors('mill', siteCode),
-        vendorApi.getVendors('processor', siteCode),
+        productApi.getProducts('plate', plantId),
+        vendorApi.getVendors('mill', plantId),
+        vendorApi.getVendors('processor', plantId),
       ]);
       setProducts(p);
       setMills(m);
       setProcessors(pr);
     } catch { /* keep empty */ }
-  }, [user?.plantCode]);
+  }, [user?.defaultSiteId]);
 
   useEffect(() => {
     loadQueue();
