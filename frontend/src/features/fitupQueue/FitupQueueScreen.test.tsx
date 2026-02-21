@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { FitupQueueScreen } from './FitupQueueScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
+import { productApi, vendorApi } from '../../api/endpoints';
 
+const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantCode: '000', plantName: 'Cleveland', displayName: 'Test User' },
-    logout: vi.fn(),
-  }),
+  useAuth: (...args: unknown[]) => mockUseAuth(...args),
 }));
 
 vi.mock('../../api/endpoints', () => ({
@@ -34,7 +33,13 @@ function renderScreen(overrides: Partial<WorkCenterProps> = {}) {
 }
 
 describe('FitupQueueScreen', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { plantCode: '000', plantName: 'Cleveland', displayName: 'Test User' },
+      logout: vi.fn(),
+    });
+  });
 
   it('renders queue header', () => {
     renderScreen();
@@ -54,5 +59,31 @@ describe('FitupQueueScreen', () => {
   it('shows empty queue message', () => {
     renderScreen();
     expect(screen.getByText(/no material in queue/i)).toBeInTheDocument();
+  });
+
+  it('fetches vendors with correct type and siteCode', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(vendorApi.getVendors).toHaveBeenCalledWith('head', '000');
+    });
+  });
+
+  it('fetches products with correct type and siteCode', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(productApi.getProducts).toHaveBeenCalledWith('head', '000');
+    });
+  });
+
+  it('passes undefined siteCode when plantCode is missing', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { plantName: 'Unknown', displayName: 'Test User' },
+      logout: vi.fn(),
+    });
+    renderScreen();
+    await waitFor(() => {
+      expect(vendorApi.getVendors).toHaveBeenCalledWith('head', undefined);
+      expect(productApi.getProducts).toHaveBeenCalledWith('head', undefined);
+    });
   });
 });

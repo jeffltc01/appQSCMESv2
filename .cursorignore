@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# .NET build artifacts
+backend/**/bin/
+backend/**/obj/
+migration/**/bin/
+migration/**/obj/
+
+# Test output
+frontend/coverage/
+backend/TestResults/
+
+# IDE / tooling
+.vs/
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal

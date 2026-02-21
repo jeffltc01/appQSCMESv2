@@ -463,9 +463,11 @@ This junction entity allows per-production-line overrides for work center settin
 | **Id** | GUID (PK) | Unique identifier |
 | **VendorName** | string | Display name |
 | **VendorType** | string | Categorization — "Mill", "Processor", "Head", etc. |
-| **SiteCode** | string (FK) | Site-specific |
+| **SiteCode** | string (nullable) | Comma-separated plant codes (e.g. `"000,600"`). See rules below. |
 | **SageVendorNo** | string (nullable) | External reference to Sage ERP — for future integration |
 | **IsActive** | bool | Soft delete |
+
+**SiteCode rules:** A vendor is only available at sites explicitly listed in its `SiteCode` value. **Null or empty `SiteCode` means the vendor is unassigned and will not appear in any site-specific workstation query** (e.g. Rolls Material, Fitup Queue). To make a vendor available at all sites, list every site code explicitly (e.g. `"000,600,700"`). The admin Vendor Maintenance screen always shows all vendors regardless of `SiteCode`.
 
 **Dropped from v1**: `IsMill`, `IsProcessor` — superseded by `VendorType`.
 

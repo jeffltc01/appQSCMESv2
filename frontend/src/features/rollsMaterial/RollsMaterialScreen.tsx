@@ -35,11 +35,6 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
   const [processors, setProcessors] = useState<Vendor[]>([]);
   const [selectingField, setSelectingField] = useState<'product' | 'mill' | 'processor' | null>(null);
 
-  useEffect(() => {
-    loadQueue();
-    loadLookups();
-  }, [workCenterId]);
-
   const loadQueue = useCallback(async () => {
     try {
       const items = await workCenterApi.getMaterialQueue(targetWCId);
@@ -60,6 +55,11 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
       setProcessors(pr);
     } catch { /* keep empty */ }
   }, [user?.plantCode]);
+
+  useEffect(() => {
+    loadQueue();
+    loadLookups();
+  }, [workCenterId, loadQueue, loadLookups]);
 
   const openAdd = useCallback(() => {
     setForm(emptyForm);

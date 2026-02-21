@@ -36,11 +36,6 @@ export function FitupQueueScreen(props: WorkCenterProps) {
   const [selectingField, setSelectingField] = useState<'product' | 'vendor' | null>(null);
   const [selectedVendorType, setSelectedVendorType] = useState<'cmf' | 'compco' | null>(null);
 
-  useEffect(() => {
-    loadQueue();
-    loadLookups();
-  }, [workCenterId]);
-
   const loadQueue = useCallback(async () => {
     try {
       const items = await workCenterApi.getMaterialQueue(targetWCId, 'heads');
@@ -59,6 +54,11 @@ export function FitupQueueScreen(props: WorkCenterProps) {
       setVendors(v);
     } catch { /* keep empty */ }
   }, [user?.plantCode]);
+
+  useEffect(() => {
+    loadQueue();
+    loadLookups();
+  }, [workCenterId, loadQueue, loadLookups]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
