@@ -63,7 +63,7 @@ public class ProductionRecordServiceTests
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("SN-CATCHUP", result.SerialNumber);
         Assert.NotNull(result.Warning);
-        Assert.Contains("catch-up", result.Warning, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("annotation created", result.Warning, StringComparison.OrdinalIgnoreCase);
 
         var serial = await db.SerialNumbers.FirstOrDefaultAsync(s => s.Serial == "SN-CATCHUP");
         Assert.NotNull(serial);
@@ -140,6 +140,68 @@ public class ProductionRecordServiceTests
 
         Assert.NotNull(result.Warning);
         Assert.Contains("Duplicate", result.Warning, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Create_CatchUpFlow_CreatesAnnotation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new ProductionRecordService(db);
+        var dto = new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-CATCHUP-ANN",
+            WorkCenterId = TestHelpers.wcLongSeamId,
+            AssetId = TestHelpers.TestAssetId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        Assert.NotNull(result.Warning);
+        Assert.Contains("annotation created", result.Warning, StringComparison.OrdinalIgnoreCase);
+
+        var annotation = await db.Annotations
+            .Include(a => a.AnnotationType)
+            .FirstOrDefaultAsync(a => a.ProductionRecordId == result.Id);
+        Assert.NotNull(annotation);
+        Assert.Equal("Correction Needed", annotation.AnnotationType.Name);
+        Assert.True(annotation.Flag);
+        Assert.Contains("SN-CATCHUP-ANN", annotation.Notes!);
+        Assert.Contains("Rolls scan missed", annotation.Notes!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Create_ExistingSerial_NoAnnotation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var serial = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SN-EXISTS",
+            ProductId = null,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(serial);
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        var dto = new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-EXISTS",
+            WorkCenterId = TestHelpers.wcLongSeamId,
+            AssetId = TestHelpers.TestAssetId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        var annotation = await db.Annotations
+            .FirstOrDefaultAsync(a => a.ProductionRecordId == result.Id);
+        Assert.Null(annotation);
     }
 
     [Fact]

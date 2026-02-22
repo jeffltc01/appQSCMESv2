@@ -31,6 +31,9 @@ builder.Services.AddScoped<IHydroService, HydroService>();
 builder.Services.AddScoped<IXrayQueueService, XrayQueueService>();
 builder.Services.AddScoped<ISellableTankStatusService, SellableTankStatusService>();
 
+builder.Services.Configure<NiceLabelOptions>(builder.Configuration.GetSection("NiceLabel"));
+builder.Services.AddHttpClient<INiceLabelService, NiceLabelService>();
+
 // --- JWT configuration ---
 string jwtKey;
 if (builder.Environment.IsDevelopment())
@@ -111,6 +114,7 @@ using (var scope = app.Services.CreateScope())
         DbInitializer.SeedReferenceData(context);
 
     DbInitializer.SyncJoinTables(context);
+    DbInitializer.EnsureAssembledProducts(context);
 }
 
 // --- Global exception handler (non-Development) ---

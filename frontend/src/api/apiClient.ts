@@ -46,10 +46,12 @@ async function request<T>(
     let error: ApiError;
     try {
       const body = await response.json();
-      error = {
-        message: body.message ?? body.title ?? `Request failed with status ${response.status}`,
-        code: body.code ?? body.status?.toString(),
-      };
+      error = typeof body === 'string'
+        ? { message: body }
+        : {
+            message: body.message ?? body.title ?? `Request failed with status ${response.status}`,
+            code: body.code ?? body.status?.toString(),
+          };
     } catch {
       error = { message: `Request failed with status ${response.status}` };
     }

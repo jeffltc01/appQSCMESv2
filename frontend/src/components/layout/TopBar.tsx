@@ -38,7 +38,7 @@ export function TopBar({
   const [newWelderEmpNo, setNewWelderEmpNo] = useState('');
   const [lookupName, setLookupName] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!addWelderOpen) {

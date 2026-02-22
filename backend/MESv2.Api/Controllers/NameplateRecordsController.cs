@@ -39,9 +39,16 @@ public class NameplateRecordsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/reprint")]
-    public async Task<ActionResult> Reprint(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<NameplateRecordResponseDto>> Reprint(Guid id, CancellationToken cancellationToken)
     {
-        await _nameplateService.ReprintAsync(id, cancellationToken);
-        return NoContent();
+        try
+        {
+            var result = await _nameplateService.ReprintAsync(id, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 }

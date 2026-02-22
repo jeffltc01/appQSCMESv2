@@ -63,14 +63,14 @@ const mockLookupResult = {
       type: 'Long Seam',
       completedBy: 'John Doe',
       assetName: 'Welder A',
-      inspectionResult: null,
+      inspectionResult: undefined,
     },
     {
       timestamp: '2026-02-14T10:00:00Z',
       workCenterName: 'Inspection 1',
       type: 'Inspection',
       completedBy: 'Jane Smith',
-      assetName: null,
+      assetName: undefined,
       inspectionResult: 'pass',
     },
   ],
@@ -102,12 +102,12 @@ describe('SerialNumberLookupScreen', () => {
   it('renders serial input and Go button', () => {
     renderScreen();
     expect(screen.getByPlaceholderText('Enter serial number...')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Go/i })).toBeInTheDocument();
+    expect(screen.getByTestId('lookup-go-btn')).toBeInTheDocument();
   });
 
   it('Go button is disabled when input is empty', () => {
     renderScreen();
-    expect(screen.getByRole('button', { name: /Go/i })).toBeDisabled();
+    expect(screen.getByTestId('lookup-go-btn')).toBeDisabled();
   });
 
   it('does not show site dropdown for tier 3+ users', () => {
@@ -130,7 +130,7 @@ describe('SerialNumberLookupScreen', () => {
 
     const input = screen.getByPlaceholderText('Enter serial number...');
     await user.type(input, 'SN-001');
-    await user.click(screen.getByRole('button', { name: /Go/i }));
+    await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
       expect(screen.getByText('SN-001 (Sellable)')).toBeInTheDocument();
@@ -147,7 +147,7 @@ describe('SerialNumberLookupScreen', () => {
 
     const input = screen.getByPlaceholderText('Enter serial number...');
     await user.type(input, 'UNKNOWN');
-    await user.click(screen.getByRole('button', { name: /Go/i }));
+    await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
       expect(screen.getByText('Serial number not found.')).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe('SerialNumberLookupScreen', () => {
 
     const input = screen.getByPlaceholderText('Enter serial number...');
     await user.type(input, 'SN-001');
-    await user.click(screen.getByRole('button', { name: /Go/i }));
+    await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
       expect(screen.getByText('Long Seam 1')).toBeInTheDocument();
@@ -177,7 +177,7 @@ describe('SerialNumberLookupScreen', () => {
 
     const input = screen.getByPlaceholderText('Enter serial number...');
     await user.type(input, 'SN-001');
-    await user.click(screen.getByRole('button', { name: /Go/i }));
+    await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
       expect(screen.getByText('SN-002 (Shell)')).toBeInTheDocument();

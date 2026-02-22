@@ -168,6 +168,7 @@ export function SerialNumberLookupScreen() {
           icon={<SearchRegular />}
           onClick={handleLookup}
           disabled={loading || !serial.trim()}
+          data-testid="lookup-go-btn"
         >
           Go
         </Button>

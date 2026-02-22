@@ -12,4 +12,5 @@ public class Plant
     public ICollection<ProductionLine> ProductionLines { get; set; } = new List<ProductionLine>();
     public ICollection<User> Users { get; set; } = new List<User>();
     public ICollection<PlantGear> PlantGears { get; set; } = new List<PlantGear>();
+    public ICollection<PlantPrinter> PlantPrinters { get; set; } = new List<PlantPrinter>();
 }

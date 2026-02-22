@@ -4,6 +4,7 @@ using MESv2.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MESv2.Api.Migrations
 {
     [DbContext(typeof(MesDbContext))]
-    partial class MesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222010710_AddPlantPrinters")]
+    partial class AddPlantPrinters
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -644,40 +647,6 @@ namespace MESv2.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("PlantPrinters");
-                });
-
-            modelBuilder.Entity("MESv2.Api.Models.PrintLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PrinterName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("RequestedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("SerialNumberId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Succeeded")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RequestedByUserId");
-
-                    b.HasIndex("SerialNumberId");
-
-                    b.ToTable("PrintLogs");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.Product", b =>
@@ -1809,25 +1778,6 @@ namespace MESv2.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Plant");
-                });
-
-            modelBuilder.Entity("MESv2.Api.Models.PrintLog", b =>
-                {
-                    b.HasOne("MESv2.Api.Models.User", "RequestedByUser")
-                        .WithMany()
-                        .HasForeignKey("RequestedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("MESv2.Api.Models.SerialNumber", "SerialNumber")
-                        .WithMany()
-                        .HasForeignKey("SerialNumberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("RequestedByUser");
-
-                    b.Navigation("SerialNumber");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.Product", b =>

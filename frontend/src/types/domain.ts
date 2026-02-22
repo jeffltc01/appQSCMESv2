@@ -238,6 +238,8 @@ export interface NameplateRecordInfo {
   serialNumber: string;
   productId: string;
   timestamp: string;
+  printSucceeded: boolean;
+  printMessage?: string;
 }
 
 export interface BarcodeCardInfo {
@@ -463,6 +465,16 @@ export interface SellableTankStatus {
   rtXrayResult: string | null;
   spotXrayResult: string | null;
   hydroResult: string | null;
+}
+
+export interface AdminPlantPrinter {
+  id: string;
+  plantId: string;
+  plantName: string;
+  plantCode: string;
+  printerName: string;
+  enabled: boolean;
+  printLocation: string;
 }
 
 export interface AdminAnnotation {

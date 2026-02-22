@@ -27,6 +27,10 @@ public class AssembliesController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.InnerException?.Message ?? ex.Message);
+        }
     }
 
     [HttpPost("{alphaCode}/reassemble")]

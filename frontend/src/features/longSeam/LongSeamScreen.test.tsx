@@ -16,11 +16,13 @@ const { productionRecordApi } = await import('../../api/endpoints');
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
     workCenterId: 'wc-ls',
+    plantId: 'plant-1',
     assetId: 'asset-1',
     productionLineId: 'pl-1',
     operatorId: 'op-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
     numberOfWelders: 1,
+    welderCountLoaded: true,
     externalInput: false,
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),

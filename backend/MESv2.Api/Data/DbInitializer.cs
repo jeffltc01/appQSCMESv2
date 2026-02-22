@@ -437,4 +437,47 @@ public static class DbInitializer
         if (context.ChangeTracker.HasChanges())
             context.SaveChanges();
     }
+
+    public static void EnsureAssembledProducts(MesDbContext context)
+    {
+        var assembledType = context.ProductTypes.FirstOrDefault(pt => pt.SystemTypeName == "assembled");
+        if (assembledType == null) return;
+
+        var existingTankSizes = context.Products
+            .Where(p => p.ProductTypeId == assembledType.Id)
+            .Select(p => p.TankSize)
+            .ToHashSet();
+
+        var allSites = "000,600,700";
+        var clevelandFremont = "600,700";
+
+        var missing = new (Guid Id, string Number, int Size, string Sites)[]
+        {
+            (Guid.Parse("b4011111-1111-1111-1111-111111111111"), "120 gal Assembled", 120, allSites),
+            (Guid.Parse("b4021111-1111-1111-1111-111111111111"), "250 gal Assembled", 250, allSites),
+            (Guid.Parse("b4031111-1111-1111-1111-111111111111"), "320 gal Assembled", 320, allSites),
+            (Guid.Parse("b4041111-1111-1111-1111-111111111111"), "500 gal Assembled", 500, clevelandFremont),
+            (Guid.Parse("b4051111-1111-1111-1111-111111111111"), "1000 gal Assembled", 1000, clevelandFremont),
+        };
+
+        foreach (var m in missing)
+        {
+            if (!existingTankSizes.Contains(m.Size) && !context.Products.Any(p => p.Id == m.Id))
+            {
+                context.Products.Add(new Product
+                {
+                    Id = m.Id,
+                    ProductNumber = m.Number,
+                    TankSize = m.Size,
+                    TankType = "Assembled",
+                    SiteNumbers = m.Sites,
+                    ProductTypeId = assembledType.Id,
+                    IsActive = true
+                });
+            }
+        }
+
+        if (context.ChangeTracker.HasChanges())
+            context.SaveChanges();
+    }
 }

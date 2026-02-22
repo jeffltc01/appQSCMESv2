@@ -44,6 +44,8 @@ public class MesDbContext : DbContext
     public DbSet<WorkCenterWelder> WorkCenterWelders => Set<WorkCenterWelder>();
     public DbSet<VendorPlant> VendorPlants => Set<VendorPlant>();
     public DbSet<ProductPlant> ProductPlants => Set<ProductPlant>();
+    public DbSet<PlantPrinter> PlantPrinters => Set<PlantPrinter>();
+    public DbSet<PrintLog> PrintLogs => Set<PrintLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -360,6 +362,12 @@ public class MesDbContext : DbContext
             .HasForeignKey(g => g.PlantId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<PlantPrinter>()
+            .HasOne(pp => pp.Plant)
+            .WithMany(p => p.PlantPrinters)
+            .HasForeignKey(pp => pp.PlantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<ChangeLog>()
             .HasOne(c => c.ChangeByUser)
             .WithMany()
@@ -501,6 +509,17 @@ public class MesDbContext : DbContext
             .HasForeignKey(pp => pp.PlantId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<PrintLog>()
+            .HasOne(pl => pl.SerialNumber)
+            .WithMany()
+            .HasForeignKey(pl => pl.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<PrintLog>()
+            .HasOne(pl => pl.RequestedByUser)
+            .WithMany()
+            .HasForeignKey(pl => pl.RequestedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
@@ -544,6 +563,11 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<ProductPlant>()
             .HasIndex(pp => new { pp.ProductId, pp.PlantId })
             .IsUnique();
+        modelBuilder.Entity<PlantPrinter>()
+            .HasIndex(pp => new { pp.PlantId, pp.PrinterName })
+            .IsUnique();
+        modelBuilder.Entity<PrintLog>()
+            .HasIndex(pl => pl.SerialNumberId);
 
     }
 }

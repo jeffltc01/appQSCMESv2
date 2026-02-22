@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { RoundSeamScreen } from './RoundSeamScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
@@ -20,7 +19,7 @@ vi.mock('../../api/endpoints', () => ({
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
-    workCenterId: 'wc-rs', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
+    workCenterId: 'wc-rs', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1', plantId: 'plant-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
     numberOfWelders: 1, welderCountLoaded: true, externalInput: false,
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),

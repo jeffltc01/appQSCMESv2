@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { CheckmarkCircleRegular, DismissCircleRegular } from '@fluentui/react-icons';
+import { CheckmarkCircleRegular, DismissCircleRegular, WarningRegular } from '@fluentui/react-icons';
 import styles from './ScanOverlay.module.css';
 
 export interface ScanResult {
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'warning';
   message?: string;
 }
 
@@ -13,8 +13,15 @@ interface ScanOverlayProps {
   autoCloseMs?: number;
 }
 
+const bgColors: Record<ScanResult['type'], string> = {
+  success: 'rgba(40, 167, 69, 0.93)',
+  warning: 'rgba(255, 165, 0, 0.93)',
+  error: 'rgba(220, 53, 69, 0.93)',
+};
+
 export function ScanOverlay({ result, onDismiss, autoCloseMs }: ScanOverlayProps) {
   const isSuccess = result.type === 'success';
+  const showDismiss = result.type !== 'success';
 
   const [remaining, setRemaining] = useState(() =>
     autoCloseMs ? Math.ceil(autoCloseMs / 1000) : 0,
@@ -29,22 +36,24 @@ export function ScanOverlay({ result, onDismiss, autoCloseMs }: ScanOverlayProps
     return () => clearInterval(id);
   }, [autoCloseMs, isSuccess]);
 
+  const icon = result.type === 'success'
+    ? <CheckmarkCircleRegular className={styles.icon} />
+    : result.type === 'warning'
+      ? <WarningRegular className={styles.icon} />
+      : <DismissCircleRegular className={styles.icon} />;
+
   return (
     <div
       className={styles.overlay}
-      style={{ backgroundColor: isSuccess ? 'rgba(40, 167, 69, 0.93)' : 'rgba(220, 53, 69, 0.93)' }}
+      style={{ backgroundColor: bgColors[result.type] }}
       onClick={onDismiss}
       role="alert"
       data-testid="scan-overlay"
     >
       <div className={styles.content}>
-        {isSuccess ? (
-          <CheckmarkCircleRegular className={styles.icon} />
-        ) : (
-          <DismissCircleRegular className={styles.icon} />
-        )}
+        {icon}
         {result.message && <span className={styles.message}>{result.message}</span>}
-        {!isSuccess && (
+        {showDismiss && (
           <span className={styles.dismissHint}>
             Tap to dismiss{remaining > 0 ? ` (${remaining}s)` : ''}
           </span>

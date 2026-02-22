@@ -64,7 +64,7 @@ public class SellableTankStatusService : ISellableTankStatusService
         var inspections = await _db.InspectionRecords
             .Include(i => i.ControlPlan).ThenInclude(cp => cp.Characteristic)
             .Where(i => allRelatedSnIds.Contains(i.SerialNumberId)
-                && gateCheckCpIds.Contains(i.ControlPlanId))
+                && i.ControlPlanId.HasValue && gateCheckCpIds.Contains(i.ControlPlanId.Value))
             .ToListAsync(cancellationToken);
 
         var result = new List<SellableTankStatusDto>();

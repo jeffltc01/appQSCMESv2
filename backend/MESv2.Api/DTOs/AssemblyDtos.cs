@@ -7,7 +7,7 @@ public class CreateAssemblyDto
     public string RightHeadLotId { get; set; } = string.Empty;
     public int TankSize { get; set; }
     public Guid WorkCenterId { get; set; }
-    public Guid AssetId { get; set; }
+    public Guid? AssetId { get; set; }
     public Guid ProductionLineId { get; set; }
     public Guid OperatorId { get; set; }
     public List<Guid> WelderIds { get; set; } = new();

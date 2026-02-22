@@ -31,6 +31,7 @@ public class ProductionRecordService : IProductionRecordService
             resolvedProductId = product?.Id;
         }
 
+        var isCatchUp = false;
         if (serial == null)
         {
             serial = new SerialNumber
@@ -42,7 +43,8 @@ public class ProductionRecordService : IProductionRecordService
             };
             _db.SerialNumbers.Add(serial);
             await _db.SaveChangesAsync(cancellationToken);
-            warning = "Serial created (catch-up flow).";
+            isCatchUp = true;
+            warning = "Rolls missed — annotation created.";
         }
         else if (serial.ProductId == null && resolvedProductId != null)
         {
@@ -82,6 +84,26 @@ public class ProductionRecordService : IProductionRecordService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (isCatchUp)
+        {
+            var correctionNeededType = await _db.AnnotationTypes
+                .FirstOrDefaultAsync(at => at.Name == "Correction Needed", cancellationToken);
+            if (correctionNeededType != null)
+            {
+                _db.Annotations.Add(new Annotation
+                {
+                    Id = Guid.NewGuid(),
+                    ProductionRecordId = record.Id,
+                    AnnotationTypeId = correctionNeededType.Id,
+                    Flag = true,
+                    Notes = $"Rolls scan missed for shell {dto.SerialNumber}. Material lot assumed from previous shell — validate.",
+                    InitiatedByUserId = dto.OperatorId,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         if (!string.IsNullOrEmpty(dto.HeatNumber) && !string.IsNullOrEmpty(dto.CoilNumber))
         {

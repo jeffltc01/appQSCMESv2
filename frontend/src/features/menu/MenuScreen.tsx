@@ -20,6 +20,7 @@ import {
   NoteRegular,
   SearchRegular,
   CheckmarkCircleRegular,
+  PrintRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import styles from './MenuScreen.module.css';
@@ -50,6 +51,7 @@ const MENU_TILES: MenuTile[] = [
   { label: 'Annotations', icon: <NoteRegular />, minRoleTier: 3, route: '/menu/annotations', implemented: true },
   { label: 'Serial Number Lookup', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/serial-lookup', implemented: true },
   { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
+  { label: 'Plant Printers', icon: <PrintRegular />, minRoleTier: 3, route: '/menu/plant-printers', implemented: true },
   { label: 'Change Logs', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/change-logs', implemented: false },
   { label: 'Operator View', icon: <DesktopRegular />, minRoleTier: 5, route: '/tablet-setup', implemented: true },
 ];

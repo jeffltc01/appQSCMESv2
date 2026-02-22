@@ -42,6 +42,13 @@ public class AssemblyService : IAssemblyService
 
     public async Task<CreateAssemblyResponseDto> CreateAsync(CreateAssemblyDto dto, CancellationToken cancellationToken = default)
     {
+        if (dto.WorkCenterId == Guid.Empty)
+            throw new ArgumentException("Work center is required.");
+        if (dto.ProductionLineId == Guid.Empty)
+            throw new ArgumentException("Production line is required. Please select a production line before saving.");
+        if (dto.OperatorId == Guid.Empty)
+            throw new ArgumentException("Operator is required.");
+
         var wc = await _db.WorkCenters
             .FirstOrDefaultAsync(w => w.Id == dto.WorkCenterId, cancellationToken);
         if (wc == null)
@@ -51,6 +58,9 @@ public class AssemblyService : IAssemblyService
             .Where(p => p.Id == dto.ProductionLineId)
             .Select(p => p.PlantId)
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (plantId == Guid.Empty)
+            throw new ArgumentException("Production line not found.");
 
         var alphaCode = await GetNextAlphaCodeAsync(plantId, cancellationToken);
 
@@ -74,7 +84,7 @@ public class AssemblyService : IAssemblyService
             Id = Guid.NewGuid(),
             SerialNumberId = assemblySn.Id,
             WorkCenterId = dto.WorkCenterId,
-            AssetId = dto.AssetId,
+            AssetId = dto.AssetId == Guid.Empty ? null : dto.AssetId,
             ProductionLineId = dto.ProductionLineId,
             OperatorId = dto.OperatorId,
             Timestamp = DateTime.UtcNow

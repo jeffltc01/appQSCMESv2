@@ -29,13 +29,17 @@ export function NameplateScreen(props: WorkCenterProps) {
       return;
     }
     try {
-      await nameplateApi.create({
+      const result = await nameplateApi.create({
         serialNumber: serialNumber.trim(),
         productId: selectedProductId,
         workCenterId,
         operatorId,
       });
-      showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} saved. Label printing.` });
+      if (result.printSucceeded) {
+        showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} saved. Label printing.` });
+      } else {
+        showScanResult({ type: 'warning', message: `Serial saved but print failed: ${result.printMessage ?? 'Unknown error'}` });
+      }
       refreshHistory();
       setSelectedProductId('');
       setSerialNumber('');

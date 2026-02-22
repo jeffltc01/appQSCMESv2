@@ -442,6 +442,33 @@ public class UpdateAnnotationTypeDto
     public string? DisplayColor { get; set; }
 }
 
+// ---- Plant Printers ----
+public class AdminPlantPrinterDto
+{
+    public Guid Id { get; set; }
+    public Guid PlantId { get; set; }
+    public string PlantName { get; set; } = string.Empty;
+    public string PlantCode { get; set; } = string.Empty;
+    public string PrinterName { get; set; } = string.Empty;
+    public bool Enabled { get; set; }
+    public string PrintLocation { get; set; } = string.Empty;
+}
+
+public class CreatePlantPrinterDto
+{
+    public Guid PlantId { get; set; }
+    public string PrinterName { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+    public string PrintLocation { get; set; } = string.Empty;
+}
+
+public class UpdatePlantPrinterDto
+{
+    public string PrinterName { get; set; } = string.Empty;
+    public bool Enabled { get; set; }
+    public string PrintLocation { get; set; } = string.Empty;
+}
+
 // ---- Annotations ----
 public class AdminAnnotationDto
 {

@@ -14,4 +14,6 @@ public class NameplateRecordResponseDto
     public string SerialNumber { get; set; } = string.Empty;
     public Guid ProductId { get; set; }
     public DateTime Timestamp { get; set; }
+    public bool PrintSucceeded { get; set; }
+    public string? PrintMessage { get; set; }
 }

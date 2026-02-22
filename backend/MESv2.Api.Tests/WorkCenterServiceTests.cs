@@ -360,14 +360,25 @@ public class WorkCenterServiceTests
     public async Task AddWelder_ReturnsNull_WhenWelderFromDifferentSite()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        // EMP004 is a certified welder from Plant 2
-        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP004");
-        Assert.True(user.IsCertifiedWelder);
-        Assert.Equal(TestHelpers.PlantPlt2Id, user.DefaultSiteId);
+        var foreignPlantId = Guid.NewGuid();
+        db.Plants.Add(new Plant { Id = foreignPlantId, Code = "PLT99", Name = "Foreign Plant" });
+        db.Users.Add(new User
+        {
+            Id = Guid.NewGuid(),
+            EmployeeNumber = "EMP_FOREIGN",
+            FirstName = "Foreign",
+            LastName = "Welder",
+            DisplayName = "Foreign Welder",
+            RoleTier = 6,
+            RoleName = "Operator",
+            DefaultSiteId = foreignPlantId,
+            IsCertifiedWelder = true,
+            IsActive = true
+        });
+        await db.SaveChangesAsync();
 
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        // wcRollsId belongs to Plant 1 via ProductionLine — should reject cross-site welder
-        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP004");
+        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP_FOREIGN");
 
         Assert.Null(result);
     }

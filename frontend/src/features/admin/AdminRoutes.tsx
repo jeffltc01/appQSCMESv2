@@ -16,6 +16,7 @@ import { AnnotationTypesScreen } from './AnnotationTypesScreen.tsx';
 import { SerialNumberLookupScreen } from './SerialNumberLookupScreen.tsx';
 import { SellableTankStatusScreen } from './SellableTankStatusScreen.tsx';
 import { AnnotationMaintenanceScreen } from './AnnotationMaintenanceScreen.tsx';
+import { PlantPrinterScreen } from './PlantPrinterScreen.tsx';
 
 export function AdminRoutes() {
   return (
@@ -37,6 +38,7 @@ export function AdminRoutes() {
       <Route path="annotations" element={<AnnotationMaintenanceScreen />} />
       <Route path="serial-lookup" element={<SerialNumberLookupScreen />} />
       <Route path="sellable-tank-status" element={<SellableTankStatusScreen />} />
+      <Route path="plant-printers" element={<PlantPrinterScreen />} />
       <Route path="*" element={<Navigate to="/menu" replace />} />
     </Routes>
   );

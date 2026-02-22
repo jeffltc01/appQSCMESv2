@@ -73,7 +73,7 @@ export interface CreateAssemblyRequest {
   rightHeadLotId: string;
   tankSize: number;
   workCenterId: string;
-  assetId: string;
+  assetId?: string;
   productionLineId: string;
   operatorId: string;
   welderIds: string[];
@@ -375,6 +375,19 @@ export interface UpdateAnnotationTypeRequest {
   requiresResolution: boolean;
   operatorCanCreate: boolean;
   displayColor?: string;
+}
+
+export interface CreatePlantPrinterRequest {
+  plantId: string;
+  printerName: string;
+  enabled: boolean;
+  printLocation: string;
+}
+
+export interface UpdatePlantPrinterRequest {
+  printerName: string;
+  enabled: boolean;
+  printLocation: string;
 }
 
 export interface UpdateAnnotationRequest {

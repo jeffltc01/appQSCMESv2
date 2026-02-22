@@ -46,6 +46,8 @@ import type {
   CreateProductionLineRequest,
   UpdateProductionLineRequest,
   UpdateAnnotationRequest,
+  CreatePlantPrinterRequest,
+  UpdatePlantPrinterRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -86,6 +88,7 @@ import type {
   WorkCenterProductionLine,
   AdminAnnotationType,
   AdminAnnotation,
+  AdminPlantPrinter,
   SerialNumberLookup,
   SellableTankStatus,
 } from '../types/domain.ts';
@@ -237,7 +240,7 @@ export const nameplateApi = {
   getBySerial: (serialNumber: string) =>
     api.get<NameplateRecordInfo>(`/nameplate-records/${encodeURIComponent(serialNumber)}`),
   reprint: (id: string) =>
-    api.post<void>(`/nameplate-records/${id}/reprint`),
+    api.post<NameplateRecordInfo>(`/nameplate-records/${id}/reprint`),
 };
 
 export const hydroApi = {
@@ -349,6 +352,13 @@ export const adminProductionLineApi = {
   create: (req: CreateProductionLineRequest) => api.post<ProductionLineAdmin>('/productionlines', req),
   update: (id: string, req: UpdateProductionLineRequest) => api.put<ProductionLineAdmin>(`/productionlines/${id}`, req),
   remove: (id: string) => api.delete<void>(`/productionlines/${id}`),
+};
+
+export const adminPlantPrinterApi = {
+  getAll: () => api.get<AdminPlantPrinter[]>('/plant-printers'),
+  create: (req: CreatePlantPrinterRequest) => api.post<AdminPlantPrinter>('/plant-printers', req),
+  update: (id: string, req: UpdatePlantPrinterRequest) => api.put<AdminPlantPrinter>(`/plant-printers/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/plant-printers/${id}`),
 };
 
 export const adminAnnotationApi = {

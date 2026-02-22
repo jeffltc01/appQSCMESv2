@@ -109,7 +109,7 @@ export function FitupScreen(props: WorkCenterProps) {
           showScanResult({ type: 'success', message: `Shell ${serial} added` });
         }
       } catch {
-        showScanResult({ type: 'error', message: 'Failed to look up shell' });
+        showScanResult({ type: 'error', message: `Failed to look up shell ${serial}` });
       }
     },
     [tankSize, shells, alphaCode, resetAssembly, updateTankSize, showScanResult],
@@ -177,7 +177,7 @@ export function FitupScreen(props: WorkCenterProps) {
         rightHeadLotId: rightHead?.cardId ?? leftHead.cardId ?? '',
         tankSize,
         workCenterId,
-        assetId,
+        assetId: assetId || undefined,
         productionLineId,
         operatorId,
         welderIds: welders.map((w) => w.userId),
@@ -189,8 +189,9 @@ export function FitupScreen(props: WorkCenterProps) {
 
       const timer = setTimeout(resetAssembly, 30000);
       setAlphaTimer(timer);
-    } catch {
-      showScanResult({ type: 'error', message: 'Failed to save assembly. Please try again.' });
+    } catch (err: any) {
+      const msg = err?.body ?? err?.message ?? 'Failed to save assembly. Please try again.';
+      showScanResult({ type: 'error', message: typeof msg === 'string' ? msg : 'Failed to save assembly. Please try again.' });
     }
   }, [shells, leftHead, rightHead, tankSize, workCenterId, assetId, productionLineId, operatorId, welders, showScanResult, refreshHistory, resetAssembly]);
 

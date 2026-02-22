@@ -61,11 +61,15 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default)
     {
-        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
+        var plantIds = await _db.WorkCenterProductionLines
+            .Where(wpl => wpl.WorkCenterId == wcId)
+            .Select(wpl => wpl.ProductionLine.PlantId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
         var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive
-                && (plantId == Guid.Empty || u.DefaultSiteId == plantId), cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder
+                && (plantIds.Count == 0 || plantIds.Contains(u.DefaultSiteId)), cancellationToken);
         if (user == null)
             return null;
 
@@ -134,28 +138,66 @@ public class WorkCenterService : IWorkCenterService
 
         var dayCount = await query.CountAsync(cancellationToken);
 
-        var recordIds = records.Select(r => r.Id).ToList();
-        var annotationsExist = await _db.Annotations
-            .Where(a => recordIds.Contains(a.ProductionRecordId))
+        if (dayCount > 0)
+        {
+            var recordIds = records.Select(r => r.Id).ToList();
+            var annotationsExist = await _db.Annotations
+                .Where(a => recordIds.Contains(a.ProductionRecordId))
+                .Select(a => a.ProductionRecordId)
+                .Distinct()
+                .ToHashSetAsync(cancellationToken);
+
+            var recentRecords = records.Select(r =>
+            {
+                var serialOrIdentifier = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
+                var tankSize = r.SerialNumber?.Product?.TankSize;
+                return new WCHistoryEntryDto
+                {
+                    Id = r.Id,
+                    Timestamp = r.Timestamp,
+                    SerialOrIdentifier = serialOrIdentifier,
+                    TankSize = tankSize,
+                    HasAnnotation = annotationsExist.Contains(r.Id)
+                };
+            }).ToList();
+
+            return new WCHistoryDto { DayCount = dayCount, RecentRecords = recentRecords };
+        }
+
+        var inspQuery = _db.InspectionRecords
+            .Include(i => i.SerialNumber)
+            .Include(i => i.SerialNumber!.Product)
+            .Where(i => i.WorkCenterId == wcId && i.Timestamp >= startOfDay && i.Timestamp < endOfDay);
+
+        var inspRecords = await inspQuery
+            .OrderByDescending(i => i.Timestamp)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var inspDayCount = await inspQuery.CountAsync(cancellationToken);
+
+        var prodRecordIds = inspRecords.Select(i => i.ProductionRecordId).Distinct().ToList();
+        var inspAnnotations = await _db.Annotations
+            .Where(a => prodRecordIds.Contains(a.ProductionRecordId))
             .Select(a => a.ProductionRecordId)
             .Distinct()
             .ToHashSetAsync(cancellationToken);
 
-        var recentRecords = records.Select(r =>
+        var inspEntries = inspRecords.Select(i =>
         {
-            var serialOrIdentifier = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
-            var tankSize = r.SerialNumber?.Product?.TankSize;
+            var serialOrIdentifier = i.SerialNumber?.Serial ?? i.Id.ToString("N")[..8];
+            var tankSize = i.SerialNumber?.Product?.TankSize;
             return new WCHistoryEntryDto
             {
-                Id = r.Id,
-                Timestamp = r.Timestamp,
+                Id = i.Id,
+                Timestamp = i.Timestamp,
                 SerialOrIdentifier = serialOrIdentifier,
                 TankSize = tankSize,
-                HasAnnotation = annotationsExist.Contains(r.Id)
+                HasAnnotation = inspAnnotations.Contains(i.ProductionRecordId)
             };
         }).ToList();
 
-        return new WCHistoryDto { DayCount = dayCount, RecentRecords = recentRecords };
+        return new WCHistoryDto { DayCount = inspDayCount, RecentRecords = inspEntries };
     }
 
     public async Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default)
@@ -440,7 +482,7 @@ public class WorkCenterService : IWorkCenterService
 
         var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
             null, null, dto.VendorHeadId,
-            dto.HeatNumber, null, dto.LotNumber, cancellationToken);
+            dto.HeatNumber, dto.CoilSlabNumber, dto.LotNumber, cancellationToken);
 
         var item = new MaterialQueueItem
         {
@@ -599,9 +641,11 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)
     {
+        var prefixed = $"KC;{cardId}";
         var queueItem = await _db.MaterialQueueItems
             .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
-            .FirstOrDefaultAsync(m => m.CardId == cardId, cancellationToken);
+            .Where(m => m.Status == "queued")
+            .FirstOrDefaultAsync(m => m.CardId == cardId || m.CardId == prefixed, cancellationToken);
         if (queueItem != null)
         {
             var sn = queueItem.SerialNumber;

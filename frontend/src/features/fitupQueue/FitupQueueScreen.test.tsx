@@ -20,8 +20,8 @@ vi.mock('../../api/endpoints', () => ({
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
-    workCenterId: 'wc-fitup-q', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
-    welders: [], numberOfWelders: 0, externalInput: false,
+    workCenterId: 'wc-fitup-q', plantId: 'plant-1', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
+    welders: [], numberOfWelders: 0, welderCountLoaded: true, externalInput: false,
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };

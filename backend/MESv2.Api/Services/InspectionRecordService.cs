@@ -31,10 +31,10 @@ public class InspectionRecordService : IInspectionRecordService
             ?? throw new ArgumentException($"Serial number '{dto.SerialNumber}' not found.");
 
         var productionRecord = await _db.ProductionRecords
-            .Where(r => r.SerialNumberId == sn.Id && r.WorkCenterId == dto.WorkCenterId)
+            .Where(r => r.SerialNumberId == sn.Id)
             .OrderByDescending(r => r.Timestamp)
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new ArgumentException($"No production record found for serial '{dto.SerialNumber}' at this work center.");
+            ?? throw new ArgumentException($"No production record found for serial '{dto.SerialNumber}'.");
 
         var record = new InspectionRecord
         {
@@ -44,7 +44,7 @@ public class InspectionRecordService : IInspectionRecordService
             WorkCenterId = dto.WorkCenterId,
             OperatorId = dto.OperatorId,
             Timestamp = DateTime.UtcNow,
-            ControlPlanId = Guid.Empty,
+            ControlPlanId = null,
             ResultText = null,
             ResultNumeric = null
         };

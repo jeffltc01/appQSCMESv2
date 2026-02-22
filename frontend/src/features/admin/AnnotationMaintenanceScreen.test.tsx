@@ -51,8 +51,8 @@ const mockAnnotations = [
     flag: true,
     notes: 'Bad weld on seam',
     initiatedByName: 'Operator Joe',
-    resolvedByName: null,
-    resolvedNotes: null,
+    resolvedByName: undefined,
+    resolvedNotes: undefined,
     createdAt: '2026-02-20T10:00:00Z',
   },
   {

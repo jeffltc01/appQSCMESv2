@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MESv2.Api.Controllers;
 using MESv2.Api.DTOs;
@@ -13,7 +14,12 @@ public class AdminUsersControllerTests
     {
         db = TestHelpers.CreateInMemoryContext();
         var mockAuth = new Mock<IAuthService>();
-        return new UsersController(mockAuth.Object, db);
+        var controller = new UsersController(mockAuth.Object, db);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+        return controller;
     }
 
     [Fact]

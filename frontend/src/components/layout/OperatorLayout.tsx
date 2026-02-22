@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { Button, Input, Label } from '@fluentui/react-components';
 import { DismissRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
@@ -30,8 +30,7 @@ import { HydroScreen } from '../../features/hydro/HydroScreen.tsx';
 import styles from './OperatorLayout.module.css';
 
 export function OperatorLayout() {
-  const { user, isWelder, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const cache = getTabletCache();
 
   const sessionData = useMemo(() => {
@@ -61,7 +60,7 @@ export function OperatorLayout() {
   const [welderGateError, setWelderGateError] = useState('');
   const [welderGateLoading, setWelderGateLoading] = useState(false);
   const [welderGateLookupName, setWelderGateLookupName] = useState<string | null>(null);
-  const welderGateDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const welderGateDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const dataEntryType = cache?.cachedDataEntryType ?? '';
   const weldersSatisfied = welders.length >= numberOfWelders;
@@ -105,7 +104,7 @@ export function OperatorLayout() {
   }, [user?.defaultSiteId]);
 
   useEffect(() => {
-    if (user && isWelder && cache?.cachedWorkCenterId) {
+    if (user && cache?.cachedWorkCenterId) {
       workCenterApi.addWelder(cache.cachedWorkCenterId, user.employeeNumber)
         .then((w) => {
           setWelders((prev) => {
@@ -127,7 +126,7 @@ export function OperatorLayout() {
           });
         });
     }
-  }, [user, isWelder, cache?.cachedWorkCenterId]);
+  }, [user, cache?.cachedWorkCenterId]);
 
   const loadWelders = useCallback(async () => {
     if (!cache?.cachedWorkCenterId) return;
@@ -273,7 +272,7 @@ export function OperatorLayout() {
       setWelderGateEmpNo('');
       setWelderGateLookupName(null);
     } catch {
-      setWelderGateError('Employee not found or not a certified welder');
+      setWelderGateError('Employee not found');
     } finally {
       setWelderGateLoading(false);
     }
@@ -362,7 +361,7 @@ export function OperatorLayout() {
         <ScanOverlay
           result={scanResult}
           onDismiss={dismissScanResult}
-          autoCloseMs={scanResult.type === 'error' ? 5000 : undefined}
+          autoCloseMs={scanResult.type !== 'success' ? 5000 : undefined}
         />
       )}
 
