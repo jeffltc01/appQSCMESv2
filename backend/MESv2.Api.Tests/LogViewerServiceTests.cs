@@ -18,8 +18,8 @@ public class LogViewerServiceTests
 
     private static ProductionRecord SeedProductionRecord(
         MesDbContext db, Guid wcId, string serial = "SN001",
-        int tankSize = 500, string? inspectionResult = null,
-        DateTime? timestamp = null)
+        int tankSize = 500, DateTime? timestamp = null,
+        string? resultText = null, string resultType = "AcceptReject")
     {
         var product = db.Products.FirstOrDefault(p => p.TankSize == tankSize)
             ?? new Product
@@ -52,10 +52,39 @@ public class LogViewerServiceTests
             WorkCenterId = wcId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
-            Timestamp = timestamp ?? DateTime.UtcNow,
-            InspectionResult = inspectionResult
+            Timestamp = timestamp ?? DateTime.UtcNow
         };
         db.ProductionRecords.Add(record);
+
+        if (resultText != null)
+        {
+            var wcpl = db.WorkCenterProductionLines.FirstOrDefault(w => w.WorkCenterId == wcId)
+                ?? db.WorkCenterProductionLines.First();
+            var charId = Guid.NewGuid();
+            db.Characteristics.Add(new Characteristic { Id = charId, Code = "T" + serial[..2], Name = serial + " Char", ProductTypeId = null });
+            var cpId = Guid.NewGuid();
+            db.ControlPlans.Add(new ControlPlan
+            {
+                Id = cpId,
+                CharacteristicId = charId,
+                WorkCenterProductionLineId = wcpl.Id,
+                IsEnabled = true,
+                ResultType = resultType,
+                IsGateCheck = false,
+                IsActive = true
+            });
+            db.InspectionRecords.Add(new InspectionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = sn.Id,
+                ProductionRecordId = record.Id,
+                WorkCenterId = wcId,
+                OperatorId = TestHelpers.TestUserId,
+                Timestamp = timestamp ?? DateTime.UtcNow,
+                ControlPlanId = cpId,
+                ResultText = resultText
+            });
+        }
 
         return record;
     }
@@ -66,7 +95,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-001", 500, "Pass");
+        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-001", 500, resultText: "Pass", resultType: "PassFail");
         db.WelderLogs.Add(new WelderLog
         {
             Id = Guid.NewGuid(),
@@ -193,7 +222,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "HYDRO-01", 500, "Accept");
+        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "HYDRO-01", 500, resultText: "Accept", resultType: "AcceptReject");
         await db.SaveChangesAsync();
 
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
@@ -212,7 +241,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "W00100001", 500, "ACCEPTED");
+        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "W00100001", 500);
 
         var assemblySn = new SerialNumber
         {
@@ -256,7 +285,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        SeedProductionRecord(db, TestHelpers.wcRtXrayQueueId, "014540", 1000, "Accept");
+        SeedProductionRecord(db, TestHelpers.wcRtXrayQueueId, "014540", 1000, resultText: "Accept", resultType: "AcceptReject");
         await db.SaveChangesAsync();
 
         var today = DateTime.UtcNow.ToString("yyyy-MM-dd");

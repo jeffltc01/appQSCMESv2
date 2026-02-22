@@ -16,28 +16,20 @@ public class AssemblyService : IAssemblyService
 
     public async Task<string> GetNextAlphaCodeAsync(Guid plantId, CancellationToken cancellationToken = default)
     {
-        var existing = await _db.SerialNumbers
-            .Where(s => s.PlantId == plantId && s.Product!.ProductType!.SystemTypeName == "assembled")
-            .Select(s => s.Serial)
-            .ToListAsync(cancellationToken);
+        var plant = await _db.Plants.FirstAsync(p => p.Id == plantId, cancellationToken);
+        var current = plant.NextTankAlphaCode;
 
-        var maxIndex = -1;
-        foreach (var code in existing)
-        {
-            if (code.Length != 2) continue;
-            var first = code[0] - 'A';
-            var second = code[1] - 'A';
-            if (first is >= 0 and <= 25 && second is >= 0 and <= 25)
-            {
-                var idx = first * 26 + second;
-                if (idx > maxIndex) maxIndex = idx;
-            }
-        }
+        plant.NextTankAlphaCode = AdvanceAlphaCode(current);
 
-        var nextIndex = (maxIndex + 1) % 676;
-        var high = nextIndex / 26;
-        var low = nextIndex % 26;
-        return $"{(char)('A' + high)}{(char)('A' + low)}";
+        return current;
+    }
+
+    public static string AdvanceAlphaCode(string code)
+    {
+        var high = code[0] - 'A';
+        var low = code[1] - 'A';
+        var nextIndex = (high * 26 + low + 1) % 676;
+        return $"{(char)('A' + nextIndex / 26)}{(char)('A' + nextIndex % 26)}";
     }
 
     public async Task<CreateAssemblyResponseDto> CreateAsync(CreateAssemblyDto dto, CancellationToken cancellationToken = default)
@@ -110,9 +102,9 @@ public class AssemblyService : IAssemblyService
             }
         }
 
-        AddHeadTrace(dto.LeftHeadLotId, dto.LeftHeadHeatNumber, dto.LeftHeadCoilNumber,
+        AddHeadTrace(dto.LeftHeadLotId, dto.LeftHeadHeatNumber, dto.LeftHeadCoilNumber, dto.LeftHeadLotNumber,
             assemblySn, record.Id, plantId, "Head 1");
-        AddHeadTrace(dto.RightHeadLotId, dto.RightHeadHeatNumber, dto.RightHeadCoilNumber,
+        AddHeadTrace(dto.RightHeadLotId, dto.RightHeadHeatNumber, dto.RightHeadCoilNumber, dto.RightHeadLotNumber,
             assemblySn, record.Id, plantId, "Head 2");
 
         foreach (var welderId in dto.WelderIds)
@@ -139,7 +131,9 @@ public class AssemblyService : IAssemblyService
     public async Task<CreateAssemblyResponseDto> ReassembleAsync(string alphaCode, ReassemblyDto dto, CancellationToken cancellationToken = default)
     {
         var assemblySn = await _db.SerialNumbers
-            .FirstOrDefaultAsync(s => s.Serial == alphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+            .Where(s => s.Serial == alphaCode && !s.IsObsolete && s.Product!.ProductType!.SystemTypeName == "assembled")
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
         if (assemblySn == null)
             throw new ArgumentException("Assembly not found.");
 
@@ -184,21 +178,28 @@ public class AssemblyService : IAssemblyService
         };
     }
 
-    private void AddHeadTrace(string? lotId, string? heatNumber, string? coilNumber,
+    private void AddHeadTrace(string? lotId, string? heatNumber, string? coilNumber, string? lotNumber,
         SerialNumber assemblySn, Guid productionRecordId, Guid plantId, string tankLocation)
     {
-        if (string.IsNullOrEmpty(lotId) && string.IsNullOrEmpty(heatNumber) && string.IsNullOrEmpty(coilNumber))
+        if (string.IsNullOrEmpty(lotId) && string.IsNullOrEmpty(heatNumber) && string.IsNullOrEmpty(coilNumber) && string.IsNullOrEmpty(lotNumber))
             return;
 
         Guid? headSnId = null;
-        if (!string.IsNullOrEmpty(heatNumber) || !string.IsNullOrEmpty(coilNumber))
+        var hasHeatCoil = !string.IsNullOrEmpty(heatNumber) || !string.IsNullOrEmpty(coilNumber);
+        var hasLot = !string.IsNullOrEmpty(lotNumber);
+
+        if (hasHeatCoil || hasLot)
         {
+            var serial = hasHeatCoil
+                ? $"Head {heatNumber ?? ""}/{coilNumber ?? ""}"
+                : $"Lot:{lotNumber}";
             var headSn = new SerialNumber
             {
                 Id = Guid.NewGuid(),
-                Serial = $"Head {heatNumber ?? ""}/{coilNumber ?? ""}",
+                Serial = serial,
                 CoilNumber = coilNumber,
                 HeatNumber = heatNumber,
+                LotNumber = lotNumber,
                 PlantId = plantId,
                 CreatedAt = DateTime.UtcNow
             };

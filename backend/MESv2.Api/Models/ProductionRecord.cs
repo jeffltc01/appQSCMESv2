@@ -12,7 +12,6 @@ public class ProductionRecord
     public Guid? ProductInId { get; set; }
     public Guid? ProductOutId { get; set; }
     public Guid? PlantGearId { get; set; }
-    public string? InspectionResult { get; set; }
 
     public SerialNumber SerialNumber { get; set; } = null!;
     public WorkCenter WorkCenter { get; set; } = null!;

@@ -96,14 +96,23 @@ export function OperatorLayout() {
   const loadQueueTransactions = useCallback(async () => {
     if (!queueTxnWCId) return;
     try {
-      const txns = await workCenterApi.getQueueTransactions(queueTxnWCId, user?.defaultSiteId);
+      const txns = await workCenterApi.getQueueTransactions(queueTxnWCId, user?.defaultSiteId, 5, 'added');
       setQueueTransactions(txns);
     } catch { /* keep stale */ }
   }, [queueTxnWCId, user?.defaultSiteId]);
 
   useEffect(() => {
+    if (user) {
+      setWelders([{
+        userId: user.id,
+        displayName: user.displayName,
+        employeeNumber: user.employeeNumber,
+      }]);
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
-    loadWelders();
     if (isQueueScreen) {
       loadQueueTransactions();
     } else {
@@ -125,41 +134,6 @@ export function OperatorLayout() {
       })
       .catch(() => { /* keep null */ });
   }, [user?.defaultSiteId]);
-
-  useEffect(() => {
-    if (user && cache?.cachedWorkCenterId) {
-      workCenterApi.addWelder(cache.cachedWorkCenterId, user.employeeNumber)
-        .then((w) => {
-          setWelders((prev) => {
-            if (prev.some((existing) => existing.userId === w.userId)) return prev;
-            return [...prev, w];
-          });
-        })
-        .catch(() => {
-          setWelders((prev) => {
-            if (prev.some((existing) => existing.userId === user.id)) return prev;
-            return [
-              ...prev,
-              {
-                userId: user.id,
-                displayName: user.displayName,
-                employeeNumber: user.employeeNumber,
-              },
-            ];
-          });
-        });
-    }
-  }, [user, cache?.cachedWorkCenterId]);
-
-  const loadWelders = useCallback(async () => {
-    if (!cache?.cachedWorkCenterId) return;
-    try {
-      const w = await workCenterApi.getWelders(cache.cachedWorkCenterId);
-      setWelders(w);
-    } catch {
-      // Keep local state
-    }
-  }, [cache?.cachedWorkCenterId]);
 
   const loadHistory = useCallback(async () => {
     if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;
@@ -327,29 +301,23 @@ export function OperatorLayout() {
     async (employeeNumber: string) => {
       if (!cache?.cachedWorkCenterId) return;
       try {
-        const w = await workCenterApi.addWelder(cache.cachedWorkCenterId, employeeNumber);
+        const w = await workCenterApi.lookupWelder(cache.cachedWorkCenterId, employeeNumber);
         setWelders((prev) => {
           if (prev.some((existing) => existing.userId === w.userId)) return prev;
           return [...prev, w];
         });
       } catch {
-        showScanResult({ type: 'error', message: 'Failed to add welder' });
+        showScanResult({ type: 'error', message: 'Employee not found' });
       }
     },
     [cache?.cachedWorkCenterId, showScanResult],
   );
 
   const removeWelder = useCallback(
-    async (userId: string) => {
-      if (!cache?.cachedWorkCenterId) return;
-      try {
-        await workCenterApi.removeWelder(cache.cachedWorkCenterId, userId);
-        setWelders((prev) => prev.filter((w) => w.userId !== userId));
-      } catch {
-        showScanResult({ type: 'error', message: 'Failed to remove welder' });
-      }
+    (userId: string) => {
+      setWelders((prev) => prev.filter((w) => w.userId !== userId));
     },
-    [cache?.cachedWorkCenterId, showScanResult],
+    [],
   );
 
   const handleWelderGateAdd = useCallback(async () => {
@@ -357,7 +325,7 @@ export function OperatorLayout() {
     setWelderGateError('');
     setWelderGateLoading(true);
     try {
-      const w = await workCenterApi.addWelder(cache.cachedWorkCenterId, welderGateEmpNo.trim());
+      const w = await workCenterApi.lookupWelder(cache.cachedWorkCenterId, welderGateEmpNo.trim());
       setWelders((prev) => {
         if (prev.some((existing) => existing.userId === w.userId)) return prev;
         return [...prev, w];

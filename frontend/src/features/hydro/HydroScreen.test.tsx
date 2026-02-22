@@ -10,6 +10,7 @@ vi.mock('../../api/endpoints', () => ({
   nameplateApi: { getBySerial: vi.fn() },
   workCenterApi: { getDefectCodes: vi.fn().mockResolvedValue([]), getCharacteristics: vi.fn().mockResolvedValue([]) },
   hydroApi: { create: vi.fn(), getLocationsByCharacteristic: vi.fn().mockResolvedValue([]) },
+  controlPlanApi: { getForWorkCenter: vi.fn().mockResolvedValue([]) },
 }));
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {

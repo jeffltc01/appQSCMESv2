@@ -188,8 +188,10 @@ export function FitupScreen(props: WorkCenterProps) {
         rightHeadLotId: rightHead?.cardId ?? leftHead.cardId ?? '',
         leftHeadHeatNumber: leftHead.heatNumber || undefined,
         leftHeadCoilNumber: leftHead.coilNumber || undefined,
+        leftHeadLotNumber: leftHead.lotNumber || undefined,
         rightHeadHeatNumber: rightHead?.heatNumber || undefined,
         rightHeadCoilNumber: rightHead?.coilNumber || undefined,
+        rightHeadLotNumber: rightHead?.lotNumber || undefined,
         tankSize,
         workCenterId,
         assetId: assetId || undefined,
@@ -287,6 +289,11 @@ export function FitupScreen(props: WorkCenterProps) {
           {shells.length > 0 && <span className={styles.alphaShells}> ({shells.map((s) => s.serial).join(', ')})</span>}
         </span>
         <span className={styles.alphaHint}>Write this on the assembly</span>
+        {!props.externalInput && (
+          <Button appearance="subtle" size="large" onClick={resetAssembly} style={{ marginTop: '1rem' }}>
+            Next Assembly
+          </Button>
+        )}
       </div>
     );
   }

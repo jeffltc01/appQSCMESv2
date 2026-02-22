@@ -25,6 +25,7 @@ vi.mock('../../api/endpoints', () => ({
   inspectionRecordApi: {
     create: vi.fn(),
   },
+  controlPlanApi: { getForWorkCenter: vi.fn().mockResolvedValue([]) },
 }));
 
 const { serialNumberApi, inspectionRecordApi } = await import('../../api/endpoints');

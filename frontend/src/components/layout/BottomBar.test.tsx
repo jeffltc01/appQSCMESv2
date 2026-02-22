@@ -4,6 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { BottomBar } from './BottomBar';
 
+vi.mock('../../hooks/useHealthCheck.ts', () => ({
+  useHealthCheck: vi.fn(() => 'online'),
+}));
+
+import { useHealthCheck } from '../../hooks/useHealthCheck.ts';
+const mockUseHealthCheck = vi.mocked(useHealthCheck);
+
 function renderBottomBar(overrides = {}) {
   const defaults = {
     plantCode: 'PLT1',
@@ -24,9 +31,22 @@ describe('BottomBar', () => {
     expect(screen.getByText(/PLT1 -/)).toBeInTheDocument();
   });
 
-  it('shows online status', () => {
+  it('shows Online when health check succeeds', () => {
+    mockUseHealthCheck.mockReturnValue('online');
     renderBottomBar();
     expect(screen.getByText('Online')).toBeInTheDocument();
+  });
+
+  it('shows Offline when health check fails', () => {
+    mockUseHealthCheck.mockReturnValue('offline');
+    renderBottomBar();
+    expect(screen.getByText('Offline')).toBeInTheDocument();
+  });
+
+  it('shows Checking… on initial load', () => {
+    mockUseHealthCheck.mockReturnValue('checking');
+    renderBottomBar();
+    expect(screen.getByText('Checking…')).toBeInTheDocument();
   });
 
   it('displays External Input toggle', () => {

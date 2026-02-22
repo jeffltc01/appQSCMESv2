@@ -118,7 +118,6 @@ public class ProductionRecordService : IProductionRecordService
             ProductionLineId = dto.ProductionLineId,
             OperatorId = dto.OperatorId,
             Timestamp = DateTime.UtcNow,
-            InspectionResult = dto.InspectionResult,
             PlantGearId = plantGearId
         };
 

@@ -1,5 +1,7 @@
 import { Switch } from '@fluentui/react-components';
 import { useClock } from '../../hooks/useClock.ts';
+import { useHealthCheck } from '../../hooks/useHealthCheck.ts';
+import type { HealthStatus } from '../../hooks/useHealthCheck.ts';
 import styles from './BottomBar.module.css';
 
 interface BottomBarProps {
@@ -9,8 +11,16 @@ interface BottomBarProps {
   showToggle?: boolean;
 }
 
+const statusConfig: Record<HealthStatus, { className: string; label: string }> = {
+  online:   { className: styles.dotOnline,   label: 'Online' },
+  offline:  { className: styles.dotOffline,  label: 'Offline' },
+  checking: { className: styles.dotChecking, label: 'Checking…' },
+};
+
 export function BottomBar({ plantCode, externalInput, onToggleExternalInput, showToggle = true }: BottomBarProps) {
   const clock = useClock();
+  const health = useHealthCheck();
+  const { className: dotClass, label: statusLabel } = statusConfig[health];
 
   return (
     <footer className={styles.bottomBar}>
@@ -37,8 +47,8 @@ export function BottomBar({ plantCode, externalInput, onToggleExternalInput, sho
       )}
 
       <div className={styles.status}>
-        <span className={styles.onlineDot} />
-        Online
+        <span className={`${styles.statusDot} ${dotClass}`} />
+        {statusLabel}
       </div>
     </footer>
   );

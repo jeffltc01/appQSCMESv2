@@ -116,7 +116,9 @@ public class RoundSeamService : IRoundSeamService
             throw new InvalidOperationException("Shell is not part of any assembly");
 
         var assemblySn = await _db.SerialNumbers
-            .FirstAsync(s => s.Serial == assemblyLookup.AlphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+            .Where(s => s.Serial == assemblyLookup.AlphaCode && !s.IsObsolete && s.Product!.ProductType!.SystemTypeName == "assembled")
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstAsync(cancellationToken);
 
         var existing = await _db.ProductionRecords
             .Where(r => r.WorkCenterId == dto.WorkCenterId)

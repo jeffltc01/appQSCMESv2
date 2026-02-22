@@ -37,6 +37,7 @@ public class DowntimeService : IDowntimeService
                         CategoryName = c.Name,
                         Name = r.Name,
                         IsActive = r.IsActive,
+                        CountsAsDowntime = r.CountsAsDowntime,
                         SortOrder = r.SortOrder
                     }).ToList()
             })
@@ -113,6 +114,7 @@ public class DowntimeService : IDowntimeService
                 CategoryName = r.DowntimeReasonCategory.Name,
                 Name = r.Name,
                 IsActive = r.IsActive,
+                CountsAsDowntime = r.CountsAsDowntime,
                 SortOrder = r.SortOrder
             })
             .ToListAsync(cancellationToken);
@@ -127,6 +129,7 @@ public class DowntimeService : IDowntimeService
             Id = Guid.NewGuid(),
             DowntimeReasonCategoryId = dto.DowntimeReasonCategoryId,
             Name = dto.Name,
+            CountsAsDowntime = dto.CountsAsDowntime,
             SortOrder = dto.SortOrder,
             IsActive = true
         };
@@ -140,6 +143,7 @@ public class DowntimeService : IDowntimeService
             CategoryName = category?.Name ?? "",
             Name = entity.Name,
             IsActive = entity.IsActive,
+            CountsAsDowntime = entity.CountsAsDowntime,
             SortOrder = entity.SortOrder
         };
     }
@@ -154,6 +158,7 @@ public class DowntimeService : IDowntimeService
         entity.Name = dto.Name;
         entity.SortOrder = dto.SortOrder;
         entity.IsActive = dto.IsActive;
+        entity.CountsAsDowntime = dto.CountsAsDowntime;
 
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -164,6 +169,7 @@ public class DowntimeService : IDowntimeService
             CategoryName = entity.DowntimeReasonCategory.Name,
             Name = entity.Name,
             IsActive = entity.IsActive,
+            CountsAsDowntime = entity.CountsAsDowntime,
             SortOrder = entity.SortOrder
         };
     }
@@ -205,6 +211,7 @@ public class DowntimeService : IDowntimeService
                     CategoryName = x.DowntimeReason.DowntimeReasonCategory.Name,
                     Name = x.DowntimeReason.Name,
                     IsActive = x.DowntimeReason.IsActive,
+                    CountsAsDowntime = x.DowntimeReason.CountsAsDowntime,
                     SortOrder = x.DowntimeReason.SortOrder
                 })
                 .ToList()

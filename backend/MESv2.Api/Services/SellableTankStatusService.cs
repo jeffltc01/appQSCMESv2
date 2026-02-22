@@ -62,15 +62,9 @@ public class SellableTankStatusService : ISellableTankStatusService
             .ToListAsync(cancellationToken);
 
         var inspections = await _db.InspectionRecords
-            .Include(i => i.ControlPlan).ThenInclude(cp => cp!.Characteristic)
+            .Include(i => i.ControlPlan).ThenInclude(cp => cp.Characteristic)
             .Where(i => allRelatedSnIds.Contains(i.SerialNumberId)
-                && i.ControlPlanId.HasValue && gateCheckCpIds.Contains(i.ControlPlanId.Value))
-            .ToListAsync(cancellationToken);
-
-        var prodRecordsWithResult = await _db.ProductionRecords
-            .Include(r => r.WorkCenter).ThenInclude(w => w.WorkCenterType)
-            .Where(r => allRelatedSnIds.Contains(r.SerialNumberId)
-                && r.InspectionResult != null)
+                && gateCheckCpIds.Contains(i.ControlPlanId))
             .ToListAsync(cancellationToken);
 
         var result = new List<SellableTankStatusDto>();
@@ -92,14 +86,8 @@ public class SellableTankStatusService : ISellableTankStatusService
 
             foreach (var insp in inspections.Where(i => treeSnIds.Contains(i.SerialNumberId)))
             {
-                var charName = insp.ControlPlan?.Characteristic?.Name?.ToLower() ?? "";
+                var charName = insp.ControlPlan.Characteristic?.Name?.ToLower() ?? "";
                 ClassifyGateResult(charName, insp.ResultText, ref rtXray, ref spotXray, ref hydro);
-            }
-
-            foreach (var pr in prodRecordsWithResult.Where(r => treeSnIds.Contains(r.SerialNumberId)))
-            {
-                var wcName = (pr.WorkCenter?.Name ?? pr.WorkCenter?.WorkCenterType?.Name ?? "").ToLower();
-                ClassifyGateResult(wcName, pr.InspectionResult, ref rtXray, ref spotXray, ref hydro);
             }
 
             result.Add(new SellableTankStatusDto

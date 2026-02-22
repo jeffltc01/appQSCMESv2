@@ -19,6 +19,7 @@ vi.mock('../../api/endpoints', () => ({
     getCharacteristics: (...args: unknown[]) => mockGetCharacteristics(...args),
   },
   inspectionRecordApi: { create: (...args: unknown[]) => mockCreate(...args) },
+  controlPlanApi: { getForWorkCenter: vi.fn().mockResolvedValue([]) },
 }));
 
 let capturedHandler: ((bc: ParsedBarcode | null, raw: string) => void) | null = null;

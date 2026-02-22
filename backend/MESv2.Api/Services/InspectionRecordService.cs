@@ -7,6 +7,13 @@ namespace MESv2.Api.Services;
 
 public class InspectionRecordService : IInspectionRecordService
 {
+    private static readonly Dictionary<string, HashSet<string>> ValidResultValues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["PassFail"] = new(StringComparer.Ordinal) { "Pass", "Fail" },
+        ["AcceptReject"] = new(StringComparer.Ordinal) { "Accept", "Reject" },
+        ["GoNoGo"] = new(StringComparer.Ordinal) { "Go", "NoGo" },
+    };
+
     private readonly MesDbContext _db;
 
     public InspectionRecordService(MesDbContext db)
@@ -16,16 +23,6 @@ public class InspectionRecordService : IInspectionRecordService
 
     public async Task<InspectionRecordResponseDto> CreateAsync(CreateInspectionRecordDto dto, CancellationToken cancellationToken = default)
     {
-        foreach (var defect in dto.Defects)
-        {
-            if (defect.DefectCodeId == Guid.Empty)
-                throw new ArgumentException("DefectCodeId is required for every defect entry.");
-            if (defect.CharacteristicId == Guid.Empty)
-                throw new ArgumentException("CharacteristicId is required for every defect entry.");
-            if (defect.LocationId == Guid.Empty)
-                throw new ArgumentException("LocationId is required for every defect entry.");
-        }
-
         var sn = await _db.SerialNumbers
             .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken)
             ?? throw new ArgumentException($"Serial number '{dto.SerialNumber}' not found.");
@@ -36,42 +33,75 @@ public class InspectionRecordService : IInspectionRecordService
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new ArgumentException($"No production record found for serial '{dto.SerialNumber}'.");
 
-        var inspectionProdRecord = new ProductionRecord
+        foreach (var result in dto.Results)
         {
-            Id = Guid.NewGuid(),
-            SerialNumberId = sn.Id,
-            WorkCenterId = dto.WorkCenterId,
-            AssetId = null,
-            ProductionLineId = upstreamRecord.ProductionLineId,
-            OperatorId = dto.OperatorId,
-            Timestamp = DateTime.UtcNow,
-            InspectionResult = dto.Defects.Count == 0 ? "Pass" : "Fail",
-            PlantGearId = null,
-        };
-        _db.ProductionRecords.Add(inspectionProdRecord);
+            var cp = await _db.ControlPlans.FindAsync(new object[] { result.ControlPlanId }, cancellationToken)
+                ?? throw new ArgumentException($"ControlPlan '{result.ControlPlanId}' not found.");
 
-        var record = new InspectionRecord
-        {
-            Id = Guid.NewGuid(),
-            SerialNumberId = sn.Id,
-            ProductionRecordId = inspectionProdRecord.Id,
-            WorkCenterId = dto.WorkCenterId,
-            OperatorId = dto.OperatorId,
-            Timestamp = DateTime.UtcNow,
-            ControlPlanId = null,
-            ResultText = null,
-            ResultNumeric = null
-        };
-
-        _db.InspectionRecords.Add(record);
+            if (!ValidResultValues.TryGetValue(cp.ResultType, out var allowed) || !allowed.Contains(result.ResultText))
+                throw new ArgumentException(
+                    $"Invalid ResultText '{result.ResultText}' for ResultType '{cp.ResultType}'. " +
+                    $"Valid values: {(ValidResultValues.TryGetValue(cp.ResultType, out var v) ? string.Join(", ", v) : "none")}");
+        }
 
         foreach (var defect in dto.Defects)
         {
-            var defectLog = new DefectLog
+            if (defect.DefectCodeId == Guid.Empty)
+                throw new ArgumentException("DefectCodeId is required for every defect entry.");
+            if (defect.CharacteristicId == Guid.Empty)
+                throw new ArgumentException("CharacteristicId is required for every defect entry.");
+            if (defect.LocationId == Guid.Empty)
+                throw new ArgumentException("LocationId is required for every defect entry.");
+        }
+
+        ProductionRecord inspectionProdRecord;
+        if (dto.ProductionRecordId.HasValue)
+        {
+            inspectionProdRecord = await _db.ProductionRecords
+                .FirstOrDefaultAsync(r => r.Id == dto.ProductionRecordId.Value, cancellationToken)
+                ?? throw new ArgumentException($"ProductionRecord '{dto.ProductionRecordId.Value}' not found.");
+        }
+        else
+        {
+            inspectionProdRecord = new ProductionRecord
             {
                 Id = Guid.NewGuid(),
-                ProductionRecordId = null,
-                InspectionRecordId = record.Id,
+                SerialNumberId = sn.Id,
+                WorkCenterId = dto.WorkCenterId,
+                AssetId = null,
+                ProductionLineId = upstreamRecord.ProductionLineId,
+                OperatorId = dto.OperatorId,
+                Timestamp = DateTime.UtcNow,
+                PlantGearId = null,
+            };
+            _db.ProductionRecords.Add(inspectionProdRecord);
+        }
+
+        var firstRecordId = Guid.Empty;
+        foreach (var result in dto.Results)
+        {
+            var record = new InspectionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = sn.Id,
+                ProductionRecordId = inspectionProdRecord.Id,
+                WorkCenterId = dto.WorkCenterId,
+                OperatorId = dto.OperatorId,
+                Timestamp = DateTime.UtcNow,
+                ControlPlanId = result.ControlPlanId,
+                ResultText = result.ResultText,
+                ResultNumeric = null
+            };
+            _db.InspectionRecords.Add(record);
+            if (firstRecordId == Guid.Empty) firstRecordId = record.Id;
+        }
+
+        foreach (var defect in dto.Defects)
+        {
+            _db.DefectLogs.Add(new DefectLog
+            {
+                Id = Guid.NewGuid(),
+                ProductionRecordId = inspectionProdRecord.Id,
                 SerialNumberId = sn.Id,
                 DefectCodeId = defect.DefectCodeId,
                 CharacteristicId = defect.CharacteristicId,
@@ -82,8 +112,7 @@ public class InspectionRecordService : IInspectionRecordService
                 IsRepaired = false,
                 RepairedByUserId = null,
                 Timestamp = DateTime.UtcNow
-            };
-            _db.DefectLogs.Add(defectLog);
+            });
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -92,16 +121,16 @@ public class InspectionRecordService : IInspectionRecordService
             .Include(d => d.DefectCode)
             .Include(d => d.Characteristic)
             .Include(d => d.Location)
-            .Where(d => d.InspectionRecordId == record.Id)
+            .Where(d => d.ProductionRecordId == inspectionProdRecord.Id)
             .ToListAsync(cancellationToken);
 
         return new InspectionRecordResponseDto
         {
-            Id = record.Id,
+            Id = firstRecordId,
             SerialNumber = sn.Serial,
-            WorkCenterId = record.WorkCenterId,
-            OperatorId = record.OperatorId,
-            Timestamp = record.Timestamp,
+            WorkCenterId = dto.WorkCenterId,
+            OperatorId = dto.OperatorId,
+            Timestamp = inspectionProdRecord.Timestamp,
             Defects = defectLogs.Select(d => new DefectEntryResponseDto
             {
                 DefectCodeId = d.DefectCodeId,

@@ -6,6 +6,7 @@ public class PlantDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string TimeZoneId { get; set; } = string.Empty;
+    public string NextTankAlphaCode { get; set; } = "AA";
 }
 
 public class ProductionLineDto
@@ -62,6 +63,7 @@ public class MaterialQueueItemDto
     public string CoilNumber { get; set; } = string.Empty;
     public string? LotNumber { get; set; }
     public int Quantity { get; set; }
+    public int QuantityCompleted { get; set; }
     public Guid? ProductId { get; set; }
     public Guid? VendorMillId { get; set; }
     public Guid? VendorProcessorId { get; set; }

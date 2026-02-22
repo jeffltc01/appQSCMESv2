@@ -7,6 +7,13 @@ namespace MESv2.Api.Services;
 
 public class HydroService : IHydroService
 {
+    private static readonly Dictionary<string, HashSet<string>> ValidResultValues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["PassFail"] = new(StringComparer.Ordinal) { "Pass", "Fail" },
+        ["AcceptReject"] = new(StringComparer.Ordinal) { "Accept", "Reject" },
+        ["GoNoGo"] = new(StringComparer.Ordinal) { "Go", "NoGo" },
+    };
+
     private readonly MesDbContext _db;
 
     public HydroService(MesDbContext db)
@@ -23,7 +30,9 @@ public class HydroService : IHydroService
 
         var assemblySn = await _db.SerialNumbers
             .Include(s => s.Product)
-            .FirstOrDefaultAsync(s => s.Serial == dto.AssemblyAlphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+            .Where(s => s.Serial == dto.AssemblyAlphaCode && !s.IsObsolete && s.Product!.ProductType!.SystemTypeName == "assembled")
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (assemblySn != null)
         {
@@ -36,6 +45,16 @@ public class HydroService : IHydroService
             }
         }
 
+        foreach (var result in dto.Results)
+        {
+            var cp = await _db.ControlPlans.FindAsync(new object[] { result.ControlPlanId }, cancellationToken)
+                ?? throw new ArgumentException($"ControlPlan '{result.ControlPlanId}' not found.");
+
+            if (!ValidResultValues.TryGetValue(cp.ResultType, out var allowed) || !allowed.Contains(result.ResultText))
+                throw new ArgumentException(
+                    $"Invalid ResultText '{result.ResultText}' for ResultType '{cp.ResultType}'.");
+        }
+
         var record = new ProductionRecord
         {
             Id = Guid.NewGuid(),
@@ -45,9 +64,23 @@ public class HydroService : IHydroService
             OperatorId = dto.OperatorId,
             ProductionLineId = dto.ProductionLineId,
             Timestamp = DateTime.UtcNow,
-            InspectionResult = dto.Result
         };
         _db.ProductionRecords.Add(record);
+
+        foreach (var result in dto.Results)
+        {
+            _db.InspectionRecords.Add(new InspectionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = sellableSn.Id,
+                ProductionRecordId = record.Id,
+                WorkCenterId = dto.WorkCenterId,
+                OperatorId = dto.OperatorId,
+                Timestamp = DateTime.UtcNow,
+                ControlPlanId = result.ControlPlanId,
+                ResultText = result.ResultText,
+            });
+        }
 
         if (assemblySn != null)
         {
@@ -97,7 +130,6 @@ public class HydroService : IHydroService
             Id = record.Id,
             AssemblyAlphaCode = dto.AssemblyAlphaCode,
             NameplateSerialNumber = dto.NameplateSerialNumber,
-            Result = dto.Result,
             Timestamp = record.Timestamp
         };
     }

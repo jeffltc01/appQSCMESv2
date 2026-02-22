@@ -37,9 +37,10 @@ Downtime Reasons manages the categories and individual reasons used to classify 
 
 | Field           | Required | Description                                                                               |
 | --------------- | -------- | ----------------------------------------------------------------------------------------- |
-| **Reason Name** | Yes      | A specific downtime reason within the category (e.g., "Bearing Failure," "Power Outage"). |
-| **Sort Order**  | Yes      | Numeric value that controls the display order within the category.                        |
-| **Active**      | Yes      | Whether the reason is available for selection when recording downtime.                    |
+| **Reason Name**          | Yes      | A specific downtime reason within the category (e.g., "Bearing Failure," "Power Outage").                                                                                                        |
+| **Sort Order**           | Yes      | Numeric value that controls the display order within the category.                                                                                                                               |
+| **Active**               | Yes      | Whether the reason is available for selection when recording downtime.                                                                                                                           |
+| **Counts as Downtime**   | Yes      | When ON (default), this reason counts against OEE availability. Turn OFF for reasons like "Scanner Issue" or "System Outage" where the operator was still producing but couldn't scan. |
 
 
 ### Controls

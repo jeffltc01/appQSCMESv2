@@ -135,6 +135,7 @@ export interface MaterialQueueItem {
   coilNumber: string;
   lotNumber?: string;
   quantity: number;
+  quantityCompleted: number;
   productId?: string;
   vendorMillId?: string;
   vendorProcessorId?: string;
@@ -383,6 +384,13 @@ export interface AdminCharacteristic {
   isActive: boolean;
 }
 
+export interface OperatorControlPlan {
+  id: string;
+  characteristicName: string;
+  resultType: string;
+  isGateCheck: boolean;
+}
+
 export interface AdminControlPlan {
   id: string;
   characteristicId: string;
@@ -426,6 +434,7 @@ export interface PlantWithGear {
   currentPlantGearId?: string;
   currentGearLevel?: number;
   limbleLocationId?: string;
+  nextTankAlphaCode: string;
   gears: PlantGearItem[];
 }
 
@@ -755,6 +764,7 @@ export interface DowntimeReason {
   categoryName: string;
   name: string;
   isActive: boolean;
+  countsAsDowntime: boolean;
   sortOrder: number;
 }
 

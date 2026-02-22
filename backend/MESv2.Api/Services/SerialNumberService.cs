@@ -18,6 +18,7 @@ public class SerialNumberService : ISerialNumberService
     {
         var sn = await _db.SerialNumbers
             .Include(s => s.Product)
+            .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync(s => s.Serial == serial, cancellationToken);
         if (sn == null)
             return null;
@@ -102,6 +103,7 @@ public class SerialNumberService : ISerialNumberService
             .Include(s => s.MillVendor)
             .Include(s => s.ProcessorVendor)
             .Include(s => s.HeadsVendor)
+            .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync(s => s.Serial == serial, cancellationToken);
         if (sn == null) return null;
 
@@ -212,13 +214,17 @@ public class SerialNumberService : ISerialNumberService
         {
             if (log.FromSerialNumberId.HasValue)
             {
+                if (allSnIds.Contains(log.FromSerialNumberId.Value))
+                    continue;
+
                 var childSn = await LoadFullSn(log.FromSerialNumberId.Value, ct);
                 if (childSn != null)
                 {
                     allSnIds.Add(childSn.Id);
-                    var childNode = BuildNodeDto(childSn, log.Relationship ?? "component");
+                    var nodeType = NormalizeRelationship(log.Relationship, log.TankLocation);
+                    var childNode = BuildNodeDto(childSn, nodeType);
 
-                    if (log.Relationship == "ShellToAssembly" || log.Relationship == "shell")
+                    if (nodeType == "shell")
                         await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
 
                     assemblyNode.Children.Add(childNode);
@@ -226,18 +232,36 @@ public class SerialNumberService : ISerialNumberService
             }
             else if (!string.IsNullOrEmpty(log.TankLocation))
             {
+                var headType = NormalizeRelationship(log.Relationship, log.TankLocation);
                 assemblyNode.Children.Add(new TraceabilityNodeDto
                 {
                     Id = Guid.NewGuid().ToString(),
                     Serial = log.TankLocation,
-                    Label = $"Heat {log.TankLocation} ({log.Relationship})",
-                    NodeType = log.Relationship ?? "head",
+                    Label = $"Heat {log.TankLocation} ({headType})",
+                    NodeType = headType,
                     HeatNumber = log.TankLocation
                 });
             }
         }
 
         return assemblyNode;
+    }
+
+    private static string NormalizeRelationship(string? relationship, string? tankLocation)
+    {
+        return relationship switch
+        {
+            "ShellToAssembly" or "shell" => "shell",
+            "HeadToAssembly" => tankLocation switch
+            {
+                "Head 1" => "leftHead",
+                "Head 2" => "rightHead",
+                _ => "leftHead"
+            },
+            "leftHead" or "rightHead" => relationship,
+            "plate" => "plate",
+            _ => relationship ?? "component"
+        };
     }
 
     private async Task<TraceabilityNodeDto?> TryBuildTreeUp(
@@ -360,7 +384,7 @@ public class SerialNumberService : ISerialNumberService
                         Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
                         CompletedBy = r.Operator?.DisplayName ?? "",
                         AssetName = r.Asset?.Name,
-                        InspectionResult = r.InspectionResult
+                        InspectionResult = null
                     }));
             }
 

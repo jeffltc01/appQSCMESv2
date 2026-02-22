@@ -43,7 +43,6 @@ export interface CreateProductionRecordRequest {
   productionLineId: string;
   operatorId: string;
   welderIds: string[];
-  inspectionResult?: 'pass' | 'fail';
   shellSize?: string;
   heatNumber?: string;
   coilNumber?: string;
@@ -56,10 +55,17 @@ export interface CreateProductionRecordResponse {
   warning?: string;
 }
 
+export interface InspectionResultEntry {
+  controlPlanId: string;
+  resultText: string;
+}
+
 export interface CreateInspectionRecordRequest {
   serialNumber: string;
   workCenterId: string;
   operatorId: string;
+  productionRecordId?: string;
+  results: InspectionResultEntry[];
   defects: {
     defectCodeId: string;
     characteristicId: string;
@@ -73,8 +79,10 @@ export interface CreateAssemblyRequest {
   rightHeadLotId: string;
   leftHeadHeatNumber?: string;
   leftHeadCoilNumber?: string;
+  leftHeadLotNumber?: string;
   rightHeadHeatNumber?: string;
   rightHeadCoilNumber?: string;
+  rightHeadLotNumber?: string;
   tankSize: number;
   workCenterId: string;
   assetId?: string;
@@ -171,7 +179,7 @@ export interface CreateNameplateRecordRequest {
 export interface CreateHydroRecordRequest {
   assemblyAlphaCode: string;
   nameplateSerialNumber: string;
-  result: string;
+  results: InspectionResultEntry[];
   workCenterId: string;
   productionLineId: string;
   assetId?: string;
@@ -183,7 +191,6 @@ export interface HydroRecordResponse {
   id: string;
   assemblyAlphaCode: string;
   nameplateSerialNumber: string;
-  result: string;
   timestamp: string;
 }
 
@@ -392,6 +399,10 @@ export interface UpdatePlantLimbleRequest {
   limbleLocationId?: string;
 }
 
+export interface UpdatePlantNextAlphaCodeRequest {
+  nextTankAlphaCode: string;
+}
+
 export interface CreateActiveSessionRequest {
   workCenterId: string;
   productionLineId: string;
@@ -590,6 +601,7 @@ export interface UpdateDowntimeReasonCategoryRequest {
 export interface CreateDowntimeReasonRequest {
   downtimeReasonCategoryId: string;
   name: string;
+  countsAsDowntime: boolean;
   sortOrder: number;
 }
 
@@ -597,6 +609,7 @@ export interface UpdateDowntimeReasonRequest {
   name: string;
   sortOrder: number;
   isActive: boolean;
+  countsAsDowntime: boolean;
 }
 
 export interface UpdateDowntimeConfigRequest {

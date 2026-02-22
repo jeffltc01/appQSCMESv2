@@ -476,7 +476,8 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             var downtimeMin = wcplIds.Count > 0
                 ? await _db.DowntimeEvents
                     .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
-                                && e.StartedAt < dayEnd && e.EndedAt > dayStart)
+                                && e.StartedAt < dayEnd && e.EndedAt > dayStart
+                                && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
                     .SumAsync(e => e.DurationMinutes, ct)
                 : 0m;
 
@@ -560,7 +561,8 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             var downtimeMin = wcplIds.Count > 0
                 ? await _db.DowntimeEvents
                     .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
-                                && e.StartedAt < utcEnd && e.EndedAt > utcStart)
+                                && e.StartedAt < utcEnd && e.EndedAt > utcStart
+                                && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
                     .SumAsync(e => e.DurationMinutes, ct)
                 : 0m;
 
@@ -591,7 +593,8 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
         var events = await _db.DowntimeEvents
             .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
-                        && e.StartedAt < utcDayEnd && e.EndedAt > utcDayStart)
+                        && e.StartedAt < utcDayEnd && e.EndedAt > utcDayStart
+                        && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
             .Select(e => new { e.StartedAt, e.EndedAt })
             .ToListAsync(ct);
 

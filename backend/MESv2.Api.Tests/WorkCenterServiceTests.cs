@@ -485,30 +485,13 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
-    public async Task AddWelder_Succeeds_EvenWhenNotCertified()
+    public async Task LookupWelder_ReturnsWelder_WhenActive()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
-        user.IsCertifiedWelder = false;
-        await db.SaveChangesAsync();
 
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
-
-        Assert.NotNull(result);
-        Assert.Equal(user.Id, result.UserId);
-    }
-
-    [Fact]
-    public async Task AddWelder_ReturnsWelder_WhenCertified()
-    {
-        await using var db = TestHelpers.CreateInMemoryContext();
-        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
-        user.IsCertifiedWelder = true;
-        await db.SaveChangesAsync();
-
-        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
+        var result = await sut.LookupWelderAsync("EMP001");
 
         Assert.NotNull(result);
         Assert.Equal(user.Id, result.UserId);
@@ -516,16 +499,15 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
-    public async Task AddWelder_ReturnsNull_WhenInactive()
+    public async Task LookupWelder_ReturnsNull_WhenInactive()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
-        user.IsCertifiedWelder = true;
         user.IsActive = false;
         await db.SaveChangesAsync();
 
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
+        var result = await sut.LookupWelderAsync("EMP001");
 
         Assert.Null(result);
     }
@@ -551,47 +533,13 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
-    public async Task AddWelder_ReturnsNull_WhenWelderFromDifferentSite()
+    public async Task LookupWelder_ReturnsNull_WhenNotFound()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var foreignPlantId = Guid.NewGuid();
-        db.Plants.Add(new Plant { Id = foreignPlantId, Code = "PLT99", Name = "Foreign Plant" });
-        db.Users.Add(new User
-        {
-            Id = Guid.NewGuid(),
-            EmployeeNumber = "EMP_FOREIGN",
-            FirstName = "Foreign",
-            LastName = "Welder",
-            DisplayName = "Foreign Welder",
-            RoleTier = 6,
-            RoleName = "Operator",
-            DefaultSiteId = foreignPlantId,
-            IsCertifiedWelder = true,
-            IsActive = true
-        });
-        await db.SaveChangesAsync();
-
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP_FOREIGN");
+        var result = await sut.LookupWelderAsync("NONEXISTENT");
 
         Assert.Null(result);
-    }
-
-    [Fact]
-    public async Task AddWelder_Succeeds_WhenWelderFromSameSite()
-    {
-        await using var db = TestHelpers.CreateInMemoryContext();
-        // EMP003 is a certified welder from Plant 1
-        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP003");
-        Assert.True(user.IsCertifiedWelder);
-        Assert.Equal(TestHelpers.PlantPlt1Id, user.DefaultSiteId);
-
-        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        // wcRollsId belongs to Plant 1 — should accept same-site welder
-        var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP003");
-
-        Assert.NotNull(result);
-        Assert.Equal("EMP003", result.EmployeeNumber);
     }
 
     [Fact]

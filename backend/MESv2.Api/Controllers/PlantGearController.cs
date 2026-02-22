@@ -28,6 +28,7 @@ public class PlantGearController : ControllerBase
                 PlantCode = p.Code,
                 CurrentPlantGearId = p.CurrentPlantGearId,
                 LimbleLocationId = p.LimbleLocationId,
+                NextTankAlphaCode = p.NextTankAlphaCode,
                 Gears = _db.PlantGears
                     .Where(g => g.PlantId == p.Id)
                     .OrderBy(g => g.Level)
@@ -76,6 +77,21 @@ public class PlantGearController : ControllerBase
         if (plant == null) return NotFound();
 
         plant.LimbleLocationId = dto.LimbleLocationId;
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPut("{plantId:guid}/next-alpha-code")]
+    public async Task<ActionResult> SetNextAlphaCode(Guid plantId, [FromBody] UpdatePlantNextAlphaCodeDto dto, CancellationToken cancellationToken)
+    {
+        var plant = await _db.Plants.FindAsync(new object[] { plantId }, cancellationToken);
+        if (plant == null) return NotFound();
+
+        var code = dto.NextTankAlphaCode?.Trim().ToUpperInvariant() ?? "";
+        if (code.Length != 2 || code[0] < 'A' || code[0] > 'Z' || code[1] < 'A' || code[1] > 'Z')
+            return BadRequest(new { message = "Alpha code must be exactly two letters (AA–ZZ)." });
+
+        plant.NextTankAlphaCode = code;
         await _db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }

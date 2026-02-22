@@ -4,7 +4,6 @@ public class DefectLog
 {
     public Guid Id { get; set; }
     public Guid? ProductionRecordId { get; set; }
-    public Guid? InspectionRecordId { get; set; }
     public Guid SerialNumberId { get; set; }
     public Guid DefectCodeId { get; set; }
     public Guid CharacteristicId { get; set; }
@@ -20,7 +19,6 @@ public class DefectLog
     public DateTime Timestamp { get; set; }
 
     public ProductionRecord? ProductionRecord { get; set; }
-    public InspectionRecord? InspectionRecord { get; set; }
     public SerialNumber SerialNumber { get; set; } = null!;
     public DefectCode DefectCode { get; set; } = null!;
     public Characteristic Characteristic { get; set; } = null!;

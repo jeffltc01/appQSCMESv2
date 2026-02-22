@@ -3,8 +3,8 @@ import { Button, Input, Label, Dropdown, Option, type OptionOnSelectData } from 
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel, parseFullDefect } from '../../types/barcode.ts';
-import type { DefectCode, DefectLocation, Characteristic, DefectEntry } from '../../types/domain.ts';
-import { roundSeamApi, workCenterApi, inspectionRecordApi } from '../../api/endpoints.ts';
+import type { DefectCode, DefectLocation, Characteristic, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
+import { roundSeamApi, workCenterApi, inspectionRecordApi, controlPlanApi } from '../../api/endpoints.ts';
 import styles from './RoundSeamInspScreen.module.css';
 
 type ScreenState = 'WaitingForShell' | 'AwaitingDefects';
@@ -20,7 +20,7 @@ interface PendingDefect {
 
 export function RoundSeamInspScreen(props: WorkCenterProps) {
   const {
-    workCenterId, operatorId,
+    workCenterId, productionLineId, operatorId,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -34,6 +34,9 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
   const [defectCodes, setDefectCodes] = useState<DefectCode[]>([]);
   const [defectLocations, setDefectLocations] = useState<DefectLocation[]>([]);
   const [characteristics, setCharacteristics] = useState<Characteristic[]>([]);
+
+  const [controlPlans, setControlPlans] = useState<OperatorControlPlan[]>([]);
+  const [inspectionResults, setInspectionResults] = useState<Record<string, string>>({});
 
   const [manualSerial, setManualSerial] = useState('');
   const [manualDefectCode, setManualDefectCode] = useState('');
@@ -53,7 +56,21 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       setDefectCodes(codes);
       setDefectLocations(locs);
     } catch { /* keep empty */ }
-  }, [workCenterId]);
+    if (productionLineId) {
+      try {
+        const plans = await controlPlanApi.getForWorkCenter(workCenterId, productionLineId);
+        setControlPlans(plans);
+      } catch { /* keep empty */ }
+    }
+  }, [workCenterId, productionLineId]);
+
+  function getResultLabels(resultType: string): [string, string] {
+    switch (resultType) {
+      case 'AcceptReject': return ['Accept', 'Reject'];
+      case 'GoNoGo': return ['Go', 'NoGo'];
+      default: return ['Pass', 'Fail'];
+    }
+  }
 
   const loadShell = useCallback(async (serial: string) => {
     try {
@@ -68,6 +85,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       setScreenState('AwaitingDefects');
       setDefects([]);
       setPending({});
+      setInspectionResults({});
       showScanResult({ type: 'success', message: `Assembly ${assembly.alphaCode} loaded` });
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Shell is not part of any assembly' });
@@ -96,6 +114,10 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
         serialNumber: alphaCode,
         workCenterId,
         operatorId,
+        results: controlPlans.map(cp => ({
+          controlPlanId: cp.id,
+          resultText: inspectionResults[cp.id] || '',
+        })).filter(r => r.resultText),
         defects: defects.map((d) => ({ defectCodeId: d.defectCodeId, characteristicId: d.characteristicId, locationId: d.locationId })),
       });
       showScanResult({ type: 'success', message: defects.length > 0 ? `Inspection saved with ${defects.length} defect(s)` : 'Inspection saved — clean pass' });
@@ -104,10 +126,11 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       setAlphaCode('');
       setDefects([]);
       setPending({});
+      setInspectionResults({});
     } catch {
       showScanResult({ type: 'error', message: 'Failed to save inspection record' });
     }
-  }, [alphaCode, workCenterId, operatorId, defects, showScanResult, refreshHistory]);
+  }, [alphaCode, workCenterId, operatorId, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
@@ -201,6 +224,35 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
         <span>Assembly <strong>{alphaCode}{shells.length > 0 ? ` (${shells.join(', ')})` : ''}</strong></span>
         <span>Tank Size <strong>{tankSize}</strong></span>
       </div>
+      {controlPlans.length > 0 && (
+        <div className={styles.defectTable} style={{ marginBottom: 12 }}>
+          <div className={styles.tableHeader}><span>Characteristic</span><span>Result</span></div>
+          {controlPlans.map((cp) => {
+            const [posLabel, negLabel] = getResultLabels(cp.resultType);
+            const selected = inspectionResults[cp.id];
+            return (
+              <div key={cp.id} className={styles.tableRow} style={{ alignItems: 'center' }}>
+                <span>{cp.characteristicName}</span>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <Button
+                    size="small"
+                    appearance={selected === posLabel ? 'primary' : 'outline'}
+                    style={selected === posLabel ? { backgroundColor: '#0e7a0d', borderColor: '#0e7a0d', color: '#fff' } : undefined}
+                    onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: posLabel }))}
+                  >{posLabel}</Button>
+                  <Button
+                    size="small"
+                    appearance={selected === negLabel ? 'primary' : 'outline'}
+                    style={selected === negLabel ? { backgroundColor: '#d13438', borderColor: '#d13438', color: '#fff' } : undefined}
+                    onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: negLabel }))}
+                  >{negLabel}</Button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className={styles.defectTable}>
         <div className={styles.tableHeader}><span>Defect</span><span>Characteristic</span><span>Location</span></div>
         {defects.map((d, i) => (<div key={i} className={styles.tableRow}><span>{d.defectCodeName}</span><span>{d.characteristicName}</span><span>{d.locationName}</span></div>))}
@@ -222,7 +274,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
           </div>
           <div className={styles.actionRow}>
             <Button appearance="primary" size="large" onClick={saveInspection} className={styles.submitBtn}>Save</Button>
-            <Button appearance="secondary" size="large" onClick={() => { setDefects([]); setPending({}); }}>Clear All</Button>
+            <Button appearance="secondary" size="large" onClick={() => { setDefects([]); setPending({}); setInspectionResults({}); }}>Clear All</Button>
           </div>
         </div>
       )}

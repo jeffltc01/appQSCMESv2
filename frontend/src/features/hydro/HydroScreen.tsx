@@ -3,8 +3,9 @@ import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
-import type { DefectCode, Characteristic, DefectLocation, DefectEntry } from '../../types/domain.ts';
-import { roundSeamApi, nameplateApi, workCenterApi, hydroApi } from '../../api/endpoints.ts';
+import type { DefectCode, Characteristic, DefectLocation, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
+import type { InspectionResultEntry } from '../../types/api.ts';
+import { roundSeamApi, nameplateApi, workCenterApi, hydroApi, controlPlanApi } from '../../api/endpoints.ts';
 import styles from './HydroScreen.module.css';
 
 type HydroState = 'WaitingForScans' | 'ReadyForInspection' | 'DefectEntry';
@@ -36,6 +37,8 @@ export function HydroScreen(props: WorkCenterProps) {
   const [defectCodes, setDefectCodes] = useState<DefectCode[]>([]);
   const [characteristics, setCharacteristics] = useState<Characteristic[]>([]);
   const [locations, setLocations] = useState<DefectLocation[]>([]);
+  const [controlPlans, setControlPlans] = useState<OperatorControlPlan[]>([]);
+  const [inspectionResults, setInspectionResults] = useState<Record<string, string>>({});
   const [manualInput, setManualInput] = useState('');
 
   useEffect(() => {
@@ -51,7 +54,21 @@ export function HydroScreen(props: WorkCenterProps) {
       setDefectCodes(codes);
       setCharacteristics(chars);
     } catch { /* keep empty */ }
-  }, [workCenterId]);
+    if (productionLineId) {
+      try {
+        const plans = await controlPlanApi.getForWorkCenter(workCenterId, productionLineId);
+        setControlPlans(plans);
+      } catch { /* keep empty */ }
+    }
+  }, [workCenterId, productionLineId]);
+
+  function getResultLabels(resultType: string): [string, string] {
+    switch (resultType) {
+      case 'AcceptReject': return ['Accept', 'Reject'];
+      case 'GoNoGo': return ['Go', 'NoGo'];
+      default: return ['Pass', 'Fail'];
+    }
+  }
 
   const scanShell = useCallback(async (serial: string) => {
     try {
@@ -93,12 +110,26 @@ export function HydroScreen(props: WorkCenterProps) {
     }
   }, [assemblyAlpha, assemblyTankSize, showScanResult, setExternalInput]);
 
+  const scanAuto = useCallback(async (serial: string) => {
+    if (assemblyAlpha && !nameplateSerial) { scanNameplate(serial); return; }
+    if (nameplateSerial && !assemblyAlpha) { scanShell(serial); return; }
+    try {
+      await roundSeamApi.getAssemblyByShell(serial);
+      scanShell(serial);
+    } catch {
+      scanNameplate(serial);
+    }
+  }, [assemblyAlpha, nameplateSerial, scanShell, scanNameplate]);
+
   const handleAccept = useCallback(async () => {
     try {
       await hydroApi.create({
         assemblyAlphaCode: assemblyAlpha,
         nameplateSerialNumber: nameplateSerial,
-        result: defects.length > 0 ? 'ACCEPTED' : 'ACCEPTED',
+        results: controlPlans.map(cp => ({
+          controlPlanId: cp.id,
+          resultText: inspectionResults[cp.id] || '',
+        })).filter(r => r.resultText) as InspectionResultEntry[],
         workCenterId,
         productionLineId,
         assetId: assetId || undefined,
@@ -111,7 +142,7 @@ export function HydroScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Failed to save hydro record' });
     }
-  }, [assemblyAlpha, nameplateSerial, workCenterId, assetId, operatorId, defects, showScanResult, refreshHistory]);
+  }, [assemblyAlpha, nameplateSerial, workCenterId, productionLineId, assetId, operatorId, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
 
   const resetScreen = useCallback(() => {
     setState('WaitingForScans');
@@ -124,6 +155,7 @@ export function HydroScreen(props: WorkCenterProps) {
     setDefects([]);
     setWizard(null);
     setManualInput('');
+    setInspectionResults({});
     setExternalInput(true);
   }, [setExternalInput]);
 
@@ -169,14 +201,13 @@ export function HydroScreen(props: WorkCenterProps) {
         if (bc?.prefix === 'NOSHELL' && bc.value === '0') { setShellSerial(''); showScanResult({ type: 'success', message: 'No shell mode' }); return; }
         const serial = bc ? (bc.value.includes(';') ? bc.value : _raw.replace(/^[^;]*;/, '')) : _raw.trim();
         if (serial) {
-          if (assemblyAlpha) { scanNameplate(serial); }
-          else { scanShell(serial); }
+          scanAuto(serial);
           return;
         }
       }
       showScanResult({ type: 'error', message: bc ? 'Invalid barcode in this context' : 'Unknown barcode' });
     },
-    [state, assemblyAlpha, scanShell, scanNameplate, showScanResult],
+    [state, scanShell, scanAuto, showScanResult],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -190,10 +221,9 @@ export function HydroScreen(props: WorkCenterProps) {
     if (!manualInput.trim()) return;
     const val = manualInput.trim();
     if (val.startsWith('SC;')) { scanShell(parseShellLabel(val.substring(3)).serialNumber); }
-    else if (!assemblyAlpha) { scanShell(val); }
-    else { scanNameplate(val); }
+    else { scanAuto(val); }
     setManualInput('');
-  }, [manualInput, assemblyAlpha, scanShell, scanNameplate]);
+  }, [manualInput, scanShell, scanAuto]);
 
   if (state === 'DefectEntry' && wizard) {
     return (
@@ -240,6 +270,35 @@ export function HydroScreen(props: WorkCenterProps) {
           </div>
           <Button appearance="subtle" onClick={resetScreen}>Reset</Button>
         </div>
+
+        {controlPlans.length > 0 && (
+          <div className={styles.defectTable} style={{ marginBottom: 12 }}>
+            <div className={styles.tableHeader}><span>Characteristic</span><span>Result</span></div>
+            {controlPlans.map((cp) => {
+              const [posLabel, negLabel] = getResultLabels(cp.resultType);
+              const selected = inspectionResults[cp.id];
+              return (
+                <div key={cp.id} className={styles.tableRow} style={{ alignItems: 'center' }}>
+                  <span>{cp.characteristicName}</span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    <Button
+                      size="small"
+                      appearance={selected === posLabel ? 'primary' : 'outline'}
+                      style={selected === posLabel ? { backgroundColor: '#0e7a0d', borderColor: '#0e7a0d', color: '#fff' } : undefined}
+                      onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: posLabel }))}
+                    >{posLabel}</Button>
+                    <Button
+                      size="small"
+                      appearance={selected === negLabel ? 'primary' : 'outline'}
+                      style={selected === negLabel ? { backgroundColor: '#d13438', borderColor: '#d13438', color: '#fff' } : undefined}
+                      onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: negLabel }))}
+                    >{negLabel}</Button>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {defects.length > 0 && (
           <div className={styles.defectTable}>

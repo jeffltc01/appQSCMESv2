@@ -35,6 +35,9 @@ public class LogViewerService : ILogViewerService
         var traceMap = await GetTraceabilityMapAsync(
             records.Select(r => r.Id).ToList(), ct);
 
+        var recordIds = records.Select(r => r.Id).ToList();
+        var inspResultMap = await GetInspectionResultMapAsync(recordIds, ct);
+
         return records.Select(r =>
         {
             var sn = r.SerialNumber;
@@ -45,7 +48,7 @@ public class LogViewerService : ILogViewerService
                 Id = r.Id,
                 Timestamp = ToLocal(r.Timestamp, tz),
                 CoilHeatLot = coilHeat,
-                Thickness = r.InspectionResult,
+                Thickness = inspResultMap.GetValueOrDefault(r.Id),
                 ShellCode = sn?.Serial ?? "",
                 TankSize = sn?.Product?.TankSize,
                 Welders = DistinctWelderNames(r.WelderLogs),
@@ -163,6 +166,7 @@ public class LogViewerService : ILogViewerService
 
         var recordIds = records.Select(r => r.Id).ToList();
         var traceMap = await GetTraceabilityMapAsync(recordIds, ct);
+        var inspResultMap = await GetInspectionResultMapAsync(recordIds, ct);
 
         return records.Select(r =>
         {
@@ -185,7 +189,7 @@ public class LogViewerService : ILogViewerService
                 TankSize = r.SerialNumber?.Product?.TankSize,
                 Operator = r.Operator?.DisplayName ?? "",
                 Welders = DistinctWelderNames(r.WelderLogs),
-                Result = r.InspectionResult,
+                Result = inspResultMap.GetValueOrDefault(r.Id),
                 DefectCount = r.DefectLogs.Count,
                 Annotations = MapAnnotationBadges(r.Annotations)
             };
@@ -212,6 +216,9 @@ public class LogViewerService : ILogViewerService
             .OrderByDescending(r => r.Timestamp)
             .ToListAsync(ct);
 
+        var rtRecordIds = records.Select(r => r.Id).ToList();
+        var rtInspResultMap = await GetInspectionResultMapAsync(rtRecordIds, ct);
+
         return records.Select(r => new RtXrayLogEntryDto
         {
             Id = r.Id,
@@ -219,7 +226,7 @@ public class LogViewerService : ILogViewerService
             ShellCode = r.SerialNumber?.Serial ?? "",
             TankSize = r.SerialNumber?.Product?.TankSize,
             Operator = r.Operator?.DisplayName ?? "",
-            Result = r.InspectionResult,
+            Result = rtInspResultMap.GetValueOrDefault(r.Id),
             Defects = r.DefectLogs.Any()
                 ? string.Join(", ", r.DefectLogs.Select(d => d.DefectCode?.Code ?? d.DefectCodeId.ToString()[..4]))
                 : null,
@@ -270,7 +277,7 @@ public class LogViewerService : ILogViewerService
                 Inspected = incs.FirstOrDefault()?.InspectTank,
                 TankSize = incs.FirstOrDefault()?.TankSize ?? r.SerialNumber?.Product?.TankSize,
                 Operator = r.Operator?.DisplayName ?? "",
-                Result = incs.FirstOrDefault()?.OverallStatus ?? r.InspectionResult,
+                Result = incs.FirstOrDefault()?.OverallStatus,
                 Shots = shots,
                 Annotations = MapAnnotationBadges(r.Annotations)
             };
@@ -286,6 +293,22 @@ public class LogViewerService : ILogViewerService
     }
 
     // --- helpers ---
+
+    private async Task<Dictionary<Guid, string?>> GetInspectionResultMapAsync(
+        List<Guid> productionRecordIds, CancellationToken ct)
+    {
+        if (productionRecordIds.Count == 0)
+            return new Dictionary<Guid, string?>();
+
+        var records = await _db.InspectionRecords
+            .Where(i => productionRecordIds.Contains(i.ProductionRecordId) && i.ResultText != null)
+            .Select(i => new { i.ProductionRecordId, i.ResultText })
+            .ToListAsync(ct);
+
+        return records
+            .GroupBy(r => r.ProductionRecordId)
+            .ToDictionary(g => g.Key, g => g.First().ResultText);
+    }
 
     private async Task<Guid?> GetWcTypeIdAsync(string typeName, CancellationToken ct)
     {
@@ -373,8 +396,9 @@ public class LogViewerService : ILogViewerService
         var sn = trace.FromSerialNumber;
         if (sn == null) return "";
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(sn.CoilNumber)) parts.Add($"Coil:{sn.CoilNumber}");
         if (!string.IsNullOrEmpty(sn.HeatNumber)) parts.Add($"Heat:{sn.HeatNumber}");
+        if (!string.IsNullOrEmpty(sn.CoilNumber)) parts.Add($"Coil:{sn.CoilNumber}");
+        if (parts.Count == 0 && !string.IsNullOrEmpty(sn.LotNumber)) parts.Add($"Lot:{sn.LotNumber}");
         return string.Join(" ", parts);
     }
 

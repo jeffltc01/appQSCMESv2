@@ -42,6 +42,7 @@ import type {
   CreateBarcodeCardRequest,
   SetPlantGearRequest,
   UpdatePlantLimbleRequest,
+  UpdatePlantNextAlphaCodeRequest,
   CreateActiveSessionRequest,
   CreateWorkCenterProductionLineRequest,
   UpdateWorkCenterProductionLineRequest,
@@ -107,6 +108,7 @@ import type {
   WorkCenterType,
   AdminCharacteristic,
   AdminControlPlan,
+  OperatorControlPlan,
   AdminAsset,
   AdminBarcodeCard,
   PlantWithGear,
@@ -151,18 +153,12 @@ export const siteApi = {
 export const workCenterApi = {
   getWorkCenters: () =>
     api.get<WorkCenter[]>('/workcenters'),
-  getWelders: (wcId: string) =>
-    api.get<Welder[]>(`/workcenters/${wcId}/welders`),
   lookupWelder: (wcId: string, empNo: string) =>
     api.get<Welder>(`/workcenters/${wcId}/welders/lookup?empNo=${encodeURIComponent(empNo)}`),
-  addWelder: (wcId: string, employeeNumber: string) =>
-    api.post<Welder>(`/workcenters/${wcId}/welders`, { employeeNumber }),
-  removeWelder: (wcId: string, userId: string) =>
-    api.delete<void>(`/workcenters/${wcId}/welders/${userId}`),
   getHistory: (wcId: string, date: string, plantId: string, assetId?: string) =>
     api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&date=${date}&limit=5${assetId ? `&assetId=${assetId}` : ''}`),
-  getQueueTransactions: (wcId: string, plantId?: string, limit = 5) =>
-    api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}${plantId ? `&plantId=${plantId}` : ''}`),
+  getQueueTransactions: (wcId: string, plantId?: string, limit = 5, action?: string) =>
+    api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}${plantId ? `&plantId=${plantId}` : ''}${action ? `&action=${action}` : ''}`),
   getMaterialQueue: (wcId: string, type?: string) =>
     api.get<MaterialQueueItem[]>(
       `/workcenters/${wcId}/material-queue${type ? `?type=${type}` : ''}`,
@@ -207,6 +203,13 @@ export const productionRecordApi = {
 export const inspectionRecordApi = {
   create: (req: CreateInspectionRecordRequest) =>
     api.post<InspectionRecord>('/inspection-records', req),
+};
+
+export const controlPlanApi = {
+  getForWorkCenter: (workCenterId: string, productionLineId: string) =>
+    api.get<OperatorControlPlan[]>(
+      `/control-plans/by-work-center?workCenterId=${encodeURIComponent(workCenterId)}&productionLineId=${encodeURIComponent(productionLineId)}`
+    ),
 };
 
 export const assemblyApi = {
@@ -389,6 +392,7 @@ export const adminPlantGearApi = {
   getAll: () => api.get<PlantWithGear[]>('/plant-gear'),
   setGear: (plantId: string, req: SetPlantGearRequest) => api.put<void>(`/plant-gear/${plantId}`, req),
   setLimbleLocationId: (plantId: string, req: UpdatePlantLimbleRequest) => api.put<void>(`/plant-gear/${plantId}/limble`, req),
+  setNextAlphaCode: (plantId: string, req: UpdatePlantNextAlphaCodeRequest) => api.put<void>(`/plant-gear/${plantId}/next-alpha-code`, req),
 };
 
 export const adminAnnotationTypeApi = {

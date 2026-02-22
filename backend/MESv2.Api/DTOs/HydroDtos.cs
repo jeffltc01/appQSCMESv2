@@ -4,7 +4,7 @@ public class CreateHydroRecordDto
 {
     public string AssemblyAlphaCode { get; set; } = string.Empty;
     public string NameplateSerialNumber { get; set; } = string.Empty;
-    public string Result { get; set; } = string.Empty;
+    public List<InspectionResultEntryDto> Results { get; set; } = new();
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public Guid? AssetId { get; set; }
@@ -17,6 +17,5 @@ public class HydroRecordResponseDto
     public Guid Id { get; set; }
     public string AssemblyAlphaCode { get; set; } = string.Empty;
     public string NameplateSerialNumber { get; set; } = string.Empty;
-    public string Result { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
 }

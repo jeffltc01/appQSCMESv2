@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MESv2.Api.Data;
 using MESv2.Api.DTOs;
 using MESv2.Api.Models;
 using MESv2.Api.Services;
@@ -25,11 +26,31 @@ public class InspectionRecordServiceTests
         return (snId, prodId);
     }
 
+    private static Guid SeedControlPlan(MESv2.Api.Data.MesDbContext db)
+    {
+        var charId = Guid.NewGuid();
+        db.Characteristics.Add(new Characteristic { Id = charId, Code = "INSP", Name = "Inspection", ProductTypeId = null });
+        var cpId = Guid.NewGuid();
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = cpId,
+            CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplLongSeamInspId,
+            IsEnabled = true,
+            ResultType = "PassFail",
+            IsGateCheck = false,
+            IsActive = true
+        });
+        db.SaveChanges();
+        return cpId;
+    }
+
     [Fact]
     public async Task Create_CreatesInspectionRecord_WithNoDefects()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         SeedSerialAndProdRecord(db, "SN-INSP-001", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlan(db);
 
         var sut = new InspectionRecordService(db);
         var dto = new CreateInspectionRecordDto
@@ -37,6 +58,7 @@ public class InspectionRecordServiceTests
             SerialNumber = "SN-INSP-001",
             WorkCenterId = TestHelpers.wcLongSeamInspId,
             OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Pass" } },
             Defects = new List<DefectEntryDto>()
         };
 
@@ -57,6 +79,7 @@ public class InspectionRecordServiceTests
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         SeedSerialAndProdRecord(db, "SN-INSP-PR-001", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlan(db);
 
         var sut = new InspectionRecordService(db);
         var dto = new CreateInspectionRecordDto
@@ -64,6 +87,7 @@ public class InspectionRecordServiceTests
             SerialNumber = "SN-INSP-PR-001",
             WorkCenterId = TestHelpers.wcLongSeamInspId,
             OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Pass" } },
             Defects = new List<DefectEntryDto>()
         };
 
@@ -76,7 +100,6 @@ public class InspectionRecordServiceTests
 
         Assert.NotNull(prodRecord);
         Assert.Equal(TestHelpers.ProductionLine1Plt1Id, prodRecord.ProductionLineId);
-        Assert.Equal("Pass", prodRecord.InspectionResult);
     }
 
     [Fact]
@@ -84,6 +107,7 @@ public class InspectionRecordServiceTests
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         SeedSerialAndProdRecord(db, "SN-INSP-PR-002", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlan(db);
 
         var defectCodeId = Guid.NewGuid();
         var characteristicId = Guid.NewGuid();
@@ -99,6 +123,7 @@ public class InspectionRecordServiceTests
             SerialNumber = "SN-INSP-PR-002",
             WorkCenterId = TestHelpers.wcLongSeamInspId,
             OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Fail" } },
             Defects = new List<DefectEntryDto>
             {
                 new() { DefectCodeId = defectCodeId, CharacteristicId = characteristicId, LocationId = locationId }
@@ -113,7 +138,6 @@ public class InspectionRecordServiceTests
             .FirstOrDefaultAsync();
 
         Assert.NotNull(prodRecord);
-        Assert.Equal("Fail", prodRecord.InspectionResult);
     }
 
     [Fact]
@@ -121,6 +145,7 @@ public class InspectionRecordServiceTests
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         SeedSerialAndProdRecord(db, "SN-INSP-002", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlan(db);
 
         var defectCodeId = Guid.NewGuid();
         var characteristicId = Guid.NewGuid();
@@ -136,6 +161,7 @@ public class InspectionRecordServiceTests
             SerialNumber = "SN-INSP-002",
             WorkCenterId = TestHelpers.wcLongSeamInspId,
             OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Fail" } },
             Defects = new List<DefectEntryDto>
             {
                 new() { DefectCodeId = defectCodeId, CharacteristicId = characteristicId, LocationId = locationId }
@@ -150,7 +176,10 @@ public class InspectionRecordServiceTests
         Assert.Equal(characteristicId, result.Defects[0].CharacteristicId);
         Assert.Equal(locationId, result.Defects[0].LocationId);
 
-        var defectLogs = await db.DefectLogs.Where(d => d.InspectionRecordId == result.Id).ToListAsync();
+        var prodRec = await db.ProductionRecords
+            .Where(r => r.WorkCenterId == TestHelpers.wcLongSeamInspId && r.SerialNumber.Serial == "SN-INSP-002")
+            .FirstAsync();
+        var defectLogs = await db.DefectLogs.Where(d => d.ProductionRecordId == prodRec.Id).ToListAsync();
         Assert.Single(defectLogs);
     }
 
@@ -209,5 +238,163 @@ public class InspectionRecordServiceTests
         };
 
         await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateAsync(dto));
+    }
+
+    private static Guid SeedControlPlanWithType(MesDbContext db, string resultType, string charName = "Test Char")
+    {
+        var charId = Guid.NewGuid();
+        db.Characteristics.Add(new Characteristic { Id = charId, Code = charName[..3], Name = charName, ProductTypeId = null });
+        var cpId = Guid.NewGuid();
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = cpId, CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplLongSeamInspId,
+            IsEnabled = true, ResultType = resultType, IsGateCheck = false, IsActive = true
+        });
+        db.SaveChanges();
+        return cpId;
+    }
+
+    [Theory]
+    [InlineData("PassFail", "Pass")]
+    [InlineData("PassFail", "Fail")]
+    [InlineData("AcceptReject", "Accept")]
+    [InlineData("AcceptReject", "Reject")]
+    [InlineData("GoNoGo", "Go")]
+    [InlineData("GoNoGo", "NoGo")]
+    public async Task Create_SetsResultText_MatchingResultTypeVocabulary(string resultType, string resultText)
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, $"SN-RT-{resultType}-{resultText}", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlanWithType(db, resultType, $"{resultType} Char");
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = $"SN-RT-{resultType}-{resultText}",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = resultText } }
+        };
+
+        await sut.CreateAsync(dto);
+
+        var record = await db.InspectionRecords.FirstOrDefaultAsync(r => r.ControlPlanId == cpId);
+        Assert.NotNull(record);
+        Assert.Equal(resultText, record.ResultText);
+        Assert.Equal(cpId, record.ControlPlanId);
+    }
+
+    [Fact]
+    public async Task Create_WithMultipleControlPlans_CreatesOneRecordPerPlan()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-MULTI", TestHelpers.wcLongSeamId);
+        var cp1 = SeedControlPlanWithType(db, "PassFail", "Thickness");
+        var cp2 = SeedControlPlanWithType(db, "AcceptReject", "Visual");
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-MULTI",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto>
+            {
+                new() { ControlPlanId = cp1, ResultText = "Pass" },
+                new() { ControlPlanId = cp2, ResultText = "Accept" }
+            }
+        };
+
+        await sut.CreateAsync(dto);
+
+        var records = await db.InspectionRecords
+            .Where(r => r.SerialNumber.Serial == "SN-MULTI")
+            .ToListAsync();
+        Assert.Equal(2, records.Count);
+        Assert.Contains(records, r => r.ControlPlanId == cp1 && r.ResultText == "Pass");
+        Assert.Contains(records, r => r.ControlPlanId == cp2 && r.ResultText == "Accept");
+    }
+
+    [Fact]
+    public async Task Create_RejectsInvalidResultTextForResultType()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-INVALID", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlanWithType(db, "PassFail");
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INVALID",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto>
+            {
+                new() { ControlPlanId = cpId, ResultText = "Accept" }
+            }
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Create_RejectsUnknownControlPlanId()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-UNKNOWN-CP", TestHelpers.wcLongSeamId);
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-UNKNOWN-CP",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto>
+            {
+                new() { ControlPlanId = Guid.NewGuid(), ResultText = "Pass" }
+            }
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => sut.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Create_TiesDefectsToProductionRecord_NotInspectionRecord()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-DEF-PR", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlanWithType(db, "PassFail");
+
+        var defectCodeId = Guid.NewGuid();
+        var characteristicId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+        db.DefectCodes.Add(new DefectCode { Id = defectCodeId, Code = "DX", Name = "DefX" });
+        db.Characteristics.Add(new Characteristic { Id = characteristicId, Code = "CX", Name = "CharX", ProductTypeId = null });
+        db.DefectLocations.Add(new DefectLocation { Id = locationId, Code = "LX", Name = "LocX", CharacteristicId = characteristicId });
+        await db.SaveChangesAsync();
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-DEF-PR",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Fail" } },
+            Defects = new List<DefectEntryDto>
+            {
+                new() { DefectCodeId = defectCodeId, CharacteristicId = characteristicId, LocationId = locationId }
+            }
+        };
+
+        await sut.CreateAsync(dto);
+
+        var defect = await db.DefectLogs.FirstAsync(d => d.DefectCodeId == defectCodeId);
+        Assert.NotNull(defect.ProductionRecordId);
+
+        var prodRecord = await db.ProductionRecords
+            .Where(r => r.WorkCenterId == TestHelpers.wcLongSeamInspId && r.SerialNumber.Serial == "SN-DEF-PR")
+            .FirstAsync();
+        Assert.Equal(prodRecord.Id, defect.ProductionRecordId);
     }
 }

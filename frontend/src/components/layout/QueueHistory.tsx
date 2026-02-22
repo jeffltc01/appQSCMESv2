@@ -7,7 +7,6 @@ interface QueueHistoryProps {
 }
 
 export function QueueHistory({ transactions }: QueueHistoryProps) {
-  const added = transactions.filter((tx) => tx.action === 'added');
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -20,10 +19,10 @@ export function QueueHistory({ transactions }: QueueHistoryProps) {
       </div>
 
       <div className={styles.tableBody}>
-        {added.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className={styles.noRecords}>No recent activity</div>
         ) : (
-          added.map((tx) => (
+          transactions.map((tx) => (
               <div key={tx.id} className={styles.queueRow}>
                 <span className={styles.colDateTime}>{formatShortDateTime(tx.timestamp)}</span>
                 <span className={styles.colSerial}>{tx.itemSummary}</span>
