@@ -64,12 +64,50 @@
   padding: 32px 24px;
 }
 
+/* ── Group layout ── */
+
+.groupContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.groupAccent {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.groupLabel {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #212529;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ── Tile grid (per-group) ── */
+
 .tileGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  max-width: 1100px;
-  margin: 0 auto;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 14px;
 }
 
 .tile {
@@ -77,46 +115,47 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  height: 150px;
-  padding: 16px;
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
+  gap: 10px;
+  height: 130px;
+  padding: 16px 12px;
+  border: 1px solid #dee2e6;
+  border-top: 3px solid;
+  border-radius: 0;
   background: #ffffff;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: box-shadow 0.18s, transform 0.18s;
   position: relative;
 }
 
 .tile:hover:not(:disabled) {
-  border-color: #1b2a4a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
 .tile:active:not(:disabled) {
+  transform: translateY(0);
   background: #f1f3f5;
 }
 
 .tileDisabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
 }
 
 .tileIcon {
-  font-size: 40px;
-  color: #1b2a4a;
+  font-size: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .tileIcon svg {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
 }
 
 .tileLabel {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #212529;
   text-align: center;
@@ -125,14 +164,13 @@
 
 .tileBadge {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 10px;
-  font-weight: 600;
+  top: 6px;
+  right: 6px;
+  font-size: 9px;
+  font-weight: 700;
   color: #868686;
   background: #f0f0f0;
   padding: 2px 6px;
-  border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
