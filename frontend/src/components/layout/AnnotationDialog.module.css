@@ -1,0 +1,64 @@
+.surface {
+  max-width: 520px;
+  width: 95vw;
+  max-height: 85vh;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0;
+}
+
+.centered {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.recordLabel {
+  font-size: 15px;
+  color: #495057;
+  padding: 6px 10px;
+  background: #f1f3f5;
+  border-radius: 4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.typeOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.colorDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.cannedRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cannedBtn {
+  font-size: 13px !important;
+  text-align: left !important;
+}
+
+.error {
+  color: #d13438;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: #fde7e9;
+  border-radius: 4px;
+}

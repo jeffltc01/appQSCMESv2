@@ -424,7 +424,7 @@ export function OperatorLayout() {
           {isQueueScreen ? (
             <QueueHistory transactions={queueTransactions} />
           ) : (
-            <WCHistory data={historyData} logType={dataEntryTypeToLogType(dataEntryType)} />
+            <WCHistory data={historyData} logType={dataEntryTypeToLogType(dataEntryType)} operatorId={user?.id} onAnnotationCreated={refreshHistory} />
           )}
         </aside>
       </div>

@@ -1,6 +1,12 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button, Select, Spinner } from '@fluentui/react-components';
-import { SearchRegular } from '@fluentui/react-icons';
+import {
+  SearchRegular,
+  CheckmarkCircleFilled,
+  DismissCircleFilled,
+  SubtractCircleFilled,
+} from '@fluentui/react-icons';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { siteApi, sellableTankStatusApi } from '../../api/endpoints.ts';
@@ -8,13 +14,55 @@ import type { Plant, SellableTankStatus } from '../../types/domain.ts';
 import { todayISOString } from '../../utils/dateFormat.ts';
 import styles from './SellableTankStatusScreen.module.css';
 
+function GateIcon({ result }: { result: string | null }) {
+  if (!result) {
+    return (
+      <span className={styles.gateIcon}>
+        <SubtractCircleFilled className={styles.gateNone} />
+      </span>
+    );
+  }
+  const lower = result.toLowerCase();
+  const isReject = lower.includes('reject') || lower.includes('fail');
+  return (
+    <span className={styles.gateIcon}>
+      {isReject
+        ? <DismissCircleFilled className={styles.gateFail} />
+        : <CheckmarkCircleFilled className={styles.gatePass} />}
+    </span>
+  );
+}
+
+function GateCheckLegend() {
+  return (
+    <div className={styles.legend} data-testid="gate-legend">
+      <strong>Gate Check</strong>
+      <span className={styles.legendItem}>
+        <CheckmarkCircleFilled className={styles.gatePass} />
+        Passed
+      </span>
+      <span className={styles.legendItem}>
+        <DismissCircleFilled className={styles.gateFail} />
+        Rejected
+      </span>
+      <span className={styles.legendItem}>
+        <SubtractCircleFilled className={styles.gateNone} />
+        No Record
+      </span>
+    </div>
+  );
+}
+
 export function SellableTankStatusScreen() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canChangeSite = (user?.roleTier ?? 99) <= 2;
+  const autoSearched = useRef(false);
 
   const [sites, setSites] = useState<Plant[]>([]);
-  const [siteId, setSiteId] = useState(user?.defaultSiteId ?? '');
-  const [date, setDate] = useState(todayISOString());
+  const [siteId, setSiteId] = useState(searchParams.get('siteId') ?? user?.defaultSiteId ?? '');
+  const [date, setDate] = useState(searchParams.get('date') ?? todayISOString());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<SellableTankStatus[]>([]);
@@ -26,28 +74,33 @@ export function SellableTankStatusScreen() {
     }
   }, [canChangeSite]);
 
-  const handleSearch = useCallback(async () => {
-    if (!siteId || !date) return;
+  const handleSearch = useCallback(async (overrideSiteId?: string, overrideDate?: string) => {
+    const sid = overrideSiteId ?? siteId;
+    const dt = overrideDate ?? date;
+    if (!sid || !dt) return;
+    setSearchParams({ siteId: sid, date: dt }, { replace: true });
     setLoading(true);
     setError('');
     setData([]);
     setHasSearched(true);
     try {
-      const result = await sellableTankStatusApi.getStatus(siteId, date);
+      const result = await sellableTankStatusApi.getStatus(sid, dt);
       setData(result);
     } catch {
       setError('Failed to load sellable tank status.');
     } finally {
       setLoading(false);
     }
-  }, [siteId, date]);
+  }, [siteId, date, setSearchParams]);
 
-  function renderResult(val: string | null) {
-    if (!val) return <span className={styles.dash}>—</span>;
-    if (val.toLowerCase() === 'accept') return <span className={styles.accept}>Accept</span>;
-    if (val.toLowerCase() === 'reject') return <span className={styles.reject}>Reject</span>;
-    return <span>{val}</span>;
-  }
+  useEffect(() => {
+    const qsSiteId = searchParams.get('siteId');
+    const qsDate = searchParams.get('date');
+    if (qsSiteId && qsDate && !autoSearched.current) {
+      autoSearched.current = true;
+      handleSearch(qsSiteId, qsDate);
+    }
+  }, [searchParams, handleSearch]);
 
   return (
     <AdminLayout title="Sellable Tank Daily Status">
@@ -74,11 +127,13 @@ export function SellableTankStatusScreen() {
         <Button
           appearance="primary"
           icon={<SearchRegular />}
-          onClick={handleSearch}
+          onClick={() => handleSearch()}
           disabled={loading || !siteId || !date}
         >
           Search
         </Button>
+
+        <GateCheckLegend />
       </div>
 
       {loading && (
@@ -94,30 +149,40 @@ export function SellableTankStatusScreen() {
       )}
 
       {data.length > 0 && (
-        <table className={styles.statusTable}>
-          <thead>
-            <tr>
-              <th>Serial Number</th>
-              <th>Product Number</th>
-              <th>Tank Size</th>
-              <th>RT X-ray</th>
-              <th>Spot X-ray</th>
-              <th>Hydro</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row) => (
-              <tr key={row.serialNumber}>
-                <td>{row.serialNumber}</td>
-                <td>{row.productNumber}</td>
-                <td>{row.tankSize}</td>
-                <td>{renderResult(row.rtXrayResult)}</td>
-                <td>{renderResult(row.spotXrayResult)}</td>
-                <td>{renderResult(row.hydroResult)}</td>
+        <>
+          <table className={styles.statusTable}>
+            <thead>
+              <tr>
+                <th>Serial Number</th>
+                <th>Product Number</th>
+                <th>Tank Size</th>
+                <th>RT X-ray</th>
+                <th>Spot X-ray</th>
+                <th>Hydro</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.map((row) => (
+                <tr key={row.serialNumber}>
+                  <td>
+                    <button
+                      className={styles.serialLink}
+                      onClick={() => navigate(`/menu/serial-lookup?serial=${encodeURIComponent(row.serialNumber)}&from=sellable-status`)}
+                      data-testid={`serial-link-${row.serialNumber}`}
+                    >
+                      {row.serialNumber}
+                    </button>
+                  </td>
+                  <td>{row.productNumber}</td>
+                  <td>{row.tankSize}</td>
+                  <td><GateIcon result={row.rtXrayResult} /></td>
+                  <td><GateIcon result={row.spotXrayResult} /></td>
+                  <td><GateIcon result={row.hydroResult} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </AdminLayout>
   );

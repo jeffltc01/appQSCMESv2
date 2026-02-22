@@ -18,6 +18,15 @@
   color: #495057;
 }
 
+.fieldGroup input[type="date"] {
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
 .statusTable {
   width: 100%;
   border-collapse: collapse;
@@ -45,18 +54,58 @@
   background: #f8f9fa;
 }
 
-.accept {
-  color: #2b8a3e;
-  font-weight: 600;
+/* ── Gate check icons ── */
+.gateIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: #e8f0fe;
+  border-radius: 6px;
+  font-size: 20px;
+  line-height: 1;
 }
 
-.reject {
-  color: #c92a2a;
-  font-weight: 600;
+.gatePass { color: #28a745; }
+.gateFail { color: #dc3545; }
+.gateNone { color: #adb5bd; }
+
+/* ── Gate check legend ── */
+.legend {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 8px 16px;
+  background: #e8f0fe;
+  border: 1px solid #dfe2ed;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #495057;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.dash {
-  color: #adb5bd;
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Serial number link ── */
+.serialLink {
+  all: unset;
+  cursor: pointer;
+  color: #2b3b84;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.serialLink:hover {
+  text-decoration-color: #2b3b84;
 }
 
 .emptyState {

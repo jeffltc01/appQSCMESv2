@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Button,
   Input,
@@ -9,6 +10,7 @@ import {
   SearchRegular,
   CheckmarkCircleFilled,
   DismissCircleFilled,
+  SubtractCircleFilled,
 } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
@@ -18,8 +20,8 @@ import { formatDateTime } from '../../utils/dateFormat.ts';
 import styles from './SerialNumberLookupScreen.module.css';
 
 const NODE_TYPE_COLORS: Record<string, { bg: string; label: string }> = {
-  sellable:  { bg: '#28a745', label: 'Finished SN' },
-  assembled: { bg: '#606ca3', label: 'Fitup (Alpha Code)' },
+  sellable:  { bg: '#28a745', label: 'Finished' },
+  assembled: { bg: '#606ca3', label: 'Fitup' },
   shell:     { bg: '#e41e2f', label: 'Shells' },
   plate:     { bg: '#ffc107', label: 'Plate' },
   leftHead:  { bg: '#ba68c8', label: 'Heads' },
@@ -105,26 +107,69 @@ function Legend() {
   }
 
   return (
-    <div className={styles.legend} data-testid="tree-legend">
-      <strong>Diagram Key</strong>
-      {items.map((item) => (
-        <span key={item.label} className={styles.legendItem}>
-          <span className={styles.legendDot} style={{ background: item.bg }} />
-          {item.label}
+    <div className={styles.legendRow}>
+      <div className={styles.legend} data-testid="tree-legend">
+        <strong>Diagram Key</strong>
+        {items.map((item) => (
+          <span key={item.label} className={styles.legendItem}>
+            <span className={styles.legendDot} style={{ background: item.bg }} />
+            {item.label}
+          </span>
+        ))}
+      </div>
+      <div className={`${styles.legend} ${styles.legendGate}`} data-testid="gate-legend">
+        <strong>Gate Check</strong>
+        <span className={styles.legendItem}>
+          <CheckmarkCircleFilled className={styles.gatePass} />
+          Passed
         </span>
-      ))}
+        <span className={styles.legendItem}>
+          <DismissCircleFilled className={styles.gateFail} />
+          Rejected
+        </span>
+        <span className={styles.legendItem}>
+          <SubtractCircleFilled className={styles.gateNone} />
+          No Record
+        </span>
+      </div>
     </div>
   );
 }
 
-function deriveGateStatus(node: TraceabilityNode): 'pass' | 'fail' | null {
+type GateStatus = 'pass' | 'fail' | 'none';
+
+function deriveGateStatus(node: TraceabilityNode): GateStatus | null {
+  const { nodeType } = node;
+  if (nodeType !== 'shell' && nodeType !== 'assembled' && nodeType !== 'sellable') return null;
+
   const events = node.events ?? [];
-  const inspections = events.filter(e => e.inspectionResult != null);
-  if (inspections.length === 0) return null;
-  const hasFail = inspections.some(e =>
-    e.inspectionResult!.toLowerCase().includes('fail') ||
-    e.inspectionResult!.toLowerCase().includes('reject'));
-  return hasFail ? 'fail' : 'pass';
+
+  const matches = (e: ManufacturingEvent, ...keywords: string[]) => {
+    const s = `${e.type} ${e.workCenterName}`.toLowerCase();
+    return keywords.some(k => s.includes(k));
+  };
+
+  let gateEvents: ManufacturingEvent[];
+  if (nodeType === 'shell') {
+    gateEvents = events.filter(e =>
+      e.inspectionResult != null && !matches(e, 'queue') &&
+      (matches(e, 'rt', 'realtime', 'real-time') ||
+       (matches(e, 'x-ray', 'xray') && !matches(e, 'spot'))));
+  } else if (nodeType === 'assembled') {
+    gateEvents = events.filter(e =>
+      e.inspectionResult != null && matches(e, 'spot'));
+  } else {
+    gateEvents = events.filter(e =>
+      e.inspectionResult != null && matches(e, 'hydro'));
+  }
+
+  if (gateEvents.length === 0) return 'none';
+
+  const hasReject = gateEvents.some(e => {
+    const r = e.inspectionResult!.toLowerCase();
+    return r.includes('reject') || r.includes('fail');
+  });
+  return hasReject ? 'fail' : 'pass';
 }
 
 function formatCardTitle(node: TraceabilityNode): string {
@@ -159,13 +204,22 @@ function HeroCard({
       className={cardClasses}
       data-testid={`hero-card-${node.id}`}
     >
+      {gateStatus != null && (
+        <span className={styles.gateIcon} data-testid={`gate-${node.id}`}>
+          {gateStatus === 'pass'
+            ? <CheckmarkCircleFilled className={styles.gatePass} />
+            : gateStatus === 'fail'
+            ? <DismissCircleFilled className={styles.gateFail} />
+            : <SubtractCircleFilled className={styles.gateNone} />}
+        </span>
+      )}
       <div className={styles.cardTypeBadge} style={{ background: badgeColor ? `${badgeColor}18` : undefined, color: badgeColor }}>
         {getNodeTypeLabel(node.nodeType)}
       </div>
-      <div className={styles.cardSerial}>{formatCardTitle(node)}</div>
+      <div className={styles.cardSerial} title={formatCardTitle(node)}>{formatCardTitle(node)}</div>
       <div className={styles.cardInfo}>
-        {node.tankSize != null && <span>{node.tankSize} gal</span>}
-        {node.heatNumber && <span>Heat: {node.heatNumber}</span>}
+        {node.tankSize != null && <span title={`${node.tankSize} gal`}>{node.tankSize} gal</span>}
+        {node.heatNumber && <span title={`Heat: ${node.heatNumber}`}>Heat: {node.heatNumber}</span>}
       </div>
       <div className={styles.cardFooter}>
         <div className={styles.cardStats}>
@@ -178,13 +232,6 @@ function HeroCard({
             <span className={styles.statNeutral}>{annotations}</span>
           </span>
         </div>
-        {gateStatus != null && (
-          <span className={styles.gateIcon} data-testid={`gate-${node.id}`}>
-            {gateStatus === 'pass'
-              ? <CheckmarkCircleFilled className={styles.gatePass} />
-              : <DismissCircleFilled className={styles.gateFail} />}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -198,10 +245,10 @@ function EventsPanel({ events }: { events: EventWithSource[] }) {
         <div className={styles.noEventsText}>No manufacturing events recorded.</div>
       ) : (
         events.map((item, i) => {
-          const badgeBg = NODE_TYPE_COLORS[item.nodeType]?.bg ?? '#6c757d';
+          const badgeColor = NODE_TYPE_COLORS[item.nodeType]?.bg ?? '#6c757d';
           return (
             <div key={i} className={styles.eventRow}>
-              <span className={styles.eventSerialBadge} style={{ background: badgeBg }}>
+              <span className={styles.eventSerialBadge} style={{ background: `${badgeColor}18`, color: badgeColor }}>
                 {item.nodeSerial}
               </span>
               <div className={styles.eventDetails}>
@@ -225,11 +272,15 @@ function EventsPanel({ events }: { events: EventWithSource[] }) {
 
 export function SerialNumberLookupScreen() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const canChangeSite = (user?.roleTier ?? 99) <= 2;
+  const autoLoaded = useRef(false);
+  const cameFromSellable = searchParams.get('from') === 'sellable-status';
 
   const [sites, setSites] = useState<Plant[]>([]);
   const [siteId, setSiteId] = useState(user?.defaultSiteId ?? '');
-  const [serial, setSerial] = useState('');
+  const [serial, setSerial] = useState(searchParams.get('serial') ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<SerialNumberLookup | null>(null);
@@ -240,8 +291,8 @@ export function SerialNumberLookupScreen() {
     }
   }, [canChangeSite]);
 
-  const handleLookup = useCallback(async () => {
-    const trimmed = serial.trim();
+  const handleLookup = useCallback(async (overrideSerial?: string) => {
+    const trimmed = (overrideSerial ?? serial).trim();
     if (!trimmed) return;
     setLoading(true);
     setError('');
@@ -256,6 +307,14 @@ export function SerialNumberLookupScreen() {
     }
   }, [serial]);
 
+  useEffect(() => {
+    const qsSerial = searchParams.get('serial');
+    if (qsSerial && !autoLoaded.current) {
+      autoLoaded.current = true;
+      handleLookup(qsSerial);
+    }
+  }, [searchParams, handleLookup]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleLookup();
   };
@@ -264,7 +323,11 @@ export function SerialNumberLookupScreen() {
   const allEvents = data ? collectAllEvents(data.treeNodes) : [];
 
   return (
-    <AdminLayout title="Serial Number Lookup">
+    <AdminLayout
+      title="Serial Number Lookup"
+      backLabel={cameFromSellable ? 'Back' : undefined}
+      onBack={cameFromSellable ? () => navigate(-1) : undefined}
+    >
       <div className={styles.controls}>
         {canChangeSite && (
           <div className={styles.fieldGroup}>
@@ -297,7 +360,7 @@ export function SerialNumberLookupScreen() {
         <Button
           appearance="primary"
           icon={<SearchRegular />}
-          onClick={handleLookup}
+          onClick={() => handleLookup()}
           disabled={loading || !serial.trim()}
           data-testid="lookup-go-btn"
         >
@@ -325,10 +388,17 @@ export function SerialNumberLookupScreen() {
               <div className={styles.splitLayout}>
                 <div className={styles.diagramPane}>
                   <div className={styles.flowRow} data-testid="genealogy-flow">
-                    {flowSteps.map((step, i) => (
+                    {flowSteps.map((step, i) => {
+                      const isLastShell =
+                        step.node.nodeType === 'shell' &&
+                        i < flowSteps.length - 1 &&
+                        flowSteps[i + 1].node.nodeType !== 'shell';
+                      return (
                       <div
                         key={step.node.id}
                         className={`${styles.flowColumn} ${i < flowSteps.length - 1 ? styles.flowColumnWithArrow : ''}`}
+                        data-node-type={step.node.nodeType}
+                        {...(isLastShell ? { 'data-last-shell': '' } : {})}
                       >
                         <HeroCard node={step.node} />
                         {step.subComponents.length > 0 && (
@@ -344,7 +414,8 @@ export function SerialNumberLookupScreen() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 <EventsPanel events={allEvents} />

@@ -181,6 +181,32 @@ public class SellableTankStatusServiceTests
     }
 
     [Fact]
+    public async Task GetStatus_PicksUpResultFromProductionRecord_WhenNoInspectionRecord()
+    {
+        await using var db = CreateDbWithGateChecks();
+        var targetDate = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+        var tank = SeedTank(db, "TANK-PR", 120, targetDate, TestHelpers.PlantPlt1Id);
+
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = tank.Sellable.Id,
+            WorkCenterId = TestHelpers.wcHydroId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = targetDate.AddHours(1),
+            InspectionResult = "Acceptable"
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SellableTankStatusService(db);
+        var result = await sut.GetStatusAsync(TestHelpers.PlantPlt1Id, new DateOnly(2026, 2, 20));
+
+        Assert.Single(result);
+        Assert.Equal("Acceptable", result[0].HydroResult);
+    }
+
+    [Fact]
     public async Task GetStatus_MissingInspection_ReturnsNull()
     {
         await using var db = CreateDbWithGateChecks();

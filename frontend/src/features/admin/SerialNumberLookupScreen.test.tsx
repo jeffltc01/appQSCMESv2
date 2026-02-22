@@ -55,10 +55,10 @@ const mockLookupResult = {
           serialNumberSerial: 'SN-001',
           timestamp: '2026-02-14T10:00:00Z',
           workCenterName: 'Hydro 1',
-          type: 'Hydro Test',
+          type: 'Hydro',
           completedBy: 'Jane Smith',
           assetName: undefined,
-          inspectionResult: 'pass',
+          inspectionResult: 'Acceptable',
         },
       ],
       children: [
@@ -82,6 +82,16 @@ const mockLookupResult = {
               completedBy: 'Bob Fitter',
               assetName: undefined,
               inspectionResult: undefined,
+            },
+            {
+              serialNumberId: 'assy-1',
+              serialNumberSerial: 'AC-001',
+              timestamp: '2026-02-13T16:00:00Z',
+              workCenterName: 'Spot X-ray 1',
+              type: 'Spot X-ray',
+              completedBy: 'Xray Tech',
+              assetName: undefined,
+              inspectionResult: 'Rejected',
             },
           ],
           children: [
@@ -349,7 +359,7 @@ describe('SerialNumberLookupScreen', () => {
     expect(assyCard).toHaveTextContent('Notes');
   });
 
-  it('shows green check gate icon for passing inspections', async () => {
+  it('shows green check gate icon on sellable card when Hydro is Acceptable', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -360,5 +370,45 @@ describe('SerialNumberLookupScreen', () => {
     await waitFor(() => {
       expect(screen.getByTestId('gate-root-1')).toBeInTheDocument();
     });
+  });
+
+  it('shows red X gate icon on assembled card when Spot X-ray is Rejected', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gate-assy-1')).toBeInTheDocument();
+    });
+  });
+
+  it('shows neutral gate icon on shell card when no RT X-ray record exists', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gate-child-1')).toBeInTheDocument();
+    });
+  });
+
+  it('does not show gate icon on non-gate-check nodes like heads', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hero-card-child-2')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('gate-child-2')).not.toBeInTheDocument();
   });
 });

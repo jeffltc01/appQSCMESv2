@@ -9,9 +9,11 @@ interface AdminLayoutProps {
   children: React.ReactNode;
   onAdd?: () => void;
   addLabel?: string;
+  backLabel?: string;
+  onBack?: () => void;
 }
 
-export function AdminLayout({ title, children, onAdd, addLabel = 'Add' }: AdminLayoutProps) {
+export function AdminLayout({ title, children, onAdd, addLabel = 'Add', backLabel, onBack }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -28,9 +30,9 @@ export function AdminLayout({ title, children, onAdd, addLabel = 'Add' }: AdminL
             appearance="subtle"
             icon={<ArrowLeftRegular />}
             className={styles.backBtn}
-            onClick={() => navigate('/menu')}
+            onClick={onBack ?? (() => navigate('/menu'))}
           >
-            Menu
+            {backLabel ?? 'Menu'}
           </Button>
           <span className={styles.pageTitle}>{title}</span>
           <span className={styles.plantCode}>{user?.plantName ? `${user.plantName} (${user.plantCode})` : user?.plantCode ?? ''}</span>

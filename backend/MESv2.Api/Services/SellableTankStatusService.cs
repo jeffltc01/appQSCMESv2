@@ -62,9 +62,15 @@ public class SellableTankStatusService : ISellableTankStatusService
             .ToListAsync(cancellationToken);
 
         var inspections = await _db.InspectionRecords
-            .Include(i => i.ControlPlan).ThenInclude(cp => cp.Characteristic)
+            .Include(i => i.ControlPlan).ThenInclude(cp => cp!.Characteristic)
             .Where(i => allRelatedSnIds.Contains(i.SerialNumberId)
                 && i.ControlPlanId.HasValue && gateCheckCpIds.Contains(i.ControlPlanId.Value))
+            .ToListAsync(cancellationToken);
+
+        var prodRecordsWithResult = await _db.ProductionRecords
+            .Include(r => r.WorkCenter).ThenInclude(w => w.WorkCenterType)
+            .Where(r => allRelatedSnIds.Contains(r.SerialNumberId)
+                && r.InspectionResult != null)
             .ToListAsync(cancellationToken);
 
         var result = new List<SellableTankStatusDto>();
@@ -82,18 +88,18 @@ public class SellableTankStatusService : ISellableTankStatusService
             if (assemblyId.HasValue) treeSnIds.Add(assemblyId.Value);
             treeSnIds.UnionWith(shellIds);
 
-            var tankInspections = inspections.Where(i => treeSnIds.Contains(i.SerialNumberId)).ToList();
-
             string? rtXray = null, spotXray = null, hydro = null;
-            foreach (var insp in tankInspections)
+
+            foreach (var insp in inspections.Where(i => treeSnIds.Contains(i.SerialNumberId)))
             {
                 var charName = insp.ControlPlan?.Characteristic?.Name?.ToLower() ?? "";
-                if (charName.Contains("rt") || charName.Contains("real") || (charName.Contains("x-ray") && !charName.Contains("spot")))
-                    rtXray ??= insp.ResultText;
-                else if (charName.Contains("spot"))
-                    spotXray ??= insp.ResultText;
-                else if (charName.Contains("hydro"))
-                    hydro ??= insp.ResultText;
+                ClassifyGateResult(charName, insp.ResultText, ref rtXray, ref spotXray, ref hydro);
+            }
+
+            foreach (var pr in prodRecordsWithResult.Where(r => treeSnIds.Contains(r.SerialNumberId)))
+            {
+                var wcName = (pr.WorkCenter?.Name ?? pr.WorkCenter?.WorkCenterType?.Name ?? "").ToLower();
+                ClassifyGateResult(wcName, pr.InspectionResult, ref rtXray, ref spotXray, ref hydro);
             }
 
             result.Add(new SellableTankStatusDto
@@ -108,6 +114,18 @@ public class SellableTankStatusService : ISellableTankStatusService
         }
 
         return result;
+    }
+
+    private static void ClassifyGateResult(string charName, string? resultText,
+        ref string? rtXray, ref string? spotXray, ref string? hydro)
+    {
+        if (string.IsNullOrEmpty(charName) || string.IsNullOrEmpty(resultText)) return;
+        if (charName.Contains("rt") || charName.Contains("real") || (charName.Contains("x-ray") && !charName.Contains("spot")))
+            rtXray ??= resultText;
+        else if (charName.Contains("spot"))
+            spotXray ??= resultText;
+        else if (charName.Contains("hydro"))
+            hydro ??= resultText;
     }
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(Guid plantId, CancellationToken ct)

@@ -1,7 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { WCHistory } from './WCHistory';
+import type { WCHistoryEntry } from '../../types/domain';
+
+vi.mock('../../api/endpoints', () => ({
+  adminAnnotationTypeApi: {
+    getAll: vi.fn().mockResolvedValue([
+      { id: 't1', name: 'Correction Needed', abbreviation: 'C', requiresResolution: true, operatorCanCreate: true, displayColor: '#ffff00' },
+    ]),
+  },
+  logViewerApi: {
+    createAnnotation: vi.fn().mockResolvedValue({}),
+  },
+}));
+
+function makeRecord(overrides: Partial<WCHistoryEntry> & { id: string }): WCHistoryEntry {
+  return {
+    productionRecordId: overrides.id,
+    timestamp: '2026-02-19T14:30:00Z',
+    serialOrIdentifier: 'SH001',
+    hasAnnotation: false,
+    ...overrides,
+  };
+}
 
 function renderWCHistory(props: Parameters<typeof WCHistory>[0]) {
   return render(
@@ -27,8 +50,8 @@ describe('WCHistory', () => {
       data: {
         dayCount: 3,
         recentRecords: [
-          { id: '1', timestamp: '2026-02-19T14:30:00Z', serialOrIdentifier: 'SH001', tankSize: 120, hasAnnotation: false },
-          { id: '2', timestamp: '2026-02-19T14:25:00Z', serialOrIdentifier: 'SH002', tankSize: 250, hasAnnotation: true, annotationColor: '#ff0000' },
+          makeRecord({ id: '1', serialOrIdentifier: 'SH001', tankSize: 120 }),
+          makeRecord({ id: '2', serialOrIdentifier: 'SH002', tankSize: 250, hasAnnotation: true, annotationColor: '#ff0000' }),
         ],
       },
     });
@@ -44,7 +67,7 @@ describe('WCHistory', () => {
       data: {
         dayCount: 1,
         recentRecords: [
-          { id: '1', timestamp: '2026-02-19T14:30:00Z', serialOrIdentifier: 'SH001', tankSize: 120, hasAnnotation: true, annotationColor: '#ff0000' },
+          makeRecord({ id: '1', hasAnnotation: true, annotationColor: '#ff0000' }),
         ],
       },
     });
@@ -58,7 +81,7 @@ describe('WCHistory', () => {
       data: {
         dayCount: 1,
         recentRecords: [
-          { id: '1', timestamp: '2026-02-19T14:30:00Z', serialOrIdentifier: 'SH001', tankSize: 120, hasAnnotation: false },
+          makeRecord({ id: '1', hasAnnotation: false }),
         ],
       },
     });
@@ -78,5 +101,50 @@ describe('WCHistory', () => {
   it('hides View Full Log link when logType is not provided', () => {
     renderWCHistory({ data: { dayCount: 0, recentRecords: [] } });
     expect(screen.queryByText('View Full Log')).not.toBeInTheDocument();
+  });
+
+  it('renders flag as a clickable button with aria-label', () => {
+    renderWCHistory({
+      data: {
+        dayCount: 1,
+        recentRecords: [
+          makeRecord({ id: '1', serialOrIdentifier: 'SH001' }),
+        ],
+      },
+      operatorId: 'op-1',
+    });
+    const btn = screen.getByRole('button', { name: /add annotation for SH001/i });
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+  });
+
+  it('disables flag button when operatorId is not provided', () => {
+    renderWCHistory({
+      data: {
+        dayCount: 1,
+        recentRecords: [
+          makeRecord({ id: '1', serialOrIdentifier: 'SH001' }),
+        ],
+      },
+    });
+    const btn = screen.getByRole('button', { name: /add annotation for SH001/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('opens annotation dialog when flag is clicked', async () => {
+    const user = userEvent.setup();
+    renderWCHistory({
+      data: {
+        dayCount: 1,
+        recentRecords: [
+          makeRecord({ id: '1', productionRecordId: 'pr-1', serialOrIdentifier: 'SH001' }),
+        ],
+      },
+      operatorId: 'op-1',
+    });
+    const btn = screen.getByRole('button', { name: /add annotation for SH001/i });
+    await user.click(btn);
+    expect(screen.getByRole('heading', { name: 'Create Annotation' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

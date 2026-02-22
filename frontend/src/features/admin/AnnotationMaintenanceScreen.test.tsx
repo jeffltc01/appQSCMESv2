@@ -4,7 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { AnnotationMaintenanceScreen } from './AnnotationMaintenanceScreen.tsx';
-import { adminAnnotationApi, adminAnnotationTypeApi, siteApi } from '../../api/endpoints.ts';
+import {
+  adminAnnotationApi,
+  adminAnnotationTypeApi,
+  adminProductionLineApi,
+  adminWorkCenterApi,
+  siteApi,
+} from '../../api/endpoints.ts';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
@@ -14,9 +20,16 @@ vi.mock('../../auth/AuthContext.tsx', () => ({
 vi.mock('../../api/endpoints.ts', () => ({
   adminAnnotationApi: {
     getAll: vi.fn(),
+    create: vi.fn(),
     update: vi.fn(),
   },
   adminAnnotationTypeApi: {
+    getAll: vi.fn(),
+  },
+  adminProductionLineApi: {
+    getAll: vi.fn(),
+  },
+  adminWorkCenterApi: {
     getAll: vi.fn(),
   },
   siteApi: {
@@ -72,6 +85,7 @@ const mockAnnotations = [
 const mockTypes = [
   { id: 'at1', name: 'Weld Defect', abbreviation: 'WD', requiresResolution: true, operatorCanCreate: false, displayColor: '#FF0000' },
   { id: 'at2', name: 'Surface Scratch', abbreviation: 'SS', requiresResolution: false, operatorCanCreate: true, displayColor: '#00FF00' },
+  { id: 'at3', name: 'Note', abbreviation: 'N', requiresResolution: false, operatorCanCreate: false, displayColor: '#0078D4' },
 ];
 
 const mockSites = [
@@ -95,6 +109,8 @@ describe('AnnotationMaintenanceScreen', () => {
     vi.mocked(adminAnnotationApi.getAll).mockResolvedValue(mockAnnotations);
     vi.mocked(adminAnnotationTypeApi.getAll).mockResolvedValue(mockTypes);
     vi.mocked(siteApi.getSites).mockResolvedValue(mockSites);
+    vi.mocked(adminProductionLineApi.getAll).mockResolvedValue([]);
+    vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue([]);
   });
 
   it('renders loading state initially', async () => {
@@ -197,12 +213,38 @@ describe('AnnotationMaintenanceScreen', () => {
     expect(screen.getByText('Edit Annotation')).toBeInTheDocument();
   });
 
-  it('does not show Add button (annotations are read/edit only)', async () => {
+  it('shows Create Annotation button', async () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('SN-001')).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /add/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create annotation/i })).toBeInTheDocument();
+  });
+
+  it('opens create modal and defaults to Note type', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('SN-001')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /create annotation/i }));
+    expect(screen.getByRole('heading', { name: /create annotation/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Annotation notes...')).toBeInTheDocument();
+  });
+
+  it('shows Link To dropdown when Note type selected', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('SN-001')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /create annotation/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Link To (optional)')).toBeInTheDocument();
+    });
   });
 
   it('shows annotation count', async () => {

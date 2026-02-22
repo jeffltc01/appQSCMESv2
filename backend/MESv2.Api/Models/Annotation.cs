@@ -15,6 +15,9 @@ public class Annotation
     public string? ResolvedNotes { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    public string? LinkedEntityType { get; set; }
+    public Guid? LinkedEntityId { get; set; }
+
     public ProductionRecord? ProductionRecord { get; set; }
     public SerialNumber? SerialNumber { get; set; }
     public DowntimeEvent? DowntimeEvent { get; set; }

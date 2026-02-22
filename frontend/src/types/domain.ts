@@ -154,6 +154,7 @@ export interface HeadLotInfo {
 
 export interface WCHistoryEntry {
   id: string;
+  productionRecordId?: string;
   timestamp: string;
   serialOrIdentifier: string;
   tankSize?: number;
@@ -509,6 +510,9 @@ export interface AdminAnnotation {
   resolvedByName?: string;
   resolvedNotes?: string;
   createdAt: string;
+  linkedEntityType?: string;
+  linkedEntityId?: string;
+  linkedEntityName?: string;
 }
 
 export interface AIReviewRecord {

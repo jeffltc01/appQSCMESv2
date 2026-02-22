@@ -10,6 +10,7 @@ public class WelderDto
 public class WCHistoryEntryDto
 {
     public Guid Id { get; set; }
+    public Guid ProductionRecordId { get; set; }
     public DateTime Timestamp { get; set; }
     public string SerialOrIdentifier { get; set; } = string.Empty;
     public int? TankSize { get; set; }

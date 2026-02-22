@@ -317,6 +317,9 @@ public class SerialNumberService : ISerialNumberService
             .OrderByDescending(i => i.Timestamp)
             .ToListAsync(ct);
 
+        var prodRecordIdsWithInspection = new HashSet<Guid>(
+            inspRecords.Select(i => i.ProductionRecordId));
+
         var prodBySnId = prodRecords.GroupBy(r => r.SerialNumberId)
             .ToDictionary(g => g.Key, g => g.ToList());
         var inspBySnId = inspRecords.GroupBy(i => i.SerialNumberId)
@@ -329,21 +332,28 @@ public class SerialNumberService : ISerialNumberService
 
             if (prodBySnId.TryGetValue(snId.Value, out var prods))
             {
-                events.AddRange(prods.Select(r => new ManufacturingEventDto
-                {
-                    SerialNumberId = r.SerialNumberId.ToString(),
-                    SerialNumberSerial = r.SerialNumber?.Serial ?? "",
-                    Timestamp = r.Timestamp,
-                    WorkCenterName = r.WorkCenter?.Name ?? "",
-                    Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
-                    CompletedBy = r.Operator?.DisplayName ?? "",
-                    AssetName = r.Asset?.Name,
-                    InspectionResult = r.InspectionResult
-                }));
+                events.AddRange(prods
+                    .Where(r => !prodRecordIdsWithInspection.Contains(r.Id))
+                    .Select(r => new ManufacturingEventDto
+                    {
+                        SerialNumberId = r.SerialNumberId.ToString(),
+                        SerialNumberSerial = r.SerialNumber?.Serial ?? "",
+                        Timestamp = r.Timestamp,
+                        WorkCenterName = r.WorkCenter?.Name ?? "",
+                        Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
+                        CompletedBy = r.Operator?.DisplayName ?? "",
+                        AssetName = r.Asset?.Name,
+                        InspectionResult = r.InspectionResult
+                    }));
             }
 
             if (inspBySnId.TryGetValue(snId.Value, out var insps))
             {
+                var inspProdIds = new HashSet<Guid>(insps.Select(i => i.ProductionRecordId));
+                var assetLookup = prods != null
+                    ? prods.Where(r => inspProdIds.Contains(r.Id)).ToDictionary(r => r.Id, r => r.Asset?.Name)
+                    : new Dictionary<Guid, string?>();
+
                 events.AddRange(insps.Select(i => new ManufacturingEventDto
                 {
                     SerialNumberId = i.SerialNumberId.ToString(),
@@ -352,7 +362,7 @@ public class SerialNumberService : ISerialNumberService
                     WorkCenterName = i.WorkCenter?.Name ?? "",
                     Type = i.ControlPlan?.Characteristic?.Name ?? i.WorkCenter?.WorkCenterType?.Name ?? "Inspection",
                     CompletedBy = i.Operator?.DisplayName ?? "",
-                    AssetName = null,
+                    AssetName = assetLookup.GetValueOrDefault(i.ProductionRecordId),
                     InspectionResult = i.ResultText
                 }));
             }

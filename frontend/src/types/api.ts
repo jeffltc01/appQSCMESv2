@@ -407,6 +407,14 @@ export interface UpdateAnnotationRequest {
   resolvedByUserId?: string;
 }
 
+export interface CreateAdminAnnotationRequest {
+  annotationTypeId: string;
+  notes?: string;
+  initiatedByUserId: string;
+  linkedEntityType?: string;
+  linkedEntityId?: string;
+}
+
 // ---- Issue Requests (GitHub) ----
 
 export enum IssueRequestType {

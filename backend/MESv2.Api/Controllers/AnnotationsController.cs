@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
+using MESv2.Api.Models;
 
 namespace MESv2.Api.Controllers;
 
@@ -36,10 +37,11 @@ public class AnnotationsController : ControllerBase
             query = query.Where(a =>
                 (a.ProductionRecordId != null && a.ProductionRecord!.ProductionLine.PlantId == siteId.Value) ||
                 (a.DowntimeEventId != null) ||
-                (a.SerialNumberId != null));
+                (a.SerialNumberId != null) ||
+                (a.LinkedEntityId != null));
         }
 
-        var list = await query
+        var rawList = await query
             .OrderByDescending(a => a.CreatedAt)
             .Select(a => new AdminAnnotationDto
             {
@@ -53,11 +55,75 @@ public class AnnotationsController : ControllerBase
                 InitiatedByName = a.InitiatedByUser.DisplayName,
                 ResolvedByName = a.ResolvedByUser != null ? a.ResolvedByUser.DisplayName : null,
                 ResolvedNotes = a.ResolvedNotes,
-                CreatedAt = a.CreatedAt
+                CreatedAt = a.CreatedAt,
+                LinkedEntityType = a.LinkedEntityType,
+                LinkedEntityId = a.LinkedEntityId,
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(list);
+        await ResolveLinkedEntityNames(rawList, cancellationToken);
+
+        return Ok(rawList);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<AdminAnnotationDto>> Create(
+        [FromBody] CreateAnnotationDto dto,
+        CancellationToken cancellationToken)
+    {
+        var annotationType = await _db.AnnotationTypes.FindAsync(new object[] { dto.AnnotationTypeId }, cancellationToken);
+        if (annotationType == null)
+            return BadRequest(new { message = "Invalid annotation type." });
+
+        var user = await _db.Users.FindAsync(new object[] { dto.InitiatedByUserId }, cancellationToken);
+        if (user == null)
+            return BadRequest(new { message = "Invalid user." });
+
+        if (!string.IsNullOrEmpty(dto.LinkedEntityType) && dto.LinkedEntityId.HasValue)
+        {
+            var valid = dto.LinkedEntityType switch
+            {
+                "Plant" => await _db.Plants.AnyAsync(p => p.Id == dto.LinkedEntityId, cancellationToken),
+                "ProductionLine" => await _db.ProductionLines.AnyAsync(p => p.Id == dto.LinkedEntityId, cancellationToken),
+                "WorkCenter" => await _db.WorkCenters.AnyAsync(w => w.Id == dto.LinkedEntityId, cancellationToken),
+                _ => false
+            };
+            if (!valid)
+                return BadRequest(new { message = $"{dto.LinkedEntityType} not found." });
+        }
+
+        var annotation = new Annotation
+        {
+            Id = Guid.NewGuid(),
+            AnnotationTypeId = dto.AnnotationTypeId,
+            Flag = true,
+            Notes = dto.Notes,
+            InitiatedByUserId = dto.InitiatedByUserId,
+            CreatedAt = DateTime.UtcNow,
+            LinkedEntityType = dto.LinkedEntityType,
+            LinkedEntityId = dto.LinkedEntityId,
+        };
+
+        _db.Annotations.Add(annotation);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var result = new AdminAnnotationDto
+        {
+            Id = annotation.Id,
+            SerialNumber = "",
+            AnnotationTypeName = annotationType.Name,
+            AnnotationTypeId = annotationType.Id,
+            Flag = annotation.Flag,
+            Notes = annotation.Notes,
+            InitiatedByName = user.DisplayName,
+            CreatedAt = annotation.CreatedAt,
+            LinkedEntityType = annotation.LinkedEntityType,
+            LinkedEntityId = annotation.LinkedEntityId,
+        };
+
+        await ResolveLinkedEntityNames(new List<AdminAnnotationDto> { result }, cancellationToken);
+
+        return Ok(result);
     }
 
     [HttpPut("{id:guid}")]
@@ -87,7 +153,7 @@ public class AnnotationsController : ControllerBase
             ? await _db.Users.FindAsync(new object[] { annotation.ResolvedByUserId.Value }, cancellationToken)
             : null;
 
-        return Ok(new AdminAnnotationDto
+        var result = new AdminAnnotationDto
         {
             Id = annotation.Id,
             SerialNumber = annotation.ProductionRecord?.SerialNumber?.Serial ?? "",
@@ -98,7 +164,49 @@ public class AnnotationsController : ControllerBase
             InitiatedByName = annotation.InitiatedByUser.DisplayName,
             ResolvedByName = resolvedUser?.DisplayName,
             ResolvedNotes = annotation.ResolvedNotes,
-            CreatedAt = annotation.CreatedAt
-        });
+            CreatedAt = annotation.CreatedAt,
+            LinkedEntityType = annotation.LinkedEntityType,
+            LinkedEntityId = annotation.LinkedEntityId,
+        };
+
+        await ResolveLinkedEntityNames(new List<AdminAnnotationDto> { result }, cancellationToken);
+
+        return Ok(result);
+    }
+
+    private async Task ResolveLinkedEntityNames(
+        List<AdminAnnotationDto> items,
+        CancellationToken cancellationToken)
+    {
+        var linked = items.Where(i => i.LinkedEntityId.HasValue && !string.IsNullOrEmpty(i.LinkedEntityType)).ToList();
+        if (linked.Count == 0) return;
+
+        var plantIds = linked.Where(i => i.LinkedEntityType == "Plant").Select(i => i.LinkedEntityId!.Value).Distinct().ToList();
+        var lineIds = linked.Where(i => i.LinkedEntityType == "ProductionLine").Select(i => i.LinkedEntityId!.Value).Distinct().ToList();
+        var wcIds = linked.Where(i => i.LinkedEntityType == "WorkCenter").Select(i => i.LinkedEntityId!.Value).Distinct().ToList();
+
+        var plantNames = plantIds.Count > 0
+            ? await _db.Plants.Where(p => plantIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var lineNames = lineIds.Count > 0
+            ? await _db.ProductionLines.Where(p => lineIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        var wcNames = wcIds.Count > 0
+            ? await _db.WorkCenters.Where(w => wcIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w.Name, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        foreach (var item in linked)
+        {
+            var id = item.LinkedEntityId!.Value;
+            item.LinkedEntityName = item.LinkedEntityType switch
+            {
+                "Plant" => plantNames.GetValueOrDefault(id),
+                "ProductionLine" => lineNames.GetValueOrDefault(id),
+                "WorkCenter" => wcNames.GetValueOrDefault(id),
+                _ => null
+            };
+        }
     }
 }

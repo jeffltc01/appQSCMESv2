@@ -6,13 +6,26 @@ import {
   Checkbox,
   Spinner,
   Select,
+  Textarea,
 } from '@fluentui/react-components';
-import { EditRegular, FlagFilled } from '@fluentui/react-icons';
+import { AddRegular, EditRegular, FlagFilled } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
-import { adminAnnotationApi, adminAnnotationTypeApi, siteApi } from '../../api/endpoints.ts';
+import {
+  adminAnnotationApi,
+  adminAnnotationTypeApi,
+  adminProductionLineApi,
+  adminWorkCenterApi,
+  siteApi,
+} from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import type { AdminAnnotation, AdminAnnotationType, Plant } from '../../types/domain.ts';
+import type {
+  AdminAnnotation,
+  AdminAnnotationType,
+  AdminWorkCenter,
+  Plant,
+  ProductionLineAdmin,
+} from '../../types/domain.ts';
 import { formatDateTime } from '../../utils/dateFormat.ts';
 import styles from './AnnotationMaintenanceScreen.module.css';
 
@@ -45,6 +58,18 @@ export function AnnotationMaintenanceScreen() {
   const [editNotes, setEditNotes] = useState('');
   const [editResolvedNotes, setEditResolvedNotes] = useState('');
   const [markResolved, setMarkResolved] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [createTypeId, setCreateTypeId] = useState('');
+  const [createNotes, setCreateNotes] = useState('');
+  const [linkToType, setLinkToType] = useState<'' | 'Plant' | 'ProductionLine' | 'WorkCenter'>('');
+  const [linkToId, setLinkToId] = useState('');
+
+  const [allPlants, setAllPlants] = useState<Plant[]>([]);
+  const [allLines, setAllLines] = useState<ProductionLineAdmin[]>([]);
+  const [allWorkCenters, setAllWorkCenters] = useState<AdminWorkCenter[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +155,67 @@ export function AnnotationMaintenanceScreen() {
     }
   };
 
+  const isNoteType = useMemo(() => {
+    if (!createTypeId) return false;
+    const t = annotationTypes.find((at) => at.id === createTypeId);
+    return t?.name.toLowerCase() === 'note';
+  }, [createTypeId, annotationTypes]);
+
+  const openCreate = async () => {
+    setCreateError('');
+    setCreateNotes('');
+    setLinkToType('');
+    setLinkToId('');
+    const noteType = annotationTypes.find((t) => t.name.toLowerCase() === 'note');
+    setCreateTypeId(noteType?.id ?? annotationTypes[0]?.id ?? '');
+    setCreateOpen(true);
+
+    try {
+      const [plants, lines, wcs] = await Promise.all([
+        siteApi.getSites(),
+        adminProductionLineApi.getAll(),
+        adminWorkCenterApi.getAll(),
+      ]);
+      setAllPlants(plants);
+      setAllLines(lines);
+      setAllWorkCenters(wcs);
+    } catch {
+      /* entity lists are optional; create still works without linking */
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!createTypeId) { setCreateError('Select an annotation type.'); return; }
+    if (!createNotes.trim()) { setCreateError('Notes are required.'); return; }
+    setCreateSaving(true);
+    setCreateError('');
+    try {
+      const created = await adminAnnotationApi.create({
+        annotationTypeId: createTypeId,
+        notes: createNotes.trim(),
+        initiatedByUserId: user!.id,
+        linkedEntityType: isNoteType && linkToType ? linkToType : undefined,
+        linkedEntityId: isNoteType && linkToId ? linkToId : undefined,
+      });
+      setItems((prev) => [created, ...prev]);
+      setCreateOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? (err as { message: string }).message
+          : 'Failed to create annotation.';
+      setCreateError(msg);
+    } finally {
+      setCreateSaving(false);
+    }
+  };
+
+  const linkEntityOptions = useMemo(() => {
+    if (linkToType === 'Plant') return allPlants.map((p) => ({ id: p.id, label: `${p.name} (${p.code})` }));
+    if (linkToType === 'ProductionLine') return allLines.map((l) => ({ id: l.id, label: `${l.name} — ${l.plantName}` }));
+    if (linkToType === 'WorkCenter') return allWorkCenters.map((w) => ({ id: w.id, label: w.name }));
+    return [];
+  }, [linkToType, allPlants, allLines, allWorkCenters]);
 
   return (
     <AdminLayout title="Annotations">
@@ -186,6 +272,16 @@ export function AnnotationMaintenanceScreen() {
         )}
       </div>
 
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Button
+          appearance="primary"
+          icon={<AddRegular />}
+          onClick={openCreate}
+        >
+          Create Annotation
+        </Button>
+      </div>
+
       {error && <div style={{ color: '#d13438', marginBottom: 12 }}>{error}</div>}
 
       {loading ? (
@@ -211,6 +307,7 @@ export function AnnotationMaintenanceScreen() {
                   <th>Initiated By</th>
                   <th>Resolved By</th>
                   <th>Resolved Notes</th>
+                  <th>Linked To</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -244,6 +341,11 @@ export function AnnotationMaintenanceScreen() {
                       )}
                     </td>
                     <td className={styles.notesCell} title={a.resolvedNotes ?? ''}>{a.resolvedNotes || '—'}</td>
+                    <td>
+                      {a.linkedEntityName
+                        ? `${a.linkedEntityType}: ${a.linkedEntityName}`
+                        : '—'}
+                    </td>
                     <td>
                       <Button
                         appearance="subtle"
@@ -305,6 +407,71 @@ export function AnnotationMaintenanceScreen() {
               <div style={{ fontSize: 13, color: '#155724' }}>
                 Already resolved by {editing.resolvedByName}
               </div>
+            )}
+          </>
+        )}
+      </AdminModal>
+
+      <AdminModal
+        open={createOpen}
+        title="Create Annotation"
+        onConfirm={handleCreate}
+        onCancel={() => setCreateOpen(false)}
+        confirmLabel="Create"
+        loading={createSaving}
+        error={createError}
+        confirmDisabled={!createTypeId || !createNotes.trim()}
+      >
+        <Label htmlFor="create-type">Annotation Type</Label>
+        <Select
+          id="create-type"
+          value={createTypeId}
+          onChange={(_, d) => { setCreateTypeId(d.value); setLinkToType(''); setLinkToId(''); }}
+        >
+          {annotationTypes.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </Select>
+
+        <Label htmlFor="create-notes" style={{ marginTop: 8 }}>Notes</Label>
+        <Textarea
+          id="create-notes"
+          value={createNotes}
+          onChange={(_, d) => setCreateNotes(d.value)}
+          placeholder="Annotation notes..."
+          rows={3}
+        />
+
+        {isNoteType && (
+          <>
+            <Label htmlFor="link-to-type" style={{ marginTop: 8 }}>Link To (optional)</Label>
+            <Select
+              id="link-to-type"
+              value={linkToType}
+              onChange={(_, d) => { setLinkToType(d.value as typeof linkToType); setLinkToId(''); }}
+            >
+              <option value="">None</option>
+              <option value="Plant">Plant</option>
+              <option value="ProductionLine">Production Line</option>
+              <option value="WorkCenter">Work Center</option>
+            </Select>
+
+            {linkToType && (
+              <>
+                <Label htmlFor="link-to-entity" style={{ marginTop: 8 }}>
+                  {linkToType === 'Plant' ? 'Plant' : linkToType === 'ProductionLine' ? 'Production Line' : 'Work Center'}
+                </Label>
+                <Select
+                  id="link-to-entity"
+                  value={linkToId}
+                  onChange={(_, d) => setLinkToId(d.value)}
+                >
+                  <option value="">-- Select --</option>
+                  {linkEntityOptions.map((e) => (
+                    <option key={e.id} value={e.id}>{e.label}</option>
+                  ))}
+                </Select>
+              </>
             )}
           </>
         )}

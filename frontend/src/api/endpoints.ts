@@ -47,6 +47,7 @@ import type {
   CreateProductionLineRequest,
   UpdateProductionLineRequest,
   UpdateAnnotationRequest,
+  CreateAdminAnnotationRequest,
   CreatePlantPrinterRequest,
   UpdatePlantPrinterRequest,
   CreateAIReviewRequest,
@@ -401,6 +402,7 @@ export const adminPlantPrinterApi = {
 
 export const adminAnnotationApi = {
   getAll: (siteId?: string) => api.get<AdminAnnotation[]>(`/annotations${siteId ? `?siteId=${siteId}` : ''}`),
+  create: (req: CreateAdminAnnotationRequest) => api.post<AdminAnnotation>('/annotations', req),
   update: (id: string, req: UpdateAnnotationRequest) => api.put<AdminAnnotation>(`/annotations/${id}`, req),
 };
 

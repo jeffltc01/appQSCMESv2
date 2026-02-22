@@ -193,6 +193,7 @@ public class WorkCenterService : IWorkCenterService
                 return new WCHistoryEntryDto
                 {
                     Id = r.Id,
+                    ProductionRecordId = r.Id,
                     Timestamp = ToLocal(r.Timestamp, tz),
                     SerialOrIdentifier = serialOrIdentifier,
                     TankSize = tankSize,
@@ -227,6 +228,7 @@ public class WorkCenterService : IWorkCenterService
             return new WCHistoryEntryDto
             {
                 Id = i.Id,
+                ProductionRecordId = i.ProductionRecordId,
                 Timestamp = ToLocal(i.Timestamp, tz),
                 SerialOrIdentifier = serialOrIdentifier,
                 TankSize = tankSize,

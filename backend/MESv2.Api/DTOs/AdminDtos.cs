@@ -492,6 +492,18 @@ public class AdminAnnotationDto
     public string? ResolvedByName { get; set; }
     public string? ResolvedNotes { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? LinkedEntityType { get; set; }
+    public Guid? LinkedEntityId { get; set; }
+    public string? LinkedEntityName { get; set; }
+}
+
+public class CreateAnnotationDto
+{
+    public Guid AnnotationTypeId { get; set; }
+    public string? Notes { get; set; }
+    public Guid InitiatedByUserId { get; set; }
+    public string? LinkedEntityType { get; set; }
+    public Guid? LinkedEntityId { get; set; }
 }
 
 public class UpdateAnnotationDto
