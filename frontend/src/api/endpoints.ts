@@ -164,8 +164,8 @@ export const workCenterApi = {
     api.get<DefectCode[]>(`/workcenters/${wcId}/defect-codes`),
   getDefectLocations: (wcId: string) =>
     api.get<DefectLocation[]>(`/workcenters/${wcId}/defect-locations`),
-  getCharacteristics: (wcId: string) =>
-    api.get<Characteristic[]>(`/workcenters/${wcId}/characteristics`),
+  getCharacteristics: (wcId: string, tankSize?: number) =>
+    api.get<Characteristic[]>(`/workcenters/${wcId}/characteristics${tankSize != null ? `?tankSize=${tankSize}` : ''}`),
 };
 
 export const productionLineApi = {

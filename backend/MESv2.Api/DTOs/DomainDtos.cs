@@ -98,6 +98,7 @@ public class CharacteristicDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public int? MinTankSize { get; set; }
 }
 
 public class InspectionRecordResponseDto

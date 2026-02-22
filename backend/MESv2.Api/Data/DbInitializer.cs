@@ -285,10 +285,10 @@ public static class DbInitializer
 
         context.Characteristics.AddRange(
             new Characteristic { Id = charLongSeamId, Name = "Long Seam", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs1Id, Name = "RS1", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs2Id, Name = "RS2", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs3Id, Name = "RS3", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs4Id, Name = "RS4", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null }
+            new Characteristic { Id = charRs1Id, Name = "RS1", MinTankSize = 0, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs2Id, Name = "RS2", MinTankSize = 0, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs3Id, Name = "RS3", MinTankSize = 1000, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs4Id, Name = "RS4", MinTankSize = 1001, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null }
         );
 
         context.CharacteristicWorkCenters.AddRange(
@@ -436,6 +436,69 @@ public static class DbInitializer
 
         if (context.ChangeTracker.HasChanges())
             context.SaveChanges();
+    }
+
+    /// <summary>
+    /// Backfills ProductionRecords for InspectionRecords that were created before the
+    /// InspectionRecordService began emitting them. Without a ProductionRecord at the
+    /// inspection work center, dashboards like the Digital Twin can't track units through
+    /// inspection stations. Safe to call on every startup; no-ops when already backfilled.
+    /// </summary>
+    public static void BackfillInspectionProductionRecords(MesDbContext context)
+    {
+        var inspectionDataEntryTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Barcode-LongSeamInsp",
+            "Barcode-RoundSeamInsp",
+        };
+
+        var inspWcIds = context.WorkCenters
+            .Where(w => w.DataEntryType != null && inspectionDataEntryTypes.Contains(w.DataEntryType))
+            .Select(w => w.Id)
+            .ToHashSet();
+
+        if (inspWcIds.Count == 0)
+            return;
+
+        var coveredPairs = context.ProductionRecords
+            .Where(pr => inspWcIds.Contains(pr.WorkCenterId))
+            .Select(pr => new { pr.SerialNumberId, pr.WorkCenterId })
+            .ToHashSet();
+
+        var orphans = context.InspectionRecords
+            .Where(ir => inspWcIds.Contains(ir.WorkCenterId))
+            .Select(ir => new
+            {
+                ir.SerialNumberId,
+                ir.WorkCenterId,
+                ir.OperatorId,
+                ir.Timestamp,
+                ir.ProductionRecord.ProductionLineId,
+            })
+            .AsEnumerable()
+            .Where(ir => !coveredPairs.Contains(new { ir.SerialNumberId, ir.WorkCenterId }))
+            .ToList();
+
+        if (orphans.Count == 0)
+            return;
+
+        foreach (var o in orphans)
+        {
+            context.ProductionRecords.Add(new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = o.SerialNumberId,
+                WorkCenterId = o.WorkCenterId,
+                AssetId = null,
+                ProductionLineId = o.ProductionLineId,
+                OperatorId = o.OperatorId,
+                Timestamp = o.Timestamp,
+                InspectionResult = null,
+                PlantGearId = null,
+            });
+        }
+
+        context.SaveChanges();
     }
 
     public static void EnsureAssembledProducts(MesDbContext context)

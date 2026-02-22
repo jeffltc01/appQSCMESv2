@@ -16,8 +16,7 @@ public class DigitalTwinService : IDigitalTwinService
         ["Barcode-RoundSeam"] = 6,
         ["Barcode-RoundSeamInsp"] = 7,
         ["Spot"] = 8,
-        ["DataPlate"] = 9,
-        ["Hydro"] = 10,
+        ["Hydro"] = 9,
     };
 
     private static readonly Dictionary<string, string> DisplayNames = new(StringComparer.OrdinalIgnoreCase)
@@ -30,7 +29,6 @@ public class DigitalTwinService : IDigitalTwinService
         ["Barcode-RoundSeam"] = "Round Seam",
         ["Barcode-RoundSeamInsp"] = "RS Inspect",
         ["Spot"] = "Spot X-ray",
-        ["DataPlate"] = "Nameplate",
         ["Hydro"] = "Hydro",
     };
 
@@ -94,12 +92,22 @@ public class DigitalTwinService : IDigitalTwinService
             })
             .ToListAsync(cancellationToken);
 
+        var consumedShellSnIds = await _db.TraceabilityLogs
+            .Where(t => t.Relationship == "shell" && t.FromSerialNumberId.HasValue)
+            .Select(t => t.FromSerialNumberId!.Value)
+            .ToListAsync(cancellationToken);
+        var consumedSet = consumedShellSnIds.ToHashSet();
+
+        var activeRecords = recentRecords
+            .Where(r => !consumedSet.Contains(r.SerialNumberId))
+            .ToList();
+
         var todayRecords = recentRecords
             .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
             .ToList();
 
         // --- WIP per station ---
-        var wipCounts = recentRecords
+        var wipCounts = activeRecords
             .GroupBy(r => r.SerialNumberId)
             .Select(g => g.OrderByDescending(r => r.Timestamp).First())
             .GroupBy(r => r.WorkCenterId)
@@ -191,7 +199,7 @@ public class DigitalTwinService : IDigitalTwinService
             maxWip.IsBottleneck = true;
 
         // --- Line throughput ---
-        var hydroStation = stations.FirstOrDefault(s => s.Sequence == 10);
+        var hydroStation = stations.FirstOrDefault(s => s.Sequence == ProductionSequence["Hydro"]);
         var hydroWcId = workCenters.FirstOrDefault(w => w.DataEntryType == "Hydro")?.Id;
         var hydroToday = hydroWcId.HasValue
             ? todayRecords.Count(r => r.WorkCenterId == hydroWcId.Value)
@@ -271,21 +279,18 @@ public class DigitalTwinService : IDigitalTwinService
         // --- Material feeds ---
         var materialFeeds = new List<MaterialFeedDto>();
 
-        var rollsMaterialWcId = workCenters.FirstOrDefault(w =>
-            w.DataEntryType?.Equals("MatQueue-Material", StringComparison.OrdinalIgnoreCase) == true)?.Id;
-        var fitupQueueWcId = workCenters.FirstOrDefault(w =>
-            w.DataEntryType?.Equals("MatQueue-Fitup", StringComparison.OrdinalIgnoreCase) == true)?.Id;
-
-        // Material queue work centers aren't in our ProductionSequence, so fetch them separately
+        // Material queue work centers aren't in our ProductionSequence, so fetch them separately.
+        // Items are stored under the production WC (MaterialQueueForWCId), not the queue WC itself.
         var queueWcIds = await _db.WorkCenters
             .Where(w => w.DataEntryType == "MatQueue-Material" || w.DataEntryType == "MatQueue-Fitup")
-            .Select(w => new { w.Id, w.DataEntryType })
+            .Select(w => new { w.Id, w.DataEntryType, w.MaterialQueueForWCId })
             .ToListAsync(cancellationToken);
 
         foreach (var qwc in queueWcIds)
         {
+            var countWcId = qwc.MaterialQueueForWCId ?? qwc.Id;
             var count = await _db.MaterialQueueItems
-                .CountAsync(m => m.WorkCenterId == qwc.Id
+                .CountAsync(m => m.WorkCenterId == countWcId
                                  && (m.Status == "queued" || m.Status == "active"),
                     cancellationToken);
 
@@ -293,14 +298,15 @@ public class DigitalTwinService : IDigitalTwinService
             materialFeeds.Add(new MaterialFeedDto
             {
                 WorkCenterName = isRollsMaterial ? "Rolls Material" : "Heads Queue",
-                QueueLabel = isRollsMaterial ? $"{count} plates" : $"{count} lots",
+                QueueLabel = $"{count} lots",
                 ItemCount = count,
                 FeedsIntoStation = isRollsMaterial ? "Rolls" : "Fitup",
             });
         }
 
-        // --- Unit tracker ---
+        // --- Unit tracker (exclude shells consumed into assemblies) ---
         var unitTracker = todayRecords
+            .Where(r => !consumedSet.Contains(r.SerialNumberId))
             .GroupBy(r => r.SerialNumberId)
             .Select(g =>
             {

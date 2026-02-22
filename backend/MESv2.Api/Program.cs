@@ -127,6 +127,7 @@ using (var scope = app.Services.CreateScope())
 
     DbInitializer.SyncJoinTables(context);
     DbInitializer.EnsureAssembledProducts(context);
+    DbInitializer.BackfillInspectionProductionRecords(context);
 }
 
 // --- Global exception handler (non-Development) ---

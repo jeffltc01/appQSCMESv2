@@ -59,8 +59,6 @@ export function FitupScreen(props: WorkCenterProps) {
   const resetAssembly = useCallback(() => {
     setTankSize(0);
     setShells([]);
-    setLeftHead(null);
-    setRightHead(null);
     setHeadScanCount(0);
     setReassemblyPrompt(null);
     if (alphaTimer) clearTimeout(alphaTimer);
@@ -94,8 +92,15 @@ export function FitupScreen(props: WorkCenterProps) {
         }
 
         if (tankSize === 0) {
-          updateTankSize(ctx.tankSize);
-          setShells([{ serial, filled: true, tankSize: ctx.tankSize }]);
+          const count = shellCountForSize(ctx.tankSize);
+          setTankSize(ctx.tankSize);
+          const newShells: ShellSlot[] = [];
+          for (let i = 0; i < count; i++) {
+            newShells.push(i === 0
+              ? { serial, filled: true, tankSize: ctx.tankSize }
+              : { serial: '', filled: false });
+          }
+          setShells(newShells);
           showScanResult({ type: 'success', message: `Shell ${serial} added` });
         } else {
           const idx = shells.findIndex((s) => !s.filled);

@@ -182,37 +182,20 @@ export function DigitalTwinScreen() {
    =========================================================== */
 
 function PipelineSection({ snapshot }: { snapshot: DigitalTwinSnapshot }) {
-  const rollsFeed = snapshot.materialFeeds.find((f) => f.feedsIntoStation === 'Rolls');
-  const fitupFeed = snapshot.materialFeeds.find((f) => f.feedsIntoStation === 'Fitup');
+  const feedByStation: Record<string, typeof snapshot.materialFeeds[0]> = {};
+  for (const feed of snapshot.materialFeeds) {
+    feedByStation[feed.feedsIntoStation] = feed;
+  }
 
   return (
     <div className={styles.pipelineSection}>
-      {/* Material feeds above the pipeline */}
-      <div className={styles.materialFeedsRow}>
-        {rollsFeed ? (
-          <div className={styles.materialFeed}>
-            <div className={styles.materialFeedName}>{rollsFeed.workCenterName}</div>
-            <div className={styles.materialFeedCount}>{rollsFeed.queueLabel}</div>
-          </div>
-        ) : <div />}
-        <div className={styles.materialFeedSpacer} />
-        {fitupFeed ? (
-          <div className={styles.materialFeed}>
-            <div className={styles.materialFeedName}>{fitupFeed.workCenterName}</div>
-            <div className={styles.materialFeedCount}>{fitupFeed.queueLabel}</div>
-          </div>
-        ) : <div />}
-        <div className={styles.materialFeedSpacer} />
-        <div className={styles.materialFeedSpacer} />
-      </div>
-
-      {/* Station pipeline */}
       <div className={styles.pipelineWrapper}>
         {snapshot.stations.map((station, idx) => (
           <StationNodeWithArrow
             key={station.workCenterId}
             station={station}
             isLast={idx === snapshot.stations.length - 1}
+            materialFeed={feedByStation[station.name]}
           />
         ))}
       </div>
@@ -223,9 +206,11 @@ function PipelineSection({ snapshot }: { snapshot: DigitalTwinSnapshot }) {
 function StationNodeWithArrow({
   station,
   isLast,
+  materialFeed,
 }: {
   station: StationStatus;
   isLast: boolean;
+  materialFeed?: { workCenterName: string; queueLabel: string; itemCount: number };
 }) {
   const statusKey = station.isBottleneck ? 'bottleneck' : station.status.toLowerCase();
   const boxClass = STATION_BOX_CLASSES[statusKey] ?? '';
@@ -236,13 +221,6 @@ function StationNodeWithArrow({
   return (
     <>
       <div className={styles.stationNode}>
-        {station.isBottleneck && (
-          <div className={styles.bottleneckLabel}>
-            {'(\u2022\u0300\u1D17\u2022\u0301) Bottleneck'}
-          </div>
-        )}
-
-        {/* Status dots above the box */}
         <div className={styles.stationStatusDots}>
           {Array.from({ length: dotCount }).map((_, i) => (
             <div
@@ -264,6 +242,24 @@ function StationNodeWithArrow({
             </div>
           )}
         </div>
+
+        {materialFeed ? (
+          <div className={styles.materialFeedContainer}>
+            <div className={styles.feedArrowUp}>
+              <div className={styles.feedArrowHead} />
+              <div className={styles.feedArrowShaft} />
+            </div>
+            <div className={styles.materialFeed}>
+              <div className={styles.materialFeedIcon}>
+                {materialFeed.workCenterName.includes('Heads') ? '\u2B24' : '\u25A3'}
+              </div>
+              <div className={styles.materialFeedName}>{materialFeed.workCenterName}</div>
+              <div className={styles.materialFeedCount}>{materialFeed.queueLabel}</div>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.materialFeedPlaceholder} />
+        )}
       </div>
       {!isLast && (
         <div className={styles.stationArrow}>

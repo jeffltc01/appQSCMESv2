@@ -42,7 +42,7 @@ public class DigitalTwinServiceTests
         var result = await sut.GetSnapshotAsync(
             TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
 
-        Assert.Equal(10, result.Stations.Count);
+        Assert.Equal(9, result.Stations.Count);
         Assert.Equal("Rolls", result.Stations[0].Name);
         Assert.Equal("Hydro", result.Stations[^1].Name);
     }
@@ -241,5 +241,106 @@ public class DigitalTwinServiceTests
         Assert.Equal(2, result.MaterialFeeds.Count);
         Assert.Contains(result.MaterialFeeds, f => f.FeedsIntoStation == "Rolls");
         Assert.Contains(result.MaterialFeeds, f => f.FeedsIntoStation == "Fitup");
+    }
+
+    [Fact]
+    public async Task GetSnapshot_MaterialFeeds_CountItemsOnProductionWC()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var sn1 = new SerialNumber { Id = Guid.NewGuid(), Serial = "PLATE01" };
+        var sn2 = new SerialNumber { Id = Guid.NewGuid(), Serial = "LOT01" };
+        db.SerialNumbers.AddRange(sn1, sn2);
+
+        // Items are stored under the production WC, not the queue WC
+        db.MaterialQueueItems.Add(new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = TestHelpers.wcRollsId,
+            Position = 1,
+            Status = "queued",
+            Quantity = 5,
+            QueueType = "rolls",
+            SerialNumberId = sn1.Id,
+            CreatedAt = DateTime.UtcNow,
+        });
+        db.MaterialQueueItems.Add(new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = TestHelpers.wcFitupId,
+            Position = 1,
+            Status = "queued",
+            Quantity = 1,
+            QueueType = "fitup",
+            SerialNumberId = sn2.Id,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var rollsFeed = result.MaterialFeeds.First(f => f.FeedsIntoStation == "Rolls");
+        var fitupFeed = result.MaterialFeeds.First(f => f.FeedsIntoStation == "Fitup");
+
+        Assert.Equal(1, rollsFeed.ItemCount);
+        Assert.Contains("1 lots", rollsFeed.QueueLabel);
+        Assert.Equal(1, fitupFeed.ItemCount);
+        Assert.Contains("1 lots", fitupFeed.QueueLabel);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_ConsumedShells_ExcludedFromWipAndUnitTracker()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var now = DateTime.UtcNow;
+        var shell1 = Guid.NewGuid();
+        var shell2 = Guid.NewGuid();
+        var assemblySnId = Guid.NewGuid();
+
+        SeedRecord(db, TestHelpers.wcRollsId, now.AddMinutes(-60), shell1, "SH001");
+        SeedRecord(db, TestHelpers.wcLongSeamId, now.AddMinutes(-50), shell1, "SH001");
+        SeedRecord(db, TestHelpers.wcLongSeamInspId, now.AddMinutes(-40), shell1, "SH001");
+        SeedRecord(db, TestHelpers.wcRollsId, now.AddMinutes(-55), shell2, "SH002");
+        SeedRecord(db, TestHelpers.wcLongSeamId, now.AddMinutes(-45), shell2, "SH002");
+        SeedRecord(db, TestHelpers.wcLongSeamInspId, now.AddMinutes(-35), shell2, "SH002");
+
+        SeedRecord(db, TestHelpers.wcFitupId, now.AddMinutes(-20), assemblySnId, "AE");
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shell1,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "shell",
+            Quantity = 1,
+            Timestamp = now.AddMinutes(-20),
+        });
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shell2,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "shell",
+            Quantity = 1,
+            Timestamp = now.AddMinutes(-20),
+        });
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var lsInspect = result.Stations.First(s => s.Name == "LS Inspect");
+        Assert.Equal(0, lsInspect.WipCount);
+
+        var fitup = result.Stations.First(s => s.Name == "Fitup");
+        Assert.Equal(1, fitup.WipCount);
+
+        Assert.DoesNotContain(result.UnitTracker, u => u.SerialNumber == "SH001");
+        Assert.DoesNotContain(result.UnitTracker, u => u.SerialNumber == "SH002");
+        Assert.Contains(result.UnitTracker, u => u.SerialNumber == "AE");
     }
 }

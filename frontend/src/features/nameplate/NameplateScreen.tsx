@@ -42,7 +42,6 @@ export function NameplateScreen(props: WorkCenterProps) {
         showScanResult({ type: 'warning', message: `Serial saved but print failed: ${result.printMessage ?? 'Unknown error'}` });
       }
       refreshHistory();
-      setSelectedProductId('');
       setSerialNumber('');
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save nameplate record' });

@@ -87,4 +87,20 @@ describe('RoundSeamInspScreen', () => {
       expect.objectContaining({ type: 'error', message: expect.stringContaining('ncomplete') }),
     );
   });
+
+  it('loads characteristics with tankSize after assembly lookup', async () => {
+    mockGetAssemblyByShell.mockResolvedValue({ alphaCode: 'BB', tankSize: 500, roundSeamCount: 2 });
+    mockGetCharacteristics.mockResolvedValue([
+      { id: 'rs1', name: 'RS1', minTankSize: 0 },
+      { id: 'rs2', name: 'RS2', minTankSize: 0 },
+    ]);
+    renderScreen();
+
+    await act(async () => {
+      capturedHandler!({ prefix: 'SC', value: '022102', raw: 'SC;022102' }, 'SC;022102');
+    });
+    await waitFor(() => expect(screen.getByText(/AwaitingDefects/i)).toBeInTheDocument());
+
+    expect(mockGetCharacteristics).toHaveBeenCalledWith('wc-rsi', 500);
+  });
 });

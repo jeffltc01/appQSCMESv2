@@ -116,6 +116,8 @@ public class SerialNumberService : ISerialNumberService
         }
 
         await AttachEventsToNodes(treeNodes, cancellationToken);
+        await AttachCountsToNodes(treeNodes, cancellationToken);
+        AttachChildSerials(treeNodes);
 
         return new SerialNumberLookupDto
         {
@@ -358,5 +360,58 @@ public class SerialNumberService : ISerialNumberService
             events.Sort((a, b) => b.Timestamp.CompareTo(a.Timestamp));
             node.Events = events;
         }
+    }
+
+    private async Task AttachCountsToNodes(List<TraceabilityNodeDto> nodes, CancellationToken ct)
+    {
+        var allNodeIds = new List<(TraceabilityNodeDto node, Guid? snId)>();
+        void Collect(List<TraceabilityNodeDto> list)
+        {
+            foreach (var n in list)
+            {
+                Guid.TryParse(n.Id, out var parsed);
+                allNodeIds.Add((n, parsed != Guid.Empty ? parsed : null));
+                if (n.Children.Count > 0) Collect(n.Children);
+            }
+        }
+        Collect(nodes);
+
+        var guidIds = allNodeIds.Where(x => x.snId.HasValue).Select(x => x.snId!.Value).ToList();
+        if (guidIds.Count == 0) return;
+
+        var defectCounts = await _db.DefectLogs
+            .Where(d => guidIds.Contains(d.SerialNumberId))
+            .GroupBy(d => d.SerialNumberId)
+            .Select(g => new { SnId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SnId, x => x.Count, ct);
+
+        var annotationCounts = await _db.Annotations
+            .Where(a => a.SerialNumberId.HasValue && guidIds.Contains(a.SerialNumberId.Value))
+            .GroupBy(a => a.SerialNumberId!.Value)
+            .Select(g => new { SnId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SnId, x => x.Count, ct);
+
+        foreach (var (node, snId) in allNodeIds)
+        {
+            if (!snId.HasValue) continue;
+            node.DefectCount = defectCounts.GetValueOrDefault(snId.Value);
+            node.AnnotationCount = annotationCounts.GetValueOrDefault(snId.Value);
+        }
+    }
+
+    private static void AttachChildSerials(List<TraceabilityNodeDto> nodes)
+    {
+        void Walk(TraceabilityNodeDto node)
+        {
+            if (node.NodeType == "assembled")
+            {
+                node.ChildSerials = node.Children
+                    .Where(c => c.NodeType == "shell")
+                    .Select(c => c.Serial)
+                    .ToList();
+            }
+            foreach (var child in node.Children) Walk(child);
+        }
+        foreach (var n in nodes) Walk(n);
     }
 }

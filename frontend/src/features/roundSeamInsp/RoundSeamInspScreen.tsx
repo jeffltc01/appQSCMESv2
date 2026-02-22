@@ -46,14 +46,12 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
 
   const loadLookups = useCallback(async () => {
     try {
-      const [codes, locs, chars] = await Promise.all([
+      const [codes, locs] = await Promise.all([
         workCenterApi.getDefectCodes(workCenterId),
         workCenterApi.getDefectLocations(workCenterId),
-        workCenterApi.getCharacteristics(workCenterId),
       ]);
       setDefectCodes(codes);
       setDefectLocations(locs);
-      setCharacteristics(chars);
     } catch { /* keep empty */ }
   }, [workCenterId]);
 
@@ -63,6 +61,10 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       setAlphaCode(assembly.alphaCode);
       setShells(assembly.shells ?? []);
       setTankSize(assembly.tankSize);
+
+      const chars = await workCenterApi.getCharacteristics(workCenterId, assembly.tankSize);
+      setCharacteristics(chars);
+
       setScreenState('AwaitingDefects');
       setDefects([]);
       setPending({});
@@ -70,7 +72,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Shell is not part of any assembly' });
     }
-  }, [showScanResult]);
+  }, [workCenterId, showScanResult]);
 
   const addDefectEntry = useCallback(
     (defectCodeId: string, defectCodeName: string, charId: string, charName: string, locId: string, locName: string) => {

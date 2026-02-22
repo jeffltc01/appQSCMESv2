@@ -337,6 +337,64 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
+    public async Task GetHistory_FitupWorkCenter_IncludesShellSerialsInIdentifier()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var utcTimestamp = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+        var assemblySnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = assemblySnId,
+            Serial = "AB",
+            ProductId = TestProductId,
+            CreatedAt = utcTimestamp
+        });
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = assemblySnId,
+            WorkCenterId = TestHelpers.wcFitupId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = utcTimestamp
+        });
+
+        var shell1Id = Guid.NewGuid();
+        var shell2Id = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber { Id = shell1Id, Serial = "SH001", ProductId = TestProductId, CreatedAt = utcTimestamp });
+        db.SerialNumbers.Add(new SerialNumber { Id = shell2Id, Serial = "SH002", ProductId = TestProductId, CreatedAt = utcTimestamp });
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shell1Id,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "shell",
+            Quantity = 1,
+            Timestamp = utcTimestamp
+        });
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shell2Id,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "shell",
+            Quantity = 1,
+            Timestamp = utcTimestamp
+        });
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetHistoryAsync(TestHelpers.wcFitupId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+
+        Assert.Single(result.RecentRecords);
+        Assert.Contains("AB", result.RecentRecords[0].SerialOrIdentifier);
+        Assert.Contains("SH001", result.RecentRecords[0].SerialOrIdentifier);
+        Assert.Contains("SH002", result.RecentRecords[0].SerialOrIdentifier);
+    }
+
+    [Fact]
     public async Task GetDefectCodes_ReturnsCodesForWorkCenter()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -377,6 +435,53 @@ public class WorkCenterServiceTests
 
         Assert.Single(result);
         Assert.Equal("A1", result[0].Code);
+    }
+
+    [Fact]
+    public async Task GetCharacteristics_WithoutTankSize_ReturnsAll()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var result = await sut.GetCharacteristicsAsync(TestHelpers.wcRoundSeamInspId);
+
+        Assert.Equal(4, result.Count);
+    }
+
+    [Fact]
+    public async Task GetCharacteristics_SmallTank_ReturnsOnlyRS1AndRS2()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var result = await sut.GetCharacteristicsAsync(TestHelpers.wcRoundSeamInspId, tankSize: 500);
+
+        Assert.Equal(2, result.Count);
+        Assert.All(result, c => Assert.True(c.Name == "RS1" || c.Name == "RS2"));
+    }
+
+    [Fact]
+    public async Task GetCharacteristics_1000Tank_ReturnsRS1_RS2_RS3()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var result = await sut.GetCharacteristicsAsync(TestHelpers.wcRoundSeamInspId, tankSize: 1000);
+
+        Assert.Equal(3, result.Count);
+        Assert.Contains(result, c => c.Name == "RS3");
+        Assert.DoesNotContain(result, c => c.Name == "RS4");
+    }
+
+    [Fact]
+    public async Task GetCharacteristics_LargeTank_ReturnsAllFour()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var result = await sut.GetCharacteristicsAsync(TestHelpers.wcRoundSeamInspId, tankSize: 1500);
+
+        Assert.Equal(4, result.Count);
     }
 
     [Fact]

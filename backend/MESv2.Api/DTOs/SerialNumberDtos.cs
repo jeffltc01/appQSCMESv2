@@ -44,6 +44,9 @@ public class TraceabilityNodeDto
     public string? HeatNumber { get; set; }
     public string? LotNumber { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public int DefectCount { get; set; }
+    public int AnnotationCount { get; set; }
+    public List<string> ChildSerials { get; set; } = new();
     public List<TraceabilityNodeDto> Children { get; set; } = new();
     public List<ManufacturingEventDto> Events { get; set; } = new();
 }

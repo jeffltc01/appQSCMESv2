@@ -148,9 +148,46 @@ public class WorkCenterService : IWorkCenterService
             var recordIds = recentProdRecords.Select(r => r.Id).ToList();
             var annotationColors = await GetAnnotationColorsByRecordAsync(recordIds, cancellationToken);
 
+            var wcDataEntryType = await _db.WorkCenters
+                .Where(w => w.Id == wcId)
+                .Select(w => w.DataEntryType)
+                .FirstOrDefaultAsync(cancellationToken);
+            var isFitup = string.Equals(wcDataEntryType, "Fitup", StringComparison.OrdinalIgnoreCase);
+
+            var shellsByAssembly = new Dictionary<Guid, List<string>>();
+            if (isFitup)
+            {
+                var assemblySnIds = recentProdRecords
+                    .Select(r => r.SerialNumberId)
+                    .ToList();
+
+                var shellLogs = await _db.TraceabilityLogs
+                    .Include(t => t.FromSerialNumber)
+                    .Where(t => t.ToSerialNumberId.HasValue
+                        && assemblySnIds.Contains(t.ToSerialNumberId.Value)
+                        && t.Relationship == "shell")
+                    .ToListAsync(cancellationToken);
+
+                foreach (var log in shellLogs)
+                {
+                    if (log.ToSerialNumberId == null) continue;
+                    if (!shellsByAssembly.ContainsKey(log.ToSerialNumberId.Value))
+                        shellsByAssembly[log.ToSerialNumberId.Value] = new List<string>();
+                    if (log.FromSerialNumber?.Serial != null)
+                        shellsByAssembly[log.ToSerialNumberId.Value].Add(log.FromSerialNumber.Serial);
+                }
+            }
+
             var recentRecords = recentProdRecords.Select(r =>
             {
-                var serialOrIdentifier = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
+                var alphaOrSerial = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
+                var serialOrIdentifier = alphaOrSerial;
+                if (isFitup
+                    && shellsByAssembly.TryGetValue(r.SerialNumberId, out var shells)
+                    && shells.Count > 0)
+                {
+                    serialOrIdentifier = $"{alphaOrSerial} ({string.Join(", ", shells)})";
+                }
                 var tankSize = r.SerialNumber?.Product?.TankSize;
                 annotationColors.TryGetValue(r.Id, out var color);
                 return new WCHistoryEntryDto
@@ -323,16 +360,21 @@ public class WorkCenterService : IWorkCenterService
         }).ToList();
     }
 
-    public async Task<IReadOnlyList<CharacteristicDto>> GetCharacteristicsAsync(Guid wcId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CharacteristicDto>> GetCharacteristicsAsync(Guid wcId, int? tankSize = null, CancellationToken cancellationToken = default)
     {
-        var list = await _db.CharacteristicWorkCenters
+        var query = _db.CharacteristicWorkCenters
             .Include(c => c.Characteristic)
-            .Where(c => c.WorkCenterId == wcId)
+            .Where(c => c.WorkCenterId == wcId);
+
+        if (tankSize.HasValue)
+            query = query.Where(c => c.Characteristic.MinTankSize == null || c.Characteristic.MinTankSize <= tankSize.Value);
+
+        var list = await query
             .Select(c => c.Characteristic)
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
 
-        return list.Select(c => new CharacteristicDto { Id = c.Id, Name = c.Name }).ToList();
+        return list.Select(c => new CharacteristicDto { Id = c.Id, Name = c.Name, MinTankSize = c.MinTankSize }).ToList();
     }
 
     private async Task<Guid> GetPlantIdForWorkCenter(Guid wcId, CancellationToken cancellationToken)

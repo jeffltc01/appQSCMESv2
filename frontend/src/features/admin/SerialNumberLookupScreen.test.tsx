@@ -47,6 +47,8 @@ const mockLookupResult = {
       tankSize: 500,
       tankType: '500 gal UG',
       createdAt: '2026-02-14T10:00:00Z',
+      defectCount: 0,
+      annotationCount: 1,
       events: [
         {
           serialNumberId: 'root-1',
@@ -67,6 +69,9 @@ const mockLookupResult = {
           serial: 'AC-001',
           tankSize: 500,
           tankType: '500 gal UG',
+          defectCount: 2,
+          annotationCount: 0,
+          childSerials: ['SN-002'],
           events: [
             {
               serialNumberId: 'assy-1',
@@ -87,6 +92,8 @@ const mockLookupResult = {
               serial: 'SN-002',
               tankSize: 500,
               tankType: '24in Shell',
+              defectCount: 1,
+              annotationCount: 0,
               events: [
                 {
                   serialNumberId: 'child-1',
@@ -106,6 +113,8 @@ const mockLookupResult = {
               nodeType: 'leftHead',
               serial: 'LOT-H123',
               heatNumber: 'H123',
+              defectCount: 0,
+              annotationCount: 0,
               events: [],
             },
           ],
@@ -189,10 +198,10 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByText('SN-002')).toBeInTheDocument();
+      expect(screen.getAllByText('SN-002').length).toBeGreaterThan(0);
     });
-    expect(screen.getByText('AC-001')).toBeInTheDocument();
-    expect(screen.getByText('SN-001')).toBeInTheDocument();
+    expect(screen.getAllByText('AC-001').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('SN-001').length).toBeGreaterThan(0);
   });
 
   it('shows error when serial not found', async () => {
@@ -209,7 +218,7 @@ describe('SerialNumberLookupScreen', () => {
     });
   });
 
-  it('expands card in-place to show events when clicked', async () => {
+  it('shows events panel with all events from all nodes', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -218,19 +227,19 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
+      expect(screen.getByTestId('events-panel')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByTestId('hero-card-child-1'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('events-table-child-1')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Long Seam 1')).toBeInTheDocument();
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('Manufacturing Events')).toBeInTheDocument();
+    expect(screen.getByText(/Long Seam 1/)).toBeInTheDocument();
+    expect(screen.getByText(/John Doe/)).toBeInTheDocument();
+    expect(screen.getByText(/Hydro 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Jane Smith/)).toBeInTheDocument();
+    expect(screen.getByText(/Fitup 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Bob Fitter/)).toBeInTheDocument();
   });
 
-  it('collapses expanded card when clicked again', async () => {
+  it('events panel shows serial badge for each event', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -239,42 +248,13 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
+      expect(screen.getByTestId('events-panel')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByTestId('hero-card-child-1'));
-    await waitFor(() => {
-      expect(screen.getByTestId('events-table-child-1')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('hero-card-child-1'));
-    await waitFor(() => {
-      expect(screen.queryByTestId('events-table-child-1')).not.toBeVisible();
-    });
-  });
-
-  it('only one card expanded at a time', async () => {
-    const user = userEvent.setup();
-    renderScreen();
-
-    const input = screen.getByPlaceholderText('Enter serial number...');
-    await user.type(input, 'SN-001');
-    await user.click(screen.getByTestId('lookup-go-btn'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('hero-card-child-1'));
-    await waitFor(() => {
-      expect(screen.getByTestId('events-table-child-1')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('hero-card-root-1'));
-    await waitFor(() => {
-      expect(screen.getByTestId('events-table-root-1')).toBeInTheDocument();
-    });
-    expect(screen.queryByTestId('events-table-child-1')).not.toBeVisible();
+    const panel = screen.getByTestId('events-panel');
+    expect(panel).toHaveTextContent('SN-002');
+    expect(panel).toHaveTextContent('AC-001');
+    expect(panel).toHaveTextContent('SN-001');
   });
 
   it('performs lookup on Enter key', async () => {
@@ -333,5 +313,52 @@ describe('SerialNumberLookupScreen', () => {
       expect(screen.getByTestId('genealogy-flow')).toBeInTheDocument();
     });
     expect(screen.getAllByText('500 gal').length).toBeGreaterThan(0);
+  });
+
+  it('displays assembled node serial with child serials in parentheses', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hero-card-assy-1')).toBeInTheDocument();
+    });
+
+    const assyCard = screen.getByTestId('hero-card-assy-1');
+    expect(assyCard).toHaveTextContent('AC-001 (SN-002)');
+  });
+
+  it('shows defect and annotation counts on cards', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hero-card-assy-1')).toBeInTheDocument();
+    });
+
+    const assyCard = screen.getByTestId('hero-card-assy-1');
+    expect(assyCard).toHaveTextContent('Defects');
+    expect(assyCard).toHaveTextContent('2');
+    expect(assyCard).toHaveTextContent('Notes');
+  });
+
+  it('shows green check gate icon for passing inspections', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gate-root-1')).toBeInTheDocument();
+    });
   });
 });

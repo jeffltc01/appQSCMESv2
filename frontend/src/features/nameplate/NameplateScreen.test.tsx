@@ -86,6 +86,30 @@ describe('NameplateScreen', () => {
     });
   });
 
+  it('retains product selection after successful save', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+    mockCreate.mockResolvedValue({
+      id: 'sn-3', serialNumber: 'W00100003', productId: 'p1',
+      timestamp: new Date().toISOString(), printSucceeded: true, printMessage: null,
+    });
+
+    renderScreen();
+    const combobox = await waitFor(() => screen.getByRole('combobox'));
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-120AG' }).click(); });
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    await userEvent.type(input, 'W00100003');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+
+    expect(combobox).toHaveValue('PLT-120AG');
+    expect(screen.getByPlaceholderText(/enter serial number/i)).toHaveValue('');
+  });
+
   it('shows warning message when print fails', async () => {
     mockGetProducts.mockResolvedValue([
       { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },

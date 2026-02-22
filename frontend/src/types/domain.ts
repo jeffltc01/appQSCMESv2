@@ -121,6 +121,7 @@ export interface DefectLocation {
 export interface Characteristic {
   id: string;
   name: string;
+  minTankSize?: number;
 }
 
 export interface MaterialQueueItem {
@@ -455,6 +456,9 @@ export interface TraceabilityNode {
   heatNumber?: string;
   lotNumber?: string;
   createdAt?: string;
+  defectCount?: number;
+  annotationCount?: number;
+  childSerials?: string[];
   children?: TraceabilityNode[];
   events?: ManufacturingEvent[];
 }

@@ -57,10 +57,59 @@
   padding: 24px;
   min-height: 200px;
   position: relative;
-  overflow-x: auto;
-  overflow-y: visible;
   border: 1px solid #dfe2ed;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Two-panel layout: diagram (S) + events (R) ── */
+.splitLayout {
+  display: flex;
+  gap: 20px;
+  min-height: 400px;
+}
+
+.diagramPane {
+  flex: 1 1 0%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: #c4c9d4 transparent;
+}
+
+.diagramPane::-webkit-scrollbar {
+  height: 6px;
+}
+.diagramPane::-webkit-scrollbar-track {
+  background: transparent;
+}
+.diagramPane::-webkit-scrollbar-thumb {
+  background: #c4c9d4;
+  border-radius: 3px;
+}
+
+.eventsPane {
+  flex: 0 0 380px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #dfe2ed;
+  border-radius: 10px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  scrollbar-width: thin;
+  scrollbar-color: #c4c9d4 transparent;
+}
+
+.eventsPane::-webkit-scrollbar {
+  width: 6px;
+}
+.eventsPane::-webkit-scrollbar-track {
+  background: transparent;
+}
+.eventsPane::-webkit-scrollbar-thumb {
+  background: #c4c9d4;
+  border-radius: 3px;
 }
 
 /* ── Section title ── */
@@ -108,24 +157,7 @@
   display: flex;
   align-items: flex-start;
   gap: 80px;
-  overflow-x: auto;
-  overflow-y: visible;
   padding: 12px 0 260px;
-  scrollbar-width: thin;
-  scrollbar-color: #c4c9d4 transparent;
-}
-
-.flowRow::-webkit-scrollbar {
-  height: 6px;
-}
-
-.flowRow::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.flowRow::-webkit-scrollbar-thumb {
-  background: #c4c9d4;
-  border-radius: 3px;
 }
 
 /* ── Flow column: one main card + its sub-components ── */
@@ -209,39 +241,27 @@
   border-bottom: 14px solid #343a40;
 }
 
-/* ── Hero cards — main flow ── */
+/* ── Hero cards — unified white style ── */
 .heroCard {
-  background: linear-gradient(135deg, #2b3b84 0%, #1e2d6a 100%);
-  padding: 18px 20px 14px;
+  background: #ffffff;
+  padding: 14px 16px 12px;
   width: 200px;
-  min-height: 160px;
-  cursor: pointer;
+  min-height: 140px;
   transition:
     box-shadow 0.2s ease,
     transform 0.2s ease;
   user-select: none;
   position: relative;
   border-radius: 10px;
-  border: 2px solid transparent;
-  box-shadow:
-    0 4px 12px rgba(43, 59, 132, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #dfe2ed;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
 }
 
 .heroCard:hover {
-  box-shadow:
-    0 8px 24px rgba(43, 59, 132, 0.4),
-    0 2px 6px rgba(0, 0, 0, 0.1);
-  transform: translateY(-3px);
-}
-
-.heroCardExpanded {
-  border-color: #28a745;
-  box-shadow:
-    0 8px 24px rgba(40, 167, 69, 0.25),
-    0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 /* ── Small / sub-component cards ── */
@@ -249,62 +269,24 @@
   width: 160px;
   min-height: auto;
   padding: 12px 14px 10px;
-  background: #ffffff;
-  border: 1px solid #dfe2ed;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.heroCardSmall:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
 }
 
 .heroCardSmall .cardSerial {
   font-size: 13px;
-  font-weight: 700;
-  color: #212529;
 }
 
 .heroCardSmall .cardTypeBadge {
   font-size: 9px;
 }
 
-.heroCardSmall .cardInfo {
-  color: #6c757d;
-}
-
-.heroCardSmall .cardExpandHint {
-  color: #adb5bd;
-}
-
-.heroCardSmall:hover .cardExpandHint {
-  color: #2b3b84;
-}
-
-/* Node-type colored left accent on sub-component (small) cards */
-.heroCardSmall.cardSellable { border-left: 4px solid #28a745; }
-.heroCardSmall.cardAssembled { border-left: 4px solid #606ca3; }
-.heroCardSmall.cardShell { border-left: 4px solid #e41e2f; }
-.heroCardSmall.cardPlate { border-left: 4px solid #ffc107; }
-.heroCardSmall.cardHead { border-left: 4px solid #ba68c8; }
-.heroCardSmall.cardValve { border-left: 4px solid #17a2b8; }
-.heroCardSmall.cardDefault { border-left: 4px solid #adb5bd; }
-
-/* Sellable (final unit) gets a green highlight border */
-.heroCard.cardSellable:not(.heroCardSmall) {
-  border: 2px solid #28a745;
-  box-shadow:
-    0 4px 12px rgba(43, 59, 132, 0.3),
-    0 0 0 3px rgba(40, 167, 69, 0.12);
-}
-
-/* Main cards all use navy — no separate background tints */
-.cardSellable {}
-.cardAssembled {}
-.cardShell {}
-.cardPlate {}
-.cardHead {}
-.cardValve {}
-.cardDefault {}
+/* ── Node-type colored left accent — all cards ── */
+.cardSellable  { border-left: 4px solid #28a745; }
+.cardAssembled { border-left: 4px solid #606ca3; }
+.cardShell     { border-left: 4px solid #e41e2f; }
+.cardPlate     { border-left: 4px solid #ffc107; }
+.cardHead      { border-left: 4px solid #ba68c8; }
+.cardValve     { border-left: 4px solid #17a2b8; }
+.cardDefault   { border-left: 4px solid #adb5bd; }
 
 /* ── Type badge — colored pill ── */
 .cardTypeBadge {
@@ -316,31 +298,24 @@
   padding: 3px 10px;
   border-radius: 10px;
   white-space: nowrap;
-  margin-bottom: 10px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.2);
+  margin-bottom: 8px;
   align-self: flex-start;
-}
-
-.heroCardSmall .cardTypeBadge {
-  color: #495057;
-  background: #eef0f4;
 }
 
 /* ── Card content ── */
 .cardSerial {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 6px;
+  color: #212529;
+  margin-bottom: 4px;
   word-break: break-all;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   line-height: 1.3;
 }
 
 .cardInfo {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #6c757d;
   line-height: 1.5;
   flex: 1;
 }
@@ -349,166 +324,141 @@
   display: block;
 }
 
-/* Event count badge at bottom of card */
-.cardEventBadge {
-  display: inline-flex;
+/* ── Card footer: stats + gate icon ── */
+.cardFooter {
+  display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: space-between;
   margin-top: 10px;
-  padding: 3px 10px;
-  border-radius: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #eef0f4;
+}
+
+.cardStats {
+  display: flex;
+  gap: 12px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.statLabel {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #adb5bd;
+}
+
+.statGood {
+  font-size: 13px;
+  font-weight: 700;
+  color: #28a745;
+}
+
+.statBad {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc3545;
+}
+
+.statNeutral {
+  font-size: 13px;
+  font-weight: 700;
+  color: #495057;
+}
+
+.gateIcon {
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.gatePass {
+  color: #28a745;
+}
+
+.gateFail {
+  color: #dc3545;
+}
+
+/* ── Events panel (Box R) ── */
+.eventsPaneTitle {
   font-size: 11px;
   font-weight: 700;
-  background: #28a745;
-  color: #ffffff;
-  align-self: flex-start;
-}
-
-.cardEventBadge.noEvents {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.heroCardSmall .cardEventBadge {
-  background: #eef0f4;
-  color: #6c757d;
-  font-size: 10px;
-  padding: 2px 8px;
-}
-
-.cardExpandHint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
-  margin-top: 8px;
-  text-align: right;
-  transition: color 0.2s ease;
-}
-
-.heroCard:hover .cardExpandHint {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-/* ── Expand-in-place detail panel ── */
-.detailPanel {
-  overflow: hidden;
-  transition: max-height 0.3s ease, opacity 0.25s ease;
-  max-height: 0;
-  opacity: 0;
-}
-
-.detailPanelOpen {
-  max-height: 600px;
-  opacity: 1;
-}
-
-.detailContent {
-  background: #ffffff;
-  border: 1px solid #dfe2ed;
-  border-top: none;
-  padding: 16px 20px;
-  border-radius: 0 0 10px 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  width: 200px;
-}
-
-.detailContentSmall {
-  padding: 12px 14px;
-  width: 160px;
-}
-
-.detailGrid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 16px;
-  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #2b3b84;
   margin-bottom: 14px;
 }
 
-.detailLabel {
-  font-weight: 700;
-  color: #6c757d;
-  font-size: 11px;
-}
-
-.detailValue {
-  color: #212529;
-  font-weight: 500;
-}
-
-/* ── Per-card events mini-table ── */
-.eventsSection {
-  margin-top: 12px;
-  border-top: 1px solid #eef0f4;
-  padding-top: 12px;
-}
-
-.eventsSectionTitle {
-  font-size: 11px;
-  font-weight: 700;
-  color: #2b3b84;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 8px;
-}
-
-.eventsTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  border: 1px solid #eef0f4;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.eventsTable th {
-  background: #f8f9fa;
-  padding: 8px 12px;
-  text-align: left;
-  font-weight: 700;
-  color: #495057;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  border-bottom: 2px solid #dfe2ed;
-}
-
-.eventsTable td {
-  padding: 8px 12px;
+.eventRow {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid #eef0f4;
+  font-size: 12px;
   color: #212529;
+  align-items: flex-start;
 }
 
-.eventsTable tr:hover td {
+.eventRow:last-child {
+  border-bottom: none;
+}
+
+.eventRow:hover {
   background: #f0f4ff;
+  border-radius: 6px;
+}
+
+.eventSerialBadge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.eventDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.eventPrimary {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.eventSecondary {
+  font-size: 11px;
+  color: #6c757d;
 }
 
 .noEventsText {
   font-size: 12px;
   color: #adb5bd;
   font-style: italic;
-}
-
-.collapseBtn {
-  background: none;
-  border: 1px solid #dfe2ed;
-  color: #6c757d;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  margin-top: 8px;
-  float: right;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.collapseBtn:hover {
-  background: #eef0f4;
-  color: #212529;
+  text-align: center;
+  padding: 24px 0;
 }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .splitLayout {
+    flex-direction: column;
+  }
+
+  .eventsPane {
+    flex: none;
+    max-height: 50vh;
+  }
+
   .flowRow {
     flex-direction: column;
     align-items: center;
@@ -550,16 +500,6 @@
   }
 
   .heroCardSmall {
-    width: 100%;
-    max-width: 260px;
-  }
-
-  .detailContent {
-    width: 100%;
-    max-width: 300px;
-  }
-
-  .detailContentSmall {
     width: 100%;
     max-width: 260px;
   }

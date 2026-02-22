@@ -137,7 +137,7 @@ export function LoginScreen() {
           <img src={qscLogo} alt="Quality Steel Corporation" className={styles.logo} />
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>MES Login</h1>
-            <span className={styles.version}>v2.0.0</span>
+            <span className={styles.version}>{__APP_VERSION__}</span>
           </div>
         </div>
 

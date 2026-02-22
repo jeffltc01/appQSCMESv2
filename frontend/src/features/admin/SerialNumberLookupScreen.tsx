@@ -7,8 +7,8 @@ import {
 } from '@fluentui/react-components';
 import {
   SearchRegular,
-  ChevronDownRegular,
-  ChevronUpRegular,
+  CheckmarkCircleFilled,
+  DismissCircleFilled,
 } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
@@ -73,6 +73,27 @@ function flattenToFlow(treeNodes: TraceabilityNode[]): FlowStep[] {
   return steps;
 }
 
+interface EventWithSource {
+  event: ManufacturingEvent;
+  nodeSerial: string;
+  nodeType: string;
+}
+
+function collectAllEvents(treeNodes: TraceabilityNode[]): EventWithSource[] {
+  const results: EventWithSource[] = [];
+
+  function walk(node: TraceabilityNode) {
+    for (const evt of node.events ?? []) {
+      results.push({ event: evt, nodeSerial: node.serial || node.label, nodeType: node.nodeType });
+    }
+    for (const child of node.children ?? []) walk(child);
+  }
+
+  for (const root of treeNodes) walk(root);
+  results.sort((a, b) => new Date(b.event.timestamp).getTime() - new Date(a.event.timestamp).getTime());
+  return results;
+}
+
 function Legend() {
   const shown = new Set<string>();
   const items: { bg: string; label: string }[] = [];
@@ -96,150 +117,108 @@ function Legend() {
   );
 }
 
-function DetailPanel({ node, isOpen, isSmall }: { node: TraceabilityNode; isOpen: boolean; isSmall?: boolean }) {
+function deriveGateStatus(node: TraceabilityNode): 'pass' | 'fail' | null {
   const events = node.events ?? [];
-  const contentClass = [styles.detailContent, isSmall ? styles.detailContentSmall : ''].filter(Boolean).join(' ');
+  const inspections = events.filter(e => e.inspectionResult != null);
+  if (inspections.length === 0) return null;
+  const hasFail = inspections.some(e =>
+    e.inspectionResult!.toLowerCase().includes('fail') ||
+    e.inspectionResult!.toLowerCase().includes('reject'));
+  return hasFail ? 'fail' : 'pass';
+}
+
+function formatCardTitle(node: TraceabilityNode): string {
+  const serial = node.serial || node.label;
+  if (node.nodeType === 'assembled' && node.childSerials && node.childSerials.length > 0) {
+    return `${serial} (${node.childSerials.join(', ')})`;
+  }
+  return serial;
+}
+
+function HeroCard({
+  node,
+  isSmall,
+}: {
+  node: TraceabilityNode;
+  isSmall?: boolean;
+}) {
+  const colorClass = getCardColorClass(node.nodeType);
+  const badgeColor = NODE_TYPE_COLORS[node.nodeType]?.bg;
+  const gateStatus = deriveGateStatus(node);
+  const defects = node.defectCount ?? 0;
+  const annotations = node.annotationCount ?? 0;
+
+  const cardClasses = [
+    styles.heroCard,
+    colorClass,
+    isSmall ? styles.heroCardSmall : '',
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className={`${styles.detailPanel} ${isOpen ? styles.detailPanelOpen : ''}`}>
-      <div className={contentClass}>
-        <div className={styles.detailGrid}>
-          {node.productName && (
-            <>
-              <span className={styles.detailLabel}>Product</span>
-              <span className={styles.detailValue}>{node.productName}</span>
-            </>
-          )}
-          {node.tankSize != null && (
-            <>
-              <span className={styles.detailLabel}>Tank Size</span>
-              <span className={styles.detailValue}>{node.tankSize} gal</span>
-            </>
-          )}
-          {node.tankType && (
-            <>
-              <span className={styles.detailLabel}>Type</span>
-              <span className={styles.detailValue}>{node.tankType}</span>
-            </>
-          )}
-          {node.vendorName && (
-            <>
-              <span className={styles.detailLabel}>Vendor</span>
-              <span className={styles.detailValue}>{node.vendorName}</span>
-            </>
-          )}
-          {node.heatNumber && (
-            <>
-              <span className={styles.detailLabel}>Heat #</span>
-              <span className={styles.detailValue}>{node.heatNumber}</span>
-            </>
-          )}
-          {node.coilNumber && (
-            <>
-              <span className={styles.detailLabel}>Coil #</span>
-              <span className={styles.detailValue}>{node.coilNumber}</span>
-            </>
-          )}
-          {node.lotNumber && (
-            <>
-              <span className={styles.detailLabel}>Lot #</span>
-              <span className={styles.detailValue}>{node.lotNumber}</span>
-            </>
-          )}
-          {node.createdAt && (
-            <>
-              <span className={styles.detailLabel}>Created</span>
-              <span className={styles.detailValue}>{formatDateTime(node.createdAt)}</span>
-            </>
-          )}
+    <div
+      className={cardClasses}
+      data-testid={`hero-card-${node.id}`}
+    >
+      <div className={styles.cardTypeBadge} style={{ background: badgeColor ? `${badgeColor}18` : undefined, color: badgeColor }}>
+        {getNodeTypeLabel(node.nodeType)}
+      </div>
+      <div className={styles.cardSerial}>{formatCardTitle(node)}</div>
+      <div className={styles.cardInfo}>
+        {node.tankSize != null && <span>{node.tankSize} gal</span>}
+        {node.heatNumber && <span>Heat: {node.heatNumber}</span>}
+      </div>
+      <div className={styles.cardFooter}>
+        <div className={styles.cardStats}>
+          <span className={styles.statItem} title="Defects">
+            <span className={styles.statLabel}>Defects</span>
+            <span className={defects > 0 ? styles.statBad : styles.statGood}>{defects}</span>
+          </span>
+          <span className={styles.statItem} title="Annotations">
+            <span className={styles.statLabel}>Notes</span>
+            <span className={styles.statNeutral}>{annotations}</span>
+          </span>
         </div>
-
-        <div className={styles.eventsSection}>
-          <div className={styles.eventsSectionTitle}>Manufacturing Events</div>
-          {events.length === 0 ? (
-            <div className={styles.noEventsText}>No manufacturing events.</div>
-          ) : (
-            <table className={styles.eventsTable} data-testid={`events-table-${node.id}`}>
-              <thead>
-                <tr>
-                  <th>Date/Time</th>
-                  <th>Workcenter</th>
-                  <th>Type</th>
-                  <th>Completed By</th>
-                  <th>Asset</th>
-                  <th>Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((evt: ManufacturingEvent, i: number) => (
-                  <tr key={i}>
-                    <td>{formatDateTime(evt.timestamp)}</td>
-                    <td>{evt.workCenterName}</td>
-                    <td>{evt.type}</td>
-                    <td>{evt.completedBy}</td>
-                    <td>{evt.assetName ?? '—'}</td>
-                    <td>{evt.inspectionResult ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {gateStatus != null && (
+          <span className={styles.gateIcon} data-testid={`gate-${node.id}`}>
+            {gateStatus === 'pass'
+              ? <CheckmarkCircleFilled className={styles.gatePass} />
+              : <DismissCircleFilled className={styles.gateFail} />}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function HeroCard({
-  node,
-  isExpanded,
-  onToggle,
-  isSmall,
-}: {
-  node: TraceabilityNode;
-  isExpanded: boolean;
-  onToggle: () => void;
-  isSmall?: boolean;
-}) {
-  const colorClass = getCardColorClass(node.nodeType);
-  const badgeColor = NODE_TYPE_COLORS[node.nodeType]?.bg;
-  const eventCount = (node.events ?? []).length;
-  const cardClasses = [
-    styles.heroCard,
-    colorClass,
-    isSmall ? styles.heroCardSmall : '',
-    isExpanded ? styles.heroCardExpanded : '',
-  ].filter(Boolean).join(' ');
-
-  const badgeStyle = isSmall
-    ? { background: badgeColor ? `${badgeColor}18` : undefined, color: badgeColor }
-    : { background: badgeColor };
-
+function EventsPanel({ events }: { events: EventWithSource[] }) {
   return (
-    <div>
-      <div
-        className={cardClasses}
-        onClick={onToggle}
-        data-testid={`hero-card-${node.id}`}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
-      >
-        <div className={styles.cardTypeBadge} style={badgeStyle}>{getNodeTypeLabel(node.nodeType)}</div>
-        <div className={styles.cardSerial}>{node.serial || node.label}</div>
-        <div className={styles.cardInfo}>
-          {node.tankSize != null && <span>{node.tankSize} gal</span>}
-          {node.tankType && <span>{node.tankType}</span>}
-          {node.heatNumber && !node.tankType && <span>Heat: {node.heatNumber}</span>}
-        </div>
-        <div className={`${styles.cardEventBadge} ${eventCount === 0 ? styles.noEvents : ''}`}>
-          {eventCount > 0 ? `${eventCount} event${eventCount > 1 ? 's' : ''}` : 'No events'}
-        </div>
-        <div className={styles.cardExpandHint}>
-          {isExpanded ? <ChevronUpRegular /> : <ChevronDownRegular />}
-        </div>
-      </div>
-      <DetailPanel node={node} isOpen={isExpanded} isSmall={isSmall} />
+    <div className={styles.eventsPane} data-testid="events-panel">
+      <div className={styles.eventsPaneTitle}>Manufacturing Events</div>
+      {events.length === 0 ? (
+        <div className={styles.noEventsText}>No manufacturing events recorded.</div>
+      ) : (
+        events.map((item, i) => {
+          const badgeBg = NODE_TYPE_COLORS[item.nodeType]?.bg ?? '#6c757d';
+          return (
+            <div key={i} className={styles.eventRow}>
+              <span className={styles.eventSerialBadge} style={{ background: badgeBg }}>
+                {item.nodeSerial}
+              </span>
+              <div className={styles.eventDetails}>
+                <div className={styles.eventPrimary}>
+                  {item.event.workCenterName} — {item.event.type}
+                </div>
+                <div className={styles.eventSecondary}>
+                  {formatDateTime(item.event.timestamp)}
+                  {' · '}{item.event.completedBy}
+                  {item.event.assetName && <> · {item.event.assetName}</>}
+                  {item.event.inspectionResult && <> · Result: {item.event.inspectionResult}</>}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -254,7 +233,6 @@ export function SerialNumberLookupScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<SerialNumberLookup | null>(null);
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (canChangeSite) {
@@ -268,7 +246,6 @@ export function SerialNumberLookupScreen() {
     setLoading(true);
     setError('');
     setData(null);
-    setExpandedCardId(null);
     try {
       const result = await serialNumberApi.getLookup(trimmed);
       setData(result);
@@ -283,11 +260,8 @@ export function SerialNumberLookupScreen() {
     if (e.key === 'Enter') handleLookup();
   };
 
-  const toggleCard = (id: string) => {
-    setExpandedCardId((prev) => (prev === id ? null : id));
-  };
-
   const flowSteps = data ? flattenToFlow(data.treeNodes) : [];
+  const allEvents = data ? collectAllEvents(data.treeNodes) : [];
 
   return (
     <AdminLayout title="Serial Number Lookup">
@@ -348,36 +322,32 @@ export function SerialNumberLookupScreen() {
             <>
               <div className={styles.sectionTitle}>Production Genealogy</div>
               <Legend />
-              <div className={styles.flowRow} data-testid="genealogy-flow">
-                {flowSteps.map((step, i) => (
-                  <div
-                    key={step.node.id}
-                    className={`${styles.flowColumn} ${i < flowSteps.length - 1 ? styles.flowColumnWithArrow : ''}`}
-                  >
-                    <HeroCard
-                      node={step.node}
-                      isExpanded={expandedCardId === step.node.id}
-                      onToggle={() => toggleCard(step.node.id)}
-                    />
-                    {step.subComponents.length > 0 && (
-                      <div className={styles.subComponentsArea}>
-                        {step.subComponents.map((sub) => (
-                          <div key={sub.id} className={styles.subItem}>
-                            <div className={styles.subArrow}>
-                              <div className={styles.subArrowLine} />
-                            </div>
-                            <HeroCard
-                              node={sub}
-                              isExpanded={expandedCardId === sub.id}
-                              onToggle={() => toggleCard(sub.id)}
-                              isSmall
-                            />
+              <div className={styles.splitLayout}>
+                <div className={styles.diagramPane}>
+                  <div className={styles.flowRow} data-testid="genealogy-flow">
+                    {flowSteps.map((step, i) => (
+                      <div
+                        key={step.node.id}
+                        className={`${styles.flowColumn} ${i < flowSteps.length - 1 ? styles.flowColumnWithArrow : ''}`}
+                      >
+                        <HeroCard node={step.node} />
+                        {step.subComponents.length > 0 && (
+                          <div className={styles.subComponentsArea}>
+                            {step.subComponents.map((sub) => (
+                              <div key={sub.id} className={styles.subItem}>
+                                <div className={styles.subArrow}>
+                                  <div className={styles.subArrowLine} />
+                                </div>
+                                <HeroCard node={sub} isSmall />
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
+                </div>
+                <EventsPanel events={allEvents} />
               </div>
             </>
           )}

@@ -38,7 +38,7 @@ describe('LoginScreen', () => {
   it('renders the login form with title', () => {
     renderLogin();
     expect(screen.getByText('MES Login')).toBeInTheDocument();
-    expect(screen.getByText('v2.0.0')).toBeInTheDocument();
+    expect(screen.getByText(__APP_VERSION__)).toBeInTheDocument();
   });
 
   it('renders employee number input with auto-focus', () => {

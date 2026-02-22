@@ -298,6 +298,28 @@ describe('FitupScreen', () => {
     });
   });
 
+  it('shows correct number of shell slots after scanning a 1000-gal shell', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 1000,
+      shellSize: '1000',
+    });
+
+    const { props } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    await waitFor(() => expect(serialNumberApi.getContext).toHaveBeenCalled());
+
+    await waitFor(() => {
+      expect(screen.getByText('Shell 1')).toBeInTheDocument();
+      expect(screen.getByText('Shell 2')).toBeInTheDocument();
+    });
+    expect(screen.getByText('SH001')).toBeInTheDocument();
+    expect(screen.getByText('Scan Shell')).toBeInTheDocument();
+  });
+
   it('handles tank size override via barcode', () => {
     const { props } = renderFitup();
     const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
@@ -307,5 +329,38 @@ describe('FitupScreen', () => {
     expect(props.showScanResult).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringContaining('1500') }),
     );
+  });
+
+  it('preserves head lot after reset so operator does not need to rescan KC', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'HEMI 37" ID',
+      cardColor: 'Red',
+    });
+
+    const { props } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    await waitFor(() => expect(serialNumberApi.getContext).toHaveBeenCalled());
+
+    handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    await waitFor(() => expect(materialQueueApi.getCardLookup).toHaveBeenCalled());
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/HEMI 37/).length).toBe(2);
+    });
+
+    handler({ prefix: 'INP', value: '2', raw: 'INP;2' }, 'INP;2');
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/HEMI 37/).length).toBe(2);
+    });
   });
 });

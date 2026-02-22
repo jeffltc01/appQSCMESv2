@@ -7,6 +7,7 @@ public class Characteristic
     public decimal? SpecHigh { get; set; }
     public decimal? SpecLow { get; set; }
     public decimal? SpecTarget { get; set; }
+    public int? MinTankSize { get; set; }
     public Guid? ProductTypeId { get; set; }
 
     public ProductType? ProductType { get; set; }

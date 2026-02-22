@@ -117,9 +117,9 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/characteristics")]
-    public async Task<ActionResult<IEnumerable<CharacteristicDto>>> GetCharacteristics(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<CharacteristicDto>>> GetCharacteristics(Guid id, [FromQuery] int? tankSize, CancellationToken cancellationToken)
     {
-        var list = await _workCenterService.GetCharacteristicsAsync(id, cancellationToken);
+        var list = await _workCenterService.GetCharacteristicsAsync(id, tankSize, cancellationToken);
         return Ok(list);
     }
 

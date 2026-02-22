@@ -1,7 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { execSync } from 'node:child_process';
+import pkg from './package.json' with { type: 'json' };
+
+const buildNumber = execSync('git rev-list --count HEAD').toString().trim();
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(`v${pkg.version.split('.').slice(0, 2).join('.')}.${buildNumber}`),
+  },
   plugins: [react()],
   server: {
     port: 5173,
