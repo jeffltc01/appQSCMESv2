@@ -14,7 +14,8 @@ Shift Schedule manages weekly work schedules for each plant. Each row in the tab
    - A **net minutes** display that auto-calculates total available production minutes (total hours minus total breaks) for the week.
 3. **Apply a preset.** Tap a preset button to auto-fill the hours and breaks. You can still adjust individual days after applying a preset.
 4. **Save the schedule.** Click **Save**. The new week appears in the table.
-5. **Delete a schedule.** Click the delete action on a schedule row and confirm.
+5. **Edit a schedule.** Click the pencil icon on any schedule row. The form reopens pre-filled with that week's hours and breaks. The week picker is locked — you can change hours and break minutes, then click **Save** to apply updates.
+6. **Delete a schedule.** Click the delete action on a schedule row and confirm.
 
 ## Fields & Controls
 
@@ -29,6 +30,7 @@ Shift Schedule manages weekly work schedules for each plant. Each row in the tab
 | **Preset: 4×10s** | Auto-fills Mon–Thu with 10 hours each, Fri–Sun with 0. |
 | **Net Minutes** | Auto-calculated: total scheduled hours converted to minutes, minus total break minutes. |
 | **Add Schedule** | Opens the creation form. |
+| **Edit (pencil icon)** | Opens the form pre-filled with the selected week's values. The week cannot be changed during edit. |
 | **Delete** | Removes a schedule week. |
 
 ## Tips

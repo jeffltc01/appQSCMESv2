@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Dropdown, Input, Label, Option, Spinner } from '@fluentui/react-components';
-import { AddRegular, DeleteRegular } from '@fluentui/react-icons';
+import { AddRegular, DeleteRegular, EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { shiftScheduleApi, siteApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
@@ -90,6 +90,7 @@ export function ShiftScheduleScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftSchedule>(emptyDraft());
   const [saving, setSaving] = useState(false);
 
@@ -126,12 +127,29 @@ export function ShiftScheduleScreen() {
         body[`${day}Hours`] = parseFloat(draft.days[i].hours) || 0;
         body[`${day}BreakMinutes`] = parseInt(draft.days[i].breakMinutes, 10) || 0;
       });
-      await shiftScheduleApi.create(body as never);
+      if (editingId) {
+        await shiftScheduleApi.update(editingId, body as never);
+      } else {
+        await shiftScheduleApi.create(body as never);
+      }
       setShowForm(false);
+      setEditingId(null);
       setDraft(emptyDraft());
       await load();
     } catch { alert('Failed to save schedule.'); }
     finally { setSaving(false); }
+  };
+
+  const handleEdit = (s: ShiftSchedule) => {
+    setEditingId(s.id);
+    setDraft({
+      effectiveDate: s.effectiveDate,
+      days: DAYS.map(day => ({
+        hours: String(s[`${day}Hours` as keyof ShiftSchedule] as number),
+        breakMinutes: String(s[`${day}BreakMinutes` as keyof ShiftSchedule] as number),
+      })),
+    });
+    setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -178,7 +196,7 @@ export function ShiftScheduleScreen() {
             <Button
               appearance="primary"
               icon={<AddRegular />}
-              onClick={() => { setShowForm(true); setDraft(emptyDraft()); }}
+              onClick={() => { setEditingId(null); setShowForm(true); setDraft(emptyDraft()); }}
               style={{ borderRadius: 0, marginLeft: 'auto' }}
             >
               New Schedule
@@ -187,16 +205,17 @@ export function ShiftScheduleScreen() {
 
           {showForm && (
             <div className={styles.formCard}>
-              <div className={styles.formHeader}>New Shift Schedule</div>
+              <div className={styles.formHeader}>{editingId ? 'Edit Shift Schedule' : 'New Shift Schedule'}</div>
               <div className={styles.formRow}>
                 <div className={styles.formField}>
                   <Label weight="semibold">Week</Label>
                   <Dropdown
-                    value={weekOptions.find(o => o.value === draft.effectiveDate)?.label ?? draft.effectiveDate}
+                    value={weekOptions.find(o => o.value === draft.effectiveDate)?.label ?? formatWeekLabelFromStr(draft.effectiveDate)}
                     selectedOptions={[draft.effectiveDate]}
                     onOptionSelect={(_, d) => {
                       if (d.optionValue) setDraft(prev => ({ ...prev, effectiveDate: d.optionValue as string }));
                     }}
+                    disabled={!!editingId}
                     style={{ minWidth: 260 }}
                   >
                     {weekOptions.map(o => (
@@ -268,7 +287,7 @@ export function ShiftScheduleScreen() {
                 <Button appearance="primary" onClick={handleSave} disabled={saving} style={{ borderRadius: 0 }}>
                   {saving ? <Spinner size="tiny" /> : 'Save'}
                 </Button>
-                <Button appearance="outline" onClick={() => setShowForm(false)} style={{ borderRadius: 0 }}>
+                <Button appearance="outline" onClick={() => { setShowForm(false); setEditingId(null); }} style={{ borderRadius: 0 }}>
                   Cancel
                 </Button>
               </div>
@@ -312,7 +331,13 @@ export function ShiftScheduleScreen() {
                     <td className={styles.metaCell}>
                       {s.createdByName ?? ''}
                     </td>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Button
+                        size="small"
+                        icon={<EditRegular />}
+                        appearance="subtle"
+                        onClick={() => handleEdit(s)}
+                      />
                       <Button
                         size="small"
                         icon={<DeleteRegular />}
