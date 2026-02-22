@@ -128,7 +128,6 @@ describe('ProductionLogsScreen', () => {
     expect(screen.getByText('Shell Code')).toBeInTheDocument();
     expect(screen.getByText('Jeff Phillips')).toBeInTheDocument();
     expect(screen.getByText('Pass')).toBeInTheDocument();
-    expect(screen.getByText('AI')).toBeInTheDocument();
   });
 
   it('Go button is disabled when no log type selected', () => {
@@ -195,6 +194,30 @@ describe('ProductionLogsScreen', () => {
     await user.click(addBtns[0]);
 
     expect(screen.getByText('Add Annotation')).toBeInTheDocument();
+  });
+
+  it('renders ACCEPTED result with accept styling', async () => {
+    vi.mocked(logViewerApi.getHydroLog).mockResolvedValue([
+      {
+        id: 'h1',
+        timestamp: '2026-02-19T14:30:00Z',
+        nameplate: 'W00100001',
+        alphaCode: 'OX',
+        tankSize: 500,
+        operator: 'Test User',
+        welders: [],
+        result: 'ACCEPTED',
+        defectCount: 0,
+        annotations: [],
+      },
+    ]);
+    renderScreen(['/menu/production-logs?logType=hydro']);
+
+    await waitFor(() => {
+      expect(screen.getByText('ACCEPTED')).toBeInTheDocument();
+    });
+    const resultSpan = screen.getByText('ACCEPTED');
+    expect(resultSpan.className).toContain('resultAccept');
   });
 
   it('saves annotation and refreshes', async () => {

@@ -17,6 +17,7 @@ import { WCHistory } from './WCHistory.tsx';
 import { QueueHistory } from './QueueHistory.tsx';
 import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { DowntimeOverlay } from './DowntimeOverlay.tsx';
+import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
 import { RollsScreen } from '../../features/rolls/RollsScreen.tsx';
 import { RollsMaterialScreen } from '../../features/rollsMaterial/RollsMaterialScreen.tsx';
 import { LongSeamScreen } from '../../features/longSeam/LongSeamScreen.tsx';
@@ -84,6 +85,7 @@ export function OperatorLayout() {
   const AUTO_LOGOUT_MINUTES = 60;
 
   const dataEntryType = cache?.cachedDataEntryType ?? '';
+  const helpArticle = useCurrentHelpArticle(dataEntryType);
   const weldersSatisfied = welders.length >= numberOfWelders;
   const showWelderGate = numberOfWelders > 0 && !weldersSatisfied;
 
@@ -326,7 +328,10 @@ export function OperatorLayout() {
       if (!cache?.cachedWorkCenterId) return;
       try {
         const w = await workCenterApi.addWelder(cache.cachedWorkCenterId, employeeNumber);
-        setWelders((prev) => [...prev, w]);
+        setWelders((prev) => {
+          if (prev.some((existing) => existing.userId === w.userId)) return prev;
+          return [...prev, w];
+        });
       } catch {
         showScanResult({ type: 'error', message: 'Failed to add welder' });
       }
@@ -406,6 +411,7 @@ export function OperatorLayout() {
         onAddWelder={addWelder}
         onRemoveWelder={removeWelder}
         externalInput={externalInput}
+        helpArticle={helpArticle}
       />
 
       <div className={styles.middle}>

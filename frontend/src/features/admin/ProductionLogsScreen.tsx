@@ -39,9 +39,9 @@ type AnyLogEntry = RollsLogEntry | FitupLogEntry | HydroLogEntry | RtXrayLogEntr
 function ResultCell({ result }: { result?: string }) {
   if (!result) return <span className={styles.resultUnknown}>—</span>;
   const lower = result.toLowerCase();
-  if (lower === 'accept' || lower === 'pass')
+  if (lower.startsWith('accept') || lower === 'pass')
     return <span className={styles.resultAccept}>{result}</span>;
-  if (lower === 'reject' || lower === 'fail')
+  if (lower.startsWith('reject') || lower === 'fail')
     return <span className={styles.resultReject}>{result}</span>;
   return <span className={styles.resultUnknown}>{result}</span>;
 }

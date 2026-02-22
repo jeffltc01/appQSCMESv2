@@ -71,6 +71,10 @@ export interface CreateAssemblyRequest {
   shells: string[];
   leftHeadLotId: string;
   rightHeadLotId: string;
+  leftHeadHeatNumber?: string;
+  leftHeadCoilNumber?: string;
+  rightHeadHeatNumber?: string;
+  rightHeadCoilNumber?: string;
   tankSize: number;
   workCenterId: string;
   assetId?: string;

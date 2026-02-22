@@ -48,7 +48,7 @@ public class SellableTankStatusService : ISellableTankStatusService
 
         var shellLogs = await _db.TraceabilityLogs
             .Where(t => assemblyIds.Contains(t.ToSerialNumberId!.Value)
-                && t.Relationship == "shell"
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
                 && t.FromSerialNumberId != null)
             .ToListAsync(cancellationToken);
 

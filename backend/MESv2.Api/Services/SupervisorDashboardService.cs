@@ -368,8 +368,17 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
         var downtimeByHour = await GetDowntimeByHourAsync(wcplIds, startOfDay, endOfDay, tz, ct);
 
-        var rows = new List<PerformanceTableRowDto>();
+        var activeHours = new SortedSet<int>();
         for (var h = 0; h < 24; h++)
+        {
+            if (hourlyActual.GetValueOrDefault(h) > 0 || downtimeByHour.GetValueOrDefault(h) > 0)
+                activeHours.Add(h);
+        }
+
+        var flooredTarget = targetUph.HasValue ? Math.Floor(targetUph.Value) : (decimal?)null;
+
+        var rows = new List<PerformanceTableRowDto>();
+        foreach (var h in activeHours)
         {
             var actual = hourlyActual.GetValueOrDefault(h);
             var hourStart = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h), tz);
@@ -381,15 +390,43 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             rows.Add(new PerformanceTableRowDto
             {
                 Label = $"{h:D2}:00",
-                Planned = targetUph,
+                Planned = flooredTarget,
                 Actual = actual,
-                Delta = targetUph.HasValue ? actual - targetUph.Value : null,
+                Delta = flooredTarget.HasValue ? actual - flooredTarget.Value : null,
                 Fpy = fpy,
                 DowntimeMinutes = downtimeByHour.GetValueOrDefault(h),
             });
         }
 
-        return BuildResponse(rows);
+        var schedule = await _db.ShiftSchedules
+            .Where(s => s.PlantId == plantId && s.EffectiveDate <= DateOnly.FromDateTime(localDate))
+            .OrderByDescending(s => s.EffectiveDate)
+            .FirstOrDefaultAsync(ct);
+
+        var plannedMinutes = schedule?.GetPlannedMinutes(localDate.DayOfWeek) ?? 0;
+        var totalPlanned = targetUph.HasValue && plannedMinutes > 0
+            ? Math.Floor(targetUph.Value * (plannedMinutes / 60m))
+            : (decimal?)null;
+        var totalActual = rows.Sum(r => r.Actual);
+
+        var fpyRows = rows.Where(r => r.Fpy.HasValue && r.Actual > 0).ToList();
+        decimal? totalFpy = fpyRows.Count > 0
+            ? Math.Round(fpyRows.Sum(r => r.Fpy!.Value * r.Actual) / fpyRows.Sum(r => r.Actual), 1)
+            : null;
+
+        return new PerformanceTableResponseDto
+        {
+            Rows = rows,
+            TotalRow = new PerformanceTableRowDto
+            {
+                Label = "Total",
+                Planned = totalPlanned,
+                Actual = totalActual,
+                Delta = totalPlanned.HasValue ? totalActual - totalPlanned.Value : null,
+                Fpy = totalFpy,
+                DowntimeMinutes = Math.Round(rows.Sum(r => r.DowntimeMinutes), 1),
+            },
+        };
     }
 
     private async Task<PerformanceTableResponseDto> BuildWeekTableAsync(
@@ -433,7 +470,7 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
             var plannedMinutes = schedule?.GetPlannedMinutes(day.DayOfWeek) ?? 0;
             var dailyPlanned = targetUph.HasValue && plannedMinutes > 0
-                ? Math.Round(targetUph.Value * (plannedMinutes / 60m), 1)
+                ? Math.Floor(targetUph.Value * (plannedMinutes / 60m))
                 : (decimal?)null;
 
             var downtimeMin = wcplIds.Count > 0
@@ -517,7 +554,7 @@ public class SupervisorDashboardService : ISupervisorDashboardService
                     if (pm > 0)
                         sum += targetUph.Value * (pm / 60m);
                 }
-                weekPlanned = Math.Round(sum, 1);
+                weekPlanned = Math.Floor(sum);
             }
 
             var downtimeMin = wcplIds.Count > 0
@@ -589,7 +626,6 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         var totalPlanned = rows.Any(r => r.Planned.HasValue) ? rows.Sum(r => r.Planned ?? 0) : (decimal?)null;
         var totalActual = rows.Sum(r => r.Actual);
 
-        // Weighted average FPY: only over rows that have a value
         var fpyRows = rows.Where(r => r.Fpy.HasValue && r.Actual > 0).ToList();
         decimal? totalFpy = fpyRows.Count > 0
             ? Math.Round(fpyRows.Sum(r => r.Fpy!.Value * r.Actual) / fpyRows.Sum(r => r.Actual), 1)
@@ -601,9 +637,9 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             TotalRow = new PerformanceTableRowDto
             {
                 Label = "Total",
-                Planned = totalPlanned.HasValue ? Math.Round(totalPlanned.Value, 1) : null,
+                Planned = totalPlanned.HasValue ? Math.Floor(totalPlanned.Value) : null,
                 Actual = totalActual,
-                Delta = totalPlanned.HasValue ? totalActual - totalPlanned.Value : null,
+                Delta = totalPlanned.HasValue ? totalActual - Math.Floor(totalPlanned.Value) : null,
                 Fpy = totalFpy,
                 DowntimeMinutes = Math.Round(rows.Sum(r => r.DowntimeMinutes), 1),
             },

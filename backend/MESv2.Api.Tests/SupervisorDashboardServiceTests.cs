@@ -296,7 +296,7 @@ public class SupervisorDashboardServiceTests
     // ---- Performance Table tests ----
 
     [Fact]
-    public async Task GetPerformanceTable_Day_Returns24Rows()
+    public async Task GetPerformanceTable_Day_ReturnsOnlyActiveHours()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = CreateService(db);
@@ -307,7 +307,8 @@ public class SupervisorDashboardServiceTests
         var result = await sut.GetPerformanceTableAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
 
-        Assert.Equal(24, result.Rows.Count);
+        Assert.Single(result.Rows);
+        Assert.Equal(1, result.Rows[0].Actual);
         Assert.NotNull(result.TotalRow);
         Assert.Equal("Total", result.TotalRow!.Label);
         Assert.Equal(1, result.TotalRow.Actual);
@@ -388,6 +389,7 @@ public class SupervisorDashboardServiceTests
         var result = await sut.GetPerformanceTableAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
 
+        Assert.Single(result.Rows);
         Assert.All(result.Rows, r => Assert.Equal(10m, r.Planned));
     }
 

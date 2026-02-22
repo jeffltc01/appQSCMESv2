@@ -27,7 +27,8 @@ public class SerialNumberService : ISerialNumberService
 
         ExistingAssemblyDto? existingAssembly = null;
         var shellLog = await _db.TraceabilityLogs
-            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id && t.Relationship == "shell", cancellationToken);
+            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
 
         if (shellLog?.ToSerialNumberId != null)
         {
@@ -38,7 +39,9 @@ public class SerialNumberService : ISerialNumberService
             if (assemblySn != null)
             {
                 var shellSnIds = await _db.TraceabilityLogs
-                    .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell" && t.FromSerialNumberId != null)
+                    .Where(t => t.ToSerialNumberId == assemblySn.Id
+                        && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                        && t.FromSerialNumberId != null)
                     .Select(t => t.FromSerialNumberId!.Value)
                     .ToListAsync(cancellationToken);
 
@@ -49,14 +52,28 @@ public class SerialNumberService : ISerialNumberService
 
                 HeadLotInfoDto? leftHead = null;
                 HeadLotInfoDto? rightHead = null;
-                var leftLog = await _db.TraceabilityLogs
-                    .FirstOrDefaultAsync(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "leftHead", cancellationToken);
-                if (leftLog?.TankLocation != null)
-                    leftHead = new HeadLotInfoDto { HeatNumber = leftLog.TankLocation, CoilNumber = "", ProductDescription = "" };
-                var rightLog = await _db.TraceabilityLogs
-                    .FirstOrDefaultAsync(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "rightHead", cancellationToken);
-                if (rightLog?.TankLocation != null)
-                    rightHead = new HeadLotInfoDto { HeatNumber = rightLog.TankLocation, CoilNumber = "", ProductDescription = "" };
+                var headLogs = await _db.TraceabilityLogs
+                    .Include(t => t.FromSerialNumber)
+                    .Where(t => t.ToSerialNumberId == assemblySn.Id
+                        && (t.Relationship == "HeadToAssembly" || t.Relationship == "leftHead" || t.Relationship == "rightHead"))
+                    .OrderBy(t => t.TankLocation)
+                    .ToListAsync(cancellationToken);
+                var leftLog = headLogs.FirstOrDefault(t => t.TankLocation == "Head 1" || t.Relationship == "leftHead");
+                if (leftLog != null)
+                    leftHead = new HeadLotInfoDto
+                    {
+                        HeatNumber = leftLog.FromSerialNumber?.HeatNumber ?? leftLog.TankLocation ?? "",
+                        CoilNumber = leftLog.FromSerialNumber?.CoilNumber ?? "",
+                        ProductDescription = ""
+                    };
+                var rightLog = headLogs.FirstOrDefault(t => t.TankLocation == "Head 2" || t.Relationship == "rightHead");
+                if (rightLog != null)
+                    rightHead = new HeadLotInfoDto
+                    {
+                        HeatNumber = rightLog.FromSerialNumber?.HeatNumber ?? rightLog.TankLocation ?? "",
+                        CoilNumber = rightLog.FromSerialNumber?.CoilNumber ?? "",
+                        ProductDescription = ""
+                    };
 
                 existingAssembly = new ExistingAssemblyDto
                 {
@@ -201,7 +218,7 @@ public class SerialNumberService : ISerialNumberService
                     allSnIds.Add(childSn.Id);
                     var childNode = BuildNodeDto(childSn, log.Relationship ?? "component");
 
-                    if (log.Relationship == "shell")
+                    if (log.Relationship == "ShellToAssembly" || log.Relationship == "shell")
                         await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
 
                     assemblyNode.Children.Add(childNode);

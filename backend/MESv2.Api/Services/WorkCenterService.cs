@@ -165,7 +165,7 @@ public class WorkCenterService : IWorkCenterService
                     .Include(t => t.FromSerialNumber)
                     .Where(t => t.ToSerialNumberId.HasValue
                         && assemblySnIds.Contains(t.ToSerialNumberId.Value)
-                        && t.Relationship == "shell")
+                        && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
                     .ToListAsync(cancellationToken);
 
                 foreach (var log in shellLogs)

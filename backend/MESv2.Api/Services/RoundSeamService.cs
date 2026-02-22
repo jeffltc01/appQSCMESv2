@@ -81,7 +81,8 @@ public class RoundSeamService : IRoundSeamService
         if (sn == null) return null;
 
         var shellLog = await _db.TraceabilityLogs
-            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id && t.Relationship == "shell", cancellationToken);
+            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
         if (shellLog?.ToSerialNumberId == null) return null;
 
         var assemblySn = await _db.SerialNumbers
@@ -93,7 +94,9 @@ public class RoundSeamService : IRoundSeamService
         int roundSeamCount = tankSize <= 500 ? 2 : tankSize <= 1000 ? 3 : 4;
 
         var shellSerials = await _db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell" && t.FromSerialNumberId != null)
+            .Where(t => t.ToSerialNumberId == assemblySn.Id
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                && t.FromSerialNumberId != null)
             .Join(_db.SerialNumbers, t => t.FromSerialNumberId, s => s.Id, (t, s) => s.Serial)
             .ToListAsync(cancellationToken);
 
@@ -120,7 +123,7 @@ public class RoundSeamService : IRoundSeamService
             .AnyAsync(r => _db.TraceabilityLogs.Any(t =>
                 t.FromSerialNumberId == r.SerialNumberId &&
                 t.ToSerialNumberId == assemblySn.Id &&
-                t.Relationship == "shell"), cancellationToken);
+                (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")), cancellationToken);
 
         if (existing)
             throw new InvalidOperationException($"Assembly {assemblyLookup.AlphaCode} has already been recorded at Round Seam");

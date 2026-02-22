@@ -5,6 +5,10 @@ public class CreateAssemblyDto
     public List<string> Shells { get; set; } = new();
     public string LeftHeadLotId { get; set; } = string.Empty;
     public string RightHeadLotId { get; set; } = string.Empty;
+    public string? LeftHeadHeatNumber { get; set; }
+    public string? LeftHeadCoilNumber { get; set; }
+    public string? RightHeadHeatNumber { get; set; }
+    public string? RightHeadCoilNumber { get; set; }
     public int TankSize { get; set; }
     public Guid WorkCenterId { get; set; }
     public Guid? AssetId { get; set; }

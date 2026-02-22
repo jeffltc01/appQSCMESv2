@@ -49,11 +49,19 @@ public class HydroServiceTests
             Defects = new List<DefectEntryDto>()
         });
 
-        var trace = db.TraceabilityLogs.FirstOrDefault(t =>
+        var marriageTrace = db.TraceabilityLogs.FirstOrDefault(t =>
             t.FromSerialNumberId == assemblySnId &&
-            t.ToSerialNumberId == sellableSnId);
-        Assert.NotNull(trace);
-        Assert.Equal("hydro-marriage", trace.Relationship);
+            t.ToSerialNumberId == sellableSnId &&
+            t.Relationship == "hydro-marriage");
+        Assert.NotNull(marriageTrace);
+        Assert.NotNull(marriageTrace.ProductionRecordId);
+
+        var nameplateTrace = db.TraceabilityLogs.FirstOrDefault(t =>
+            t.FromSerialNumberId == sellableSnId &&
+            t.Relationship == "NameplateToAssembly");
+        Assert.NotNull(nameplateTrace);
+        Assert.NotNull(nameplateTrace.ProductionRecordId);
+        Assert.Equal(marriageTrace.ProductionRecordId, nameplateTrace.ProductionRecordId);
     }
 
     [Fact]

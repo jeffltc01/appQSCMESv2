@@ -44,6 +44,8 @@ public class ProductionRecordService : IProductionRecordService
                 Id = Guid.NewGuid(),
                 Serial = dto.SerialNumber,
                 ProductId = resolvedProductId,
+                CoilNumber = dto.CoilNumber,
+                HeatNumber = dto.HeatNumber,
                 CreatedAt = DateTime.UtcNow
             };
             _db.SerialNumbers.Add(serial);
@@ -55,9 +57,14 @@ public class ProductionRecordService : IProductionRecordService
                 warning = "Rolls missed — annotation created.";
             }
         }
-        else if (serial.ProductId == null && resolvedProductId != null)
+        else
         {
-            serial.ProductId = resolvedProductId;
+            if (serial.ProductId == null && resolvedProductId != null)
+                serial.ProductId = resolvedProductId;
+            if (!string.IsNullOrEmpty(dto.CoilNumber))
+                serial.CoilNumber = dto.CoilNumber;
+            if (!string.IsNullOrEmpty(dto.HeatNumber))
+                serial.HeatNumber = dto.HeatNumber;
         }
 
         var duplicate = await _db.ProductionRecords

@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@fluentui/react-components';
 import { ArrowLeftRegular, AddRegular, SignOutRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { HelpButton } from '../../help/components/HelpButton.tsx';
+import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
 import styles from './AdminLayout.module.css';
 
 interface AdminLayoutProps {
@@ -16,6 +18,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ title, children, onAdd, addLabel = 'Add', backLabel, onBack }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const helpArticle = useCurrentHelpArticle();
 
   const handleLogout = () => {
     logout();
@@ -49,6 +52,7 @@ export function AdminLayout({ title, children, onAdd, addLabel = 'Add', backLabe
             </Button>
           )}
           <span className={styles.userName}>{user?.displayName ?? ''}</span>
+          <HelpButton currentArticle={helpArticle} className={styles.logoutBtn} />
           <Button
             appearance="subtle"
             icon={<SignOutRegular />}

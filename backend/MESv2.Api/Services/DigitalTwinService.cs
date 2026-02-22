@@ -93,7 +93,7 @@ public class DigitalTwinService : IDigitalTwinService
             .ToListAsync(cancellationToken);
 
         var consumedShellSnIds = await _db.TraceabilityLogs
-            .Where(t => t.Relationship == "shell" && t.FromSerialNumberId.HasValue)
+            .Where(t => (t.Relationship == "ShellToAssembly" || t.Relationship == "shell") && t.FromSerialNumberId.HasValue)
             .Select(t => t.FromSerialNumberId!.Value)
             .ToListAsync(cancellationToken);
         var consumedSet = consumedShellSnIds.ToHashSet();

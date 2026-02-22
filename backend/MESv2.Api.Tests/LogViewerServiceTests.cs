@@ -90,6 +90,30 @@ public class LogViewerServiceTests
     }
 
     [Fact]
+    public async Task GetRollsLog_DeduplicatesWeldersByUserId()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new LogViewerService(db);
+
+        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-DUP", 500);
+        db.WelderLogs.Add(new WelderLog
+        {
+            Id = Guid.NewGuid(), ProductionRecordId = r.Id, UserId = TestHelpers.TestUserId
+        });
+        db.WelderLogs.Add(new WelderLog
+        {
+            Id = Guid.NewGuid(), ProductionRecordId = r.Id, UserId = TestHelpers.TestUserId
+        });
+        await db.SaveChangesAsync();
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var result = await sut.GetRollsLogAsync(TestHelpers.PlantPlt1Id, today, today);
+
+        var entry = result.First(e => e.ShellCode == "SHELL-DUP");
+        Assert.Single(entry.Welders);
+    }
+
+    [Fact]
     public async Task GetRollsLog_ReturnsAnnotationBadges()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -180,6 +204,50 @@ public class LogViewerServiceTests
         Assert.Equal("Accept", entry.Result);
         Assert.Equal(500, entry.TankSize);
         Assert.Equal(0, entry.DefectCount);
+    }
+
+    [Fact]
+    public async Task GetHydroLog_ReturnsNameplate_And_AlphaCode()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new LogViewerService(db);
+
+        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "W00100001", 500, "ACCEPTED");
+
+        var assemblySn = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "OX",
+            PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(assemblySn);
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = assemblySn.Id,
+            ToSerialNumberId = r.SerialNumberId,
+            ProductionRecordId = r.Id,
+            Relationship = "hydro-marriage",
+            Timestamp = DateTime.UtcNow
+        });
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = r.SerialNumberId,
+            ToSerialNumberId = assemblySn.Id,
+            ProductionRecordId = r.Id,
+            Relationship = "NameplateToAssembly",
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var result = await sut.GetHydroLogAsync(TestHelpers.PlantPlt1Id, today, today);
+
+        Assert.NotEmpty(result);
+        var entry = result[0];
+        Assert.Equal("W00100001", entry.Nameplate);
+        Assert.Equal("OX", entry.AlphaCode);
     }
 
     [Fact]

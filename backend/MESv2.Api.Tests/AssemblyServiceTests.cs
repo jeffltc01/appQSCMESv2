@@ -78,24 +78,98 @@ public class AssemblyServiceTests
 
         var assemblySn = await db.SerialNumbers.FirstAsync(s => s.Serial == "AA");
         var shellLogs = await db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell")
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "ShellToAssembly")
             .ToListAsync();
         Assert.Single(shellLogs);
         Assert.NotNull(shellLogs[0].FromSerialNumberId);
-
-        var leftHead = await db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "leftHead")
-            .ToListAsync();
-        Assert.Single(leftHead);
-        Assert.Equal("LOT-L", leftHead[0].TankLocation);
-
-        var rightHead = await db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "rightHead")
-            .ToListAsync();
-        Assert.Single(rightHead);
+        Assert.Equal("Shell 1", shellLogs[0].TankLocation);
 
         var prodRecord = await db.ProductionRecords.FirstOrDefaultAsync(r => r.SerialNumberId == assemblySn.Id);
         Assert.NotNull(prodRecord);
+        Assert.Equal(prodRecord.Id, shellLogs[0].ProductionRecordId);
+
+        var headLogs = await db.TraceabilityLogs
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "HeadToAssembly")
+            .OrderBy(t => t.TankLocation)
+            .ToListAsync();
+        Assert.Equal(2, headLogs.Count);
+        Assert.Equal("Head 1", headLogs[0].TankLocation);
+        Assert.Equal("Head 2", headLogs[1].TankLocation);
+        Assert.Equal(prodRecord.Id, headLogs[0].ProductionRecordId);
+    }
+
+    [Fact]
+    public async Task Create_CreatesWelderLogs()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "SHELL-W1",
+            ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new AssemblyService(db);
+        var dto = new CreateAssemblyDto
+        {
+            Shells = new List<string> { "SHELL-W1" },
+            LeftHeadLotId = "LOT-L", RightHeadLotId = "LOT-R",
+            TankSize = 120,
+            WorkCenterId = TestHelpers.wcFitupId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid> { TestHelpers.TestUserId }
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        var assemblySn = await db.SerialNumbers.FirstAsync(s => s.Serial == result.AlphaCode);
+        var prodRecord = await db.ProductionRecords.FirstAsync(r => r.SerialNumberId == assemblySn.Id);
+        var welderLogs = db.WelderLogs.Where(w => w.ProductionRecordId == prodRecord.Id).ToList();
+        Assert.Single(welderLogs);
+        Assert.Equal(TestHelpers.TestUserId, welderLogs[0].UserId);
+    }
+
+    [Fact]
+    public async Task Create_StoresHeadCoilHeatData()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "SHELL-H1",
+            ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new AssemblyService(db);
+        var dto = new CreateAssemblyDto
+        {
+            Shells = new List<string> { "SHELL-H1" },
+            LeftHeadLotId = "LOT-L", RightHeadLotId = "LOT-R",
+            LeftHeadHeatNumber = "HH1", LeftHeadCoilNumber = "HC1",
+            RightHeadHeatNumber = "HH2", RightHeadCoilNumber = "HC2",
+            TankSize = 120,
+            WorkCenterId = TestHelpers.wcFitupId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        var assemblySn = await db.SerialNumbers.FirstAsync(s => s.Serial == result.AlphaCode);
+        var headLogs = await db.TraceabilityLogs
+            .Include(t => t.FromSerialNumber)
+            .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "HeadToAssembly")
+            .OrderBy(t => t.TankLocation)
+            .ToListAsync();
+        Assert.Equal(2, headLogs.Count);
+        Assert.NotNull(headLogs[0].FromSerialNumber);
+        Assert.Equal("HC1", headLogs[0].FromSerialNumber!.CoilNumber);
+        Assert.Equal("HH1", headLogs[0].FromSerialNumber!.HeatNumber);
+        Assert.Equal("HC2", headLogs[1].FromSerialNumber!.CoilNumber);
     }
 
     [Fact]
@@ -140,7 +214,7 @@ public class AssemblyServiceTests
         Assert.Equal("BB", result.AlphaCode);
 
         var shellLogs = await db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == assemblySnId && t.Relationship == "shell")
+            .Where(t => t.ToSerialNumberId == assemblySnId && t.Relationship == "ShellToAssembly")
             .ToListAsync();
         Assert.Single(shellLogs);
         Assert.Equal(sn2Id, shellLogs[0].FromSerialNumberId);

@@ -91,9 +91,9 @@ public class AssemblyService : IAssemblyService
         };
         _db.ProductionRecords.Add(record);
 
-        foreach (var shellSerial in dto.Shells)
+        for (int i = 0; i < dto.Shells.Count; i++)
         {
-            var sn = await _db.SerialNumbers.FirstOrDefaultAsync(s => s.Serial == shellSerial, cancellationToken);
+            var sn = await _db.SerialNumbers.FirstOrDefaultAsync(s => s.Serial == dto.Shells[i], cancellationToken);
             if (sn != null)
             {
                 _db.TraceabilityLogs.Add(new TraceabilityLog
@@ -101,34 +101,28 @@ public class AssemblyService : IAssemblyService
                     Id = Guid.NewGuid(),
                     FromSerialNumberId = sn.Id,
                     ToSerialNumberId = assemblySn.Id,
-                    Relationship = "shell",
+                    ProductionRecordId = record.Id,
+                    Relationship = "ShellToAssembly",
+                    TankLocation = $"Shell {i + 1}",
                     Quantity = 1,
                     Timestamp = DateTime.UtcNow
                 });
             }
         }
 
-        if (!string.IsNullOrEmpty(dto.LeftHeadLotId))
-        {
-            _db.TraceabilityLogs.Add(new TraceabilityLog
-            {
-                Id = Guid.NewGuid(),
-                ToSerialNumberId = assemblySn.Id,
-                Relationship = "leftHead",
-                TankLocation = dto.LeftHeadLotId,
-                Timestamp = DateTime.UtcNow
-            });
-        }
+        AddHeadTrace(dto.LeftHeadLotId, dto.LeftHeadHeatNumber, dto.LeftHeadCoilNumber,
+            assemblySn, record.Id, plantId, "Head 1");
+        AddHeadTrace(dto.RightHeadLotId, dto.RightHeadHeatNumber, dto.RightHeadCoilNumber,
+            assemblySn, record.Id, plantId, "Head 2");
 
-        if (!string.IsNullOrEmpty(dto.RightHeadLotId))
+        foreach (var welderId in dto.WelderIds)
         {
-            _db.TraceabilityLogs.Add(new TraceabilityLog
+            _db.WelderLogs.Add(new WelderLog
             {
                 Id = Guid.NewGuid(),
-                ToSerialNumberId = assemblySn.Id,
-                Relationship = "rightHead",
-                TankLocation = dto.RightHeadLotId,
-                Timestamp = DateTime.UtcNow
+                ProductionRecordId = record.Id,
+                UserId = welderId,
+                CharacteristicId = null
             });
         }
 
@@ -152,13 +146,14 @@ public class AssemblyService : IAssemblyService
         if (dto.Shells != null)
         {
             var existingShellLogs = await _db.TraceabilityLogs
-                .Where(t => t.ToSerialNumberId == assemblySn.Id && t.Relationship == "shell")
+                .Where(t => t.ToSerialNumberId == assemblySn.Id
+                    && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
                 .ToListAsync(cancellationToken);
             _db.TraceabilityLogs.RemoveRange(existingShellLogs);
 
-            foreach (var shellSerial in dto.Shells)
+            for (int i = 0; i < dto.Shells.Count; i++)
             {
-                var sn = await _db.SerialNumbers.FirstOrDefaultAsync(s => s.Serial == shellSerial, cancellationToken);
+                var sn = await _db.SerialNumbers.FirstOrDefaultAsync(s => s.Serial == dto.Shells[i], cancellationToken);
                 if (sn != null)
                 {
                     _db.TraceabilityLogs.Add(new TraceabilityLog
@@ -166,7 +161,8 @@ public class AssemblyService : IAssemblyService
                         Id = Guid.NewGuid(),
                         FromSerialNumberId = sn.Id,
                         ToSerialNumberId = assemblySn.Id,
-                        Relationship = "shell",
+                        Relationship = "ShellToAssembly",
+                        TankLocation = $"Shell {i + 1}",
                         Quantity = 1,
                         Timestamp = DateTime.UtcNow
                     });
@@ -186,5 +182,39 @@ public class AssemblyService : IAssemblyService
             AlphaCode = assemblySn.Serial,
             Timestamp = assemblySn.ModifiedDateTime ?? assemblySn.CreatedAt
         };
+    }
+
+    private void AddHeadTrace(string? lotId, string? heatNumber, string? coilNumber,
+        SerialNumber assemblySn, Guid productionRecordId, Guid plantId, string tankLocation)
+    {
+        if (string.IsNullOrEmpty(lotId) && string.IsNullOrEmpty(heatNumber) && string.IsNullOrEmpty(coilNumber))
+            return;
+
+        Guid? headSnId = null;
+        if (!string.IsNullOrEmpty(heatNumber) || !string.IsNullOrEmpty(coilNumber))
+        {
+            var headSn = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"Head {heatNumber ?? ""}/{coilNumber ?? ""}",
+                CoilNumber = coilNumber,
+                HeatNumber = heatNumber,
+                PlantId = plantId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.SerialNumbers.Add(headSn);
+            headSnId = headSn.Id;
+        }
+
+        _db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = headSnId,
+            ToSerialNumberId = assemblySn.Id,
+            ProductionRecordId = productionRecordId,
+            Relationship = "HeadToAssembly",
+            TankLocation = tankLocation,
+            Timestamp = DateTime.UtcNow
+        });
     }
 }

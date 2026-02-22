@@ -32,6 +32,8 @@ import {
   GaugeRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { HelpButton } from '../../help/components/HelpButton.tsx';
+import { getArticleBySlug } from '../../help/helpRegistry.ts';
 import styles from './MenuScreen.module.css';
 
 interface MenuTile {
@@ -137,6 +139,7 @@ export function MenuScreen() {
         <div className={styles.topBarRight}>
           <span className={styles.userName}>{user?.displayName ?? ''}</span>
           <span className={styles.roleName}>{user?.roleName ?? ''}</span>
+          <HelpButton currentArticle={getArticleBySlug('menu')} className={styles.logoutBtn} />
           <Button
             appearance="subtle"
             icon={<SignOutRegular />}

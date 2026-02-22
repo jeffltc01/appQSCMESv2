@@ -48,7 +48,7 @@ public class LogViewerService : ILogViewerService
                 Thickness = r.InspectionResult,
                 ShellCode = sn?.Serial ?? "",
                 TankSize = sn?.Product?.TankSize,
-                Welders = r.WelderLogs.Select(w => w.User.DisplayName).Distinct().ToList(),
+                Welders = DistinctWelderNames(r.WelderLogs),
                 Annotations = MapAnnotationBadges(r.Annotations)
             };
         }).ToList();
@@ -101,7 +101,7 @@ public class LogViewerService : ILogViewerService
                 ShellNo3 = shells.ElementAtOrDefault(2),
                 AlphaCode = r.SerialNumber?.Serial,
                 TankSize = r.SerialNumber?.Product?.TankSize,
-                Welders = r.WelderLogs.Select(w => w.User.DisplayName).Distinct().ToList(),
+                Welders = DistinctWelderNames(r.WelderLogs),
                 Annotations = MapAnnotationBadges(r.Annotations)
             };
         }).ToList();
@@ -138,16 +138,20 @@ public class LogViewerService : ILogViewerService
                 .Where(t => t.Relationship == "NameplateToAssembly" || t.Relationship == "Nameplate")
                 .Select(t => t.FromSerialNumber?.Serial)
                 .FirstOrDefault();
+            var alphaCode = traces
+                .Where(t => t.Relationship == "hydro-marriage")
+                .Select(t => t.FromSerialNumber?.Serial)
+                .FirstOrDefault();
 
             return new HydroLogEntryDto
             {
                 Id = r.Id,
                 Timestamp = ToLocal(r.Timestamp, tz),
-                Nameplate = nameplateSn,
-                AlphaCode = r.SerialNumber?.Serial,
+                Nameplate = nameplateSn ?? r.SerialNumber?.Serial,
+                AlphaCode = alphaCode,
                 TankSize = r.SerialNumber?.Product?.TankSize,
                 Operator = r.Operator?.DisplayName ?? "",
-                Welders = r.WelderLogs.Select(w => w.User.DisplayName).Distinct().ToList(),
+                Welders = DistinctWelderNames(r.WelderLogs),
                 Result = r.InspectionResult,
                 DefectCount = r.DefectLogs.Count,
                 Annotations = MapAnnotationBadges(r.Annotations)
@@ -311,6 +315,14 @@ public class LogViewerService : ILogViewerService
             .Where(t => t.ProductionRecordId.HasValue)
             .GroupBy(t => t.ProductionRecordId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private static List<string> DistinctWelderNames(ICollection<Models.WelderLog> welderLogs)
+    {
+        return welderLogs
+            .GroupBy(w => w.UserId)
+            .Select(g => g.First().User.DisplayName)
+            .ToList();
     }
 
     private static string BuildCoilHeatLot(Models.SerialNumber? sn)

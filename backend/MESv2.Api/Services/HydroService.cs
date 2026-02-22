@@ -56,10 +56,21 @@ public class HydroService : IHydroService
                 Id = Guid.NewGuid(),
                 FromSerialNumberId = assemblySn.Id,
                 ToSerialNumberId = sellableSn.Id,
+                ProductionRecordId = record.Id,
                 Relationship = "hydro-marriage",
                 Timestamp = DateTime.UtcNow
             });
         }
+
+        _db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = sellableSn.Id,
+            ToSerialNumberId = assemblySn?.Id,
+            ProductionRecordId = record.Id,
+            Relationship = "NameplateToAssembly",
+            Timestamp = DateTime.UtcNow
+        });
 
         if (dto.Defects.Count > 0)
         {

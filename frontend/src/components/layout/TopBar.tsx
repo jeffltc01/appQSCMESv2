@@ -9,6 +9,8 @@ import {
 import { DismissRegular, PersonAddRegular } from '@fluentui/react-icons';
 import type { Welder } from '../../types/domain.ts';
 import { workCenterApi } from '../../api/endpoints.ts';
+import { HelpButton } from '../../help/components/HelpButton.tsx';
+import type { HelpArticle } from '../../help/helpRegistry.ts';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {
@@ -21,6 +23,7 @@ interface TopBarProps {
   onAddWelder: (employeeNumber: string) => void;
   onRemoveWelder: (userId: string) => void;
   externalInput: boolean;
+  helpArticle?: HelpArticle;
 }
 
 export function TopBar({
@@ -33,6 +36,7 @@ export function TopBar({
   onAddWelder,
   onRemoveWelder,
   externalInput,
+  helpArticle,
 }: TopBarProps) {
   const [addWelderOpen, setAddWelderOpen] = useState(false);
   const [newWelderEmpNo, setNewWelderEmpNo] = useState('');
@@ -86,6 +90,9 @@ export function TopBar({
 
       <div className={styles.operator}>
         <span>{operatorName}</span>
+        {!externalInput && (
+          <HelpButton currentArticle={helpArticle} className={styles.addWelderBtn} />
+        )}
       </div>
 
       <div className={styles.welders}>
