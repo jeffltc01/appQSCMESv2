@@ -419,6 +419,7 @@ public class PlantWithGearDto
     public Guid? CurrentPlantGearId { get; set; }
     public int? CurrentGearLevel { get; set; }
     public string? LimbleLocationId { get; set; }
+    public string NextTankAlphaCode { get; set; } = "AA";
     public List<PlantGearDto> Gears { get; set; } = new();
 }
 
@@ -430,6 +431,11 @@ public class SetPlantGearDto
 public class UpdatePlantLimbleDto
 {
     public string? LimbleLocationId { get; set; }
+}
+
+public class UpdatePlantNextAlphaCodeDto
+{
+    public string NextTankAlphaCode { get; set; } = string.Empty;
 }
 
 // ---- Active Sessions ----

@@ -26,6 +26,7 @@ public class CreateInspectionRecordDto
     public string SerialNumber { get; set; } = string.Empty;
     public Guid WorkCenterId { get; set; }
     public Guid OperatorId { get; set; }
+    public Guid? ProductionRecordId { get; set; }
     public List<InspectionResultEntryDto> Results { get; set; } = new();
     public List<DefectEntryDto> Defects { get; set; } = new();
 }

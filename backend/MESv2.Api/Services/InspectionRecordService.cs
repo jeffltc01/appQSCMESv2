@@ -54,18 +54,28 @@ public class InspectionRecordService : IInspectionRecordService
                 throw new ArgumentException("LocationId is required for every defect entry.");
         }
 
-        var inspectionProdRecord = new ProductionRecord
+        ProductionRecord inspectionProdRecord;
+        if (dto.ProductionRecordId.HasValue)
         {
-            Id = Guid.NewGuid(),
-            SerialNumberId = sn.Id,
-            WorkCenterId = dto.WorkCenterId,
-            AssetId = null,
-            ProductionLineId = upstreamRecord.ProductionLineId,
-            OperatorId = dto.OperatorId,
-            Timestamp = DateTime.UtcNow,
-            PlantGearId = null,
-        };
-        _db.ProductionRecords.Add(inspectionProdRecord);
+            inspectionProdRecord = await _db.ProductionRecords
+                .FirstOrDefaultAsync(r => r.Id == dto.ProductionRecordId.Value, cancellationToken)
+                ?? throw new ArgumentException($"ProductionRecord '{dto.ProductionRecordId.Value}' not found.");
+        }
+        else
+        {
+            inspectionProdRecord = new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = sn.Id,
+                WorkCenterId = dto.WorkCenterId,
+                AssetId = null,
+                ProductionLineId = upstreamRecord.ProductionLineId,
+                OperatorId = dto.OperatorId,
+                Timestamp = DateTime.UtcNow,
+                PlantGearId = null,
+            };
+            _db.ProductionRecords.Add(inspectionProdRecord);
+        }
 
         var firstRecordId = Guid.Empty;
         foreach (var result in dto.Results)

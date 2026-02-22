@@ -29,7 +29,3 @@ public class FaultReportDto
     public string Description { get; set; } = string.Empty;
 }
 
-public class AddWelderDto
-{
-    public string EmployeeNumber { get; set; } = string.Empty;
-}

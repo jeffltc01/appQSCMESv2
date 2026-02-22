@@ -14,6 +14,7 @@ export function PlantGearScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [limbleEdits, setLimbleEdits] = useState<Record<string, string>>({});
+  const [alphaEdits, setAlphaEdits] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,6 +47,23 @@ export function PlantGearScreen() {
       setPlants(prev => prev.map(p => p.plantId === plantId ? { ...p, limbleLocationId: value || undefined } : p));
       setLimbleEdits(prev => { const next = { ...prev }; delete next[plantId]; return next; });
     } catch { alert('Failed to save Limble Location ID.'); }
+    finally { setSaving(null); }
+  };
+
+  const handleSaveAlphaCode = async (plantId: string) => {
+    const raw = alphaEdits[plantId];
+    if (raw === undefined) return;
+    const code = raw.trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) {
+      alert('Alpha code must be exactly two letters (AA–ZZ).');
+      return;
+    }
+    setSaving(plantId);
+    try {
+      await adminPlantGearApi.setNextAlphaCode(plantId, { nextTankAlphaCode: code });
+      setPlants(prev => prev.map(p => p.plantId === plantId ? { ...p, nextTankAlphaCode: code } : p));
+      setAlphaEdits(prev => { const next = { ...prev }; delete next[plantId]; return next; });
+    } catch { alert('Failed to save Next Alpha Code.'); }
     finally { setSaving(null); }
   };
 
@@ -82,6 +100,33 @@ export function PlantGearScreen() {
                   ))}
                 </div>
               )}
+              <div className={styles.cardField} style={{ marginTop: 8 }}>
+                <Label>Next Tank Alpha Code</Label>
+                {isReadOnly ? (
+                  <span className={styles.cardFieldValue}>{plant.nextTankAlphaCode}</span>
+                ) : (
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <Input
+                      size="small"
+                      value={alphaEdits[plant.plantId] ?? plant.nextTankAlphaCode}
+                      onChange={(_, d) => setAlphaEdits(prev => ({ ...prev, [plant.plantId]: d.value }))}
+                      placeholder="e.g. AA"
+                      maxLength={2}
+                      style={{ width: 70 }}
+                    />
+                    {alphaEdits[plant.plantId] !== undefined && (
+                      <Button
+                        size="small"
+                        appearance="primary"
+                        onClick={() => handleSaveAlphaCode(plant.plantId)}
+                        disabled={saving === plant.plantId}
+                      >
+                        Save
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className={styles.cardField} style={{ marginTop: 8 }}>
                 <Label>Limble Location ID</Label>
                 {isReadOnly ? (

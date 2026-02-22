@@ -30,7 +30,9 @@ public class HydroService : IHydroService
 
         var assemblySn = await _db.SerialNumbers
             .Include(s => s.Product)
-            .FirstOrDefaultAsync(s => s.Serial == dto.AssemblyAlphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+            .Where(s => s.Serial == dto.AssemblyAlphaCode && !s.IsObsolete && s.Product!.ProductType!.SystemTypeName == "assembled")
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (assemblySn != null)
         {

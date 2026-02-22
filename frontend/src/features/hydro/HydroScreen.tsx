@@ -110,6 +110,17 @@ export function HydroScreen(props: WorkCenterProps) {
     }
   }, [assemblyAlpha, assemblyTankSize, showScanResult, setExternalInput]);
 
+  const scanAuto = useCallback(async (serial: string) => {
+    if (assemblyAlpha && !nameplateSerial) { scanNameplate(serial); return; }
+    if (nameplateSerial && !assemblyAlpha) { scanShell(serial); return; }
+    try {
+      await roundSeamApi.getAssemblyByShell(serial);
+      scanShell(serial);
+    } catch {
+      scanNameplate(serial);
+    }
+  }, [assemblyAlpha, nameplateSerial, scanShell, scanNameplate]);
+
   const handleAccept = useCallback(async () => {
     try {
       await hydroApi.create({
@@ -190,14 +201,13 @@ export function HydroScreen(props: WorkCenterProps) {
         if (bc?.prefix === 'NOSHELL' && bc.value === '0') { setShellSerial(''); showScanResult({ type: 'success', message: 'No shell mode' }); return; }
         const serial = bc ? (bc.value.includes(';') ? bc.value : _raw.replace(/^[^;]*;/, '')) : _raw.trim();
         if (serial) {
-          if (assemblyAlpha) { scanNameplate(serial); }
-          else { scanShell(serial); }
+          scanAuto(serial);
           return;
         }
       }
       showScanResult({ type: 'error', message: bc ? 'Invalid barcode in this context' : 'Unknown barcode' });
     },
-    [state, assemblyAlpha, scanShell, scanNameplate, showScanResult],
+    [state, scanShell, scanAuto, showScanResult],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -211,10 +221,9 @@ export function HydroScreen(props: WorkCenterProps) {
     if (!manualInput.trim()) return;
     const val = manualInput.trim();
     if (val.startsWith('SC;')) { scanShell(parseShellLabel(val.substring(3)).serialNumber); }
-    else if (!assemblyAlpha) { scanShell(val); }
-    else { scanNameplate(val); }
+    else { scanAuto(val); }
     setManualInput('');
-  }, [manualInput, assemblyAlpha, scanShell, scanNameplate]);
+  }, [manualInput, scanShell, scanAuto]);
 
   if (state === 'DefectEntry' && wizard) {
     return (

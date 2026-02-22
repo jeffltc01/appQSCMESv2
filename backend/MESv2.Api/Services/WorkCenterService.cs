@@ -35,81 +35,12 @@ public class WorkCenterService : IWorkCenterService
         }).ToList();
     }
 
-    public async Task<IReadOnlyList<WelderDto>> GetWeldersAsync(Guid wcId, CancellationToken cancellationToken = default)
-    {
-        var welders = await _db.WorkCenterWelders
-            .Include(w => w.User)
-            .Where(w => w.WorkCenterId == wcId)
-            .OrderBy(w => w.AssignedAt)
-            .ToListAsync(cancellationToken);
-
-        return welders.Select(w => new WelderDto
-        {
-            UserId = w.UserId,
-            DisplayName = w.User.DisplayName,
-            EmployeeNumber = w.User.EmployeeNumber
-        }).ToList();
-    }
-
     public async Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users
             .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive, cancellationToken);
         if (user == null) return null;
         return new WelderDto { UserId = user.Id, DisplayName = user.DisplayName, EmployeeNumber = user.EmployeeNumber };
-    }
-
-    public async Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default)
-    {
-        var plantIds = await _db.WorkCenterProductionLines
-            .Where(wpl => wpl.WorkCenterId == wcId)
-            .Select(wpl => wpl.ProductionLine.PlantId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive
-                && (plantIds.Count == 0 || plantIds.Contains(u.DefaultSiteId)), cancellationToken);
-        if (user == null)
-            return null;
-
-        var existing = await _db.WorkCenterWelders
-            .AnyAsync(w => w.WorkCenterId == wcId && w.UserId == user.Id, cancellationToken);
-        if (existing)
-            return new WelderDto
-            {
-                UserId = user.Id,
-                DisplayName = user.DisplayName,
-                EmployeeNumber = user.EmployeeNumber
-            };
-
-        _db.WorkCenterWelders.Add(new WorkCenterWelder
-        {
-            Id = Guid.NewGuid(),
-            WorkCenterId = wcId,
-            UserId = user.Id,
-            AssignedAt = DateTime.UtcNow
-        });
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return new WelderDto
-        {
-            UserId = user.Id,
-            DisplayName = user.DisplayName,
-            EmployeeNumber = user.EmployeeNumber
-        };
-    }
-
-    public async Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default)
-    {
-        var entry = await _db.WorkCenterWelders
-            .FirstOrDefaultAsync(w => w.WorkCenterId == wcId && w.UserId == userId, cancellationToken);
-        if (entry == null)
-            return false;
-
-        _db.WorkCenterWelders.Remove(entry);
-        await _db.SaveChangesAsync(cancellationToken);
-        return true;
     }
 
     public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
@@ -178,6 +109,29 @@ public class WorkCenterService : IWorkCenterService
                 }
             }
 
+            var assemblyByShell = new Dictionary<Guid, string>();
+            if (!isFitup)
+            {
+                var shellSnIds = recentProdRecords
+                    .Select(r => r.SerialNumberId)
+                    .Distinct()
+                    .ToList();
+
+                var assemblyLogs = await _db.TraceabilityLogs
+                    .Include(t => t.ToSerialNumber)
+                    .Where(t => t.FromSerialNumberId.HasValue
+                        && shellSnIds.Contains(t.FromSerialNumberId.Value)
+                        && t.ToSerialNumberId.HasValue
+                        && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var log in assemblyLogs)
+                {
+                    if (log.FromSerialNumberId.HasValue && log.ToSerialNumber?.Serial != null)
+                        assemblyByShell.TryAdd(log.FromSerialNumberId.Value, log.ToSerialNumber.Serial);
+                }
+            }
+
             var recentRecords = recentProdRecords.Select(r =>
             {
                 var alphaOrSerial = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
@@ -187,6 +141,11 @@ public class WorkCenterService : IWorkCenterService
                     && shells.Count > 0)
                 {
                     serialOrIdentifier = $"{alphaOrSerial} ({string.Join(", ", shells)})";
+                }
+                else if (!isFitup
+                    && assemblyByShell.TryGetValue(r.SerialNumberId, out var alphaCode))
+                {
+                    serialOrIdentifier = $"{alphaCode} ({alphaOrSerial})";
                 }
                 var tankSize = r.SerialNumber?.Product?.TankSize;
                 annotationColors.TryGetValue(r.Id, out var color);
@@ -220,9 +179,32 @@ public class WorkCenterService : IWorkCenterService
         var prodRecordIds = inspRecords.Select(i => i.ProductionRecordId).Distinct().ToList();
         var inspAnnotationColors = await GetAnnotationColorsByRecordAsync(prodRecordIds, cancellationToken);
 
+        var inspShellSnIds = inspRecords
+            .Select(i => i.SerialNumberId)
+            .Distinct()
+            .ToList();
+
+        var inspAssemblyLogs = await _db.TraceabilityLogs
+            .Include(t => t.ToSerialNumber)
+            .Where(t => t.FromSerialNumberId.HasValue
+                && inspShellSnIds.Contains(t.FromSerialNumberId.Value)
+                && t.ToSerialNumberId.HasValue
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
+            .ToListAsync(cancellationToken);
+
+        var inspAssemblyByShell = new Dictionary<Guid, string>();
+        foreach (var log in inspAssemblyLogs)
+        {
+            if (log.FromSerialNumberId.HasValue && log.ToSerialNumber?.Serial != null)
+                inspAssemblyByShell.TryAdd(log.FromSerialNumberId.Value, log.ToSerialNumber.Serial);
+        }
+
         var inspEntries = inspRecords.Select(i =>
         {
-            var serialOrIdentifier = i.SerialNumber?.Serial ?? i.Id.ToString("N")[..8];
+            var shellSerial = i.SerialNumber?.Serial ?? i.Id.ToString("N")[..8];
+            var serialOrIdentifier = inspAssemblyByShell.TryGetValue(i.SerialNumberId, out var alphaCode)
+                ? $"{alphaCode} ({shellSerial})"
+                : shellSerial;
             var tankSize = i.SerialNumber?.Product?.TankSize;
             inspAnnotationColors.TryGetValue(i.ProductionRecordId, out var color);
             return new WCHistoryEntryDto
@@ -275,8 +257,11 @@ public class WorkCenterService : IWorkCenterService
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (active != null && nextQueued != null)
+        if (active != null)
         {
+            if (active.QuantityCompleted < active.Quantity)
+                return MapAdvanceResponse(active);
+
             active.Status = "completed";
             _db.QueueTransactions.Add(new QueueTransaction
             {
@@ -288,13 +273,16 @@ public class WorkCenterService : IWorkCenterService
                 Timestamp = DateTime.UtcNow
             });
 
-            nextQueued.Status = "active";
-            await _db.SaveChangesAsync(cancellationToken);
-            return MapAdvanceResponse(nextQueued);
-        }
+            if (nextQueued != null)
+            {
+                nextQueued.Status = "active";
+                await _db.SaveChangesAsync(cancellationToken);
+                return MapAdvanceResponse(nextQueued);
+            }
 
-        if (active != null)
-            return MapAdvanceResponse(active);
+            await _db.SaveChangesAsync(cancellationToken);
+            return null;
+        }
 
         if (nextQueued != null)
         {
@@ -732,6 +720,7 @@ public class WorkCenterService : IWorkCenterService
             CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
             LotNumber = m.SerialNumber?.LotNumber,
             Quantity = m.Quantity,
+            QuantityCompleted = m.QuantityCompleted,
             ProductId = m.SerialNumber?.ProductId,
             VendorMillId = m.SerialNumber?.MillVendorId,
             VendorProcessorId = m.SerialNumber?.ProcessorVendorId,
@@ -857,14 +846,19 @@ public class WorkCenterService : IWorkCenterService
         return null;
     }
 
-    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, Guid? plantId = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, Guid? plantId = null, string? action = null, CancellationToken cancellationToken = default)
     {
         var tz = plantId.HasValue
             ? await GetPlantTimeZoneAsync(plantId.Value, cancellationToken)
             : TimeZoneInfo.Utc;
 
-        var transactions = await _db.QueueTransactions
-            .Where(qt => qt.WorkCenterId == wcId)
+        var query = _db.QueueTransactions
+            .Where(qt => qt.WorkCenterId == wcId);
+
+        if (!string.IsNullOrEmpty(action))
+            query = query.Where(qt => qt.Action == action);
+
+        var transactions = await query
             .OrderByDescending(qt => qt.Timestamp)
             .Take(limit)
             .Select(qt => new QueueTransactionDto

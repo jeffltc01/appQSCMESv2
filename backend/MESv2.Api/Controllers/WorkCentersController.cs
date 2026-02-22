@@ -32,37 +32,12 @@ public class WorkCentersController : ControllerBase
         return Ok(list);
     }
 
-    [HttpGet("{id:guid}/welders")]
-    public async Task<ActionResult<IEnumerable<WelderDto>>> GetWelders(Guid id, CancellationToken cancellationToken)
-    {
-        var list = await _workCenterService.GetWeldersAsync(id, cancellationToken);
-        return Ok(list);
-    }
-
     [HttpGet("{id:guid}/welders/lookup")]
     public async Task<ActionResult<WelderDto>> LookupWelder(Guid id, [FromQuery] string empNo, CancellationToken cancellationToken)
     {
         var welder = await _workCenterService.LookupWelderAsync(empNo, cancellationToken);
         if (welder == null) return NotFound();
         return Ok(welder);
-    }
-
-    [HttpPost("{id:guid}/welders")]
-    public async Task<ActionResult<WelderDto>> AddWelder(Guid id, [FromBody] AddWelderDto dto, CancellationToken cancellationToken)
-    {
-        var welder = await _workCenterService.AddWelderAsync(id, dto.EmployeeNumber, cancellationToken);
-        if (welder == null)
-            return NotFound();
-        return Ok(welder);
-    }
-
-    [HttpDelete("{id:guid}/welders/{userId:guid}")]
-    public async Task<ActionResult> RemoveWelder(Guid id, Guid userId, CancellationToken cancellationToken)
-    {
-        var removed = await _workCenterService.RemoveWelderAsync(id, userId, cancellationToken);
-        if (!removed)
-            return NotFound();
-        return NoContent();
     }
 
     [HttpGet("{id:guid}/history")]
@@ -73,9 +48,9 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/queue-transactions")]
-    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] int limit = 5, [FromQuery] Guid? plantId = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] int limit = 5, [FromQuery] Guid? plantId = null, [FromQuery] string? action = null, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetQueueTransactionsAsync(id, limit, plantId, cancellationToken);
+        var result = await _workCenterService.GetQueueTransactionsAsync(id, limit, plantId, action, cancellationToken);
         return Ok(result);
     }
 

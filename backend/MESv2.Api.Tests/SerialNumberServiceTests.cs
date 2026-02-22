@@ -61,6 +61,42 @@ public class SerialNumberServiceTests
         Assert.Equal("AA", result.ExistingAssembly!.AlphaCode);
     }
 
+    [Fact]
+    public async Task GetContext_DuplicateSerials_ReturnsNewest()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var otherProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+
+        db.SerialNumbers.Add(new SerialNumber { Id = Guid.NewGuid(), Serial = "DUP-01", ProductId = otherProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
+        db.SerialNumbers.Add(new SerialNumber { Id = Guid.NewGuid(), Serial = "DUP-01", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc) });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetContextAsync("DUP-01");
+
+        Assert.NotNull(result);
+        Assert.Equal(120, result.TankSize);
+    }
+
+    [Fact]
+    public async Task GetLookup_DuplicateSerials_ReturnsNewest()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var oldProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var newProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+
+        db.SerialNumbers.Add(new SerialNumber { Id = Guid.NewGuid(), Serial = "DUP-02", ProductId = oldProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) });
+        db.SerialNumbers.Add(new SerialNumber { Id = Guid.NewGuid(), Serial = "DUP-02", ProductId = newProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc) });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("DUP-02");
+
+        Assert.NotNull(result);
+        Assert.Equal(500, result.TreeNodes[0].TankSize);
+    }
+
     #region Full Hierarchy Setup
 
     private static readonly Guid SellableProductId = Guid.Parse("b5011111-1111-1111-1111-111111111111");
@@ -328,6 +364,51 @@ public class SerialNumberServiceTests
         Assert.NotNull(shellWithPlate);
         Assert.Single(shellWithPlate.Children);
         Assert.Equal("HX", shellWithPlate.Children[0].HeatNumber);
+    }
+
+    [Fact]
+    public async Task GetLookup_NormalizesV1Relationships()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var sellableProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 500);
+
+        var shell = new SerialNumber { Id = Guid.NewGuid(), Serial = "V1-SH", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var assembled = new SerialNumber { Id = Guid.NewGuid(), Serial = "V1-ASSY", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var sellable = new SerialNumber { Id = Guid.NewGuid(), Serial = "V1-SELL", ProductId = sellableProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        db.SerialNumbers.AddRange(shell, assembled, sellable);
+
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = shell.Id, ToSerialNumberId = assembled.Id, Relationship = "ShellToAssembly", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), ToSerialNumberId = assembled.Id, Relationship = "HeadToAssembly", TankLocation = "Head 1", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), ToSerialNumberId = assembled.Id, Relationship = "HeadToAssembly", TankLocation = "Head 2", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = sellable.Id, ToSerialNumberId = assembled.Id, Relationship = "NameplateToAssembly", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = assembled.Id, ToSerialNumberId = sellable.Id, Relationship = "hydro-marriage", Timestamp = DateTime.UtcNow }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("V1-SELL");
+
+        Assert.NotNull(result);
+        var root = result.TreeNodes[0];
+        Assert.Equal("sellable", root.NodeType);
+
+        var assemblyNode = root.Children[0];
+        Assert.Equal("assembled", assemblyNode.NodeType);
+
+        var shellNode = assemblyNode.Children.FirstOrDefault(c => c.NodeType == "shell");
+        Assert.NotNull(shellNode);
+        Assert.Equal("V1-SH", shellNode.Serial);
+
+        Assert.Contains(assemblyNode.Children, c => c.NodeType == "leftHead");
+        Assert.Contains(assemblyNode.Children, c => c.NodeType == "rightHead");
+
+        Assert.DoesNotContain(assemblyNode.Children, c => c.Serial == "V1-SELL");
+
+        Assert.Single(assemblyNode.ChildSerials);
+        Assert.Contains("V1-SH", assemblyNode.ChildSerials);
     }
 
     [Fact]

@@ -396,8 +396,9 @@ public class LogViewerService : ILogViewerService
         var sn = trace.FromSerialNumber;
         if (sn == null) return "";
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(sn.CoilNumber)) parts.Add($"Coil:{sn.CoilNumber}");
         if (!string.IsNullOrEmpty(sn.HeatNumber)) parts.Add($"Heat:{sn.HeatNumber}");
+        if (!string.IsNullOrEmpty(sn.CoilNumber)) parts.Add($"Coil:{sn.CoilNumber}");
+        if (parts.Count == 0 && !string.IsNullOrEmpty(sn.LotNumber)) parts.Add($"Lot:{sn.LotNumber}");
         return string.Join(" ", parts);
     }
 

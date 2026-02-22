@@ -4,6 +4,7 @@ using MESv2.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MESv2.Api.Migrations
 {
     [DbContext(typeof(MesDbContext))]
-    partial class MesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222203937_AddCountsAsDowntimeToDowntimeReason")]
+    partial class AddCountsAsDowntimeToDowntimeReason
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1748,6 +1751,31 @@ namespace MESv2.Api.Migrations
                     b.ToTable("WorkCenterTypes");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.WorkCenterWelder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkCenterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("WorkCenterId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("WorkCenterWelders");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.XrayQueueItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2619,6 +2647,25 @@ namespace MESv2.Api.Migrations
                     b.Navigation("DowntimeReason");
 
                     b.Navigation("WorkCenterProductionLine");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkCenterWelder", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.WorkCenter", "WorkCenter")
+                        .WithMany()
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("WorkCenter");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.XrayQueueItem", b =>

@@ -8,37 +8,45 @@ namespace MESv2.Api.Tests;
 public class AssemblyServiceTests
 {
     [Fact]
-    public async Task GetNextAlphaCode_ReturnsAA_WhenNoExistingAssemblies()
+    public async Task GetNextAlphaCode_ReturnsPlantNextTankAlphaCode()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var sut = new AssemblyService(db);
-
-        var result = await sut.GetNextAlphaCodeAsync(TestHelpers.PlantPlt1Id);
-
-        Assert.Equal("AA", result);
-    }
-
-    [Fact]
-    public async Task GetNextAlphaCode_ReturnsAB_WhenAAExists()
-    {
-        await using var db = TestHelpers.CreateInMemoryContext();
-        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
-        db.SerialNumbers.Add(new SerialNumber
-        {
-            Id = Guid.NewGuid(),
-            Serial = "AA",
-            ProductId = assembledProduct.Id,
-            PlantId = TestHelpers.PlantPlt1Id,
-            CreatedAt = DateTime.UtcNow,
-            CreatedByUserId = TestHelpers.TestUserId
-        });
+        var plant = await db.Plants.FirstAsync(p => p.Id == TestHelpers.PlantPlt1Id);
+        plant.NextTankAlphaCode = "GT";
         await db.SaveChangesAsync();
 
         var sut = new AssemblyService(db);
 
         var result = await sut.GetNextAlphaCodeAsync(TestHelpers.PlantPlt1Id);
+        await db.SaveChangesAsync();
 
-        Assert.Equal("AB", result);
+        Assert.Equal("GT", result);
+        Assert.Equal("GU", plant.NextTankAlphaCode);
+    }
+
+    [Fact]
+    public async Task GetNextAlphaCode_WrapsZZToAA()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var plant = await db.Plants.FirstAsync(p => p.Id == TestHelpers.PlantPlt1Id);
+        plant.NextTankAlphaCode = "ZZ";
+        await db.SaveChangesAsync();
+
+        var sut = new AssemblyService(db);
+
+        var result = await sut.GetNextAlphaCodeAsync(TestHelpers.PlantPlt1Id);
+        await db.SaveChangesAsync();
+
+        Assert.Equal("ZZ", result);
+        Assert.Equal("AA", plant.NextTankAlphaCode);
+    }
+
+    [Fact]
+    public void AdvanceAlphaCode_SequentialCases()
+    {
+        Assert.Equal("AB", AssemblyService.AdvanceAlphaCode("AA"));
+        Assert.Equal("BA", AssemblyService.AdvanceAlphaCode("AZ"));
+        Assert.Equal("AA", AssemblyService.AdvanceAlphaCode("ZZ"));
     }
 
     [Fact]
@@ -75,6 +83,9 @@ public class AssemblyServiceTests
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("AA", result.AlphaCode);
+
+        var plant = await db.Plants.FirstAsync(p => p.Id == TestHelpers.PlantPlt1Id);
+        Assert.Equal("AB", plant.NextTankAlphaCode);
 
         var assemblySn = await db.SerialNumbers.FirstAsync(s => s.Serial == "AA");
         var shellLogs = await db.TraceabilityLogs
@@ -218,5 +229,61 @@ public class AssemblyServiceTests
             .ToListAsync();
         Assert.Single(shellLogs);
         Assert.Equal(sn2Id, shellLogs[0].FromSerialNumberId);
+    }
+
+    [Fact]
+    public async Task Reassemble_ResolvesToMostRecentNonObsolete_WhenDuplicateAlphaCodesExist()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+
+        var oldAssemblyId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = oldAssemblyId,
+            Serial = "CC",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow.AddDays(-30),
+            IsObsolete = true
+        });
+
+        var newShellId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = newShellId, Serial = "SHELL-DUP", ProductId = shellProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow
+        });
+
+        var newAssemblyId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = newAssemblyId,
+            Serial = "CC",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = TestHelpers.TestUserId
+        });
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = newShellId,
+            ToSerialNumberId = newAssemblyId,
+            Relationship = "ShellToAssembly",
+            TankLocation = "Shell 1",
+            Quantity = 1,
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new AssemblyService(db);
+        var dto = new ReassemblyDto { Shells = new List<string> { "SHELL-DUP" }, OperatorId = TestHelpers.TestUserId };
+
+        var result = await sut.ReassembleAsync("CC", dto);
+
+        Assert.Equal("CC", result.AlphaCode);
+        Assert.Equal(newAssemblyId, result.Id);
     }
 }

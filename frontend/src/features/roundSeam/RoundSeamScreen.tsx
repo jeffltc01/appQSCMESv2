@@ -6,8 +6,8 @@ import {
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
-import type { Welder, RoundSeamSetup, AssemblyLookup } from '../../types/domain.ts';
-import { roundSeamApi, workCenterApi } from '../../api/endpoints.ts';
+import type { RoundSeamSetup, AssemblyLookup } from '../../types/domain.ts';
+import { roundSeamApi } from '../../api/endpoints.ts';
 import styles from './RoundSeamScreen.module.css';
 
 function seamCountForSize(size: number): number {
@@ -34,7 +34,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   const [showSetup, setShowSetup] = useState(false);
   const [detectedTankSize, setDetectedTankSize] = useState(500);
   const [setupWelders, setSetupWelders] = useState<(string | undefined)[]>([undefined, undefined, undefined, undefined]);
-  const [availableWelders, setAvailableWelders] = useState<Welder[]>([]);
+  const availableWelders = parentWelders;
   const [manualSerial, setManualSerial] = useState('');
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupError, setSetupError] = useState('');
@@ -44,12 +44,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   useEffect(() => {
     initialLoadDoneRef.current = false;
     loadSetup();
-    loadAvailableWelders();
   }, [workCenterId]);
-
-  useEffect(() => {
-    loadAvailableWelders();
-  }, [parentWelders.length]);
 
   const pendingSetupOpenRef = useRef(false);
 
@@ -85,13 +80,6 @@ export function RoundSeamScreen(props: WorkCenterProps) {
       setShowSetup(true);
     }
   }, [welderCountLoaded]);
-
-  const loadAvailableWelders = useCallback(async () => {
-    try {
-      const w = await workCenterApi.getWelders(workCenterId);
-      setAvailableWelders(w);
-    } catch { /* keep empty */ }
-  }, [workCenterId]);
 
   const openSetup = useCallback((tankSize?: number) => {
     if (tankSize) setDetectedTankSize(tankSize);

@@ -14,7 +14,6 @@ vi.mock('../../api/endpoints', () => ({
     createRecord: vi.fn(),
     getAssemblyByShell: vi.fn(),
   },
-  workCenterApi: { getWelders: vi.fn().mockResolvedValue([]) },
 }));
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {

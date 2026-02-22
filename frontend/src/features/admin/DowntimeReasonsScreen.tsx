@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Spinner, Dropdown, Option } from '@fluentui/react-components';
+import { Button, Input, Label, Spinner, Dropdown, Option, Switch } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular, AddRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
@@ -32,6 +32,7 @@ export function DowntimeReasonsScreen() {
   const [reasonModalOpen, setReasonModalOpen] = useState(false);
   const [editingReason, setEditingReason] = useState<DowntimeReason | null>(null);
   const [reasonName, setReasonName] = useState('');
+  const [reasonCountsAsDowntime, setReasonCountsAsDowntime] = useState(true);
   const [reasonSortOrder, setReasonSortOrder] = useState(0);
   const [reasonSaving, setReasonSaving] = useState(false);
   const [reasonError, setReasonError] = useState('');
@@ -116,13 +117,13 @@ export function DowntimeReasonsScreen() {
 
   const openAddReason = () => {
     setEditingReason(null);
-    setReasonName(''); setReasonSortOrder(reasons.length);
+    setReasonName(''); setReasonCountsAsDowntime(true); setReasonSortOrder(reasons.length);
     setReasonError(''); setReasonModalOpen(true);
   };
 
   const openEditReason = (reason: DowntimeReason) => {
     setEditingReason(reason);
-    setReasonName(reason.name); setReasonSortOrder(reason.sortOrder);
+    setReasonName(reason.name); setReasonCountsAsDowntime(reason.countsAsDowntime); setReasonSortOrder(reason.sortOrder);
     setReasonError(''); setReasonModalOpen(true);
   };
 
@@ -131,12 +132,13 @@ export function DowntimeReasonsScreen() {
     try {
       if (editingReason) {
         await downtimeReasonApi.update(editingReason.id, {
-          name: reasonName, sortOrder: reasonSortOrder, isActive: editingReason.isActive
+          name: reasonName, sortOrder: reasonSortOrder, isActive: editingReason.isActive,
+          countsAsDowntime: reasonCountsAsDowntime
         });
       } else {
         await downtimeReasonApi.create({
           downtimeReasonCategoryId: selectedCategoryId!,
-          name: reasonName, sortOrder: reasonSortOrder
+          name: reasonName, countsAsDowntime: reasonCountsAsDowntime, sortOrder: reasonSortOrder
         });
       }
       setReasonModalOpen(false);
@@ -239,9 +241,14 @@ export function DowntimeReasonsScreen() {
                       <span className={styles.cardFieldLabel}>Sort Order</span>
                       <span className={styles.cardFieldValue}>{reason.sortOrder}</span>
                     </div>
-                    <span className={`${styles.badge} ${reason.isActive ? styles.badgeGreen : styles.badgeGray}`}>
-                      {reason.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <span className={`${styles.badge} ${reason.isActive ? styles.badgeGreen : styles.badgeGray}`}>
+                        {reason.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      {!reason.countsAsDowntime && (
+                        <span className={`${styles.badge} ${styles.badgeBlue}`}>Not OEE Downtime</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -282,6 +289,11 @@ export function DowntimeReasonsScreen() {
         <Input value={reasonName} onChange={(_, d) => setReasonName(d.value)} />
         <Label>Sort Order</Label>
         <Input type="number" value={String(reasonSortOrder)} onChange={(_, d) => setReasonSortOrder(Number(d.value) || 0)} />
+        <Switch
+          label="Counts as downtime (affects OEE)"
+          checked={reasonCountsAsDowntime}
+          onChange={(_, d) => setReasonCountsAsDowntime(d.checked)}
+        />
       </AdminModal>
 
       <ConfirmDeleteDialog

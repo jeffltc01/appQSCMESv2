@@ -44,6 +44,8 @@ export function RollsScreen(props: WorkCenterProps) {
   const [manualSerial, setManualSerial] = useState('');
   const [controlPlans, setControlPlans] = useState<OperatorControlPlan[]>([]);
   const [inspectionResults, setInspectionResults] = useState<Record<string, string>>({});
+  const [inspectionIndex, setInspectionIndex] = useState(0);
+  const [needsInspection, setNeedsInspection] = useState(false);
 
   useEffect(() => {
     loadQueue();
@@ -63,8 +65,23 @@ export function RollsScreen(props: WorkCenterProps) {
     try {
       const items = await workCenterApi.getMaterialQueue(workCenterId);
       setQueue(items.filter((i) => i.status === 'queued'));
+
+      const active = items.find((i) => i.status === 'active');
+      if (active && !activeMaterial) {
+        setActiveMaterial({
+          shellSize: active.shellSize ?? '',
+          heatNumber: active.heatNumber,
+          coilNumber: active.coilNumber,
+          queueQuantity: active.quantity,
+          materialRemaining: active.quantity - active.quantityCompleted,
+          shellCount: active.quantityCompleted,
+          productDescription: active.productDescription,
+        });
+        if (active.quantityCompleted === 0) setNeedsInspection(true);
+        setScanState('scanLabel1');
+      }
     } catch { /* keep stale */ }
-  }, [workCenterId]);
+  }, [workCenterId, activeMaterial]);
 
   const advanceQueue = useCallback(async () => {
     try {
@@ -78,6 +95,7 @@ export function RollsScreen(props: WorkCenterProps) {
         shellCount: data.quantityCompleted,
         productDescription: data.productDescription,
       });
+      setNeedsInspection(true);
       setScanState('scanLabel1');
       setPromptState('none');
       loadQueue();
@@ -99,18 +117,6 @@ export function RollsScreen(props: WorkCenterProps) {
         return;
       }
       try {
-        if (controlPlans.length > 0) {
-          await inspectionRecordApi.create({
-            serialNumber: serial,
-            workCenterId,
-            operatorId,
-            results: controlPlans.map((cp) => ({
-              controlPlanId: cp.id,
-              resultText: effectiveResults[cp.id],
-            })),
-            defects: [],
-          });
-        }
         const resp = await productionRecordApi.create({
           serialNumber: serial,
           workCenterId,
@@ -122,6 +128,21 @@ export function RollsScreen(props: WorkCenterProps) {
           heatNumber: activeMaterial?.heatNumber,
           coilNumber: activeMaterial?.coilNumber,
         });
+        const hasInspectionResults = controlPlans.length > 0 && controlPlans.every((cp) => effectiveResults[cp.id]);
+        if (hasInspectionResults) {
+          await inspectionRecordApi.create({
+            serialNumber: serial,
+            workCenterId,
+            operatorId,
+            productionRecordId: resp.id,
+            results: controlPlans.map((cp) => ({
+              controlPlanId: cp.id,
+              resultText: effectiveResults[cp.id],
+            })),
+            defects: [],
+          });
+          setNeedsInspection(false);
+        }
         showScanResult({
           type: 'success',
           message: resp.warning
@@ -156,6 +177,23 @@ export function RollsScreen(props: WorkCenterProps) {
     [workCenterId, assetId, productionLineId, operatorId, welders, activeMaterial, controlPlans, inspectionResults, showScanResult, refreshHistory],
   );
 
+  const handleInspectionChoice = useCallback(
+    (resultText: string) => {
+      const cp = controlPlans[inspectionIndex];
+      if (!cp) return;
+      const updatedResults = { ...inspectionResults, [cp.id]: resultText };
+      setInspectionResults(updatedResults);
+
+      if (inspectionIndex < controlPlans.length - 1) {
+        setInspectionIndex(inspectionIndex + 1);
+      } else {
+        setPromptState('none');
+        createRecord(label1Serial, updatedResults);
+      }
+    },
+    [controlPlans, inspectionIndex, inspectionResults, label1Serial, createRecord],
+  );
+
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
       if (!bc) {
@@ -179,26 +217,19 @@ export function RollsScreen(props: WorkCenterProps) {
       }
 
       if (promptState === 'inspectionResults') {
-        const passFailPlans = controlPlans.filter((cp) => cp.resultType === 'PassFail');
-        if (passFailPlans.length === 1 && controlPlans.length === 1) {
+        const currentPlan = controlPlans[inspectionIndex];
+        if (currentPlan) {
+          const [positiveLabel, negativeLabel] = getResultLabels(currentPlan.resultType);
           if (bc.prefix === 'INP' && bc.value === '3') {
-            const results = { [passFailPlans[0].id]: 'Pass' };
-            setInspectionResults(results);
-            setPromptState('none');
-            createRecord(label1Serial, results);
+            handleInspectionChoice(positiveLabel);
             return;
           }
           if (bc.prefix === 'INP' && bc.value === '4') {
-            const results = { [passFailPlans[0].id]: 'Fail' };
-            setInspectionResults(results);
-            setPromptState('none');
-            createRecord(label1Serial, results);
+            handleInspectionChoice(negativeLabel);
             return;
           }
-          showScanResult({ type: 'error', message: 'Scan PASS or FAIL to respond' });
-          return;
         }
-        showScanResult({ type: 'error', message: 'Use the on-screen buttons to record inspection results' });
+        showScanResult({ type: 'error', message: 'Scan PASS or FAIL to respond' });
         return;
       }
 
@@ -246,7 +277,9 @@ export function RollsScreen(props: WorkCenterProps) {
               return;
             }
             if (parsed.serialNumber === label1Serial) {
-              if (controlPlans.length > 0) {
+              const isOverflow = (activeMaterial?.materialRemaining ?? 1) <= 0;
+              if (controlPlans.length > 0 && (needsInspection || isOverflow)) {
+                setInspectionIndex(0);
                 setPromptState('inspectionResults');
               } else {
                 createRecord(parsed.serialNumber);
@@ -264,7 +297,7 @@ export function RollsScreen(props: WorkCenterProps) {
 
       showScanResult({ type: 'error', message: 'Invalid barcode in this context' });
     },
-    [scanState, promptState, label1Serial, label1Raw, activeMaterial, controlPlans, advanceQueue, createRecord, showScanResult, workCenterId],
+    [scanState, promptState, label1Serial, label1Raw, activeMaterial, controlPlans, inspectionIndex, needsInspection, handleInspectionChoice, advanceQueue, createRecord, showScanResult, workCenterId],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -276,14 +309,16 @@ export function RollsScreen(props: WorkCenterProps) {
 
   const handleManualSubmit = useCallback(() => {
     if (!manualSerial.trim() || !activeMaterial) return;
-    if (controlPlans.length > 0) {
+    const isOverflow = activeMaterial.materialRemaining <= 0;
+    if (controlPlans.length > 0 && (needsInspection || isOverflow)) {
       setLabel1Serial(manualSerial.trim());
+      setInspectionIndex(0);
       setPromptState('inspectionResults');
     } else {
       createRecord(manualSerial.trim());
     }
     setManualSerial('');
-  }, [manualSerial, activeMaterial, controlPlans, createRecord]);
+  }, [manualSerial, activeMaterial, controlPlans, needsInspection, createRecord]);
 
   return (
     <div className={styles.container}>
@@ -354,45 +389,26 @@ export function RollsScreen(props: WorkCenterProps) {
         </div>
       )}
 
-      {promptState === 'inspectionResults' && (
-        <div className={styles.prompt}>
-          <h3>Inspection Results</h3>
-          {controlPlans.map((cp) => {
-            const [positiveLabel, negativeLabel] = getResultLabels(cp.resultType);
-            const selected = inspectionResults[cp.id];
-            return (
-              <div key={cp.id} style={{ marginBottom: '0.75rem' }}>
-                <p style={{ margin: '0 0 0.25rem' }}>{cp.characteristicName}</p>
-                <div className={styles.promptButtons}>
-                  <Button
-                    appearance={selected === positiveLabel ? 'primary' : 'secondary'}
-                    size="large"
-                    onClick={() => setInspectionResults((prev) => ({ ...prev, [cp.id]: positiveLabel }))}
-                  >
-                    {positiveLabel}
-                  </Button>
-                  <Button
-                    appearance={selected === negativeLabel ? 'primary' : 'secondary'}
-                    size="large"
-                    onClick={() => setInspectionResults((prev) => ({ ...prev, [cp.id]: negativeLabel }))}
-                  >
-                    {negativeLabel}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-          <Button
-            appearance="primary"
-            size="large"
-            disabled={controlPlans.some((cp) => !inspectionResults[cp.id])}
-            onClick={() => { setPromptState('none'); createRecord(label1Serial); }}
-            style={{ marginTop: '0.5rem' }}
-          >
-            Submit
-          </Button>
-        </div>
-      )}
+      {promptState === 'inspectionResults' && controlPlans[inspectionIndex] && (() => {
+        const cp = controlPlans[inspectionIndex];
+        const [positiveLabel, negativeLabel] = getResultLabels(cp.resultType);
+        return (
+          <div className={styles.prompt}>
+            <h3>{cp.characteristicName}</h3>
+            {controlPlans.length > 1 && (
+              <p style={{ margin: '0 0 0.5rem', opacity: 0.7 }}>{inspectionIndex + 1} of {controlPlans.length}</p>
+            )}
+            <div className={styles.promptButtons}>
+              <Button appearance="primary" size="large" onClick={() => handleInspectionChoice(positiveLabel)}>
+                {positiveLabel}
+              </Button>
+              <Button appearance="primary" size="large" onClick={() => handleInspectionChoice(negativeLabel)}>
+                {negativeLabel}
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
 
       <div className={styles.queueSection}>
         <div className={styles.queueHeader}>

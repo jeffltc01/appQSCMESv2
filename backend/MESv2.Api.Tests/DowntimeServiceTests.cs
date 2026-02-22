@@ -270,6 +270,82 @@ public class DowntimeServiceTests
     }
 
     [Fact]
+    public async Task CreateReason_CountsAsDowntimeDefaultsToTrue()
+    {
+        var (db, sut, categoryId, _, _) = SetupWithReasons();
+
+        var result = await sut.CreateReasonAsync(new CreateDowntimeReasonDto
+        {
+            DowntimeReasonCategoryId = categoryId,
+            Name = "Tooling Change",
+            SortOrder = 1
+        });
+
+        Assert.True(result.CountsAsDowntime);
+    }
+
+    [Fact]
+    public async Task CreateReason_CanSetCountsAsDowntimeFalse()
+    {
+        var (db, sut, categoryId, _, _) = SetupWithReasons();
+
+        var result = await sut.CreateReasonAsync(new CreateDowntimeReasonDto
+        {
+            DowntimeReasonCategoryId = categoryId,
+            Name = "Scanner Issue",
+            CountsAsDowntime = false,
+            SortOrder = 2
+        });
+
+        Assert.False(result.CountsAsDowntime);
+        var entity = await db.DowntimeReasons.FindAsync(result.Id);
+        Assert.False(entity!.CountsAsDowntime);
+    }
+
+    [Fact]
+    public async Task UpdateReason_CanToggleCountsAsDowntime()
+    {
+        var (db, sut, _, reasonId, _) = SetupWithReasons();
+
+        var result = await sut.UpdateReasonAsync(reasonId, new UpdateDowntimeReasonDto
+        {
+            Name = "Breakdown",
+            SortOrder = 0,
+            IsActive = true,
+            CountsAsDowntime = false
+        });
+
+        Assert.NotNull(result);
+        Assert.False(result!.CountsAsDowntime);
+    }
+
+    [Fact]
+    public async Task GetCategories_IncludesCountsAsDowntimeOnReasons()
+    {
+        var (db, sut, categoryId, _, _) = SetupWithReasons();
+
+        db.DowntimeReasons.Add(new DowntimeReason
+        {
+            Id = Guid.NewGuid(),
+            DowntimeReasonCategoryId = categoryId,
+            Name = "Scanner Issue",
+            CountsAsDowntime = false,
+            IsActive = true,
+            SortOrder = 1
+        });
+        await db.SaveChangesAsync();
+
+        var categories = await sut.GetCategoriesAsync(TestHelpers.PlantPlt1Id);
+        var reasons = categories[0].Reasons;
+
+        Assert.Equal(2, reasons.Count);
+        var breakdown = reasons.First(r => r.Name == "Breakdown");
+        var scanner = reasons.First(r => r.Name == "Scanner Issue");
+        Assert.True(breakdown.CountsAsDowntime);
+        Assert.False(scanner.CountsAsDowntime);
+    }
+
+    [Fact]
     public async Task CreateDowntimeEvent_CalculatesDurationCorrectly()
     {
         var (db, sut, _, reasonId, wcplId) = SetupWithReasons();

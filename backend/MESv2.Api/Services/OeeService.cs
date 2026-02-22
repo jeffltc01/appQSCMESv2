@@ -299,11 +299,13 @@ public class OeeService : IOeeService
             .ToListAsync(ct);
 
         // 3. Sum downtime for the day across all production lines of this WC
+        //    Only include events whose reason counts as downtime (or has no reason, e.g. auto-generated)
         var downtimeMinutes = wcplIds.Count > 0
             ? await _db.DowntimeEvents
                 .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
                     && e.StartedAt < endOfDay
-                    && e.EndedAt > startOfDay)
+                    && e.EndedAt > startOfDay
+                    && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
                 .SumAsync(e => e.DurationMinutes, ct)
             : 0m;
 

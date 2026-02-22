@@ -41,7 +41,6 @@ public class MesDbContext : DbContext
     public DbSet<SpotXrayIncrement> SpotXrayIncrements => Set<SpotXrayIncrement>();
     public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
     public DbSet<WorkCenterProductionLine> WorkCenterProductionLines => Set<WorkCenterProductionLine>();
-    public DbSet<WorkCenterWelder> WorkCenterWelders => Set<WorkCenterWelder>();
     public DbSet<VendorPlant> VendorPlants => Set<VendorPlant>();
     public DbSet<ProductPlant> ProductPlants => Set<ProductPlant>();
     public DbSet<PlantPrinter> PlantPrinters => Set<PlantPrinter>();
@@ -498,17 +497,6 @@ public class MesDbContext : DbContext
             .HasForeignKey(wcpl => wcpl.ProductionLineId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<WorkCenterWelder>()
-            .HasOne(w => w.WorkCenter)
-            .WithMany()
-            .HasForeignKey(w => w.WorkCenterId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<WorkCenterWelder>()
-            .HasOne(w => w.User)
-            .WithMany()
-            .HasForeignKey(w => w.UserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         modelBuilder.Entity<VendorPlant>()
             .HasOne(vp => vp.Vendor)
             .WithMany(v => v.VendorPlants)
@@ -544,7 +532,9 @@ public class MesDbContext : DbContext
 
         // ----- Indexes -----
         modelBuilder.Entity<Plant>().HasIndex(p => p.Code).IsUnique();
-        modelBuilder.Entity<SerialNumber>().HasIndex(s => s.Serial);
+        modelBuilder.Entity<SerialNumber>()
+            .HasIndex(s => new { s.Serial, s.PlantId, s.CreatedAt })
+            .IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.EmployeeNumber).IsUnique();
         modelBuilder.Entity<MaterialQueueItem>().HasIndex(m => new { m.WorkCenterId, m.Status });
 
@@ -575,9 +565,6 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<WorkCenterProductionLine>()
             .HasIndex(wcpl => new { wcpl.WorkCenterId, wcpl.ProductionLineId })
-            .IsUnique();
-        modelBuilder.Entity<WorkCenterWelder>()
-            .HasIndex(w => new { w.WorkCenterId, w.UserId })
             .IsUnique();
         modelBuilder.Entity<VendorPlant>()
             .HasIndex(vp => new { vp.VendorId, vp.PlantId })
