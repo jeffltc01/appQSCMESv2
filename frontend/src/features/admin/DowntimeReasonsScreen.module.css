@@ -1,0 +1,86 @@
+.filterBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.twoPanelLayout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  max-width: 1400px;
+}
+
+.leftPanel {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.rightPanel {
+  min-height: 300px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #dee2e6;
+  background: #f8f9fa;
+}
+
+.panelTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1b2a4a;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f3f5;
+  transition: background 0.1s;
+}
+
+.listItem:hover {
+  background: #f1f3f5;
+}
+
+.listItemSelected {
+  background: #e7f5ff;
+  border-left: 3px solid #1971c2;
+}
+
+.listItemInactive {
+  opacity: 0.5;
+}
+
+.listItemContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.listItemName {
+  font-size: 14px;
+  font-weight: 500;
+  color: #212529;
+}
+
+.listItemMeta {
+  font-size: 12px;
+  color: #868e96;
+}
+
+.emptyPanel {
+  padding: 32px 16px;
+  text-align: center;
+  color: #868e96;
+  font-size: 14px;
+}

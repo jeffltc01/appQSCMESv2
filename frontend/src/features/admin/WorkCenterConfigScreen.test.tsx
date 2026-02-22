@@ -62,6 +62,8 @@ const mockPlConfigs = [
     plantName: 'Cleveland',
     displayName: 'Rolls Station A',
     numberOfWelders: 3,
+    downtimeTrackingEnabled: false,
+    downtimeThresholdMinutes: 5,
   },
 ];
 

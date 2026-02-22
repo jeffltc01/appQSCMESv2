@@ -14,6 +14,7 @@ import { issueRequestApi } from '../../api/endpoints.ts';
 import { IssueRequestType, IssueRequestStatus } from '../../types/api.ts';
 import type { IssueRequestDto, CreateIssueRequestDto } from '../../types/api.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { formatDateOnly } from '../../utils/dateFormat.ts';
 import styles from './CardList.module.css';
 
 const AREA_OPTIONS = [
@@ -314,7 +315,7 @@ export function ReportIssueScreen() {
               </div>
               <div className={styles.cardField}>
                 <span className={styles.cardFieldLabel}>Submitted</span>
-                <span className={styles.cardFieldValue}>{new Date(item.submittedAt).toLocaleDateString()}</span>
+                <span className={styles.cardFieldValue}>{formatDateOnly(item.submittedAt)}</span>
               </div>
               {item.gitHubIssueUrl && (
                 <div className={styles.cardField}>

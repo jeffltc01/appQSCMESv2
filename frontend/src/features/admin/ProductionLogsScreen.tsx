@@ -6,6 +6,7 @@ import {
   Select,
   Spinner,
 } from '@fluentui/react-components';
+import { FlagFilled, FlagRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { logViewerApi, siteApi, adminAnnotationTypeApi } from '../../api/endpoints.ts';
@@ -20,6 +21,7 @@ import type {
   SpotXrayShotCount,
   LogAnnotationBadge,
 } from '../../types/domain.ts';
+import { formatDateForInput, formatShortDateTime } from '../../utils/dateFormat.ts';
 import styles from './ProductionLogsScreen.module.css';
 
 type LogType = 'rolls' | 'fitup' | 'hydro' | 'rt-xray' | 'spot-xray';
@@ -33,19 +35,6 @@ const LOG_TYPE_OPTIONS: { value: LogType; label: string }[] = [
 ];
 
 type AnyLogEntry = RollsLogEntry | FitupLogEntry | HydroLogEntry | RtXrayLogEntry | SpotXrayLogEntry;
-
-function formatDateForInput(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
-
-function formatTimestamp(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()} ${d.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })}`;
-}
 
 function ResultCell({ result }: { result?: string }) {
   if (!result) return <span className={styles.resultUnknown}>—</span>;
@@ -66,15 +55,6 @@ function AnnotationBadges({
 }) {
   return (
     <div className={styles.annotCell}>
-      {badges.map((b, i) => (
-        <span
-          key={i}
-          className={styles.annotBadge}
-          style={{ color: b.color, borderColor: b.color }}
-        >
-          {b.abbreviation}
-        </span>
-      ))}
       <button
         className={styles.addAnnotBtn}
         onClick={onAdd}
@@ -83,6 +63,17 @@ function AnnotationBadges({
       >
         +
       </button>
+      {badges.length > 0
+        ? badges.map((b, i) => (
+            <FlagFilled
+              key={i}
+              fontSize={18}
+              className={styles.flagActive}
+              style={{ color: b.color }}
+              title={b.abbreviation}
+            />
+          ))
+        : <FlagRegular fontSize={18} className={styles.flagInactive} />}
     </div>
   );
 }
@@ -365,7 +356,7 @@ function RollsTable({
       <tbody>
         {entries.map((e) => (
           <tr key={e.id}>
-            <td style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(e.timestamp)}</td>
+            <td style={{ whiteSpace: 'nowrap' }}>{formatShortDateTime(e.timestamp)}</td>
             <td>{e.coilHeatLot}</td>
             <td><ResultCell result={e.thickness} /></td>
             <td>{e.shellCode}</td>
@@ -407,7 +398,7 @@ function FitupTable({
       <tbody>
         {entries.map((e) => (
           <tr key={e.id}>
-            <td style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(e.timestamp)}</td>
+            <td style={{ whiteSpace: 'nowrap' }}>{formatShortDateTime(e.timestamp)}</td>
             <td>{e.headNo1 ?? ''}</td>
             <td>{e.headNo2 ?? ''}</td>
             <td>{e.shellNo1 ?? ''}</td>
@@ -451,7 +442,7 @@ function HydroTable({
       <tbody>
         {entries.map((e) => (
           <tr key={e.id}>
-            <td style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(e.timestamp)}</td>
+            <td style={{ whiteSpace: 'nowrap' }}>{formatShortDateTime(e.timestamp)}</td>
             <td>{e.nameplate ?? ''}</td>
             <td>{e.alphaCode ?? ''}</td>
             <td>{e.tankSize ?? ''}</td>
@@ -492,7 +483,7 @@ function RtXrayTable({
       <tbody>
         {entries.map((e) => (
           <tr key={e.id}>
-            <td style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(e.timestamp)}</td>
+            <td style={{ whiteSpace: 'nowrap' }}>{formatShortDateTime(e.timestamp)}</td>
             <td>{e.shellCode}</td>
             <td>{e.tankSize ?? ''}</td>
             <td>{e.operator}</td>
@@ -532,7 +523,7 @@ function SpotXrayTable({
       <tbody>
         {entries.map((e) => (
           <tr key={e.id}>
-            <td style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(e.timestamp)}</td>
+            <td style={{ whiteSpace: 'nowrap' }}>{formatShortDateTime(e.timestamp)}</td>
             <td>{e.tanks}</td>
             <td>{e.inspected ?? ''}</td>
             <td>{e.tankSize ?? ''}</td>

@@ -16,7 +16,7 @@ public class LogViewerService : ILogViewerService
     public async Task<List<RollsLogEntryDto>> GetRollsLogAsync(
         Guid siteId, string startDate, string endDate, CancellationToken ct = default)
     {
-        var (utcStart, utcEnd) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
+        var (utcStart, utcEnd, tz) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
 
         var wcTypeId = await GetWcTypeIdAsync("Rolls", ct);
         if (wcTypeId == null) return new List<RollsLogEntryDto>();
@@ -43,7 +43,7 @@ public class LogViewerService : ILogViewerService
             return new RollsLogEntryDto
             {
                 Id = r.Id,
-                Timestamp = r.Timestamp,
+                Timestamp = ToLocal(r.Timestamp, tz),
                 CoilHeatLot = coilHeat,
                 Thickness = r.InspectionResult,
                 ShellCode = sn?.Serial ?? "",
@@ -57,7 +57,7 @@ public class LogViewerService : ILogViewerService
     public async Task<List<FitupLogEntryDto>> GetFitupLogAsync(
         Guid siteId, string startDate, string endDate, CancellationToken ct = default)
     {
-        var (utcStart, utcEnd) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
+        var (utcStart, utcEnd, tz) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
 
         var wcTypeId = await GetWcTypeIdAsync("Fitup", ct);
         if (wcTypeId == null) return new List<FitupLogEntryDto>();
@@ -93,7 +93,7 @@ public class LogViewerService : ILogViewerService
             return new FitupLogEntryDto
             {
                 Id = r.Id,
-                Timestamp = r.Timestamp,
+                Timestamp = ToLocal(r.Timestamp, tz),
                 HeadNo1 = heads.ElementAtOrDefault(0),
                 HeadNo2 = heads.ElementAtOrDefault(1),
                 ShellNo1 = shells.ElementAtOrDefault(0),
@@ -110,7 +110,7 @@ public class LogViewerService : ILogViewerService
     public async Task<List<HydroLogEntryDto>> GetHydroLogAsync(
         Guid siteId, string startDate, string endDate, CancellationToken ct = default)
     {
-        var (utcStart, utcEnd) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
+        var (utcStart, utcEnd, tz) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
 
         var wcTypeId = await GetWcTypeIdAsync("Hydro", ct);
         if (wcTypeId == null) return new List<HydroLogEntryDto>();
@@ -142,7 +142,7 @@ public class LogViewerService : ILogViewerService
             return new HydroLogEntryDto
             {
                 Id = r.Id,
-                Timestamp = r.Timestamp,
+                Timestamp = ToLocal(r.Timestamp, tz),
                 Nameplate = nameplateSn,
                 AlphaCode = r.SerialNumber?.Serial,
                 TankSize = r.SerialNumber?.Product?.TankSize,
@@ -158,7 +158,7 @@ public class LogViewerService : ILogViewerService
     public async Task<List<RtXrayLogEntryDto>> GetRtXrayLogAsync(
         Guid siteId, string startDate, string endDate, CancellationToken ct = default)
     {
-        var (utcStart, utcEnd) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
+        var (utcStart, utcEnd, tz) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
 
         var wcTypeId = await GetWcTypeIdAsync("X-Ray", ct);
         if (wcTypeId == null) return new List<RtXrayLogEntryDto>();
@@ -178,7 +178,7 @@ public class LogViewerService : ILogViewerService
         return records.Select(r => new RtXrayLogEntryDto
         {
             Id = r.Id,
-            Timestamp = r.Timestamp,
+            Timestamp = ToLocal(r.Timestamp, tz),
             ShellCode = r.SerialNumber?.Serial ?? "",
             TankSize = r.SerialNumber?.Product?.TankSize,
             Operator = r.Operator?.DisplayName ?? "",
@@ -193,8 +193,7 @@ public class LogViewerService : ILogViewerService
     public async Task<SpotXrayLogResponseDto> GetSpotXrayLogAsync(
         Guid siteId, string startDate, string endDate, CancellationToken ct = default)
     {
-        var (utcStart, utcEnd) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
-        var tz = await GetPlantTimeZoneAsync(siteId, ct);
+        var (utcStart, utcEnd, tz) = await ResolveDateRangeAsync(siteId, startDate, endDate, ct);
 
         var wcTypeId = await GetWcTypeIdAsync("Spot X-Ray", ct);
         if (wcTypeId == null) return new SpotXrayLogResponseDto();
@@ -229,7 +228,7 @@ public class LogViewerService : ILogViewerService
             return new SpotXrayLogEntryDto
             {
                 Id = r.Id,
-                Timestamp = r.Timestamp,
+                Timestamp = ToLocal(r.Timestamp, tz),
                 Tanks = string.Join(", ", tanks),
                 Inspected = incs.FirstOrDefault()?.InspectTank,
                 TankSize = incs.FirstOrDefault()?.TankSize ?? r.SerialNumber?.Product?.TankSize,
@@ -259,7 +258,7 @@ public class LogViewerService : ILogViewerService
             .FirstOrDefaultAsync(ct);
     }
 
-    private async Task<(DateTime utcStart, DateTime utcEnd)> ResolveDateRangeAsync(
+    private async Task<(DateTime utcStart, DateTime utcEnd, TimeZoneInfo tz)> ResolveDateRangeAsync(
         Guid siteId, string startDate, string endDate, CancellationToken ct)
     {
         var tz = await GetPlantTimeZoneAsync(siteId, ct);
@@ -272,7 +271,13 @@ public class LogViewerService : ILogViewerService
         var utcStart = TimeZoneInfo.ConvertTimeToUtc(localStart.Date, tz);
         var utcEnd = TimeZoneInfo.ConvertTimeToUtc(localEnd.Date.AddDays(1), tz);
 
-        return (utcStart, utcEnd);
+        return (utcStart, utcEnd, tz);
+    }
+
+    private static DateTime ToLocal(DateTime utc, TimeZoneInfo tz)
+    {
+        var spec = utc.Kind == DateTimeKind.Utc ? utc : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(spec, tz);
     }
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(Guid plantId, CancellationToken ct)

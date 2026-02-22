@@ -1,26 +1,15 @@
 import { useState, useEffect } from 'react';
+import { formatClockTime } from '../utils/dateFormat.ts';
 
-export function useClock(): string {
-  const [time, setTime] = useState(() => formatTime(new Date()));
+export function useClock(timeZoneId?: string): string {
+  const [time, setTime] = useState(() => formatClockTime(new Date(), timeZoneId));
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTime(formatTime(new Date()));
+      setTime(formatClockTime(new Date(), timeZoneId));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeZoneId]);
 
   return time;
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleString('en-US', {
-    month: 'numeric',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  });
 }

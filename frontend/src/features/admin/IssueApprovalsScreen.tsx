@@ -15,6 +15,7 @@ import { issueRequestApi } from '../../api/endpoints.ts';
 import { IssueRequestType } from '../../types/api.ts';
 import type { IssueRequestDto } from '../../types/api.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { formatDateOnly } from '../../utils/dateFormat.ts';
 import styles from './CardList.module.css';
 
 const TYPE_LABELS: Record<number, string> = {
@@ -131,7 +132,7 @@ export function IssueApprovalsScreen() {
               {TYPE_LABELS[reviewItem.type] ?? 'Unknown'}
             </span>
             <span style={{ fontSize: 13, color: '#666' }}>
-              Submitted by {reviewItem.submittedByName} on {new Date(reviewItem.submittedAt).toLocaleDateString()}
+              Submitted by {reviewItem.submittedByName} on {formatDateOnly(reviewItem.submittedAt)}
             </span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               <Button appearance="subtle" icon={<EditRegular />}
@@ -223,7 +224,7 @@ export function IssueApprovalsScreen() {
               </div>
               <div className={styles.cardField}>
                 <span className={styles.cardFieldLabel}>Date</span>
-                <span className={styles.cardFieldValue}>{new Date(item.submittedAt).toLocaleDateString()}</span>
+                <span className={styles.cardFieldValue}>{formatDateOnly(item.submittedAt)}</span>
               </div>
               <span className={`${styles.badge} ${styles.badgeBlue}`}>Pending Review</span>
             </div>

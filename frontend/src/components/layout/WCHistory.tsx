@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { FlagRegular, FlagFilled } from '@fluentui/react-icons';
 import type { WCHistoryData } from '../../types/domain.ts';
+import { formatShortDateTime } from '../../utils/dateFormat.ts';
 import styles from './WCHistory.module.css';
 
 interface WCHistoryProps {
@@ -28,28 +29,18 @@ export function WCHistory({ data, logType }: WCHistoryProps) {
         {data.recentRecords.length === 0 ? (
           <div className={styles.noRecords}>No records today</div>
         ) : (
-          data.recentRecords.map((record) => {
-            const dt = new Date(record.timestamp);
-            const dateStr = `${dt.getMonth() + 1}/${dt.getDate()}`;
-            const timeStr = dt.toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true,
-            });
-            return (
+          data.recentRecords.map((record) => (
               <div key={record.id} className={styles.row}>
                 <span className={styles.colAnnot}>
                   {record.hasAnnotation
                     ? <FlagFilled fontSize={20} className={styles.flagActive} style={{ color: record.annotationColor ?? '#212529' }} />
                     : <FlagRegular fontSize={20} className={styles.flagInactive} />}
                 </span>
-                <span className={styles.colDateTime}>{dateStr} {timeStr}</span>
+                <span className={styles.colDateTime}>{formatShortDateTime(record.timestamp)}</span>
                 <span className={styles.colSerial}>{record.serialOrIdentifier}</span>
                 <span className={styles.colSize}>{record.tankSize ?? ''}</span>
               </div>
-            );
-          })
+          ))
         )}
       </div>
 

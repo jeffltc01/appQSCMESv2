@@ -22,6 +22,7 @@ import { IssueApprovalsScreen } from './IssueApprovalsScreen.tsx';
 import { AIReviewScreen } from './AIReviewScreen.tsx';
 import { ProductionLogsScreen } from './ProductionLogsScreen.tsx';
 import { SupervisorDashboardScreen } from './SupervisorDashboardScreen.tsx';
+import { DowntimeReasonsScreen } from './DowntimeReasonsScreen.tsx';
 
 export function AdminRoutes() {
   return (
@@ -49,6 +50,7 @@ export function AdminRoutes() {
       <Route path="ai-review" element={<AIReviewScreen />} />
       <Route path="production-logs" element={<ProductionLogsScreen />} />
       <Route path="supervisor-dashboard" element={<SupervisorDashboardScreen />} />
+      <Route path="downtime-reasons" element={<DowntimeReasonsScreen />} />
       <Route path="*" element={<Navigate to="/menu" replace />} />
     </Routes>
   );

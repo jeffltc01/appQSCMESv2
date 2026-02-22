@@ -17,6 +17,7 @@ import {
 import { DismissRegular, AddRegular, ArrowLeftRegular } from '@fluentui/react-icons';
 import { limbleApi } from '../../api/endpoints.ts';
 import type { LimbleTask, LimbleStatus } from '../../types/api.ts';
+import { formatUnixDate } from '../../utils/dateFormat.ts';
 import styles from './MaintenanceRequestDialog.module.css';
 
 interface MaintenanceRequestDialogProps {
@@ -51,12 +52,6 @@ function priorityClass(p?: number): string {
     case 4: return styles.priorityCritical;
     default: return '';
   }
-}
-
-function formatUnixDate(ts?: number): string {
-  if (!ts) return '--';
-  const d = new Date(ts * 1000);
-  return d.toLocaleDateString();
 }
 
 export function MaintenanceRequestDialog({ open, onClose, employeeNumber }: MaintenanceRequestDialogProps) {

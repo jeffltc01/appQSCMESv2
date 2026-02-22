@@ -18,6 +18,7 @@ import { DismissRegular, AddRegular, ArrowLeftRegular } from '@fluentui/react-ic
 import { issueRequestApi } from '../../api/endpoints.ts';
 import { IssueRequestType, IssueRequestStatus } from '../../types/api.ts';
 import type { IssueRequestDto, CreateIssueRequestDto } from '../../types/api.ts';
+import { formatDateOnly } from '../../utils/dateFormat.ts';
 import styles from './IssueRequestDialog.module.css';
 
 interface IssueRequestDialogProps {
@@ -279,7 +280,7 @@ export function IssueRequestDialog({ open, onClose, userId, roleTier }: IssueReq
                             <td>{TYPE_LABELS[req.type] ?? 'Unknown'}</td>
                             <td>{req.title}</td>
                             <td className={statusClass(req.status)}>{statusLabel(req.status)}</td>
-                            <td>{new Date(req.submittedAt).toLocaleDateString()}</td>
+                            <td>{formatDateOnly(req.submittedAt)}</td>
                             <td>
                               {req.gitHubIssueUrl ? (
                                 <a

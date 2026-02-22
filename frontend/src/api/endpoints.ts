@@ -61,6 +61,13 @@ import type {
   CreateLogAnnotationRequest,
   CreateSupervisorAnnotationRequest,
   SupervisorAnnotationResultDto,
+  CreateDowntimeReasonCategoryRequest,
+  UpdateDowntimeReasonCategoryRequest,
+  CreateDowntimeReasonRequest,
+  UpdateDowntimeReasonRequest,
+  UpdateDowntimeConfigRequest,
+  SetDowntimeReasonsRequest,
+  CreateDowntimeEventRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -112,6 +119,10 @@ import type {
   SpotXrayLogResponse,
   SupervisorDashboardMetrics,
   SupervisorRecord,
+  DowntimeReasonCategory,
+  DowntimeReason,
+  DowntimeConfig,
+  DowntimeEvent,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -453,4 +464,40 @@ export const supervisorDashboardApi = {
     api.get<SupervisorRecord[]>(`/supervisor-dashboard/${wcId}/records?plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(date)}`),
   submitAnnotation: (req: CreateSupervisorAnnotationRequest) =>
     api.post<SupervisorAnnotationResultDto>('/supervisor-dashboard/annotate', req),
+};
+
+export const downtimeReasonCategoryApi = {
+  getAll: (plantId: string) =>
+    api.get<DowntimeReasonCategory[]>(`/downtime-reason-categories?plantId=${encodeURIComponent(plantId)}`),
+  create: (req: CreateDowntimeReasonCategoryRequest) =>
+    api.post<DowntimeReasonCategory>('/downtime-reason-categories', req),
+  update: (id: string, req: UpdateDowntimeReasonCategoryRequest) =>
+    api.put<DowntimeReasonCategory>(`/downtime-reason-categories/${id}`, req),
+  delete: (id: string) =>
+    api.delete<void>(`/downtime-reason-categories/${id}`),
+};
+
+export const downtimeReasonApi = {
+  getAll: (plantId: string) =>
+    api.get<DowntimeReason[]>(`/downtime-reasons?plantId=${encodeURIComponent(plantId)}`),
+  create: (req: CreateDowntimeReasonRequest) =>
+    api.post<DowntimeReason>('/downtime-reasons', req),
+  update: (id: string, req: UpdateDowntimeReasonRequest) =>
+    api.put<DowntimeReason>(`/downtime-reasons/${id}`, req),
+  delete: (id: string) =>
+    api.delete<void>(`/downtime-reasons/${id}`),
+};
+
+export const downtimeConfigApi = {
+  get: (wcId: string, plId: string) =>
+    api.get<DowntimeConfig>(`/workcenters/${wcId}/production-lines/${plId}/downtime-config`),
+  update: (wcId: string, plId: string, req: UpdateDowntimeConfigRequest) =>
+    api.put<DowntimeConfig>(`/workcenters/${wcId}/production-lines/${plId}/downtime-config`, req),
+  setReasons: (wcId: string, plId: string, req: SetDowntimeReasonsRequest) =>
+    api.put<void>(`/workcenters/${wcId}/production-lines/${plId}/downtime-reasons`, req),
+};
+
+export const downtimeEventApi = {
+  create: (req: CreateDowntimeEventRequest) =>
+    api.post<DowntimeEvent>('/downtime-events', req),
 };

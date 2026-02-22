@@ -233,6 +233,8 @@ public class AdminWorkCenterProductionLineDto
     public string PlantName { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
+    public bool DowntimeTrackingEnabled { get; set; }
+    public int DowntimeThresholdMinutes { get; set; }
 }
 
 public class CreateWorkCenterProductionLineDto
@@ -246,6 +248,8 @@ public class UpdateWorkCenterProductionLineDto
 {
     public string DisplayName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
+    public bool DowntimeTrackingEnabled { get; set; }
+    public int DowntimeThresholdMinutes { get; set; } = 5;
 }
 
 // ---- Characteristics ----

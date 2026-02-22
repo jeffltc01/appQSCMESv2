@@ -13,6 +13,7 @@ import { AdminModal } from './AdminModal.tsx';
 import { adminAnnotationApi, adminAnnotationTypeApi, siteApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminAnnotation, AdminAnnotationType, Plant } from '../../types/domain.ts';
+import { formatDateTime } from '../../utils/dateFormat.ts';
 import styles from './AnnotationMaintenanceScreen.module.css';
 
 type StatusFilter = 'all' | 'flagged' | 'resolved' | 'unresolved';
@@ -129,16 +130,6 @@ export function AnnotationMaintenanceScreen() {
     }
   };
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
 
   return (
     <AdminLayout title="Annotations">
@@ -226,7 +217,7 @@ export function AnnotationMaintenanceScreen() {
               <tbody>
                 {filteredItems.map((a) => (
                   <tr key={a.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(a.createdAt)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(a.createdAt)}</td>
                     <td>{a.serialNumber}</td>
                     <td>
                       <span className={styles.typeCellInner}>

@@ -43,6 +43,7 @@ builder.Services.AddScoped<IIssueRequestService, IssueRequestService>();
 builder.Services.AddScoped<IAIReviewService, AIReviewService>();
 builder.Services.AddScoped<ILogViewerService, LogViewerService>();
 builder.Services.AddScoped<ISupervisorDashboardService, SupervisorDashboardService>();
+builder.Services.AddScoped<IDowntimeService, DowntimeService>();
 
 // --- JWT configuration ---
 string jwtKey;

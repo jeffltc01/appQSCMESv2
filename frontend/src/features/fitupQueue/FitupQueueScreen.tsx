@@ -5,6 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import type { MaterialQueueItem, ProductListItem, Vendor } from '../../types/domain.ts';
 import { workCenterApi, materialQueueApi, productApi, vendorApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './FitupQueueScreen.module.css';
 
 interface FormData {
@@ -163,7 +164,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
               <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
               <div className={styles.queueMeta}>
                 <span>Card {item.cardId ?? '—'}</span>
-                {item.createdAt && <span>{new Date(item.createdAt).toLocaleTimeString()}</span>}
+                {item.createdAt && <span>{formatTimeOnly(item.createdAt)}</span>}
               </div>
             </div>
             <div className={styles.queueActions}>

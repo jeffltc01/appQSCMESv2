@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Dropdown, Option, Spinner, Switch } from '@fluentui/react-components';
 import { EditRegular, AddRegular, DeleteRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { AdminLayout } from './AdminLayout.tsx';
@@ -41,6 +41,8 @@ export function WorkCenterConfigScreen() {
   const [plNumberOfWelders, setPlNumberOfWelders] = useState('0');
   const [plSaving, setPlSaving] = useState(false);
   const [plError, setPlError] = useState('');
+  const [plDowntimeEnabled, setPlDowntimeEnabled] = useState(false);
+  const [plDowntimeThreshold, setPlDowntimeThreshold] = useState('5');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,6 +112,8 @@ export function WorkCenterConfigScreen() {
     setPlProductionLineId('');
     setPlDisplayName(wc?.baseName ?? '');
     setPlNumberOfWelders('0');
+    setPlDowntimeEnabled(false);
+    setPlDowntimeThreshold('5');
     setPlError('');
     setPlModalOpen(true);
   };
@@ -120,6 +124,8 @@ export function WorkCenterConfigScreen() {
     setPlProductionLineId(config.productionLineId);
     setPlDisplayName(config.displayName);
     setPlNumberOfWelders(String(config.numberOfWelders));
+    setPlDowntimeEnabled(config.downtimeTrackingEnabled);
+    setPlDowntimeThreshold(String(config.downtimeThresholdMinutes));
     setPlError('');
     setPlModalOpen(true);
   };
@@ -131,6 +137,8 @@ export function WorkCenterConfigScreen() {
         const updated = await adminWorkCenterApi.updateProductionLineConfig(plWcId, plEditing.productionLineId, {
           displayName: plDisplayName,
           numberOfWelders: Number(plNumberOfWelders),
+          downtimeTrackingEnabled: plDowntimeEnabled,
+          downtimeThresholdMinutes: Number(plDowntimeThreshold) || 5,
         });
         setPlConfigs(prev => ({
           ...prev,
@@ -318,6 +326,19 @@ export function WorkCenterConfigScreen() {
         <Input value={plDisplayName} onChange={(_, d) => setPlDisplayName(d.value)} />
         <Label>Number of Welders</Label>
         <Input type="number" value={plNumberOfWelders} onChange={(_, d) => setPlNumberOfWelders(d.value)} />
+        <div style={{ borderTop: '1px solid #dee2e6', marginTop: 12, paddingTop: 12 }}>
+          <Switch
+            label="Enable Downtime Tracking"
+            checked={plDowntimeEnabled}
+            onChange={(_, d) => setPlDowntimeEnabled(d.checked)}
+          />
+          {plDowntimeEnabled && (
+            <>
+              <Label style={{ marginTop: 8 }}>Inactivity Threshold (minutes)</Label>
+              <Input type="number" value={plDowntimeThreshold} onChange={(_, d) => setPlDowntimeThreshold(d.value)} min="1" />
+            </>
+          )}
+        </div>
       </AdminModal>
     </AdminLayout>
   );

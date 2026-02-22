@@ -24,6 +24,7 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { workCenterApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type { WorkCenter, SupervisorDashboardMetrics, SupervisorRecord } from '../../types/domain.ts';
+import { todayISOString, formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './SupervisorDashboardScreen.module.css';
 
 const REFRESH_INTERVAL_MS = 30_000;
@@ -55,16 +56,12 @@ export function SupervisorDashboardScreen() {
     workCenterApi.getWorkCenters().then(setWorkCenters).catch(() => {});
   }, []);
 
-  const todayString = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  };
 
   const loadData = useCallback(async () => {
     if (!selectedWcId || !user?.defaultSiteId) return;
     setLoading(true);
     try {
-      const today = todayString();
+      const today = todayISOString();
       const [metricsData, recordsData] = await Promise.all([
         supervisorDashboardApi.getMetrics(
           selectedWcId, user.defaultSiteId, today,
@@ -145,10 +142,6 @@ export function SupervisorDashboardScreen() {
     }
   };
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   const formatSeconds = (s: number) => {
     if (s === 0) return '--';
@@ -417,7 +410,7 @@ export function SupervisorDashboardScreen() {
                           onChange={() => toggleCheck(r.id)}
                         />
                       </td>
-                      <td>{formatTime(r.timestamp)}</td>
+                      <td>{formatTimeOnly(r.timestamp)}</td>
                       <td>{r.serialOrIdentifier}</td>
                       <td>{r.tankSize ?? '—'}</td>
                       <td>{r.operatorName}</td>

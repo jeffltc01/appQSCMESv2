@@ -5,6 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { XrayQueueItem } from '../../types/domain.ts';
 import { xrayQueueApi } from '../../api/endpoints.ts';
+import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './RtXrayQueueScreen.module.css';
 
 export function RtXrayQueueScreen(props: WorkCenterProps) {
@@ -105,7 +106,7 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
             <div key={item.id} className={styles.queueCard}>
               <div className={styles.queueInfo}>
                 <span className={styles.queueSerial}>{item.serialNumber}</span>
-                <span className={styles.queueTime}>{new Date(item.createdAt).toLocaleTimeString()}</span>
+                <span className={styles.queueTime}>{formatTimeOnly(item.createdAt)}</span>
               </div>
               <Button appearance="subtle" size="small" onClick={() => removeFromQueue(item.id)}>🗑</Button>
             </div>

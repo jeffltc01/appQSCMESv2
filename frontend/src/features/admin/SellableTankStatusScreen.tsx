@@ -5,12 +5,8 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { siteApi, sellableTankStatusApi } from '../../api/endpoints.ts';
 import type { Plant, SellableTankStatus } from '../../types/domain.ts';
+import { todayISOString } from '../../utils/dateFormat.ts';
 import styles from './SellableTankStatusScreen.module.css';
-
-function todayString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 export function SellableTankStatusScreen() {
   const { user } = useAuth();
@@ -18,7 +14,7 @@ export function SellableTankStatusScreen() {
 
   const [sites, setSites] = useState<Plant[]>([]);
   const [siteId, setSiteId] = useState(user?.defaultSiteId ?? '');
-  const [date, setDate] = useState(todayString());
+  const [date, setDate] = useState(todayISOString());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<SellableTankStatus[]>([]);

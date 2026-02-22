@@ -7,7 +7,11 @@ public class WorkCenterProductionLine
     public Guid ProductionLineId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
+    public bool DowntimeTrackingEnabled { get; set; }
+    public int DowntimeThresholdMinutes { get; set; } = 5;
 
     public WorkCenter WorkCenter { get; set; } = null!;
     public ProductionLine ProductionLine { get; set; } = null!;
+    public ICollection<WorkCenterProductionLineDowntimeReason> WorkCenterProductionLineDowntimeReasons { get; set; } = new List<WorkCenterProductionLineDowntimeReason>();
+    public ICollection<DowntimeEvent> DowntimeEvents { get; set; } = new List<DowntimeEvent>();
 }

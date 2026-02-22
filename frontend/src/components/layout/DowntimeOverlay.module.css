@@ -1,0 +1,101 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: rgba(30, 30, 50, 0.96);
+  animation: fadeIn 200ms ease-out;
+  overflow-y: auto;
+  padding: 40px 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.title {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  text-align: center;
+}
+
+.timer {
+  color: #ffd43b;
+  font-size: 40px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 24px;
+}
+
+.categoryGroup {
+  width: 100%;
+  max-width: 800px;
+  margin-bottom: 24px;
+}
+
+.categoryTitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  padding-left: 4px;
+}
+
+.reasonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.reasonButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  min-height: 64px;
+}
+
+.reasonButton:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.02);
+}
+
+.reasonButton:active {
+  transform: scale(0.98);
+}
+
+.reasonButtonDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

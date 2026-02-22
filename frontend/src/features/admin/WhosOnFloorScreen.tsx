@@ -4,6 +4,7 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { activeSessionApi } from '../../api/endpoints.ts';
 import type { ActiveSession } from '../../types/domain.ts';
+import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './CardList.module.css';
 import floorStyles from './WhosOnFloor.module.css';
 
@@ -34,10 +35,6 @@ export function WhosOnFloorScreen() {
     return acc;
   }, {});
 
-  const formatTime = (iso: string) => {
-    try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-    catch { return iso; }
-  };
 
   return (
     <AdminLayout title="Who's On the Floor">
@@ -68,12 +65,12 @@ export function WhosOnFloorScreen() {
                   </div>
                   <div className={styles.cardField}>
                     <span className={styles.cardFieldLabel}>Login</span>
-                    <span className={styles.cardFieldValue}>{formatTime(s.loginDateTime)}</span>
+                    <span className={styles.cardFieldValue}>{formatTimeOnly(s.loginDateTime)}</span>
                   </div>
                   {s.isStale && (
                     <div className={styles.cardField}>
                       <span className={styles.cardFieldLabel}>Last Seen</span>
-                      <span className={styles.cardFieldValue}>{formatTime(s.lastHeartbeatDateTime)}</span>
+                      <span className={styles.cardFieldValue}>{formatTimeOnly(s.lastHeartbeatDateTime)}</span>
                     </div>
                   )}
                 </div>

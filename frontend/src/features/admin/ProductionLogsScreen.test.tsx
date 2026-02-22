@@ -96,7 +96,7 @@ describe('ProductionLogsScreen', () => {
 
   it('renders title and filter bar', () => {
     renderScreen();
-    expect(screen.getByText('Production Logs')).toBeInTheDocument();
+    expect(screen.getByText('Log Viewer')).toBeInTheDocument();
     expect(screen.getByText('Log Type')).toBeInTheDocument();
     expect(screen.getByText('Site')).toBeInTheDocument();
     expect(screen.getByText('Start Date')).toBeInTheDocument();

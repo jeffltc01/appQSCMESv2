@@ -47,6 +47,10 @@ public class MesDbContext : DbContext
     public DbSet<PlantPrinter> PlantPrinters => Set<PlantPrinter>();
     public DbSet<PrintLog> PrintLogs => Set<PrintLog>();
     public DbSet<IssueRequest> IssueRequests => Set<IssueRequest>();
+    public DbSet<DowntimeReasonCategory> DowntimeReasonCategories => Set<DowntimeReasonCategory>();
+    public DbSet<DowntimeReason> DowntimeReasons => Set<DowntimeReason>();
+    public DbSet<WorkCenterProductionLineDowntimeReason> WorkCenterProductionLineDowntimeReasons => Set<WorkCenterProductionLineDowntimeReason>();
+    public DbSet<DowntimeEvent> DowntimeEvents => Set<DowntimeEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -342,6 +346,16 @@ public class MesDbContext : DbContext
             .HasForeignKey(a => a.ProductionRecordId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Annotation>()
+            .HasOne(a => a.SerialNumber)
+            .WithMany()
+            .HasForeignKey(a => a.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Annotation>()
+            .HasOne(a => a.DowntimeEvent)
+            .WithMany(de => de.Annotations)
+            .HasForeignKey(a => a.DowntimeEventId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Annotation>()
             .HasOne(a => a.AnnotationType)
             .WithMany(t => t.Annotations)
             .HasForeignKey(a => a.AnnotationTypeId)
@@ -584,6 +598,54 @@ public class MesDbContext : DbContext
             .HasIndex(ir => ir.Status);
         modelBuilder.Entity<IssueRequest>()
             .HasIndex(ir => ir.SubmittedByUserId);
+
+        // ----- Downtime -----
+        modelBuilder.Entity<DowntimeReasonCategory>()
+            .HasOne(c => c.Plant)
+            .WithMany()
+            .HasForeignKey(c => c.PlantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DowntimeReason>()
+            .HasOne(r => r.DowntimeReasonCategory)
+            .WithMany(c => c.DowntimeReasons)
+            .HasForeignKey(r => r.DowntimeReasonCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WorkCenterProductionLineDowntimeReason>()
+            .HasOne(x => x.WorkCenterProductionLine)
+            .WithMany(wcpl => wcpl.WorkCenterProductionLineDowntimeReasons)
+            .HasForeignKey(x => x.WorkCenterProductionLineId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<WorkCenterProductionLineDowntimeReason>()
+            .HasOne(x => x.DowntimeReason)
+            .WithMany(r => r.WorkCenterProductionLineDowntimeReasons)
+            .HasForeignKey(x => x.DowntimeReasonId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkCenterProductionLineDowntimeReason>()
+            .HasIndex(x => new { x.WorkCenterProductionLineId, x.DowntimeReasonId })
+            .IsUnique();
+
+        modelBuilder.Entity<DowntimeEvent>()
+            .HasOne(e => e.WorkCenterProductionLine)
+            .WithMany(wcpl => wcpl.DowntimeEvents)
+            .HasForeignKey(e => e.WorkCenterProductionLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DowntimeEvent>()
+            .HasOne(e => e.OperatorUser)
+            .WithMany()
+            .HasForeignKey(e => e.OperatorUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DowntimeEvent>()
+            .HasOne(e => e.DowntimeReason)
+            .WithMany()
+            .HasForeignKey(e => e.DowntimeReasonId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DowntimeEvent>()
+            .HasIndex(e => new { e.WorkCenterProductionLineId, e.StartedAt });
+        modelBuilder.Entity<DowntimeEvent>()
+            .Property(e => e.DurationMinutes)
+            .HasPrecision(10, 2);
 
     }
 }

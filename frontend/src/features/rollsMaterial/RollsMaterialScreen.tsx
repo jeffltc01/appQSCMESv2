@@ -4,6 +4,7 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx
 import type { MaterialQueueItem, ProductListItem, Vendor } from '../../types/domain.ts';
 import { workCenterApi, materialQueueApi, productApi, vendorApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './RollsMaterialScreen.module.css';
 
 interface FormData {
@@ -155,7 +156,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
           <div key={item.id} className={styles.queueCard}>
             <div className={styles.queueInfo}>
               <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
-              <span className={styles.queueMeta}>Qty: {item.quantity}{item.createdAt ? ` | ${new Date(item.createdAt).toLocaleTimeString()}` : ''}</span>
+              <span className={styles.queueMeta}>Qty: {item.quantity}{item.createdAt ? ` | ${formatTimeOnly(item.createdAt)}` : ''}</span>
             </div>
             <div className={styles.queueActions}>
               <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => openEdit(item)}>✏️ Edit</Button>

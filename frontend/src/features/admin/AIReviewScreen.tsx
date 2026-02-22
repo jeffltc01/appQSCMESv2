@@ -13,6 +13,7 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { workCenterApi, aiReviewApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type { WorkCenter, AIReviewRecord } from '../../types/domain.ts';
+import { todayISOString, formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './AIReviewScreen.module.css';
 
 const REFRESH_INTERVAL_MS = 30_000;
@@ -34,16 +35,12 @@ export function AIReviewScreen() {
     workCenterApi.getWorkCenters().then(setWorkCenters).catch(() => {});
   }, []);
 
-  const todayString = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  };
 
   const loadRecords = useCallback(async () => {
     if (!selectedWcId || !user?.defaultSiteId) return;
     setLoading(true);
     try {
-      const data = await aiReviewApi.getRecords(selectedWcId, user.defaultSiteId, todayString());
+      const data = await aiReviewApi.getRecords(selectedWcId, user.defaultSiteId, todayISOString());
       setRecords(data);
       setCheckedIds((prev) => {
         const validIds = new Set(data.filter((r) => !r.alreadyReviewed).map((r) => r.id));
@@ -113,10 +110,6 @@ export function AIReviewScreen() {
     }
   };
 
-  const formatTime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   return (
     <AdminLayout title="AI Review">
@@ -179,7 +172,7 @@ export function AIReviewScreen() {
                       disabled={r.alreadyReviewed}
                     />
                   </td>
-                  <td>{formatTime(r.timestamp)}</td>
+                  <td>{formatTimeOnly(r.timestamp)}</td>
                   <td>{r.serialOrIdentifier}</td>
                   <td>{r.tankSize ?? '—'}</td>
                   <td>{r.operatorName}</td>

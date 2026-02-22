@@ -1,4 +1,5 @@
 import type { QueueTransaction } from '../../types/domain.ts';
+import { formatShortDateTime } from '../../utils/dateFormat.ts';
 import styles from './WCHistory.module.css';
 
 interface QueueHistoryProps {
@@ -22,25 +23,12 @@ export function QueueHistory({ transactions }: QueueHistoryProps) {
         {added.length === 0 ? (
           <div className={styles.noRecords}>No recent activity</div>
         ) : (
-          added.map((tx) => {
-            const dt = new Date(tx.timestamp);
-            const dateStr = dt.toLocaleDateString('en-US', {
-              month: 'numeric',
-              day: 'numeric',
-            });
-            const timeStr = dt.toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true,
-            });
-            const dtStr = `${dateStr} ${timeStr}`;
-            return (
+          added.map((tx) => (
               <div key={tx.id} className={styles.queueRow}>
-                <span className={styles.colDateTime}>{dtStr}</span>
+                <span className={styles.colDateTime}>{formatShortDateTime(tx.timestamp)}</span>
                 <span className={styles.colSerial}>{tx.itemSummary}</span>
               </div>
-            );
-          })
+          ))
         )}
       </div>
     </div>

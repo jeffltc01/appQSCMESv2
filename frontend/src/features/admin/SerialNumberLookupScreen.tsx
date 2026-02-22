@@ -16,6 +16,7 @@ import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { siteApi, serialNumberApi } from '../../api/endpoints.ts';
 import type { Plant, TraceabilityNode, ManufacturingEvent, SerialNumberLookup } from '../../types/domain.ts';
+import { formatDateTime } from '../../utils/dateFormat.ts';
 import styles from './SerialNumberLookupScreen.module.css';
 import { useEffect } from 'react';
 
@@ -83,19 +84,6 @@ export function SerialNumberLookupScreen() {
     return data.events;
   }, [data]);
 
-  const formatTimestamp = (iso: string) => {
-    try {
-      return new Date(iso).toLocaleString([], {
-        month: '2-digit',
-        day: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return iso;
-    }
-  };
 
   function TreeNode({ node }: { node: TraceabilityNode }) {
     const hasChildren = node.children && node.children.length > 0;
@@ -228,7 +216,7 @@ export function SerialNumberLookupScreen() {
                 ) : (
                   filteredEvents().map((evt, i) => (
                     <tr key={i}>
-                      <td>{formatTimestamp(evt.timestamp)}</td>
+                      <td>{formatDateTime(evt.timestamp)}</td>
                       <td>{evt.workCenterName}</td>
                       <td>{evt.type}</td>
                       <td>{evt.completedBy}</td>

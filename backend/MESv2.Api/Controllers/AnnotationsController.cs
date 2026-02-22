@@ -26,14 +26,17 @@ public class AnnotationsController : ControllerBase
             .Include(a => a.InitiatedByUser)
             .Include(a => a.ResolvedByUser)
             .Include(a => a.ProductionRecord)
-                .ThenInclude(pr => pr.SerialNumber)
+                .ThenInclude(pr => pr!.SerialNumber)
             .Include(a => a.ProductionRecord)
-                .ThenInclude(pr => pr.ProductionLine)
+                .ThenInclude(pr => pr!.ProductionLine)
             .AsQueryable();
 
         if (siteId.HasValue)
         {
-            query = query.Where(a => a.ProductionRecord.ProductionLine.PlantId == siteId.Value);
+            query = query.Where(a =>
+                (a.ProductionRecordId != null && a.ProductionRecord!.ProductionLine.PlantId == siteId.Value) ||
+                (a.DowntimeEventId != null) ||
+                (a.SerialNumberId != null));
         }
 
         var list = await query
@@ -41,7 +44,8 @@ public class AnnotationsController : ControllerBase
             .Select(a => new AdminAnnotationDto
             {
                 Id = a.Id,
-                SerialNumber = a.ProductionRecord.SerialNumber != null ? a.ProductionRecord.SerialNumber.Serial : "",
+                SerialNumber = a.ProductionRecord != null && a.ProductionRecord.SerialNumber != null
+                    ? a.ProductionRecord.SerialNumber.Serial : "",
                 AnnotationTypeName = a.AnnotationType.Name,
                 AnnotationTypeId = a.AnnotationTypeId,
                 Flag = a.Flag,
@@ -66,7 +70,7 @@ public class AnnotationsController : ControllerBase
             .Include(a => a.AnnotationType)
             .Include(a => a.InitiatedByUser)
             .Include(a => a.ProductionRecord)
-                .ThenInclude(pr => pr.SerialNumber)
+                .ThenInclude(pr => pr!.SerialNumber)
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
         if (annotation == null) return NotFound();

@@ -47,9 +47,10 @@ public class AIReviewService : IAIReviewService
 
         var recordIds = records.Select(r => r.Id).ToList();
         var reviewedIds = await _db.Annotations
-            .Where(a => recordIds.Contains(a.ProductionRecordId)
+            .Where(a => a.ProductionRecordId != null
+                        && recordIds.Contains(a.ProductionRecordId.Value)
                         && a.AnnotationTypeId == AIReviewAnnotationTypeId)
-            .Select(a => a.ProductionRecordId)
+            .Select(a => a.ProductionRecordId!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
 
@@ -70,9 +71,10 @@ public class AIReviewService : IAIReviewService
         Guid userId, CreateAIReviewRequest request, CancellationToken cancellationToken = default)
     {
         var existingReviewed = await _db.Annotations
-            .Where(a => request.ProductionRecordIds.Contains(a.ProductionRecordId)
+            .Where(a => a.ProductionRecordId != null
+                        && request.ProductionRecordIds.Contains(a.ProductionRecordId.Value)
                         && a.AnnotationTypeId == AIReviewAnnotationTypeId)
-            .Select(a => a.ProductionRecordId)
+            .Select(a => a.ProductionRecordId!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
 

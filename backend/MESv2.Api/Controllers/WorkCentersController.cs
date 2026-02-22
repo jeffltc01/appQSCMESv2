@@ -12,13 +12,15 @@ public class WorkCentersController : ControllerBase
 {
     private readonly IWorkCenterService _workCenterService;
     private readonly IXrayQueueService _xrayQueueService;
+    private readonly IDowntimeService _downtimeService;
     private readonly MesDbContext _db;
     private readonly ILogger<WorkCentersController> _logger;
 
-    public WorkCentersController(IWorkCenterService workCenterService, IXrayQueueService xrayQueueService, MesDbContext db, ILogger<WorkCentersController> logger)
+    public WorkCentersController(IWorkCenterService workCenterService, IXrayQueueService xrayQueueService, IDowntimeService downtimeService, MesDbContext db, ILogger<WorkCentersController> logger)
     {
         _workCenterService = workCenterService;
         _xrayQueueService = xrayQueueService;
+        _downtimeService = downtimeService;
         _db = db;
         _logger = logger;
     }
@@ -390,6 +392,8 @@ public class WorkCentersController : ControllerBase
                 PlantName = wcpl.ProductionLine.Plant.Name,
                 DisplayName = wcpl.DisplayName,
                 NumberOfWelders = wcpl.NumberOfWelders,
+                DowntimeTrackingEnabled = wcpl.DowntimeTrackingEnabled,
+                DowntimeThresholdMinutes = wcpl.DowntimeThresholdMinutes,
             })
             .ToListAsync(cancellationToken);
         return Ok(list);
@@ -449,6 +453,8 @@ public class WorkCentersController : ControllerBase
             PlantName = pl.Plant.Name,
             DisplayName = entity.DisplayName,
             NumberOfWelders = entity.NumberOfWelders,
+            DowntimeTrackingEnabled = entity.DowntimeTrackingEnabled,
+            DowntimeThresholdMinutes = entity.DowntimeThresholdMinutes,
         });
     }
 
@@ -463,6 +469,8 @@ public class WorkCentersController : ControllerBase
 
         wcpl.DisplayName = dto.DisplayName;
         wcpl.NumberOfWelders = dto.NumberOfWelders;
+        wcpl.DowntimeTrackingEnabled = dto.DowntimeTrackingEnabled;
+        wcpl.DowntimeThresholdMinutes = dto.DowntimeThresholdMinutes;
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new AdminWorkCenterProductionLineDto
@@ -474,6 +482,8 @@ public class WorkCentersController : ControllerBase
             PlantName = wcpl.ProductionLine.Plant.Name,
             DisplayName = wcpl.DisplayName,
             NumberOfWelders = wcpl.NumberOfWelders,
+            DowntimeTrackingEnabled = wcpl.DowntimeTrackingEnabled,
+            DowntimeThresholdMinutes = wcpl.DowntimeThresholdMinutes,
         });
     }
 
@@ -488,5 +498,43 @@ public class WorkCentersController : ControllerBase
         _db.WorkCenterProductionLines.Remove(wcpl);
         await _db.SaveChangesAsync(cancellationToken);
         return NoContent();
+    }
+
+    // ---- Downtime Config ----
+
+    [HttpGet("{wcId:guid}/production-lines/{plId:guid}/downtime-config")]
+    public async Task<ActionResult<DowntimeConfigDto>> GetDowntimeConfig(Guid wcId, Guid plId, CancellationToken cancellationToken)
+    {
+        var config = await _downtimeService.GetDowntimeConfigAsync(wcId, plId, cancellationToken);
+        if (config == null) return NotFound();
+        return Ok(config);
+    }
+
+    [HttpPut("{wcId:guid}/production-lines/{plId:guid}/downtime-config")]
+    public async Task<ActionResult<DowntimeConfigDto>> UpdateDowntimeConfig(Guid wcId, Guid plId, [FromBody] UpdateDowntimeConfigDto dto, CancellationToken cancellationToken)
+    {
+        if (!IsQualityManagerOrAbove()) return StatusCode(403, new { message = "Quality Manager or above required." });
+
+        var config = await _downtimeService.UpdateDowntimeConfigAsync(wcId, plId, dto, cancellationToken);
+        if (config == null) return NotFound();
+        return Ok(config);
+    }
+
+    [HttpPut("{wcId:guid}/production-lines/{plId:guid}/downtime-reasons")]
+    public async Task<ActionResult> SetDowntimeReasons(Guid wcId, Guid plId, [FromBody] SetDowntimeReasonsDto dto, CancellationToken cancellationToken)
+    {
+        if (!IsQualityManagerOrAbove()) return StatusCode(403, new { message = "Quality Manager or above required." });
+
+        var success = await _downtimeService.SetDowntimeReasonsAsync(wcId, plId, dto.ReasonIds, cancellationToken);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
+    private bool IsQualityManagerOrAbove()
+    {
+        if (Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&
+            decimal.TryParse(tierHeader, out var callerTier))
+            return callerTier <= 3m;
+        return false;
     }
 }

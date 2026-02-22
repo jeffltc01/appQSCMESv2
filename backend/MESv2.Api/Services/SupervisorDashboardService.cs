@@ -173,11 +173,11 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
         var annotations = await _db.Annotations
             .Include(a => a.AnnotationType)
-            .Where(a => recordIds.Contains(a.ProductionRecordId))
+            .Where(a => a.ProductionRecordId != null && recordIds.Contains(a.ProductionRecordId.Value))
             .ToListAsync(cancellationToken);
 
         var annotationsByRecord = annotations
-            .GroupBy(a => a.ProductionRecordId)
+            .GroupBy(a => a.ProductionRecordId!.Value)
             .ToDictionary(g => g.Key, g => g.Select(a => new ExistingAnnotationDto
             {
                 AnnotationTypeId = a.AnnotationTypeId,
@@ -202,9 +202,10 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         CancellationToken cancellationToken = default)
     {
         var existingPairs = await _db.Annotations
-            .Where(a => request.RecordIds.Contains(a.ProductionRecordId)
+            .Where(a => a.ProductionRecordId != null
+                        && request.RecordIds.Contains(a.ProductionRecordId.Value)
                         && a.AnnotationTypeId == request.AnnotationTypeId)
-            .Select(a => a.ProductionRecordId)
+            .Select(a => a.ProductionRecordId!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
 

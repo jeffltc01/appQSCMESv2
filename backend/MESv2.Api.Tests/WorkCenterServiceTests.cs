@@ -94,7 +94,7 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
-    public async Task AdvanceQueue_ReturnsActive_WhenAlreadyActive()
+    public async Task AdvanceQueue_CompletesActiveAndActivatesNext_WhenNextQueued()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "active", 1,
@@ -107,8 +107,33 @@ public class WorkCenterServiceTests
         var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId);
 
         Assert.NotNull(result);
+        Assert.Equal("HB", result.HeatNumber);
+        Assert.Equal("320", result.ShellSize);
+        Assert.Equal("320 gal", result.ProductDescription);
+
+        var oldActive = await db.MaterialQueueItems
+            .FirstAsync(m => m.WorkCenterId == TestHelpers.wcRollsId && m.Position == 1);
+        Assert.Equal("completed", oldActive.Status);
+    }
+
+    [Fact]
+    public async Task AdvanceQueue_ReturnsActive_WhenNoNextQueued()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "active", 1,
+            "250 gal", 250, "HA", "CA", 3);
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId);
+
+        Assert.NotNull(result);
         Assert.Equal("HA", result.HeatNumber);
         Assert.Equal("250 gal", result.ProductDescription);
+
+        var item = await db.MaterialQueueItems
+            .FirstAsync(m => m.WorkCenterId == TestHelpers.wcRollsId);
+        Assert.Equal("active", item.Status);
     }
 
     [Fact]
@@ -462,5 +487,56 @@ public class WorkCenterServiceTests
 
         Assert.NotNull(result);
         Assert.Equal("EMP003", result.EmployeeNumber);
+    }
+
+    [Fact]
+    public async Task AddMaterialQueueItem_UpdatesProductId_WhenSameHeatCoilReusedWithDifferentProduct()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product120 = new Product
+        {
+            Id = Guid.NewGuid(),
+            ProductNumber = "PL 120",
+            TankSize = 120,
+            TankType = "Plate",
+            ProductTypeId = TestProductTypeId
+        };
+        var product1000 = new Product
+        {
+            Id = Guid.NewGuid(),
+            ProductNumber = "PL 1000",
+            TankSize = 1000,
+            TankType = "Plate",
+            ProductTypeId = TestProductTypeId
+        };
+        db.Products.AddRange(product120, product1000);
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var first = await sut.AddMaterialQueueItemAsync(TestHelpers.wcRollsId,
+            new DTOs.CreateMaterialQueueItemDto
+            {
+                ProductId = product120.Id,
+                HeatNumber = "H-REUSE",
+                CoilNumber = "C-REUSE",
+                Quantity = 5
+            });
+        Assert.Equal("120", first.ShellSize);
+
+        var second = await sut.AddMaterialQueueItemAsync(TestHelpers.wcRollsId,
+            new DTOs.CreateMaterialQueueItemDto
+            {
+                ProductId = product1000.Id,
+                HeatNumber = "H-REUSE",
+                CoilNumber = "C-REUSE",
+                Quantity = 2
+            });
+        Assert.Equal("1000", second.ShellSize);
+
+        var sn = await db.SerialNumbers
+            .Include(s => s.Product)
+            .FirstAsync(s => s.Serial == "Heat H-REUSE Coil C-REUSE");
+        Assert.Equal(product1000.Id, sn.ProductId);
     }
 }

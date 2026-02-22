@@ -156,7 +156,7 @@ public class WorkCenterService : IWorkCenterService
                 return new WCHistoryEntryDto
                 {
                     Id = r.Id,
-                    Timestamp = r.Timestamp,
+                    Timestamp = ToLocal(r.Timestamp, tz),
                     SerialOrIdentifier = serialOrIdentifier,
                     TankSize = tankSize,
                     HasAnnotation = color != null,
@@ -190,7 +190,7 @@ public class WorkCenterService : IWorkCenterService
             return new WCHistoryEntryDto
             {
                 Id = i.Id,
-                Timestamp = i.Timestamp,
+                Timestamp = ToLocal(i.Timestamp, tz),
                 SerialOrIdentifier = serialOrIdentifier,
                 TankSize = tankSize,
                 HasAnnotation = color != null,
@@ -230,22 +230,41 @@ public class WorkCenterService : IWorkCenterService
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (active != null)
-            return MapAdvanceResponse(active);
-
         var nextQueued = await _db.MaterialQueueItems
             .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
             .Where(m => m.WorkCenterId == wcId && m.Status == "queued")
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (nextQueued == null)
-            return null;
+        if (active != null && nextQueued != null)
+        {
+            active.Status = "completed";
+            _db.QueueTransactions.Add(new QueueTransaction
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterId = wcId,
+                Action = "completed",
+                ItemSummary = $"{active.SerialNumber?.Product?.ProductNumber ?? ""} - Qty {active.QuantityCompleted}/{active.Quantity}",
+                OperatorName = string.Empty,
+                Timestamp = DateTime.UtcNow
+            });
 
-        nextQueued.Status = "active";
-        await _db.SaveChangesAsync(cancellationToken);
+            nextQueued.Status = "active";
+            await _db.SaveChangesAsync(cancellationToken);
+            return MapAdvanceResponse(nextQueued);
+        }
 
-        return MapAdvanceResponse(nextQueued);
+        if (active != null)
+            return MapAdvanceResponse(active);
+
+        if (nextQueued != null)
+        {
+            nextQueued.Status = "active";
+            await _db.SaveChangesAsync(cancellationToken);
+            return MapAdvanceResponse(nextQueued);
+        }
+
+        return null;
     }
 
     private static QueueAdvanceResponseDto MapAdvanceResponse(MaterialQueueItem m) => new()
@@ -331,7 +350,48 @@ public class WorkCenterService : IWorkCenterService
     {
         var existing = await _db.SerialNumbers
             .FirstOrDefaultAsync(s => s.Serial == serialString && s.PlantId == plantId, cancellationToken);
-        if (existing != null) return existing;
+        if (existing != null)
+        {
+            bool changed = false;
+            if (productId.HasValue && existing.ProductId != productId)
+            {
+                existing.ProductId = productId;
+                changed = true;
+            }
+            if (millVendorId.HasValue && existing.MillVendorId != millVendorId)
+            {
+                existing.MillVendorId = millVendorId;
+                changed = true;
+            }
+            if (processorVendorId.HasValue && existing.ProcessorVendorId != processorVendorId)
+            {
+                existing.ProcessorVendorId = processorVendorId;
+                changed = true;
+            }
+            if (headsVendorId.HasValue && existing.HeadsVendorId != headsVendorId)
+            {
+                existing.HeadsVendorId = headsVendorId;
+                changed = true;
+            }
+            if (heatNumber != null && existing.HeatNumber != heatNumber)
+            {
+                existing.HeatNumber = heatNumber;
+                changed = true;
+            }
+            if (coilNumber != null && existing.CoilNumber != coilNumber)
+            {
+                existing.CoilNumber = coilNumber;
+                changed = true;
+            }
+            if (lotNumber != null && existing.LotNumber != lotNumber)
+            {
+                existing.LotNumber = lotNumber;
+                changed = true;
+            }
+            if (changed)
+                await _db.SaveChangesAsync(cancellationToken);
+            return existing;
+        }
 
         var serial = new SerialNumber
         {
@@ -674,11 +734,11 @@ public class WorkCenterService : IWorkCenterService
 
         var annotations = await _db.Annotations
             .Include(a => a.AnnotationType)
-            .Where(a => recordIds.Contains(a.ProductionRecordId))
+            .Where(a => a.ProductionRecordId != null && recordIds.Contains(a.ProductionRecordId.Value))
             .ToListAsync(cancellationToken);
 
         return annotations
-            .GroupBy(a => a.ProductionRecordId)
+            .GroupBy(a => a.ProductionRecordId!.Value)
             .ToDictionary(
                 g => g.Key,
                 g => g.OrderByDescending(a => a.AnnotationType.RequiresResolution)
@@ -701,6 +761,12 @@ public class WorkCenterService : IWorkCenterService
         }
 
         return TimeZoneInfo.Utc;
+    }
+
+    private static DateTime ToLocal(DateTime utc, TimeZoneInfo tz)
+    {
+        var spec = utc.Kind == DateTimeKind.Utc ? utc : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(spec, tz);
     }
 
     public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)

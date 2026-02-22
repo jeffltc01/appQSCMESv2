@@ -26,6 +26,7 @@ import {
   ShieldCheckmarkRegular,
   TableRegular,
   DataBarVerticalRegular,
+  ClockRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import styles from './MenuScreen.module.css';
@@ -61,6 +62,7 @@ const MENU_TILES: MenuTile[] = [
   { label: 'Issue Approvals', icon: <ClipboardTaskListLtrRegular />, minRoleTier: 3, route: '/menu/issue-approvals', implemented: true },
   { label: 'Supervisor Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
   { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 5.5, route: '/menu/ai-review', implemented: true },
+  { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },
   { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
   { label: 'Change Logs', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/change-logs', implemented: false },
   { label: 'Operator View', icon: <DesktopRegular />, minRoleTier: 5, route: '/tablet-setup', implemented: true },
