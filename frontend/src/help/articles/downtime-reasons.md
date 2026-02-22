@@ -24,31 +24,38 @@ Downtime Reasons manages the categories and individual reasons used to classify 
 
 ### Category Fields
 
-| Field | Required | Description |
-|---|---|---|
-| **Category Name** | Yes | A descriptive name for the downtime category (e.g., "Mechanical," "Electrical," "Material"). |
-| **Sort Order** | Yes | Numeric value that controls the display order of categories. Lower numbers appear first. |
-| **Active** | Yes | Whether the category is available for selection when recording downtime. |
+
+| Field             | Required | Description                                                                                  |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
+| **Category Name** | Yes      | A descriptive name for the downtime category (e.g., "Mechanical," "Electrical," "Material"). |
+| **Sort Order**    | Yes      | Numeric value that controls the display order of categories. Lower numbers appear first.     |
+| **Active**        | Yes      | Whether the category is available for selection when recording downtime.                     |
+
 
 ### Reason Fields
 
-| Field | Required | Description |
-|---|---|---|
-| **Reason Name** | Yes | A specific downtime reason within the category (e.g., "Bearing Failure," "Power Outage"). |
-| **Sort Order** | Yes | Numeric value that controls the display order within the category. |
-| **Active** | Yes | Whether the reason is available for selection when recording downtime. |
+
+| Field           | Required | Description                                                                               |
+| --------------- | -------- | ----------------------------------------------------------------------------------------- |
+| **Reason Name** | Yes      | A specific downtime reason within the category (e.g., "Bearing Failure," "Power Outage"). |
+| **Sort Order**  | Yes      | Numeric value that controls the display order within the category.                        |
+| **Active**      | Yes      | Whether the reason is available for selection when recording downtime.                    |
+
 
 ### Controls
 
-| Element | Description |
-|---|---|
-| **Plant Selector** | Switches the view to another plant's downtime reasons. Visible only to Director (2.0) and above. |
-| **Category list (left panel)** | Master list of downtime categories. Click to select and load reasons. |
-| **Reason list (right panel)** | Detail list of reasons within the selected category. |
-| **Add Category / Add Reason** | Opens the creation form for a category or reason respectively. |
+
+| Element                        | Description                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| **Plant Selector**             | Switches the view to another plant's downtime reasons. Visible only to Director (2.0) and above. |
+| **Category list (left panel)** | Master list of downtime categories. Click to select and load reasons.                            |
+| **Reason list (right panel)**  | Detail list of reasons within the selected category.                                             |
+| **Add Category / Add Reason**  | Opens the creation form for a category or reason respectively.                                   |
+
 
 ## Tips
 
 - Use sort order to group related items logically. Operators see these in sort order when recording downtime, so put the most common reasons near the top.
 - Deactivating a category or reason is preferable to deleting it — deactivated items stop appearing in selection lists but historical downtime records that reference them remain intact.
 - Each plant has its own set of downtime reasons. If you need the same categories across plants, they must be created separately in each plant.
+

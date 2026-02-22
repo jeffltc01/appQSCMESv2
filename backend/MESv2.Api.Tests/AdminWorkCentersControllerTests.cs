@@ -153,6 +153,70 @@ public class AdminWorkCentersControllerTests
         Assert.IsType<NotFoundResult>(result.Result);
     }
 
+    // ---- WorkCenterType + Create endpoint tests ----
+
+    [Fact]
+    public async Task GetWorkCenterTypes_ReturnsAtLeastOneType()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetWorkCenterTypes(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<WorkCenterTypeDto>>(ok.Value).ToList();
+        Assert.True(list.Count >= 1);
+        Assert.All(list, t => Assert.False(string.IsNullOrEmpty(t.Name)));
+    }
+
+    [Fact]
+    public async Task CreateWorkCenter_CreatesNewRecord()
+    {
+        var controller = CreateController(out _);
+        var dto = new CreateWorkCenterDto
+        {
+            Name = "Test New WC",
+            WorkCenterTypeId = TestHelpers.WorkCenterTypeRollsId,
+            DataEntryType = "Rolls",
+        };
+
+        var result = await controller.CreateWorkCenter(dto, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var created = Assert.IsType<AdminWorkCenterGroupDto>(ok.Value);
+        Assert.Equal("Test New WC", created.BaseName);
+        Assert.Equal("Rolls", created.DataEntryType);
+        Assert.NotEqual(Guid.Empty, created.GroupId);
+    }
+
+    [Fact]
+    public async Task CreateWorkCenter_ReturnsConflict_WhenDuplicateName()
+    {
+        var controller = CreateController(out _);
+        var dto = new CreateWorkCenterDto
+        {
+            Name = "Rolls",
+            WorkCenterTypeId = TestHelpers.WorkCenterTypeRollsId,
+        };
+
+        var result = await controller.CreateWorkCenter(dto, CancellationToken.None);
+
+        Assert.IsType<ConflictObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task CreateWorkCenter_ReturnsBadRequest_WhenTypeInvalid()
+    {
+        var controller = CreateController(out _);
+        var dto = new CreateWorkCenterDto
+        {
+            Name = "Bad Type WC",
+            WorkCenterTypeId = Guid.NewGuid(),
+        };
+
+        var result = await controller.CreateWorkCenter(dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
     // ---- WorkCenterProductionLine endpoint tests ----
 
     [Fact]

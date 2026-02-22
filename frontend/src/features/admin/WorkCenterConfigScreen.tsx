@@ -5,7 +5,7 @@ import { useAuth } from '../../auth/AuthContext.tsx';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { adminWorkCenterApi, productionLineApi, downtimeConfigApi, downtimeReasonCategoryApi } from '../../api/endpoints.ts';
-import type { AdminWorkCenterGroup, WorkCenterProductionLine, ProductionLineAdmin, DowntimeReasonCategory } from '../../types/domain.ts';
+import type { AdminWorkCenterGroup, WorkCenterProductionLine, ProductionLineAdmin, DowntimeReasonCategory, WorkCenterType } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 const DATA_ENTRY_TYPES = [
@@ -22,6 +22,7 @@ export function WorkCenterConfigScreen() {
   const [groups, setGroups] = useState<AdminWorkCenterGroup[]>([]);
   const [plConfigs, setPlConfigs] = useState<Record<string, WorkCenterProductionLine[]>>({});
   const [allProductionLines, setAllProductionLines] = useState<ProductionLineAdmin[]>([]);
+  const [wcTypes, setWcTypes] = useState<WorkCenterType[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<AdminWorkCenterGroup | null>(null);
@@ -31,6 +32,15 @@ export function WorkCenterConfigScreen() {
   const [baseName, setBaseName] = useState('');
   const [dataEntryType, setDataEntryType] = useState('');
   const [materialQueueForWCId, setMaterialQueueForWCId] = useState('');
+
+  // Create work center modal state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createTypeId, setCreateTypeId] = useState('');
+  const [createDataEntryType, setCreateDataEntryType] = useState('');
+  const [createMqId, setCreateMqId] = useState('');
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Per-production-line modal state
   const [plModalOpen, setPlModalOpen] = useState(false);
@@ -50,12 +60,14 @@ export function WorkCenterConfigScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [groupData, plData] = await Promise.all([
+      const [groupData, plData, typesData] = await Promise.all([
         adminWorkCenterApi.getGrouped(),
         productionLineApi.getAll(),
+        adminWorkCenterApi.getTypes(),
       ]);
       setGroups(groupData);
       setAllProductionLines(plData);
+      setWcTypes(typesData);
 
       const configMap: Record<string, WorkCenterProductionLine[]> = {};
       await Promise.all(
@@ -100,6 +112,32 @@ export function WorkCenterConfigScreen() {
       setModalOpen(false);
     } catch { setError('Failed to save config.'); }
     finally { setSaving(false); }
+  };
+
+  const openCreate = () => {
+    setCreateName('');
+    setCreateTypeId(wcTypes[0]?.id ?? '');
+    setCreateDataEntryType('');
+    setCreateMqId('');
+    setCreateError('');
+    setCreateModalOpen(true);
+  };
+
+  const handleCreate = async () => {
+    if (!createName || !createTypeId) return;
+    setCreateSaving(true); setCreateError('');
+    try {
+      const created = await adminWorkCenterApi.create({
+        name: createName,
+        workCenterTypeId: createTypeId,
+        dataEntryType: createDataEntryType || undefined,
+        materialQueueForWCId: createMqId || undefined,
+      });
+      setGroups(prev => [...prev, created].sort((a, b) => a.baseName.localeCompare(b.baseName)));
+      setPlConfigs(prev => ({ ...prev, [created.groupId]: [] }));
+      setCreateModalOpen(false);
+    } catch { setCreateError('Failed to create work center. The name may already be in use.'); }
+    finally { setCreateSaving(false); }
   };
 
   const findWcName = (id?: string) => {
@@ -219,7 +257,7 @@ export function WorkCenterConfigScreen() {
     (plConfigs[wcId] ?? []).map(c => c.productionLineId);
 
   return (
-    <AdminLayout title="Work Center Config">
+    <AdminLayout title="Work Center Config" onAdd={isAdmin ? openCreate : undefined}>
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
@@ -321,6 +359,53 @@ export function WorkCenterConfigScreen() {
                   </Option>
                 ))
               }
+            </Dropdown>
+          </>
+        )}
+      </AdminModal>
+
+      {/* Create Work Center Modal (Admin only) */}
+      <AdminModal
+        open={createModalOpen}
+        title="Add Work Center"
+        onConfirm={handleCreate}
+        onCancel={() => setCreateModalOpen(false)}
+        confirmLabel="Create"
+        loading={createSaving}
+        error={createError}
+        confirmDisabled={!createName || !createTypeId}
+      >
+        <Label>Name</Label>
+        <Input value={createName} onChange={(_, d) => setCreateName(d.value)} placeholder="e.g. Rolls" />
+        <Label>Work Center Type</Label>
+        <Dropdown
+          value={wcTypes.find(t => t.id === createTypeId)?.name ?? ''}
+          selectedOptions={[createTypeId]}
+          onOptionSelect={(_, d) => setCreateTypeId(d.optionValue ?? '')}
+        >
+          {wcTypes.map(t => <Option key={t.id} value={t.id}>{t.name}</Option>)}
+        </Dropdown>
+        <Label>Data Entry Type</Label>
+        <Dropdown
+          value={createDataEntryType || 'None'}
+          selectedOptions={[createDataEntryType]}
+          onOptionSelect={(_, d) => setCreateDataEntryType(d.optionValue ?? '')}
+        >
+          <Option value="">None</Option>
+          {DATA_ENTRY_TYPES.map(t => <Option key={t} value={t}>{t}</Option>)}
+        </Dropdown>
+        {createDataEntryType.startsWith('MatQueue') && (
+          <>
+            <Label>Material Queue For WC</Label>
+            <Dropdown
+              value={allWcOptions.find(w => w.id === createMqId)?.name ?? 'None'}
+              selectedOptions={[createMqId]}
+              onOptionSelect={(_, d) => setCreateMqId(d.optionValue ?? '')}
+            >
+              <Option value="">None</Option>
+              {allWcOptions.map(w => (
+                <Option key={w.id} value={w.id} text={w.name}>{w.name}</Option>
+              ))}
             </Dropdown>
           </>
         )}

@@ -32,6 +32,7 @@ import type {
   UpdateDefectLocationRequest,
   UpdateWorkCenterConfigRequest,
   UpdateWorkCenterGroupRequest,
+  CreateWorkCenterRequest,
   CreateCharacteristicRequest,
   UpdateCharacteristicRequest,
   CreateControlPlanRequest,
@@ -103,6 +104,7 @@ import type {
   AdminDefectLocation,
   AdminWorkCenter,
   AdminWorkCenterGroup,
+  WorkCenterType,
   AdminCharacteristic,
   AdminControlPlan,
   AdminAsset,
@@ -341,6 +343,8 @@ export const adminDefectLocationApi = {
 export const adminWorkCenterApi = {
   getAll: () => api.get<AdminWorkCenter[]>('/workcenters/admin'),
   getGrouped: () => api.get<AdminWorkCenterGroup[]>('/workcenters/admin/grouped'),
+  getTypes: () => api.get<WorkCenterType[]>('/workcenters/admin/types'),
+  create: (req: CreateWorkCenterRequest) => api.post<AdminWorkCenterGroup>('/workcenters/admin', req),
   updateConfig: (id: string, req: UpdateWorkCenterConfigRequest) => api.put<AdminWorkCenter>(`/workcenters/${id}/config`, req),
   updateGroup: (groupId: string, req: UpdateWorkCenterGroupRequest) => api.put<AdminWorkCenterGroup>(`/workcenters/admin/group/${groupId}`, req),
   getProductionLineConfigs: (wcId: string) =>

@@ -8,7 +8,7 @@
 | **Position in Line** | 11th — after Nameplate (last production station) |
 | **Purpose** | The tank is filled with water and brought to pressure to test all welds. The operator marries the assembly to the finished serial number (nameplate), performs a final inspection, logs any defects, and accepts or rejects the tank. |
 | **Operator Role** | Hydro Operator / Inspector (6.0) |
-| **NumberOfWelders** | 0 — this is a testing/inspection station |
+| **NumberOfWelders** | 1 — the welder welds the nameplate onto the tank |
 | **Auto-Print Label** | No |
 | **Input Modes** | External Input (barcode scanning) **and** Manual Mode (touch). Both are used in the same workflow — scanning for shell/nameplate identification, touch for defect entry due to the large number of characteristic/location combinations. |
 

@@ -13,24 +13,29 @@ Configure how each work center group behaves and how individual production lines
 
 ### Group Settings
 
-| Element | Description |
-|---|---|
-| **Base Name** | The canonical name for the work center group (e.g., "Rolls," "Fitup"). |
-| **Data Entry Type** | Dropdown selecting one of 14 data-entry screen types that determines how operators interact with this work center. |
+
+| Element                   | Description                                                                                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Base Name**             | The canonical name for the work center group (e.g., "Rolls," "Fitup").                                                                                                  |
+| **Data Entry Type**       | Dropdown selecting one of 14 data-entry screen types that determines how operators interact with this work center.                                                      |
 | **Material Queue For WC** | Conditional field. When the data entry type supports a material queue, select which work center feeds material into this one. Hidden for types that do not use a queue. |
+
 
 ### Per-Production-Line Overrides
 
-| Element | Description |
-|---|---|
-| **Display Name** | Override the name shown to operators for this line (e.g., "Rolls – Line 2"). |
-| **Number of Welders** | How many welder slots are available at this work center on this line. |
-| **Downtime Tracking** | Toggle. When enabled, the system monitors operator inactivity. |
-| **Inactivity Threshold** | Minutes of inactivity before a downtime event is triggered. Only visible when Downtime Tracking is on. |
-| **Reason Codes** | Selectable list of downtime reason codes operators can choose when prompted. Only visible when Downtime Tracking is on. |
+
+| Element                  | Description                                                                                                                                                                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Display Name**         | Override the name shown to operators for this line (e.g., "Rolls – Line 2").                                                                                                                                                                                                                                                      |
+| **Number of Welders**    | How many welder should be enforced before the work center allows data to be captured. Since this is configurable by Production Line, you can have a different number required for the same Work Center on different Production Lines.                                                                                             |
+| **Downtime Tracking**    | Toggle. When enabled, the system monitors operator inactivity. When the number of minutes of inactivity is greater than or equal to the Inactivity Threshold, then the Downtime overlay is display over the whole MES screen. When the Employee comes back to the work center, they will be prompted to select a downtime reason. |
+| **Inactivity Threshold** | Minutes of inactivity before a downtime event is triggered. Only visible when Downtime Tracking is on. A typical value might be 10, which means have 10 minutes of inactivity, the DownTime overlay will appear.                                                                                                                  |
+| **Reason Codes**         | Selectable list of downtime reason codes operators can choose when prompted. Only visible when Downtime Tracking is on.                                                                                                                                                                                                           |
+
 
 ## Tips
 
 - Changing the Data Entry Type on a group affects every line in that group. Coordinate with floor supervisors before making this change.
 - Per-line overrides do not affect the group defaults — other lines keep the group settings unless they have their own overrides.
 - If a work center needs a material queue but the option is grayed out, check that the Data Entry Type supports queue input.
+

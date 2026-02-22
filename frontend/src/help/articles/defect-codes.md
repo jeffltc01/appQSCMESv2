@@ -12,18 +12,21 @@ Manage the library of defect codes used during inspection and hydro testing. Def
 
 ## Fields & Controls
 
-| Element | Description |
-|---|---|
-| **Search** | Filters the card grid by code or name. |
-| **Code** | Short alphanumeric identifier (e.g., "POR", "UC"). Required. |
-| **Name** | Descriptive name of the defect (e.g., "Porosity", "Undercut"). Required. |
-| **Severity** | Optional severity classification for the defect. |
-| **System Type** | Optional system-level grouping used for reporting. |
-| **Assign to Work Centers** | Checkboxes listing Inspection and Hydro work centers. Check a work center to make this defect code available to operators at that station. |
-| **Active** | Toggle switch. Inactive codes are hidden from operator screens. |
+
+| Element                    | Description                                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search**                 | Filters the card grid by code or name.                                                                                                               |
+| **Code**                   | Short alphanumeric identifier (e.g., "POR", "UC"). Required. This is the field that should be use for the value of a pre-printed barcode scan sheet. |
+| **Name**                   | Descriptive name of the defect (e.g., "Porosity", "Undercut"). Required.                                                                             |
+| **Severity**               | Optional severity classification for the defect.                                                                                                     |
+| **System Type**            | Optional system-level grouping used for reporting.                                                                                                   |
+| **Assign to Work Centers** | Checkboxes listing Inspection and Hydro work centers. Check a work center to make this defect code available to operators at that station.           |
+| **Active**                 | Toggle switch. Inactive codes are hidden from operator screens.                                                                                      |
+
 
 ## Tips
 
 - Keep codes short and consistent — operators may need to select them quickly during inspection.
 - The work center assignment checkboxes only show Inspection and Hydro types. If you don't see a work center, verify its Data Entry Type in Work Center Configuration.
-- Deactivating a defect code does not remove it from existing inspection records.
+- Deactivating a defect code does not remove it from existing inspection records, it just makes it non selectable for future recorded defects.
+

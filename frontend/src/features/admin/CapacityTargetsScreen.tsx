@@ -226,7 +226,24 @@ export function CapacityTargetsScreen() {
   };
 
   const handleDefaultChange = (ck: string, value: string) => {
-    setDefaultValues(prev => ({ ...prev, [ck]: value }));
+    const [wcplId, gearId] = ck.split('_');
+    const sourceRow = wcplRows.find(r => r.wcplId === wcplId);
+
+    if (sourceRow?.wcName === 'Rolls' && gearId) {
+      setDefaultValues(prev => {
+        const next = { ...prev, [ck]: value };
+        for (const row of wcplRows) {
+          if (row.wcplId === wcplId) continue;
+          const otherCk = cellKey(row.wcplId, gearId);
+          if ((cellModes[otherCk] ?? 'default') === 'default') {
+            next[otherCk] = value;
+          }
+        }
+        return next;
+      });
+    } else {
+      setDefaultValues(prev => ({ ...prev, [ck]: value }));
+    }
   };
 
   const handleTankSizeChange = (ck: string, size: number, value: string) => {

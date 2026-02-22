@@ -16,6 +16,8 @@ vi.mock('../../auth/AuthContext.tsx', () => ({
 vi.mock('../../api/endpoints.ts', () => ({
   adminWorkCenterApi: {
     getGrouped: vi.fn(),
+    getTypes: vi.fn(),
+    create: vi.fn(),
     getProductionLineConfigs: vi.fn(),
     createProductionLineConfig: vi.fn(),
     updateProductionLineConfig: vi.fn(),
@@ -81,6 +83,11 @@ const mockProductionLines = [
   { id: 'pl2', name: 'Line 2', plantId: 'p1', plantName: 'Cleveland' },
 ];
 
+const mockWcTypes = [
+  { id: 'wct-1', name: 'Rolls' },
+  { id: 'wct-2', name: 'Inspection' },
+];
+
 const mockReasonCategories = [
   {
     id: 'cat1',
@@ -105,7 +112,9 @@ const mockDowntimeConfig = {
 
 describe('WorkCenterConfigScreen', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(adminWorkCenterApi.getGrouped).mockResolvedValue(mockGroups);
+    vi.mocked(adminWorkCenterApi.getTypes).mockResolvedValue(mockWcTypes);
     vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue(mockPlConfigs);
     vi.mocked(productionLineApi.getAll).mockResolvedValue(mockProductionLines);
     vi.mocked(downtimeReasonCategoryApi.getAll).mockResolvedValue(mockReasonCategories);
@@ -181,6 +190,23 @@ describe('WorkCenterConfigScreen', () => {
     });
   });
 
+  it('opens create modal when Add button is clicked', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const addButton = screen.getByRole('button', { name: /^Add$/i });
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Add Work Center')).toBeInTheDocument();
+      expect(screen.getByText('Work Center Type')).toBeInTheDocument();
+    });
+  });
+
   it('loads and displays downtime reason codes when editing PL config with tracking enabled', async () => {
     const plConfigsWithDowntime = [{
       ...mockPlConfigs[0],
@@ -196,9 +222,9 @@ describe('WorkCenterConfigScreen', () => {
       expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
     });
 
-    // Buttons: Menu, Help, Logout, WC Edit, PL Add, PL Edit, PL Delete
+    // Buttons: Menu, Add, Help, Logout, WC Edit, PL Add, PL Edit, PL Delete
     const allButtons = screen.getAllByRole('button');
-    const plEditButton = allButtons[5];
+    const plEditButton = allButtons[6];
     await user.click(plEditButton);
 
     await waitFor(() => {

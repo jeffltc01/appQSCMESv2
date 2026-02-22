@@ -336,6 +336,11 @@ export interface AdminWorkCenter {
   materialQueueForWCName?: string;
 }
 
+export interface WorkCenterType {
+  id: string;
+  name: string;
+}
+
 export interface AdminWorkCenterGroup {
   groupId: string;
   baseName: string;

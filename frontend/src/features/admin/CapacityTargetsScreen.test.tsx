@@ -231,6 +231,45 @@ describe('CapacityTargetsScreen', () => {
     });
   });
 
+  it('copies Rolls value to other work centers in the same gear column', async () => {
+    const multiWcs = [
+      { id: 'wc-1', name: 'Rolls', workCenterTypeId: 'wct-1', workCenterTypeName: 'Rolls', numberOfWelders: 1 },
+      { id: 'wc-2', name: 'Long Seam', workCenterTypeId: 'wct-2', workCenterTypeName: 'Long Seam', numberOfWelders: 1 },
+      { id: 'wc-3', name: 'Fitup', workCenterTypeId: 'wct-3', workCenterTypeName: 'Fitup', numberOfWelders: 1 },
+    ];
+    vi.mocked(workCenterApi.getWorkCenters).mockResolvedValue(multiWcs);
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockImplementation(async (wcId: string) => {
+      const map: Record<string, typeof mockWcpls> = {
+        'wc-1': [{ ...mockWcpls[0], id: 'wcpl-1', workCenterId: 'wc-1' }],
+        'wc-2': [{ id: 'wcpl-2', workCenterId: 'wc-2', productionLineId: 'line-1', productionLineName: 'Line 1', plantName: 'Cleveland', displayName: 'Long Seam', numberOfWelders: 1, downtimeTrackingEnabled: false, downtimeThresholdMinutes: 5 }],
+        'wc-3': [{ id: 'wcpl-3', workCenterId: 'wc-3', productionLineId: 'line-1', productionLineName: 'Line 1', plantName: 'Cleveland', displayName: 'Fitup', numberOfWelders: 1, downtimeTrackingEnabled: false, downtimeThresholdMinutes: 5 }],
+      };
+      return map[wcId] ?? [];
+    });
+
+    const user = userEvent.setup();
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rolls')).toBeInTheDocument();
+      expect(screen.getByText('Long Seam')).toBeInTheDocument();
+      expect(screen.getByText('Fitup')).toBeInTheDocument();
+    });
+
+    const rows = screen.getAllByRole('row');
+    const rollsRow = rows.find(r => within(r).queryByText('Rolls'));
+    const rollsInputs = within(rollsRow!).getAllByRole('spinbutton');
+    await user.type(rollsInputs[0], '10');
+
+    await waitFor(() => {
+      const allInputs = screen.getAllByRole('spinbutton');
+      const gear1Inputs = allInputs.filter((_, idx) => idx % 2 === 0);
+      for (const input of gear1Inputs) {
+        expect((input as HTMLInputElement).value).toBe('10');
+      }
+    });
+  });
+
   it('shows collapse icon after expanding and can toggle back', async () => {
     const user = userEvent.setup();
     renderScreen();

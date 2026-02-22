@@ -144,7 +144,7 @@ public static class DbInitializer
             new WorkCenter { Id = wcRoundSeamInsp, Name = "Round Seam Inspection", WorkCenterTypeId = wctInspectionId, NumberOfWelders = 0, DataEntryType = "Barcode-RoundSeamInsp" },
             new WorkCenter { Id = wcSpotXray, Name = "Spot X-ray", WorkCenterTypeId = wctSpotXrayId, NumberOfWelders = 0, DataEntryType = "Spot" },
             new WorkCenter { Id = wcNameplate, Name = "Nameplate", WorkCenterTypeId = wctNameplateId, NumberOfWelders = 0, DataEntryType = "DataPlate" },
-            new WorkCenter { Id = wcHydro, Name = "Hydro", WorkCenterTypeId = wctHydroId, NumberOfWelders = 0, DataEntryType = "Hydro" },
+            new WorkCenter { Id = wcHydro, Name = "Hydro", WorkCenterTypeId = wctHydroId, NumberOfWelders = 1, DataEntryType = "Hydro" },
             new WorkCenter { Id = wcRollsMaterial, Name = "Rolls Material", WorkCenterTypeId = wctMaterialQueueId, NumberOfWelders = 0, DataEntryType = "MatQueue-Material", MaterialQueueForWCId = wcRolls },
             new WorkCenter { Id = wcFitupQueue, Name = "Fitup Queue", WorkCenterTypeId = wctMaterialQueueId, NumberOfWelders = 0, DataEntryType = "MatQueue-Fitup", MaterialQueueForWCId = wcFitup }
         );
@@ -379,7 +379,7 @@ public static class DbInitializer
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000004"), WorkCenterId = wcFitup, ProductionLineId = line1Plt1, DisplayName = "Fitup", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000005"), WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt1, DisplayName = "Round Seam", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000006"), WorkCenterId = wcRoundSeamInsp, ProductionLineId = line1Plt1, DisplayName = "Round Seam Inspection", NumberOfWelders = 0 },
-            new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000007"), WorkCenterId = wcHydro, ProductionLineId = line1Plt1, DisplayName = "Hydro", NumberOfWelders = 0 },
+            new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000007"), WorkCenterId = wcHydro, ProductionLineId = line1Plt1, DisplayName = "Hydro", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000008"), WorkCenterId = wcRtXrayQueue, ProductionLineId = line1Plt1, DisplayName = "RT X-ray Queue", NumberOfWelders = 0 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000009"), WorkCenterId = wcSpotXray, ProductionLineId = line1Plt1, DisplayName = "Spot X-ray", NumberOfWelders = 0 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-00000000000a"), WorkCenterId = wcNameplate, ProductionLineId = line1Plt1, DisplayName = "Nameplate", NumberOfWelders = 0 },
@@ -388,13 +388,13 @@ public static class DbInitializer
             new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000002"), WorkCenterId = wcLongSeam, ProductionLineId = line1Plt2, DisplayName = "Long Seam", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000003"), WorkCenterId = wcFitup, ProductionLineId = line1Plt2, DisplayName = "Fitup", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000004"), WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt2, DisplayName = "Round Seam", NumberOfWelders = 1 },
-            new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000005"), WorkCenterId = wcHydro, ProductionLineId = line1Plt2, DisplayName = "Hydro", NumberOfWelders = 0 },
+            new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000005"), WorkCenterId = wcHydro, ProductionLineId = line1Plt2, DisplayName = "Hydro", NumberOfWelders = 1 },
             // Plant 3, Line 1
             new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000001"), WorkCenterId = wcRolls, ProductionLineId = line1Plt3, DisplayName = "Rolls", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000002"), WorkCenterId = wcLongSeam, ProductionLineId = line1Plt3, DisplayName = "Long Seam", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000003"), WorkCenterId = wcFitup, ProductionLineId = line1Plt3, DisplayName = "Fitup", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000004"), WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt3, DisplayName = "Round Seam", NumberOfWelders = 1 },
-            new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000005"), WorkCenterId = wcHydro, ProductionLineId = line1Plt3, DisplayName = "Hydro", NumberOfWelders = 0 }
+            new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000005"), WorkCenterId = wcHydro, ProductionLineId = line1Plt3, DisplayName = "Hydro", NumberOfWelders = 1 }
         );
 
         context.SaveChanges();

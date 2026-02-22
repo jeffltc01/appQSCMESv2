@@ -301,6 +301,13 @@ export interface UpdateWorkCenterGroupRequest {
   materialQueueForWCId?: string;
 }
 
+export interface CreateWorkCenterRequest {
+  name: string;
+  workCenterTypeId: string;
+  dataEntryType?: string;
+  materialQueueForWCId?: string;
+}
+
 export interface CreateWorkCenterProductionLineRequest {
   productionLineId: string;
   displayName: string;

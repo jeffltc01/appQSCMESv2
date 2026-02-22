@@ -303,6 +303,61 @@ public class WorkCentersController : ControllerBase
         return Ok(groups);
     }
 
+    [HttpGet("admin/types")]
+    public async Task<ActionResult<IEnumerable<WorkCenterTypeDto>>> GetWorkCenterTypes(CancellationToken cancellationToken)
+    {
+        var types = await _db.WorkCenterTypes
+            .OrderBy(t => t.Name)
+            .Select(t => new WorkCenterTypeDto { Id = t.Id, Name = t.Name })
+            .ToListAsync(cancellationToken);
+        return Ok(types);
+    }
+
+    [HttpPost("admin")]
+    public async Task<ActionResult<AdminWorkCenterGroupDto>> CreateWorkCenter([FromBody] CreateWorkCenterDto dto, CancellationToken cancellationToken)
+    {
+        var wcType = await _db.WorkCenterTypes.FindAsync(new object[] { dto.WorkCenterTypeId }, cancellationToken);
+        if (wcType == null) return BadRequest(new { message = "Work center type not found." });
+
+        var duplicate = await _db.WorkCenters.AnyAsync(w => w.Name == dto.Name, cancellationToken);
+        if (duplicate) return Conflict(new { message = "A work center with this name already exists." });
+
+        var wc = new Models.WorkCenter
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            WorkCenterTypeId = dto.WorkCenterTypeId,
+            DataEntryType = dto.DataEntryType,
+            MaterialQueueForWCId = dto.MaterialQueueForWCId,
+        };
+
+        _db.WorkCenters.Add(wc);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        string? mqName = null;
+        if (wc.MaterialQueueForWCId.HasValue)
+            mqName = (await _db.WorkCenters.FindAsync(new object[] { wc.MaterialQueueForWCId.Value }, cancellationToken))?.Name;
+
+        return Ok(new AdminWorkCenterGroupDto
+        {
+            GroupId = wc.Id,
+            BaseName = wc.Name,
+            WorkCenterTypeName = wcType.Name,
+            DataEntryType = wc.DataEntryType,
+            SiteConfigs = new List<WorkCenterSiteConfigDto>
+            {
+                new()
+                {
+                    WorkCenterId = wc.Id,
+                    SiteName = wc.Name,
+                    NumberOfWelders = 0,
+                    MaterialQueueForWCId = wc.MaterialQueueForWCId,
+                    MaterialQueueForWCName = mqName,
+                }
+            }
+        });
+    }
+
     [HttpPut("admin/group/{groupId:guid}")]
     public async Task<ActionResult<AdminWorkCenterGroupDto>> UpdateGroup(Guid groupId, [FromBody] UpdateWorkCenterGroupDto dto, CancellationToken cancellationToken)
     {

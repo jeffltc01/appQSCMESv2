@@ -1,6 +1,6 @@
 # Characteristics
 
-Configure the measurable characteristics used during inspection (e.g., wall thickness, ovality, diameter). Characteristics appear as a card grid. You can edit existing characteristics but cannot add or delete them — the set of characteristics is fixed. Directors (Role 2.0) and above can edit.
+Configure the measurable characteristics used during inspection (e.g., wall thickness, diameter, etc.). Characteristics appear as a card grid. Admins (Role 1.0) can add new characteristics, edit existing ones, and deactivate ones that are no longer needed.
 
 ## How It Works
 
@@ -10,18 +10,23 @@ Configure the measurable characteristics used during inspection (e.g., wall thic
 
 ## Fields & Controls
 
-| Element | Description |
-|---|---|
-| **Search** | Filters the card grid by characteristic name. |
-| **Name** | The name of the characteristic (e.g., "Wall Thickness"). Read-only. |
-| **Spec Low** | The lower specification limit. Measurements below this value fail. |
-| **Spec High** | The upper specification limit. Measurements above this value fail. |
-| **Spec Target** | The ideal target value for this measurement. |
-| **Product Type** | The product type this characteristic applies to. |
-| **Assign to Work Centers** | Checkboxes listing Inspection-type work centers. Check a work center to make this characteristic available to inspectors at that station. |
+
+| Element                    | Description                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Search**                 | Filters the card grid by characteristic name.                                                                                                    |
+| **Code**                   | A short identifier for the characteristic (e.g., "001"). This is the field that should be use for the value of a pre-printed barcode scan sheet. |
+| **Name**                   | The name of the characteristic (e.g., "Wall Thickness").                                                                                         |
+| **Min Tank Size**          | The minimum tank size (in gallons) this characteristic applies to. Optional.                                                                     |
+| **Spec Low**               | The lower specification limit. Measurements below this value fail.                                                                               |
+| **Spec High**              | The upper specification limit. Measurements above this value fail.                                                                               |
+| **Spec Target**            | The ideal target value for this measurement.                                                                                                     |
+| **Product Type**           | The product type this characteristic applies to.                                                                                                 |
+| **Assign to Work Centers** | Checkboxes listing Inspection-type work centers. Check a work center to make this characteristic available to inspectors at that station.        |
+
 
 ## Tips
 
-- Spec limits drive pass/fail logic at inspection. Verify limits against engineering drawings before changing them.
+- In the future, Spec limits may help drive pass/fail logic at inspection. Verify limits against engineering drawings before changing them.
 - If a characteristic is not appearing at an inspection work center, check that the work center is checked in the Assign to Work Centers list.
-- Characteristics cannot be added or deleted from this screen. If a new characteristic is needed, it must be configured at the system level.
+- Deactivated characteristics are dimmed and marked with an "Inactive" badge. They are no longer available for selection at inspection stations.
+

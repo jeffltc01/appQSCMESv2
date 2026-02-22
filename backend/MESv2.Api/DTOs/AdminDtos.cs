@@ -223,6 +223,20 @@ public class UpdateWorkCenterGroupDto
     public Guid? MaterialQueueForWCId { get; set; }
 }
 
+public class CreateWorkCenterDto
+{
+    public string Name { get; set; } = string.Empty;
+    public Guid WorkCenterTypeId { get; set; }
+    public string? DataEntryType { get; set; }
+    public Guid? MaterialQueueForWCId { get; set; }
+}
+
+public class WorkCenterTypeDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
 // ---- Work Center Production Lines ----
 public class AdminWorkCenterProductionLineDto
 {

@@ -76,11 +76,44 @@ public class LogViewerService : ILogViewerService
         var recordIds = records.Select(r => r.Id).ToList();
         var traceMap = await GetTraceabilityMapAsync(recordIds, ct);
 
+        var headRelationships = new List<string> { "Head", "HeadToAssembly", "leftHead", "rightHead" };
+        bool IsHeadRelationship(string rel) => headRelationships.Contains(rel, StringComparer.OrdinalIgnoreCase);
+
+        // Fallback: for records missing head traces via ProductionRecordId,
+        // look up traceability entries linked by ToSerialNumberId (assembly SN).
+        var missingHeadSnIds = records
+            .Where(r =>
+            {
+                var traces = traceMap.GetValueOrDefault(r.Id);
+                return traces == null || !traces.Any(t => IsHeadRelationship(t.Relationship));
+            })
+            .ToDictionary(r => r.SerialNumberId, r => r.Id);
+
+        if (missingHeadSnIds.Count > 0)
+        {
+            var snIds = missingHeadSnIds.Keys.ToList();
+            var fallbackTraces = await _db.TraceabilityLogs
+                .Include(t => t.FromSerialNumber)
+                .Where(t => t.ToSerialNumberId != null && snIds.Contains(t.ToSerialNumberId.Value))
+                .Where(t => headRelationships.Contains(t.Relationship))
+                .ToListAsync(ct);
+
+            foreach (var trace in fallbackTraces)
+            {
+                if (trace.ToSerialNumberId == null) continue;
+                if (!missingHeadSnIds.TryGetValue(trace.ToSerialNumberId.Value, out var recId)) continue;
+
+                if (!traceMap.ContainsKey(recId))
+                    traceMap[recId] = new List<Models.TraceabilityLog>();
+                traceMap[recId].Add(trace);
+            }
+        }
+
         return records.Select(r =>
         {
             var traces = traceMap.GetValueOrDefault(r.Id) ?? new List<Models.TraceabilityLog>();
             var heads = traces
-                .Where(t => t.Relationship == "Head" || t.Relationship == "HeadToAssembly")
+                .Where(t => IsHeadRelationship(t.Relationship))
                 .OrderBy(t => t.TankLocation)
                 .Select(t => FormatHeadInfo(t))
                 .ToList();
