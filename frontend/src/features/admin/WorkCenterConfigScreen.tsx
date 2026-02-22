@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner, Switch } from '@fluentui/react-components';
+import { Button, Input, Label, Dropdown, Option, Spinner, Switch, Checkbox } from '@fluentui/react-components';
 import { EditRegular, AddRegular, DeleteRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
-import { adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
-import type { AdminWorkCenterGroup, WorkCenterProductionLine, ProductionLineAdmin } from '../../types/domain.ts';
+import { adminWorkCenterApi, productionLineApi, downtimeConfigApi, downtimeReasonCategoryApi } from '../../api/endpoints.ts';
+import type { AdminWorkCenterGroup, WorkCenterProductionLine, ProductionLineAdmin, DowntimeReasonCategory } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 const DATA_ENTRY_TYPES = [
@@ -43,6 +43,9 @@ export function WorkCenterConfigScreen() {
   const [plError, setPlError] = useState('');
   const [plDowntimeEnabled, setPlDowntimeEnabled] = useState(false);
   const [plDowntimeThreshold, setPlDowntimeThreshold] = useState('5');
+  const [plReasonCategories, setPlReasonCategories] = useState<DowntimeReasonCategory[]>([]);
+  const [plSelectedReasonIds, setPlSelectedReasonIds] = useState<string[]>([]);
+  const [plReasonsLoading, setPlReasonsLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,6 +107,27 @@ export function WorkCenterConfigScreen() {
     return allWcOptions.find(w => w.id === id)?.name;
   };
 
+  const loadReasons = useCallback(async (plantId: string, wcId?: string, plId?: string) => {
+    setPlReasonsLoading(true);
+    try {
+      const [cats, config] = await Promise.all([
+        downtimeReasonCategoryApi.getAll(plantId),
+        wcId && plId ? downtimeConfigApi.get(wcId, plId).catch(() => null) : Promise.resolve(null),
+      ]);
+      setPlReasonCategories(cats.filter(c => c.isActive));
+      const assignedIds = config?.applicableReasons.map(r => r.id) ?? [];
+      setPlSelectedReasonIds(assignedIds);
+    } catch {
+      setPlReasonCategories([]);
+      setPlSelectedReasonIds([]);
+    } finally {
+      setPlReasonsLoading(false);
+    }
+  }, []);
+
+  const resolvePlantId = useCallback((productionLineId: string) =>
+    allProductionLines.find(p => p.id === productionLineId)?.plantId, [allProductionLines]);
+
   // Per-production-line handlers
   const openPlAdd = (wcId: string) => {
     const wc = groups.find(g => g.groupId === wcId);
@@ -114,6 +138,8 @@ export function WorkCenterConfigScreen() {
     setPlNumberOfWelders('0');
     setPlDowntimeEnabled(false);
     setPlDowntimeThreshold('5');
+    setPlReasonCategories([]);
+    setPlSelectedReasonIds([]);
     setPlError('');
     setPlModalOpen(true);
   };
@@ -128,6 +154,8 @@ export function WorkCenterConfigScreen() {
     setPlDowntimeThreshold(String(config.downtimeThresholdMinutes));
     setPlError('');
     setPlModalOpen(true);
+    const plantId = resolvePlantId(config.productionLineId);
+    if (plantId) loadReasons(plantId, wcId, config.productionLineId);
   };
 
   const handlePlSave = async () => {
@@ -140,6 +168,9 @@ export function WorkCenterConfigScreen() {
           downtimeTrackingEnabled: plDowntimeEnabled,
           downtimeThresholdMinutes: Number(plDowntimeThreshold) || 5,
         });
+        if (plDowntimeEnabled) {
+          await downtimeConfigApi.setReasons(plWcId, plEditing.productionLineId, { reasonIds: plSelectedReasonIds });
+        }
         setPlConfigs(prev => ({
           ...prev,
           [plWcId]: (prev[plWcId] ?? []).map(c => c.id === updated.id ? updated : c),
@@ -150,9 +181,18 @@ export function WorkCenterConfigScreen() {
           displayName: plDisplayName,
           numberOfWelders: Number(plNumberOfWelders),
         });
+        if (plDowntimeEnabled) {
+          await downtimeConfigApi.update(plWcId, plProductionLineId, {
+            downtimeTrackingEnabled: true,
+            downtimeThresholdMinutes: Number(plDowntimeThreshold) || 5,
+          });
+          if (plSelectedReasonIds.length > 0) {
+            await downtimeConfigApi.setReasons(plWcId, plProductionLineId, { reasonIds: plSelectedReasonIds });
+          }
+        }
         setPlConfigs(prev => ({
           ...prev,
-          [plWcId]: [...(prev[plWcId] ?? []), created],
+          [plWcId]: [...(prev[plWcId] ?? []), { ...created, downtimeTrackingEnabled: plDowntimeEnabled, downtimeThresholdMinutes: Number(plDowntimeThreshold) || 5 }],
         }));
       }
       setPlModalOpen(false);
@@ -302,7 +342,13 @@ export function WorkCenterConfigScreen() {
             <Dropdown
               value={allProductionLines.find(pl => pl.id === plProductionLineId)?.name ?? ''}
               selectedOptions={[plProductionLineId]}
-              onOptionSelect={(_, d) => setPlProductionLineId(d.optionValue ?? '')}
+              onOptionSelect={(_, d) => {
+                const id = d.optionValue ?? '';
+                setPlProductionLineId(id);
+                const plantId = resolvePlantId(id);
+                if (plantId && plDowntimeEnabled) loadReasons(plantId);
+                else { setPlReasonCategories([]); setPlSelectedReasonIds([]); }
+              }}
               placeholder="Select a production line..."
             >
               {allProductionLines
@@ -330,12 +376,64 @@ export function WorkCenterConfigScreen() {
           <Switch
             label="Enable Downtime Tracking"
             checked={plDowntimeEnabled}
-            onChange={(_, d) => setPlDowntimeEnabled(d.checked)}
+            onChange={(_, d) => {
+              setPlDowntimeEnabled(d.checked);
+              if (d.checked && plReasonCategories.length === 0) {
+                const plId = plEditing?.productionLineId ?? plProductionLineId;
+                const plantId = resolvePlantId(plId);
+                if (plantId) loadReasons(plantId, plEditing ? plWcId : undefined, plEditing ? plId : undefined);
+              }
+            }}
           />
           {plDowntimeEnabled && (
             <>
               <Label style={{ marginTop: 8 }}>Inactivity Threshold (minutes)</Label>
               <Input type="number" value={plDowntimeThreshold} onChange={(_, d) => setPlDowntimeThreshold(d.value)} min="1" />
+              <Label style={{ marginTop: 12 }}>Applicable Reason Codes</Label>
+              {plReasonsLoading ? (
+                <Spinner size="tiny" label="Loading reasons..." />
+              ) : plReasonCategories.length === 0 ? (
+                <div style={{ fontSize: 12, color: '#868686', padding: '4px 0' }}>
+                  No reason codes defined for this plant. Create them in Downtime Reasons first.
+                </div>
+              ) : (
+                <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #e5e5e5', borderRadius: 4, padding: '4px 8px', marginTop: 4 }}>
+                  {plReasonCategories.map(cat => {
+                    const activeReasons = cat.reasons.filter(r => r.isActive);
+                    if (activeReasons.length === 0) return null;
+                    const allSelected = activeReasons.every(r => plSelectedReasonIds.includes(r.id));
+                    const someSelected = activeReasons.some(r => plSelectedReasonIds.includes(r.id));
+                    return (
+                      <div key={cat.id} style={{ marginBottom: 6 }}>
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? 'mixed' : false}
+                          onChange={() => {
+                            const ids = activeReasons.map(r => r.id);
+                            setPlSelectedReasonIds(prev =>
+                              allSelected ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])],
+                            );
+                          }}
+                          label={<span style={{ fontWeight: 600, fontSize: 13 }}>{cat.name}</span>}
+                        />
+                        <div style={{ paddingLeft: 24 }}>
+                          {activeReasons.map(reason => (
+                            <Checkbox
+                              key={reason.id}
+                              checked={plSelectedReasonIds.includes(reason.id)}
+                              onChange={(_, d) => {
+                                setPlSelectedReasonIds(prev =>
+                                  d.checked ? [...prev, reason.id] : prev.filter(id => id !== reason.id),
+                                );
+                              }}
+                              label={<span style={{ fontSize: 13 }}>{reason.name}</span>}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>

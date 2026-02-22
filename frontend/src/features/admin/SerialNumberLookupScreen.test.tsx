@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
@@ -43,35 +43,74 @@ const mockLookupResult = {
       id: 'root-1',
       label: 'SN-001 (Sellable)',
       nodeType: 'sellable',
+      serial: 'SN-001',
+      tankSize: 500,
+      tankType: '500 gal UG',
+      createdAt: '2026-02-14T10:00:00Z',
+      events: [
+        {
+          serialNumberId: 'root-1',
+          serialNumberSerial: 'SN-001',
+          timestamp: '2026-02-14T10:00:00Z',
+          workCenterName: 'Hydro 1',
+          type: 'Hydro Test',
+          completedBy: 'Jane Smith',
+          assetName: undefined,
+          inspectionResult: 'pass',
+        },
+      ],
       children: [
         {
           id: 'assy-1',
           label: 'AC-001 (Assembled)',
           nodeType: 'assembled',
+          serial: 'AC-001',
+          tankSize: 500,
+          tankType: '500 gal UG',
+          events: [
+            {
+              serialNumberId: 'assy-1',
+              serialNumberSerial: 'AC-001',
+              timestamp: '2026-02-13T14:00:00Z',
+              workCenterName: 'Fitup 1',
+              type: 'Fitup',
+              completedBy: 'Bob Fitter',
+              assetName: undefined,
+              inspectionResult: undefined,
+            },
+          ],
           children: [
-            { id: 'child-1', label: 'SN-002 (Shell)', nodeType: 'shell' },
-            { id: 'child-2', label: 'Heat H123 (leftHead)', nodeType: 'leftHead' },
+            {
+              id: 'child-1',
+              label: 'SN-002 (24in Shell)',
+              nodeType: 'shell',
+              serial: 'SN-002',
+              tankSize: 500,
+              tankType: '24in Shell',
+              events: [
+                {
+                  serialNumberId: 'child-1',
+                  serialNumberSerial: 'SN-002',
+                  timestamp: '2026-02-15T14:30:00Z',
+                  workCenterName: 'Long Seam 1',
+                  type: 'Long Seam',
+                  completedBy: 'John Doe',
+                  assetName: 'Welder A',
+                  inspectionResult: undefined,
+                },
+              ],
+            },
+            {
+              id: 'child-2',
+              label: 'Heat H123 (leftHead)',
+              nodeType: 'leftHead',
+              serial: 'LOT-H123',
+              heatNumber: 'H123',
+              events: [],
+            },
           ],
         },
       ],
-    },
-  ],
-  events: [
-    {
-      timestamp: '2026-02-15T14:30:00Z',
-      workCenterName: 'Long Seam 1',
-      type: 'Long Seam',
-      completedBy: 'John Doe',
-      assetName: 'Welder A',
-      inspectionResult: undefined,
-    },
-    {
-      timestamp: '2026-02-14T10:00:00Z',
-      workCenterName: 'Inspection 1',
-      type: 'Inspection',
-      completedBy: 'Jane Smith',
-      assetName: undefined,
-      inspectionResult: 'pass',
     },
   ],
 };
@@ -124,7 +163,7 @@ describe('SerialNumberLookupScreen', () => {
     expect(screen.getByText('Site')).toBeInTheDocument();
   });
 
-  it('performs lookup and shows results', async () => {
+  it('performs lookup and shows hero cards', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -133,11 +172,27 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByText('SN-001 (Sellable)')).toBeInTheDocument();
+      expect(screen.getByTestId('genealogy-flow')).toBeInTheDocument();
     });
-    expect(screen.getByText('AC-001 (Assembled)')).toBeInTheDocument();
-    expect(screen.getByText('Long Seam 1')).toBeInTheDocument();
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
+
+    expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
+    expect(screen.getByTestId('hero-card-assy-1')).toBeInTheDocument();
+    expect(screen.getByTestId('hero-card-root-1')).toBeInTheDocument();
+  });
+
+  it('shows serial numbers on hero cards', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByText('SN-002')).toBeInTheDocument();
+    });
+    expect(screen.getByText('AC-001')).toBeInTheDocument();
+    expect(screen.getByText('SN-001')).toBeInTheDocument();
   });
 
   it('shows error when serial not found', async () => {
@@ -154,7 +209,7 @@ describe('SerialNumberLookupScreen', () => {
     });
   });
 
-  it('hides events table when details is set to Hide', async () => {
+  it('expands card in-place to show events when clicked', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -163,15 +218,19 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByText('Long Seam 1')).toBeInTheDocument();
+      expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByLabelText('Hide'));
+    await user.click(screen.getByTestId('hero-card-child-1'));
 
-    expect(screen.queryByText('Long Seam 1')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('events-table-child-1')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Long Seam 1')).toBeInTheDocument();
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
   });
 
-  it('can collapse and expand tree nodes', async () => {
+  it('collapses expanded card when clicked again', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -180,16 +239,42 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByText('SN-002 (Shell)')).toBeInTheDocument();
+      expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
     });
 
-    const sellableNode = screen.getByText('SN-001 (Sellable)');
-    const chevron = sellableNode.previousElementSibling;
-    if (chevron) fireEvent.click(chevron);
+    await user.click(screen.getByTestId('hero-card-child-1'));
+    await waitFor(() => {
+      expect(screen.getByTestId('events-table-child-1')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('hero-card-child-1'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('events-table-child-1')).not.toBeVisible();
+    });
+  });
+
+  it('only one card expanded at a time', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.queryByText('AC-001 (Assembled)')).not.toBeInTheDocument();
+      expect(screen.getByTestId('hero-card-child-1')).toBeInTheDocument();
     });
+
+    await user.click(screen.getByTestId('hero-card-child-1'));
+    await waitFor(() => {
+      expect(screen.getByTestId('events-table-child-1')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('hero-card-root-1'));
+    await waitFor(() => {
+      expect(screen.getByTestId('events-table-root-1')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('events-table-child-1')).not.toBeVisible();
   });
 
   it('performs lookup on Enter key', async () => {
@@ -202,5 +287,51 @@ describe('SerialNumberLookupScreen', () => {
     await waitFor(() => {
       expect(serialNumberApi.getLookup).toHaveBeenCalledWith('SN-001');
     });
+  });
+
+  it('renders the diagram legend', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tree-legend')).toBeInTheDocument();
+    });
+    const legend = screen.getByTestId('tree-legend');
+    expect(legend).toHaveTextContent('Diagram Key');
+    expect(legend).toHaveTextContent('Finished SN');
+    expect(legend).toHaveTextContent('Shells');
+    expect(legend).toHaveTextContent('Heads');
+    expect(legend).toHaveTextContent('Plate');
+  });
+
+  it('shows sub-components beneath parent cards', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hero-card-child-2')).toBeInTheDocument();
+    });
+  });
+
+  it('shows tank size on hero cards', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('genealogy-flow')).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('500 gal').length).toBeGreaterThan(0);
   });
 });

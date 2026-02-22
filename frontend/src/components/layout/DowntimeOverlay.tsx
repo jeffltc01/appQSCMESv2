@@ -28,6 +28,7 @@ export function DowntimeOverlay({
 }: DowntimeOverlayProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const tick = () => {
@@ -53,6 +54,7 @@ export function DowntimeOverlay({
   const handleSelectReason = async (reasonId: string) => {
     if (submitting) return;
     setSubmitting(true);
+    setError('');
     try {
       const now = new Date().toISOString();
       const startedAt = new Date(lastActivityTimestamp).toISOString();
@@ -66,12 +68,20 @@ export function DowntimeOverlay({
       });
       onDismiss();
     } catch {
+      setError('Failed to record downtime. Tap a reason to try again.');
       setSubmitting(false);
     }
   };
 
+  const stopPropagation = (e: React.SyntheticEvent) => e.stopPropagation();
+
   return (
-    <div className={styles.overlay} data-testid="downtime-overlay">
+    <div
+      className={styles.overlay}
+      data-testid="downtime-overlay"
+      onPointerDown={stopPropagation}
+      onTouchStart={stopPropagation}
+    >
       <div className={styles.header}>
         <span className={styles.title}>Looks like there was some downtime</span>
         <span className={styles.subtitle}>Select a reason to continue</span>
@@ -80,6 +90,12 @@ export function DowntimeOverlay({
       <div className={styles.timer} data-testid="downtime-timer">
         {formatElapsed(elapsedSeconds)}
       </div>
+
+      {error && (
+        <div className={styles.errorBanner} role="alert" data-testid="downtime-error">
+          {error}
+        </div>
+      )}
 
       {grouped.map(group => (
         <div key={group.categoryName} className={styles.categoryGroup}>

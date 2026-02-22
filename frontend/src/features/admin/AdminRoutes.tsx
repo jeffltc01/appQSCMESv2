@@ -23,6 +23,7 @@ import { AIReviewScreen } from './AIReviewScreen.tsx';
 import { ProductionLogsScreen } from './ProductionLogsScreen.tsx';
 import { SupervisorDashboardScreen } from './SupervisorDashboardScreen.tsx';
 import { DowntimeReasonsScreen } from './DowntimeReasonsScreen.tsx';
+import { DigitalTwinScreen } from './DigitalTwinScreen.tsx';
 
 export function AdminRoutes() {
   return (
@@ -51,6 +52,7 @@ export function AdminRoutes() {
       <Route path="production-logs" element={<ProductionLogsScreen />} />
       <Route path="supervisor-dashboard" element={<SupervisorDashboardScreen />} />
       <Route path="downtime-reasons" element={<DowntimeReasonsScreen />} />
+      <Route path="digital-twin" element={<DigitalTwinScreen />} />
       <Route path="*" element={<Navigate to="/menu" replace />} />
     </Routes>
   );

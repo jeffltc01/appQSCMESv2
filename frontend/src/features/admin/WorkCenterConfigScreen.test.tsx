@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { WorkCenterConfigScreen } from './WorkCenterConfigScreen.tsx';
-import { adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
+import { adminWorkCenterApi, productionLineApi, downtimeConfigApi, downtimeReasonCategoryApi } from '../../api/endpoints.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
@@ -21,6 +22,14 @@ vi.mock('../../api/endpoints.ts', () => ({
     deleteProductionLineConfig: vi.fn(),
   },
   productionLineApi: {
+    getAll: vi.fn(),
+  },
+  downtimeConfigApi: {
+    get: vi.fn(),
+    update: vi.fn(),
+    setReasons: vi.fn(),
+  },
+  downtimeReasonCategoryApi: {
     getAll: vi.fn(),
   },
 }));
@@ -72,11 +81,36 @@ const mockProductionLines = [
   { id: 'pl2', name: 'Line 2', plantId: 'p1', plantName: 'Cleveland' },
 ];
 
+const mockReasonCategories = [
+  {
+    id: 'cat1',
+    plantId: 'p1',
+    name: 'Equipment',
+    isActive: true,
+    sortOrder: 0,
+    reasons: [
+      { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, sortOrder: 0 },
+      { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Maintenance', isActive: true, sortOrder: 1 },
+    ],
+  },
+];
+
+const mockDowntimeConfig = {
+  downtimeTrackingEnabled: true,
+  downtimeThresholdMinutes: 5,
+  applicableReasons: [
+    { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, sortOrder: 0 },
+  ],
+};
+
 describe('WorkCenterConfigScreen', () => {
   beforeEach(() => {
     vi.mocked(adminWorkCenterApi.getGrouped).mockResolvedValue(mockGroups);
     vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue(mockPlConfigs);
     vi.mocked(productionLineApi.getAll).mockResolvedValue(mockProductionLines);
+    vi.mocked(downtimeReasonCategoryApi.getAll).mockResolvedValue(mockReasonCategories);
+    vi.mocked(downtimeConfigApi.get).mockResolvedValue(mockDowntimeConfig);
+    vi.mocked(downtimeConfigApi.setReasons).mockResolvedValue(undefined as never);
   });
 
   it('renders loading state initially', async () => {
@@ -144,6 +178,38 @@ describe('WorkCenterConfigScreen', () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('No per-line overrides configured.')).toBeInTheDocument();
+    });
+  });
+
+  it('loads and displays downtime reason codes when editing PL config with tracking enabled', async () => {
+    const plConfigsWithDowntime = [{
+      ...mockPlConfigs[0],
+      downtimeTrackingEnabled: true,
+      downtimeThresholdMinutes: 5,
+    }];
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue(plConfigsWithDowntime);
+
+    renderScreen();
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
+    });
+
+    // Buttons: Menu, Logout, WC Edit, PL Add, PL Edit, PL Delete
+    const allButtons = screen.getAllByRole('button');
+    const plEditButton = allButtons[4];
+    await user.click(plEditButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Applicable Reason Codes')).toBeInTheDocument();
+      expect(screen.getByText('Equipment')).toBeInTheDocument();
+      expect(screen.getByText('Breakdown')).toBeInTheDocument();
+      expect(screen.getByText('Maintenance')).toBeInTheDocument();
     });
   });
 });

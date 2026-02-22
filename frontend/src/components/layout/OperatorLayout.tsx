@@ -310,7 +310,7 @@ export function OperatorLayout() {
   );
 
   const { inputRef, handleKeyDown } = useBarcode({
-    enabled: externalInput,
+    enabled: externalInput && !showDowntimeOverlay,
     onScan: handleScan,
   });
 
@@ -436,7 +436,7 @@ export function OperatorLayout() {
         showToggle={supportsExternalInput}
       />
 
-      {externalInput && (
+      {externalInput && !showDowntimeOverlay && (
         <input
           ref={inputRef}
           onKeyDown={handleKeyDown}

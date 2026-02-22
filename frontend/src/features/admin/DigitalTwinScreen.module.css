@@ -1,0 +1,555 @@
+/* ============================================================
+   Digital Twin Screen — Production Line Visualization
+   ============================================================ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+/* ---- Toolbar ---- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbar label {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--qs-body-text);
+}
+
+.refreshIndicator {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--qs-gray);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.refreshDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--qs-success);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   Pipeline Section
+   ============================================================ */
+
+.pipelineSection {
+  background: var(--qs-white);
+  border: 1px solid var(--qs-light-gray);
+  padding: 16px 16px 24px;
+  position: relative;
+  overflow-x: auto;
+}
+
+/* ---- Material Feed Boxes ---- */
+
+.materialFeedsRow {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0 0 12px;
+  min-width: 1000px;
+}
+
+.materialFeed {
+  background: var(--qs-white);
+  border: 2px solid var(--qs-body-text);
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.4;
+  min-width: 110px;
+}
+
+.materialFeedName {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.materialFeedCount {
+  color: var(--qs-gray);
+  font-size: 12px;
+}
+
+.materialFeedSpacer {
+  flex: 1;
+}
+
+/* ---- Pipeline Flow ---- */
+
+.pipelineWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1000px;
+  position: relative;
+}
+
+/* ---- Station Nodes ---- */
+
+.stationNode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.stationStatusDots {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 4px;
+  height: 12px;
+  align-items: center;
+}
+
+.stationStatusCircle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--qs-success);
+}
+
+.stationBox {
+  width: 96px;
+  padding: 12px 8px 10px;
+  border: 3px solid var(--qs-gray);
+  background: #1b2a4a;
+  color: var(--qs-white);
+  text-align: center;
+  position: relative;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.stationBoxActive {
+  border-color: var(--qs-success);
+  box-shadow: 0 0 10px rgba(40, 167, 69, 0.45);
+}
+
+.stationBoxSlow {
+  border-color: var(--qs-warning);
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.45);
+}
+
+.stationBoxIdle {
+  border-color: var(--qs-gray);
+  opacity: 0.6;
+}
+
+.stationBoxDown {
+  border-color: var(--qs-danger);
+  box-shadow: 0 0 10px rgba(220, 53, 69, 0.55);
+}
+
+.stationBoxBottleneck {
+  border-color: var(--qs-secondary);
+  box-shadow: 0 0 14px rgba(228, 30, 47, 0.65);
+  animation: bottleneckPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bottleneckPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(228, 30, 47, 0.4); }
+  50% { box-shadow: 0 0 22px rgba(228, 30, 47, 0.85); }
+}
+
+.stationName {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wipBadge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--qs-white);
+  background: var(--qs-success);
+}
+
+.wipBadgeBottleneck {
+  background: var(--qs-secondary);
+}
+
+.wipBadgeIdle {
+  background: var(--qs-gray);
+}
+
+.wipBadgeSlow {
+  background: var(--qs-warning);
+  color: var(--qs-body-text);
+}
+
+.wipBadgeDown {
+  background: var(--qs-danger);
+}
+
+.gateCheckIcon {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  background: var(--qs-warning);
+  color: var(--qs-body-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  border: 1px solid var(--qs-body-text);
+}
+
+.bottleneckLabel {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--qs-secondary);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* ---- Arrows between stations ---- */
+
+.stationArrow {
+  display: flex;
+  align-items: center;
+  padding: 0 1px;
+  flex-shrink: 0;
+  margin-top: 16px;
+}
+
+.arrowLine {
+  width: 16px;
+  height: 3px;
+  background: #8da0cb;
+}
+
+.arrowDots {
+  display: flex;
+  gap: 3px;
+  padding: 0 3px;
+  align-items: center;
+}
+
+.arrowDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--qs-primary);
+  opacity: 0.6;
+}
+
+.arrowHead {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 10px solid #8da0cb;
+}
+
+/* ============================================================
+   KPI Cards
+   ============================================================ */
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.kpiCard {
+  border: 1px solid var(--qs-light-gray);
+  overflow: hidden;
+}
+
+.kpiHeader {
+  background: #1b2a4a;
+  color: var(--qs-white);
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.kpiBody {
+  background: var(--qs-white);
+  padding: 20px 16px;
+}
+
+.kpiValue {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--qs-body-text);
+  line-height: 1.1;
+}
+
+.kpiSuffix {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--qs-gray);
+  margin-left: 6px;
+}
+
+.kpiSubtext {
+  font-size: 13px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpiPositive {
+  color: var(--qs-success);
+  font-weight: 600;
+}
+
+.kpiNegative {
+  color: var(--qs-secondary);
+  font-weight: 600;
+}
+
+.kpiNeutral {
+  color: var(--qs-gray);
+}
+
+/* ---- Efficiency bar ---- */
+
+.efficiencyBar {
+  width: 100%;
+  height: 14px;
+  background: var(--qs-light-gray);
+  margin-top: 14px;
+  overflow: hidden;
+}
+
+.efficiencyFill {
+  height: 100%;
+  background: var(--qs-primary);
+  transition: width 0.6s ease;
+}
+
+/* ============================================================
+   Bottom Row: Station Detail + Unit Tracker
+   ============================================================ */
+
+.bottomRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .bottomRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  border: 1px solid var(--qs-light-gray);
+  overflow: hidden;
+}
+
+.panelHeader {
+  background: #1b2a4a;
+  color: var(--qs-white);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.panelBody {
+  background: var(--qs-white);
+  padding: 0;
+  overflow-x: auto;
+}
+
+/* ---- Station Detail Table ---- */
+
+.stationTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stationTable thead th {
+  background: #2b3555;
+  color: var(--qs-white);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.stationTable tbody td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--qs-light-gray);
+  white-space: nowrap;
+}
+
+.stationTable tbody tr:hover {
+  background: #f0f2f8;
+}
+
+.bottleneckRow {
+  background: #fde8ea !important;
+}
+
+.bottleneckRow:hover {
+  background: #fbd3d7 !important;
+}
+
+.statusDotGreen {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--qs-success);
+}
+
+.statusDotYellow {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--qs-warning);
+}
+
+.statusDotGray {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--qs-gray);
+}
+
+.statusDotRed {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--qs-danger);
+}
+
+/* ---- Unit Tracker ---- */
+
+.unitTrackerGrid {
+  display: grid;
+  font-size: 11px;
+  min-width: 600px;
+}
+
+.utHeader {
+  display: contents;
+}
+
+.utHeaderCell {
+  background: #2b3555;
+  color: var(--qs-white);
+  padding: 8px 4px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.utRow {
+  display: contents;
+}
+
+.utCell {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--qs-light-gray);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.unitChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--qs-white);
+  background: var(--qs-primary);
+  white-space: nowrap;
+}
+
+.unitChipAssembly {
+  background: var(--qs-success);
+}
+
+.unitChipTime {
+  display: block;
+  font-size: 9px;
+  color: var(--qs-gray);
+  margin-top: 2px;
+}
+
+/* ---- Loading / Empty States ---- */
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  gap: 16px;
+  color: var(--qs-gray);
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--qs-gray);
+  font-size: 14px;
+}

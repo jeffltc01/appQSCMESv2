@@ -29,7 +29,7 @@ public class InspectionRecordServiceTests
     public async Task Create_CreatesInspectionRecord_WithNoDefects()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedSerialAndProdRecord(db, "SN-INSP-001", TestHelpers.wcLongSeamInspId);
+        SeedSerialAndProdRecord(db, "SN-INSP-001", TestHelpers.wcLongSeamId);
 
         var sut = new InspectionRecordService(db);
         var dto = new CreateInspectionRecordDto
@@ -53,10 +53,74 @@ public class InspectionRecordServiceTests
     }
 
     [Fact]
+    public async Task Create_CreatesProductionRecord_AtInspectionWorkCenter()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-INSP-PR-001", TestHelpers.wcLongSeamId);
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INSP-PR-001",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Defects = new List<DefectEntryDto>()
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        var prodRecord = await db.ProductionRecords
+            .Where(r => r.WorkCenterId == TestHelpers.wcLongSeamInspId
+                        && r.SerialNumber.Serial == "SN-INSP-PR-001")
+            .FirstOrDefaultAsync();
+
+        Assert.NotNull(prodRecord);
+        Assert.Equal(TestHelpers.ProductionLine1Plt1Id, prodRecord.ProductionLineId);
+        Assert.Equal("Pass", prodRecord.InspectionResult);
+    }
+
+    [Fact]
+    public async Task Create_ProductionRecord_HasFailResult_WhenDefectsExist()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-INSP-PR-002", TestHelpers.wcLongSeamId);
+
+        var defectCodeId = Guid.NewGuid();
+        var characteristicId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+        db.DefectCodes.Add(new DefectCode { Id = defectCodeId, Code = "D1", Name = "Defect 1" });
+        db.Characteristics.Add(new Characteristic { Id = characteristicId, Name = "Char 1", ProductTypeId = null });
+        db.DefectLocations.Add(new DefectLocation { Id = locationId, Code = "L1", Name = "Location 1", CharacteristicId = characteristicId });
+        await db.SaveChangesAsync();
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INSP-PR-002",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Defects = new List<DefectEntryDto>
+            {
+                new() { DefectCodeId = defectCodeId, CharacteristicId = characteristicId, LocationId = locationId }
+            }
+        };
+
+        await sut.CreateAsync(dto);
+
+        var prodRecord = await db.ProductionRecords
+            .Where(r => r.WorkCenterId == TestHelpers.wcLongSeamInspId
+                        && r.SerialNumber.Serial == "SN-INSP-PR-002")
+            .FirstOrDefaultAsync();
+
+        Assert.NotNull(prodRecord);
+        Assert.Equal("Fail", prodRecord.InspectionResult);
+    }
+
+    [Fact]
     public async Task Create_CreatesDefectLogs_WhenDefectsProvided()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedSerialAndProdRecord(db, "SN-INSP-002", TestHelpers.wcLongSeamInspId);
+        SeedSerialAndProdRecord(db, "SN-INSP-002", TestHelpers.wcLongSeamId);
 
         var defectCodeId = Guid.NewGuid();
         var characteristicId = Guid.NewGuid();

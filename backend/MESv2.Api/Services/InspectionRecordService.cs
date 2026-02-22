@@ -30,17 +30,31 @@ public class InspectionRecordService : IInspectionRecordService
             .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken)
             ?? throw new ArgumentException($"Serial number '{dto.SerialNumber}' not found.");
 
-        var productionRecord = await _db.ProductionRecords
+        var upstreamRecord = await _db.ProductionRecords
             .Where(r => r.SerialNumberId == sn.Id)
             .OrderByDescending(r => r.Timestamp)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new ArgumentException($"No production record found for serial '{dto.SerialNumber}'.");
 
+        var inspectionProdRecord = new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = sn.Id,
+            WorkCenterId = dto.WorkCenterId,
+            AssetId = null,
+            ProductionLineId = upstreamRecord.ProductionLineId,
+            OperatorId = dto.OperatorId,
+            Timestamp = DateTime.UtcNow,
+            InspectionResult = dto.Defects.Count == 0 ? "Pass" : "Fail",
+            PlantGearId = null,
+        };
+        _db.ProductionRecords.Add(inspectionProdRecord);
+
         var record = new InspectionRecord
         {
             Id = Guid.NewGuid(),
             SerialNumberId = sn.Id,
-            ProductionRecordId = productionRecord.Id,
+            ProductionRecordId = inspectionProdRecord.Id,
             WorkCenterId = dto.WorkCenterId,
             OperatorId = dto.OperatorId,
             Timestamp = DateTime.UtcNow,

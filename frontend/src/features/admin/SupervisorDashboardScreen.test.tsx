@@ -60,6 +60,7 @@ const emptyDailyCounts = Array.from({ length: 7 }, (_, i) => ({ date: `2026-02-$
 const mockMetrics: SupervisorDashboardMetrics = {
   dayCount: 42,
   weekCount: 187,
+  supportsFirstPassYield: true,
   dayFPY: 96.5,
   weekFPY: 94.2,
   dayDefects: 3,
@@ -281,6 +282,7 @@ describe('SupervisorDashboardScreen', () => {
   it('hides FPY and defect cards when not applicable', async () => {
     const metricsNoFpy: SupervisorDashboardMetrics = {
       ...mockMetrics,
+      supportsFirstPassYield: false,
       dayFPY: null,
       weekFPY: null,
     };
@@ -302,5 +304,32 @@ describe('SupervisorDashboardScreen', () => {
 
     expect(screen.queryByText('First Pass Yield')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Defects')).not.toBeInTheDocument();
+  });
+
+  it('shows FPY card with dashes when day data is null but WC supports FPY', async () => {
+    const metricsNullDay: SupervisorDashboardMetrics = {
+      ...mockMetrics,
+      supportsFirstPassYield: true,
+      dayFPY: null,
+      weekFPY: 97.3,
+    };
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(metricsNullDay);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue([]);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(screen.getByText('Rolls'));
+
+    await waitFor(() => {
+      expect(screen.getByText('First Pass Yield')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('--')).toBeInTheDocument();
+    expect(screen.getByText('97.3%')).toBeInTheDocument();
   });
 });

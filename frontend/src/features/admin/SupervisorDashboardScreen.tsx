@@ -252,21 +252,25 @@ export function SupervisorDashboardScreen() {
               </div>
             </div>
 
-            {metrics.dayFPY !== null && (
+            {metrics.supportsFirstPassYield && (
               <div className={styles.kpiCard}>
                 <div className={styles.kpiHeader}>First Pass Yield</div>
                 <div className={styles.kpiBody}>
                   <div className={styles.kpiValues}>
                     <div className={styles.kpiValueGroup}>
                       <span className={styles.kpiLabel}>Day</span>
-                      <span className={metrics.dayFPY >= 95 ? styles.kpiNumberGreen : styles.kpiNumberRed}>
-                        {metrics.dayFPY}%
+                      <span className={metrics.dayFPY !== null
+                        ? (metrics.dayFPY >= 95 ? styles.kpiNumberGreen : styles.kpiNumberRed)
+                        : styles.kpiNumber}>
+                        {metrics.dayFPY !== null ? `${metrics.dayFPY}%` : '--'}
                       </span>
                     </div>
                     <div className={styles.kpiValueGroup}>
                       <span className={styles.kpiLabel}>Week</span>
-                      <span className={(metrics.weekFPY ?? 0) >= 95 ? styles.kpiNumberGreen : styles.kpiNumberRed}>
-                        {metrics.weekFPY ?? '--'}%
+                      <span className={metrics.weekFPY !== null
+                        ? ((metrics.weekFPY >= 95) ? styles.kpiNumberGreen : styles.kpiNumberRed)
+                        : styles.kpiNumber}>
+                        {metrics.weekFPY !== null ? `${metrics.weekFPY}%` : '--'}
                       </span>
                     </div>
                   </div>
@@ -274,7 +278,7 @@ export function SupervisorDashboardScreen() {
               </div>
             )}
 
-            {metrics.dayFPY !== null && (
+            {metrics.supportsFirstPassYield && (
               <div className={styles.kpiCard}>
                 <div className={styles.kpiHeader}>Total Defects</div>
                 <div className={styles.kpiBody}>

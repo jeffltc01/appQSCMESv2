@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using MESv2.Api.DTOs;
 using MESv2.Api.Services;
@@ -19,21 +20,16 @@ public class DowntimeEventsController : ControllerBase
     public async Task<ActionResult<DowntimeEventDto>> Create([FromBody] CreateDowntimeEventDto dto, CancellationToken cancellationToken)
     {
         var initiatedByUserId = GetUserId();
-        if (initiatedByUserId == Guid.Empty)
+        if (initiatedByUserId == null)
             return StatusCode(401, new { message = "User not identified." });
 
-        var result = await _downtimeService.CreateDowntimeEventAsync(dto, initiatedByUserId, cancellationToken);
+        var result = await _downtimeService.CreateDowntimeEventAsync(dto, initiatedByUserId.Value, cancellationToken);
         return StatusCode(201, result);
     }
 
-    private Guid GetUserId()
+    private Guid? GetUserId()
     {
-        if (Request.Headers.TryGetValue("Authorization", out var authHeader))
-        {
-            var token = authHeader.ToString().Replace("Bearer ", "");
-            if (Guid.TryParse(token, out var userId))
-                return userId;
-        }
-        return Guid.Empty;
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(claim, out var userId) ? userId : null;
     }
 }

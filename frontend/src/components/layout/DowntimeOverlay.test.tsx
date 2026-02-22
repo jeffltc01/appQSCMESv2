@@ -81,4 +81,30 @@ describe('DowntimeOverlay', () => {
       expect(props.onDismiss).toHaveBeenCalled();
     });
   });
+
+  it('shows error message when API call fails', async () => {
+    const { downtimeEventApi } = await import('../../api/endpoints');
+    (downtimeEventApi.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Server error'));
+
+    renderOverlay();
+
+    fireEvent.click(screen.getByText('Breakdown'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('downtime-error')).toBeInTheDocument();
+      expect(screen.getByText(/Failed to record downtime/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Breakdown')).not.toBeDisabled();
+  });
+
+  it('stops event propagation on pointerDown and touchStart', () => {
+    renderOverlay();
+    const overlay = screen.getByTestId('downtime-overlay');
+
+    const pointerEvent = new PointerEvent('pointerdown', { bubbles: true });
+    const stopSpy = vi.spyOn(pointerEvent, 'stopPropagation');
+    overlay.dispatchEvent(pointerEvent);
+    expect(stopSpy).toHaveBeenCalled();
+  });
 });

@@ -446,10 +446,22 @@ export interface TraceabilityNode {
   id: string;
   label: string;
   nodeType: string;
+  serial: string;
+  productName?: string;
+  tankSize?: number;
+  tankType?: string;
+  vendorName?: string;
+  coilNumber?: string;
+  heatNumber?: string;
+  lotNumber?: string;
+  createdAt?: string;
   children?: TraceabilityNode[];
+  events?: ManufacturingEvent[];
 }
 
 export interface ManufacturingEvent {
+  serialNumberId: string;
+  serialNumberSerial: string;
   timestamp: string;
   workCenterName: string;
   type: string;
@@ -461,7 +473,6 @@ export interface ManufacturingEvent {
 export interface SerialNumberLookup {
   serialNumber: string;
   treeNodes: TraceabilityNode[];
-  events: ManufacturingEvent[];
 }
 
 export interface SellableTankStatus {
@@ -604,6 +615,7 @@ export interface OperatorSummary {
 export interface SupervisorDashboardMetrics {
   dayCount: number;
   weekCount: number;
+  supportsFirstPassYield: boolean;
   dayFPY: number | null;
   weekFPY: number | null;
   dayDefects: number;
@@ -631,6 +643,55 @@ export interface SupervisorRecord {
   tankSize?: string;
   operatorName: string;
   annotations: ExistingAnnotation[];
+}
+
+// ---- Digital Twin ----
+
+export type StationStatusValue = 'Active' | 'Slow' | 'Idle' | 'Down';
+
+export interface StationStatus {
+  workCenterId: string;
+  name: string;
+  sequence: number;
+  wipCount: number;
+  status: StationStatusValue;
+  isBottleneck: boolean;
+  isGateCheck: boolean;
+  currentOperator?: string;
+  unitsToday: number;
+  avgCycleTimeMinutes?: number;
+  firstPassYieldPercent?: number;
+}
+
+export interface MaterialFeed {
+  workCenterName: string;
+  queueLabel: string;
+  itemCount: number;
+  feedsIntoStation: string;
+}
+
+export interface LineThroughput {
+  unitsToday: number;
+  unitsDelta: number;
+  unitsPerHour: number;
+}
+
+export interface UnitPosition {
+  serialNumber: string;
+  productName?: string;
+  currentStationName: string;
+  currentStationSequence: number;
+  enteredCurrentStationAt: string;
+  isAssembly: boolean;
+}
+
+export interface DigitalTwinSnapshot {
+  stations: StationStatus[];
+  materialFeeds: MaterialFeed[];
+  throughput: LineThroughput;
+  avgCycleTimeMinutes: number;
+  lineEfficiencyPercent: number;
+  unitTracker: UnitPosition[];
 }
 
 // ---- Downtime ----

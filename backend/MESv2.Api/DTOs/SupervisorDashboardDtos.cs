@@ -4,6 +4,7 @@ public class SupervisorDashboardMetricsDto
 {
     public int DayCount { get; set; }
     public int WeekCount { get; set; }
+    public bool SupportsFirstPassYield { get; set; }
     public decimal? DayFPY { get; set; }
     public decimal? WeekFPY { get; set; }
     public int DayDefects { get; set; }

@@ -123,6 +123,7 @@ import type {
   DowntimeReason,
   DowntimeConfig,
   DowntimeEvent,
+  DigitalTwinSnapshot,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -500,4 +501,11 @@ export const downtimeConfigApi = {
 export const downtimeEventApi = {
   create: (req: CreateDowntimeEventRequest) =>
     api.post<DowntimeEvent>('/downtime-events', req),
+};
+
+export const digitalTwinApi = {
+  getSnapshot: (productionLineId: string, plantId: string) =>
+    api.get<DigitalTwinSnapshot>(
+      `/digital-twin/${productionLineId}/snapshot?plantId=${encodeURIComponent(plantId)}`,
+    ),
 };

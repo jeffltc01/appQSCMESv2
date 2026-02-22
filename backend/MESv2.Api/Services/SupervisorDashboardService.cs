@@ -109,6 +109,7 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
         // ---- FPY & defect count ----
         var charIds = GetApplicableCharacteristicIds(dataEntryType);
+        dto.SupportsFirstPassYield = charIds is not null;
         if (charIds is not null)
         {
             var (dayFpy, dayDefects) = await ComputeFpyAsync(

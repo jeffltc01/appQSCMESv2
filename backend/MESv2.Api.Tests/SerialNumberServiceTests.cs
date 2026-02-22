@@ -130,16 +130,18 @@ public class SerialNumberServiceTests
         var root = result.TreeNodes[0];
         Assert.Contains("SELL-001", root.Label);
         Assert.Equal("sellable", root.NodeType);
+        Assert.Equal("SELL-001", root.Serial);
         Assert.Single(root.Children);
 
         var assemblyNode = root.Children[0];
         Assert.Contains("AB", assemblyNode.Label);
         Assert.Equal("assembled", assemblyNode.NodeType);
+        Assert.Equal("AB", assemblyNode.Serial);
         Assert.True(assemblyNode.Children.Count >= 3, "Should have 2 shells + at least 1 head");
     }
 
     [Fact]
-    public async Task GetLookup_SellableSN_CollectsEventsFromAllRelatedSNs()
+    public async Task GetLookup_SellableSN_CollectsPerNodeEvents()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var h = SeedFullHierarchy(db);
@@ -149,12 +151,21 @@ public class SerialNumberServiceTests
         var result = await sut.GetLookupAsync("SELL-001");
 
         Assert.NotNull(result);
-        Assert.True(result.Events.Count >= 3, "Should include events from shell, assembly, and sellable");
+        var root = result.TreeNodes[0];
 
-        var workCenterNames = result.Events.Select(e => e.WorkCenterName).ToList();
-        Assert.Contains("Long Seam", workCenterNames);
-        Assert.Contains("Fitup", workCenterNames);
-        Assert.Contains("Hydro", workCenterNames);
+        Assert.Single(root.Events);
+        Assert.Equal("Hydro", root.Events[0].WorkCenterName);
+        Assert.Equal(h.SellableSn.Id.ToString(), root.Events[0].SerialNumberId);
+
+        var assemblyNode = root.Children[0];
+        Assert.Single(assemblyNode.Events);
+        Assert.Equal("Fitup", assemblyNode.Events[0].WorkCenterName);
+
+        var shellNode = assemblyNode.Children.First(c => c.NodeType == "shell" && c.Serial == "SH-001");
+        Assert.Single(shellNode.Events);
+        Assert.Equal("Long Seam", shellNode.Events[0].WorkCenterName);
+        Assert.Equal(h.Shell1Sn.Id.ToString(), shellNode.Events[0].SerialNumberId);
+        Assert.Equal("SH-001", shellNode.Events[0].SerialNumberSerial);
     }
 
     [Fact]
@@ -188,7 +199,9 @@ public class SerialNumberServiceTests
         var result = await sut.GetLookupAsync("SELL-001");
 
         Assert.NotNull(result);
-        var inspEvent = result.Events.FirstOrDefault(e => e.Type.Contains("Long Seam"));
+        var assemblyNode = result.TreeNodes[0].Children[0];
+        var shellNode = assemblyNode.Children.First(c => c.NodeType == "shell" && c.Serial == "SH-001");
+        var inspEvent = shellNode.Events.FirstOrDefault(e => e.Type.Contains("Long Seam"));
         Assert.NotNull(inspEvent);
         Assert.Equal("Accept", inspEvent.InspectionResult);
     }
@@ -204,7 +217,17 @@ public class SerialNumberServiceTests
         var result = await sut.GetLookupAsync("SH-001");
 
         Assert.NotNull(result);
-        Assert.NotEmpty(result.Events);
+        var root = result.TreeNodes[0];
+
+        void CollectAllEvents(DTOs.TraceabilityNodeDto node, List<DTOs.ManufacturingEventDto> acc)
+        {
+            acc.AddRange(node.Events);
+            foreach (var child in node.Children) CollectAllEvents(child, acc);
+        }
+        var allEvents = new List<DTOs.ManufacturingEventDto>();
+        CollectAllEvents(root, allEvents);
+
+        Assert.NotEmpty(allEvents);
     }
 
     [Fact]
@@ -225,6 +248,7 @@ public class SerialNumberServiceTests
         Assert.NotNull(result);
         Assert.Single(result.TreeNodes);
         Assert.Contains("LONE-001", result.TreeNodes[0].Label);
+        Assert.Equal("LONE-001", result.TreeNodes[0].Serial);
     }
 
     private static readonly Guid PlateProductId = Guid.Parse("b1011111-1111-1111-1111-111111111111");
@@ -267,8 +291,9 @@ public class SerialNumberServiceTests
         Assert.Single(shellNode.Children);
 
         var plateNode = shellNode.Children[0];
-        Assert.Contains("Heat H123 Coil C456", plateNode.Label);
         Assert.Equal("plate", plateNode.NodeType);
+        Assert.Equal("H123", plateNode.HeatNumber);
+        Assert.Equal("C456", plateNode.CoilNumber);
     }
 
     [Fact]
@@ -300,9 +325,45 @@ public class SerialNumberServiceTests
         Assert.NotNull(result);
         var assemblyNode = result.TreeNodes[0].Children[0];
         var shellWithPlate = assemblyNode.Children.FirstOrDefault(c =>
-            c.NodeType == "shell" && c.Label.Contains("SH-001"));
+            c.NodeType == "shell" && c.Serial == "SH-001");
         Assert.NotNull(shellWithPlate);
         Assert.Single(shellWithPlate.Children);
-        Assert.Contains("Heat HX Coil CX", shellWithPlate.Children[0].Label);
+        Assert.Equal("HX", shellWithPlate.Children[0].HeatNumber);
+    }
+
+    [Fact]
+    public async Task GetLookup_EnrichedNodeFields_ArePopulated()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var h = SeedFullHierarchy(db);
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SELL-001");
+
+        Assert.NotNull(result);
+        var root = result.TreeNodes[0];
+        Assert.Equal("SELL-001", root.Serial);
+        Assert.NotNull(root.TankSize);
+        Assert.NotNull(root.CreatedAt);
+
+        var assemblyNode = root.Children[0];
+        Assert.Equal("AB", assemblyNode.Serial);
+        Assert.NotNull(assemblyNode.TankSize);
+
+        var shells = assemblyNode.Children.Where(c => c.NodeType == "shell").ToList();
+        Assert.True(shells.Count >= 2);
+        foreach (var shell in shells)
+        {
+            Assert.False(string.IsNullOrEmpty(shell.Serial));
+            Assert.NotNull(shell.CreatedAt);
+        }
+
+        var heads = assemblyNode.Children.Where(c => c.NodeType is "leftHead" or "rightHead").ToList();
+        Assert.True(heads.Count >= 1);
+        foreach (var head in heads)
+        {
+            Assert.False(string.IsNullOrEmpty(head.HeatNumber));
+        }
     }
 }

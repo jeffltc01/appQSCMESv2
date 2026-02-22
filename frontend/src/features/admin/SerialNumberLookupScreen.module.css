@@ -1,97 +1,20 @@
+/* ── Controls bar ── */
 .controls {
   display: flex;
   gap: 12px;
   align-items: flex-end;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 10px;
+  border: 1px solid #dfe2ed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .serialInput {
   flex: 1;
-  min-width: 200px;
-}
-
-.detailsToggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  font-size: 14px;
-}
-
-.treeContainer {
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 12px;
-  background: #f8f9fa;
-  min-height: 120px;
-  margin-bottom: 16px;
-}
-
-.treeNode {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.treeNode:hover {
-  background: #e9ecef;
-  border-radius: 4px;
-}
-
-.treeNodeSelected {
-  background: #d0ebff;
-  border-radius: 4px;
-}
-
-.treeChevron {
-  width: 20px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.treeChildren {
-  padding-left: 24px;
-}
-
-.eventsTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.eventsTable th {
-  background: #f8f9fa;
-  padding: 10px 12px;
-  text-align: left;
-  font-weight: 600;
-  color: #495057;
-  border-bottom: 2px solid #dee2e6;
-}
-
-.eventsTable td {
-  padding: 8px 12px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.eventsTable tr:hover td {
-  background: #f8f9fa;
-}
-
-.emptyTree {
-  text-align: center;
-  color: #868e96;
-  padding: 24px;
-  font-style: italic;
+  min-width: 220px;
 }
 
 .fieldGroup {
@@ -101,13 +24,558 @@
 }
 
 .fieldLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: #495057;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .errorMsg {
-  color: #c92a2a;
+  color: #dc3545;
   font-size: 14px;
-  padding: 8px 0;
+  padding: 12px 16px;
+  background: #fff5f5;
+  border-left: 4px solid #dc3545;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(220, 53, 69, 0.08);
+}
+
+.emptyState {
+  text-align: center;
+  color: #868e96;
+  padding: 48px 24px;
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* ── Genealogy container ── */
+.genealogyContainer {
+  background: #eef0f4;
+  border-radius: 12px;
+  padding: 24px;
+  min-height: 200px;
+  position: relative;
+  overflow-x: auto;
+  overflow-y: visible;
+  border: 1px solid #dfe2ed;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Section title ── */
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #2b3b84;
+  margin-bottom: 16px;
+}
+
+/* ── Legend ── */
+.legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 8px 16px;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border: 1px solid #dfe2ed;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #495057;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+/* ── Main horizontal flow ── */
+.flowRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 80px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 12px 0 260px;
+  scrollbar-width: thin;
+  scrollbar-color: #c4c9d4 transparent;
+}
+
+.flowRow::-webkit-scrollbar {
+  height: 6px;
+}
+
+.flowRow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.flowRow::-webkit-scrollbar-thumb {
+  background: #c4c9d4;
+  border-radius: 3px;
+}
+
+/* ── Flow column: one main card + its sub-components ── */
+.flowColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Horizontal connector line: card right edge → arrowhead base */
+.flowColumnWithArrow::after {
+  content: '';
+  position: absolute;
+  top: 78px;
+  left: 100%;
+  width: 66px;
+  height: 4px;
+  background: #343a40;
+}
+
+/* Arrowhead: 14px wide triangle, tip touches next card's left edge */
+.flowColumnWithArrow::before {
+  content: '';
+  position: absolute;
+  top: 80px;
+  left: calc(100% + 66px);
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 14px solid #343a40;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  z-index: 2;
+}
+
+/* ── Sub-components area (absolute so they don't widen the column) ── */
+.subComponentsArea {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+}
+
+/* Each sub-component item: arrow on top, card below */
+.subItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Vertical arrow pointing UP from sub-component toward parent */
+.subArrow {
+  display: flex;
+  justify-content: center;
+  height: 54px;
+  position: relative;
+}
+
+.subArrowLine {
+  width: 4px;
+  height: 100%;
+  background: #343a40;
+  position: relative;
+}
+
+/* Upward-pointing arrowhead */
+.subArrowLine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 14px solid #343a40;
+}
+
+/* ── Hero cards — main flow ── */
+.heroCard {
+  background: linear-gradient(135deg, #2b3b84 0%, #1e2d6a 100%);
+  padding: 18px 20px 14px;
+  width: 200px;
+  min-height: 160px;
+  cursor: pointer;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+  user-select: none;
+  position: relative;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  box-shadow:
+    0 4px 12px rgba(43, 59, 132, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.heroCard:hover {
+  box-shadow:
+    0 8px 24px rgba(43, 59, 132, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+}
+
+.heroCardExpanded {
+  border-color: #28a745;
+  box-shadow:
+    0 8px 24px rgba(40, 167, 69, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Small / sub-component cards ── */
+.heroCardSmall {
+  width: 160px;
+  min-height: auto;
+  padding: 12px 14px 10px;
+  background: #ffffff;
+  border: 1px solid #dfe2ed;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.heroCardSmall:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.heroCardSmall .cardSerial {
+  font-size: 13px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.heroCardSmall .cardTypeBadge {
+  font-size: 9px;
+}
+
+.heroCardSmall .cardInfo {
+  color: #6c757d;
+}
+
+.heroCardSmall .cardExpandHint {
+  color: #adb5bd;
+}
+
+.heroCardSmall:hover .cardExpandHint {
+  color: #2b3b84;
+}
+
+/* Node-type colored left accent on sub-component (small) cards */
+.heroCardSmall.cardSellable { border-left: 4px solid #28a745; }
+.heroCardSmall.cardAssembled { border-left: 4px solid #606ca3; }
+.heroCardSmall.cardShell { border-left: 4px solid #e41e2f; }
+.heroCardSmall.cardPlate { border-left: 4px solid #ffc107; }
+.heroCardSmall.cardHead { border-left: 4px solid #ba68c8; }
+.heroCardSmall.cardValve { border-left: 4px solid #17a2b8; }
+.heroCardSmall.cardDefault { border-left: 4px solid #adb5bd; }
+
+/* Sellable (final unit) gets a green highlight border */
+.heroCard.cardSellable:not(.heroCardSmall) {
+  border: 2px solid #28a745;
+  box-shadow:
+    0 4px 12px rgba(43, 59, 132, 0.3),
+    0 0 0 3px rgba(40, 167, 69, 0.12);
+}
+
+/* Main cards all use navy — no separate background tints */
+.cardSellable {}
+.cardAssembled {}
+.cardShell {}
+.cardPlate {}
+.cardHead {}
+.cardValve {}
+.cardDefault {}
+
+/* ── Type badge — colored pill ── */
+.cardTypeBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  margin-bottom: 10px;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  align-self: flex-start;
+}
+
+.heroCardSmall .cardTypeBadge {
+  color: #495057;
+  background: #eef0f4;
+}
+
+/* ── Card content ── */
+.cardSerial {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+  word-break: break-all;
+  letter-spacing: 0.4px;
+  line-height: 1.3;
+}
+
+.cardInfo {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+  flex: 1;
+}
+
+.cardInfo span {
+  display: block;
+}
+
+/* Event count badge at bottom of card */
+.cardEventBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #28a745;
+  color: #ffffff;
+  align-self: flex-start;
+}
+
+.cardEventBadge.noEvents {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.heroCardSmall .cardEventBadge {
+  background: #eef0f4;
+  color: #6c757d;
+  font-size: 10px;
+  padding: 2px 8px;
+}
+
+.cardExpandHint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 8px;
+  text-align: right;
+  transition: color 0.2s ease;
+}
+
+.heroCard:hover .cardExpandHint {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Expand-in-place detail panel ── */
+.detailPanel {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.detailPanelOpen {
+  max-height: 600px;
+  opacity: 1;
+}
+
+.detailContent {
+  background: #ffffff;
+  border: 1px solid #dfe2ed;
+  border-top: none;
+  padding: 16px 20px;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  width: 200px;
+}
+
+.detailContentSmall {
+  padding: 12px 14px;
+  width: 160px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.detailLabel {
+  font-weight: 700;
+  color: #6c757d;
+  font-size: 11px;
+}
+
+.detailValue {
+  color: #212529;
+  font-weight: 500;
+}
+
+/* ── Per-card events mini-table ── */
+.eventsSection {
+  margin-top: 12px;
+  border-top: 1px solid #eef0f4;
+  padding-top: 12px;
+}
+
+.eventsSectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2b3b84;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.eventsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  border: 1px solid #eef0f4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.eventsTable th {
+  background: #f8f9fa;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 700;
+  color: #495057;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 2px solid #dfe2ed;
+}
+
+.eventsTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #eef0f4;
+  color: #212529;
+}
+
+.eventsTable tr:hover td {
+  background: #f0f4ff;
+}
+
+.noEventsText {
+  font-size: 12px;
+  color: #adb5bd;
+  font-style: italic;
+}
+
+.collapseBtn {
+  background: none;
+  border: 1px solid #dfe2ed;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  margin-top: 8px;
+  float: right;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.collapseBtn:hover {
+  background: #eef0f4;
+  color: #212529;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .flowRow {
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding-bottom: 12px;
+  }
+
+  .flowColumnWithArrow::after {
+    top: auto;
+    left: 50%;
+    bottom: -44px;
+    width: 4px;
+    height: 40px;
+    transform: translateX(-50%);
+  }
+
+  .flowColumnWithArrow::before {
+    top: auto;
+    left: 50%;
+    bottom: -56px;
+    transform: translateX(-50%);
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 14px solid #343a40;
+    border-bottom: none;
+  }
+
+  .flowColumn {
+    margin-bottom: 60px;
+  }
+
+  .flowColumnWithArrow {
+    margin-bottom: 60px;
+  }
+
+  .heroCard {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .heroCardSmall {
+    width: 100%;
+    max-width: 260px;
+  }
+
+  .detailContent {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .detailContentSmall {
+    width: 100%;
+    max-width: 260px;
+  }
+
+  .subComponentsArea {
+    position: static;
+    transform: none;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .subArrow {
+    height: 24px;
+  }
+
+  .controls {
+    padding: 12px;
+  }
 }

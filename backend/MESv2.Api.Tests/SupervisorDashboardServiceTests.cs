@@ -88,6 +88,7 @@ public class SupervisorDashboardServiceTests
         var result = await sut.GetMetricsAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate);
 
+        Assert.True(result.SupportsFirstPassYield);
         Assert.NotNull(result.DayFPY);
         Assert.Equal(100.0m, result.DayFPY);
         Assert.Equal(0, result.DayDefects);
@@ -135,6 +136,7 @@ public class SupervisorDashboardServiceTests
         var result = await sut.GetMetricsAsync(
             TestHelpers.wcHydroId, TestHelpers.PlantPlt1Id, TestDate);
 
+        Assert.False(result.SupportsFirstPassYield);
         Assert.Null(result.DayFPY);
         Assert.Null(result.WeekFPY);
     }
@@ -259,6 +261,20 @@ public class SupervisorDashboardServiceTests
 
         Assert.Equal(0, secondResult.AnnotationsCreated);
         Assert.Single(db.Annotations.Where(a => a.ProductionRecordId == recId && a.AnnotationTypeId == NoteAnnotationTypeId));
+    }
+
+    [Fact]
+    public async Task GetMetrics_SupportsFirstPassYield_TrueForRolls_EvenWithNoRecords()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var result = await sut.GetMetricsAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate);
+
+        Assert.True(result.SupportsFirstPassYield);
+        Assert.Null(result.DayFPY);
+        Assert.Null(result.WeekFPY);
     }
 
     [Fact]
