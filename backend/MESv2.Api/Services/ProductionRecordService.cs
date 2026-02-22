@@ -26,7 +26,8 @@ public class ProductionRecordService : IProductionRecordService
         if (!string.IsNullOrEmpty(dto.ShellSize) && int.TryParse(dto.ShellSize, out var parsedTankSize))
         {
             var product = await _db.Products
-                .FirstOrDefaultAsync(p => p.TankSize == parsedTankSize, cancellationToken);
+                .FirstOrDefaultAsync(p => p.TankSize == parsedTankSize
+                    && p.ProductType!.SystemTypeName == "shell", cancellationToken);
             resolvedProductId = product?.Id;
         }
 
@@ -81,6 +82,34 @@ public class ProductionRecordService : IProductionRecordService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        if (!string.IsNullOrEmpty(dto.HeatNumber) && !string.IsNullOrEmpty(dto.CoilNumber))
+        {
+            var plateSerial = $"Heat {dto.HeatNumber} Coil {dto.CoilNumber}";
+            var plateSn = await _db.SerialNumbers
+                .FirstOrDefaultAsync(s => s.Serial == plateSerial, cancellationToken);
+            if (plateSn != null)
+            {
+                var alreadyLinked = await _db.TraceabilityLogs
+                    .AnyAsync(t => t.FromSerialNumberId == plateSn.Id
+                        && t.ToSerialNumberId == serial.Id
+                        && t.Relationship == "plate", cancellationToken);
+                if (!alreadyLinked)
+                {
+                    _db.TraceabilityLogs.Add(new TraceabilityLog
+                    {
+                        Id = Guid.NewGuid(),
+                        FromSerialNumberId = plateSn.Id,
+                        ToSerialNumberId = serial.Id,
+                        ProductionRecordId = record.Id,
+                        Relationship = "plate",
+                        Quantity = 1,
+                        Timestamp = DateTime.UtcNow
+                    });
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
 
         return new CreateProductionRecordResponseDto
         {

@@ -78,6 +78,8 @@ public class ProductsController : ControllerBase
             ProductTypeId = dto.ProductTypeId
         };
         _db.Products.Add(product);
+
+        await SyncProductPlantsAsync(product.Id, dto.SiteNumbers, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         var pt = await _db.ProductTypes.FindAsync(new object[] { dto.ProductTypeId }, cancellationToken);
@@ -111,6 +113,9 @@ public class ProductsController : ControllerBase
         product.ProductTypeId = dto.ProductTypeId;
         product.IsActive = dto.IsActive;
 
+        var existing = await _db.ProductPlants.Where(pp => pp.ProductId == id).ToListAsync(cancellationToken);
+        _db.ProductPlants.RemoveRange(existing);
+        await SyncProductPlantsAsync(id, dto.SiteNumbers, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         var pt = await _db.ProductTypes.FindAsync(new object[] { dto.ProductTypeId }, cancellationToken);
@@ -149,5 +154,20 @@ public class ProductsController : ControllerBase
             ProductTypeName = product.ProductType?.Name ?? "",
             IsActive = product.IsActive
         });
+    }
+
+    private async Task SyncProductPlantsAsync(Guid productId, string? siteNumbers, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(siteNumbers)) return;
+
+        var codes = siteNumbers.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var plants = await _db.Plants.Where(p => codes.Contains(p.Code)).ToListAsync(ct);
+
+        _db.ProductPlants.AddRange(plants.Select(pl => new ProductPlant
+        {
+            Id = Guid.NewGuid(),
+            ProductId = productId,
+            PlantId = pl.Id
+        }));
     }
 }

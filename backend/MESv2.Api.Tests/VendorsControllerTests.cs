@@ -87,4 +87,60 @@ public class VendorsControllerTests
         Assert.DoesNotContain(list, v => v.Name == "Cleveland Mill");
         Assert.DoesNotContain(list, v => v.Name == "Multi Mill");
     }
+
+    [Fact]
+    public async Task CreateVendor_PopulatesVendorPlants()
+    {
+        var controller = CreateController(out var db);
+
+        var dto = new CreateVendorDto
+        {
+            Name = "Sync Test Mill",
+            VendorType = "mill",
+            PlantIds = $"{Plt1},{Plt3}"
+        };
+
+        var result = await controller.CreateVendor(dto, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var created = Assert.IsType<AdminVendorDto>(ok.Value);
+
+        var vpRows = db.VendorPlants.Where(vp => vp.VendorId == created.Id).ToList();
+        Assert.Equal(2, vpRows.Count);
+        Assert.Contains(vpRows, vp => vp.PlantId == Plt1);
+        Assert.Contains(vpRows, vp => vp.PlantId == Plt3);
+    }
+
+    [Fact]
+    public async Task UpdateVendor_ReplacesVendorPlants()
+    {
+        var controller = CreateController(out var db);
+
+        var vendor = new Vendor
+        {
+            Id = Guid.NewGuid(),
+            Name = "Update Sync Mill",
+            VendorType = "mill",
+            PlantIds = Plt1.ToString(),
+            IsActive = true
+        };
+        db.Vendors.Add(vendor);
+        db.VendorPlants.Add(new VendorPlant { Id = Guid.NewGuid(), VendorId = vendor.Id, PlantId = Plt1 });
+        db.SaveChanges();
+
+        var dto = new UpdateVendorDto
+        {
+            Name = "Update Sync Mill",
+            VendorType = "mill",
+            PlantIds = $"{Plt2},{Plt3}",
+            IsActive = true
+        };
+
+        await controller.UpdateVendor(vendor.Id, dto, CancellationToken.None);
+
+        var vpRows = db.VendorPlants.Where(vp => vp.VendorId == vendor.Id).ToList();
+        Assert.Equal(2, vpRows.Count);
+        Assert.DoesNotContain(vpRows, vp => vp.PlantId == Plt1);
+        Assert.Contains(vpRows, vp => vp.PlantId == Plt2);
+        Assert.Contains(vpRows, vp => vp.PlantId == Plt3);
+    }
 }

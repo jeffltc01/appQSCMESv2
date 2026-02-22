@@ -112,10 +112,10 @@ export const workCenterApi = {
     api.post<Welder>(`/workcenters/${wcId}/welders`, { employeeNumber }),
   removeWelder: (wcId: string, userId: string) =>
     api.delete<void>(`/workcenters/${wcId}/welders/${userId}`),
-  getHistory: (wcId: string, date: string, plantId: string) =>
-    api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&date=${date}&limit=5`),
-  getQueueTransactions: (wcId: string, limit = 5) =>
-    api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}`),
+  getHistory: (wcId: string, date: string, plantId: string, assetId?: string) =>
+    api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&date=${date}&limit=5${assetId ? `&assetId=${assetId}` : ''}`),
+  getQueueTransactions: (wcId: string, plantId?: string, limit = 5) =>
+    api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}${plantId ? `&plantId=${plantId}` : ''}`),
   getMaterialQueue: (wcId: string, type?: string) =>
     api.get<MaterialQueueItem[]>(
       `/workcenters/${wcId}/material-queue${type ? `?type=${type}` : ''}`,

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Models;
 
 namespace MESv2.Api.Data;
@@ -218,6 +219,38 @@ public static class DbInitializer
             new Vendor { Id = Guid.Parse("53000002-0000-0000-0000-000000000002"), Name = "Compco Industries", VendorType = "head", PlantIds = $"{plant1Id},{plant2Id},{plant3Id}", IsActive = true }
         );
 
+        var plantCodeMap = new Dictionary<string, Guid>
+        {
+            ["000"] = plant1Id,
+            ["600"] = plant2Id,
+            ["700"] = plant3Id
+        };
+        var ppList = new List<ProductPlant>();
+        foreach (var product in context.ChangeTracker.Entries<Product>()
+            .Where(e => e.State == EntityState.Added && !string.IsNullOrEmpty(e.Entity.SiteNumbers))
+            .Select(e => e.Entity))
+        {
+            foreach (var code in product.SiteNumbers!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (plantCodeMap.TryGetValue(code, out var pid))
+                    ppList.Add(new ProductPlant { Id = Guid.NewGuid(), ProductId = product.Id, PlantId = pid });
+            }
+        }
+        context.ProductPlants.AddRange(ppList);
+
+        var vpList = new List<VendorPlant>();
+        foreach (var vendor in context.ChangeTracker.Entries<Vendor>()
+            .Where(e => e.State == EntityState.Added && !string.IsNullOrEmpty(e.Entity.PlantIds))
+            .Select(e => e.Entity))
+        {
+            foreach (var seg in vendor.PlantIds!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (Guid.TryParse(seg, out var pid))
+                    vpList.Add(new VendorPlant { Id = Guid.NewGuid(), VendorId = vendor.Id, PlantId = pid });
+            }
+        }
+        context.VendorPlants.AddRange(vpList);
+
         context.PlantGears.AddRange(
             new PlantGear { Id = Guid.Parse("61111111-1111-1111-1111-111111111111"), Name = "Gear 1", Level = 1, PlantId = plant1Id },
             new PlantGear { Id = Guid.Parse("61111111-1111-1111-1111-111111111112"), Name = "Gear 2", Level = 2, PlantId = plant1Id },
@@ -362,5 +395,46 @@ public static class DbInitializer
         );
 
         context.SaveChanges();
+    }
+
+    /// <summary>
+    /// One-time sync: populates ProductPlant/VendorPlant rows for any Products or Vendors
+    /// that have string-based site assignments but no corresponding join-table rows.
+    /// Safe to call on every startup; no-ops when tables are already in sync.
+    /// </summary>
+    public static void SyncJoinTables(MesDbContext context)
+    {
+        var plantsByCode = context.Plants.ToDictionary(p => p.Code, p => p.Id);
+
+        var productsToSync = context.Products
+            .Where(p => p.SiteNumbers != null && p.SiteNumbers != ""
+                && !context.ProductPlants.Any(pp => pp.ProductId == p.Id))
+            .ToList();
+
+        foreach (var product in productsToSync)
+        {
+            foreach (var code in product.SiteNumbers!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (plantsByCode.TryGetValue(code, out var plantId))
+                    context.ProductPlants.Add(new ProductPlant { Id = Guid.NewGuid(), ProductId = product.Id, PlantId = plantId });
+            }
+        }
+
+        var vendorsToSync = context.Vendors
+            .Where(v => v.PlantIds != null && v.PlantIds != ""
+                && !context.VendorPlants.Any(vp => vp.VendorId == v.Id))
+            .ToList();
+
+        foreach (var vendor in vendorsToSync)
+        {
+            foreach (var seg in vendor.PlantIds!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (Guid.TryParse(seg, out var plantId))
+                    context.VendorPlants.Add(new VendorPlant { Id = Guid.NewGuid(), VendorId = vendor.Id, PlantId = plantId });
+            }
+        }
+
+        if (context.ChangeTracker.HasChanges())
+            context.SaveChanges();
     }
 }

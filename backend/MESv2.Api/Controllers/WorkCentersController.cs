@@ -62,16 +62,16 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] string date, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] string date, [FromQuery] int limit = 5, [FromQuery] Guid? assetId = null, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetHistoryAsync(id, plantId, date, limit, cancellationToken);
+        var result = await _workCenterService.GetHistoryAsync(id, plantId, date, limit, assetId, cancellationToken);
         return Ok(result);
     }
 
     [HttpGet("{id:guid}/queue-transactions")]
-    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] int limit = 5, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] int limit = 5, [FromQuery] Guid? plantId = null, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetQueueTransactionsAsync(id, limit, cancellationToken);
+        var result = await _workCenterService.GetQueueTransactionsAsync(id, limit, plantId, cancellationToken);
         return Ok(result);
     }
 

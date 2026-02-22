@@ -226,4 +226,83 @@ public class SerialNumberServiceTests
         Assert.Single(result.TreeNodes);
         Assert.Contains("LONE-001", result.TreeNodes[0].Label);
     }
+
+    private static readonly Guid PlateProductId = Guid.Parse("b1011111-1111-1111-1111-111111111111");
+
+    [Fact]
+    public async Task GetLookup_ShellWithPlate_ShowsPlateChild()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var plateSn = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "Heat H123 Coil C456",
+            ProductId = PlateProductId, PlantId = TestHelpers.PlantPlt1Id,
+            HeatNumber = "H123", CoilNumber = "C456", CreatedAt = DateTime.UtcNow
+        };
+        var shellSn = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "SH-PLT-001",
+            ProductId = ShellProductId, PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.AddRange(plateSn, shellSn);
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = plateSn.Id,
+            ToSerialNumberId = shellSn.Id,
+            Relationship = "plate",
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SH-PLT-001");
+
+        Assert.NotNull(result);
+        Assert.Single(result.TreeNodes);
+
+        var shellNode = result.TreeNodes[0];
+        Assert.Contains("SH-PLT-001", shellNode.Label);
+        Assert.Single(shellNode.Children);
+
+        var plateNode = shellNode.Children[0];
+        Assert.Contains("Heat H123 Coil C456", plateNode.Label);
+        Assert.Equal("plate", plateNode.NodeType);
+    }
+
+    [Fact]
+    public async Task GetLookup_SellableTree_ShellsShowPlateChildren()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var h = SeedFullHierarchy(db);
+
+        var plateSn = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "Heat HX Coil CX",
+            ProductId = PlateProductId, PlantId = TestHelpers.PlantPlt1Id,
+            HeatNumber = "HX", CoilNumber = "CX", CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(plateSn);
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = plateSn.Id,
+            ToSerialNumberId = h.Shell1Sn.Id,
+            Relationship = "plate",
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SELL-001");
+
+        Assert.NotNull(result);
+        var assemblyNode = result.TreeNodes[0].Children[0];
+        var shellWithPlate = assemblyNode.Children.FirstOrDefault(c =>
+            c.NodeType == "shell" && c.Label.Contains("SH-001"));
+        Assert.NotNull(shellWithPlate);
+        Assert.Single(shellWithPlate.Children);
+        Assert.Contains("Heat HX Coil CX", shellWithPlate.Children[0].Label);
+    }
 }

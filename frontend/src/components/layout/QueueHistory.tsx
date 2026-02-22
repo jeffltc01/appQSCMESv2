@@ -6,6 +6,7 @@ interface QueueHistoryProps {
 }
 
 export function QueueHistory({ transactions }: QueueHistoryProps) {
+  const added = transactions.filter((tx) => tx.action === 'added');
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -18,10 +19,10 @@ export function QueueHistory({ transactions }: QueueHistoryProps) {
       </div>
 
       <div className={styles.tableBody}>
-        {transactions.length === 0 ? (
+        {added.length === 0 ? (
           <div className={styles.noRecords}>No recent activity</div>
         ) : (
-          transactions.map((tx) => {
+          added.map((tx) => {
             const dt = new Date(tx.timestamp);
             const dateStr = dt.toLocaleDateString('en-US', {
               month: 'numeric',

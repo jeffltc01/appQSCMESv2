@@ -109,6 +109,8 @@ using (var scope = app.Services.CreateScope())
         DbInitializer.Seed(context);
     else
         DbInitializer.SeedReferenceData(context);
+
+    DbInitializer.SyncJoinTables(context);
 }
 
 // --- Global exception handler (non-Development) ---

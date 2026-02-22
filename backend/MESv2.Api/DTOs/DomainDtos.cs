@@ -60,7 +60,11 @@ public class MaterialQueueItemDto
     public string? ShellSize { get; set; }
     public string HeatNumber { get; set; } = string.Empty;
     public string CoilNumber { get; set; } = string.Empty;
+    public string? LotNumber { get; set; }
     public int Quantity { get; set; }
+    public Guid? ProductId { get; set; }
+    public Guid? VendorMillId { get; set; }
+    public Guid? VendorProcessorId { get; set; }
     public string? CardId { get; set; }
     public string? CardColor { get; set; }
     public DateTime CreatedAt { get; set; }

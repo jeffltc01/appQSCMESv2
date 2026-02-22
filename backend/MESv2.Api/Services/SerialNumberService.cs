@@ -105,12 +105,16 @@ public class SerialNumberService : ISerialNumberService
             if (upResult != null)
                 treeNodes.Add(upResult);
             else
-                treeNodes.Add(new TraceabilityNodeDto
+            {
+                var standaloneNode = new TraceabilityNodeDto
                 {
                     Id = sn.Id.ToString(),
                     Label = $"{serial} ({sn.Product?.TankType ?? "Unknown"})",
-                    NodeType = "serial"
-                });
+                    NodeType = systemType ?? "serial"
+                };
+                await AddPlateChildren(standaloneNode, sn.Id, allSnIds, cancellationToken);
+                treeNodes.Add(standaloneNode);
+            }
         }
 
         var events = await CollectEvents(allSnIds, cancellationToken);
@@ -178,12 +182,17 @@ public class SerialNumberService : ISerialNumberService
                 if (childSn != null)
                 {
                     allSnIds.Add(childSn.Id);
-                    assemblyNode.Children.Add(new TraceabilityNodeDto
+                    var childNode = new TraceabilityNodeDto
                     {
                         Id = childSn.Id.ToString(),
                         Label = $"{childSn.Serial} ({childSn.Product?.TankType ?? ""})",
                         NodeType = log.Relationship ?? "component"
-                    });
+                    };
+
+                    if (log.Relationship == "shell")
+                        await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
+
+                    assemblyNode.Children.Add(childNode);
                 }
             }
             else if (!string.IsNullOrEmpty(log.TankLocation))
@@ -245,6 +254,31 @@ public class SerialNumberService : ISerialNumberService
         }
 
         return null;
+    }
+
+    private async Task AddPlateChildren(TraceabilityNodeDto shellNode, Guid shellId,
+        HashSet<Guid> allSnIds, CancellationToken ct)
+    {
+        var plateLogs = await _db.TraceabilityLogs
+            .Where(t => t.ToSerialNumberId == shellId && t.Relationship == "plate" && t.FromSerialNumberId != null)
+            .ToListAsync(ct);
+
+        foreach (var log in plateLogs)
+        {
+            var plateSn = await _db.SerialNumbers
+                .Include(s => s.Product)
+                .FirstOrDefaultAsync(s => s.Id == log.FromSerialNumberId!.Value, ct);
+            if (plateSn != null)
+            {
+                allSnIds.Add(plateSn.Id);
+                shellNode.Children.Add(new TraceabilityNodeDto
+                {
+                    Id = plateSn.Id.ToString(),
+                    Label = $"{plateSn.Serial} ({plateSn.Product?.TankType ?? "Plate"})",
+                    NodeType = "plate"
+                });
+            }
+        }
     }
 
     private async Task<List<ManufacturingEventDto>> CollectEvents(

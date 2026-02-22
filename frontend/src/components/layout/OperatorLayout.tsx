@@ -8,7 +8,7 @@ import { useBarcode } from '../../hooks/useBarcode.ts';
 import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import type { Welder, WCHistoryData, QueueTransaction } from '../../types/domain.ts';
-import { workCenterApi, adminWorkCenterApi } from '../../api/endpoints.ts';
+import { workCenterApi, adminWorkCenterApi, adminPlantGearApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
 import { BottomBar } from './BottomBar.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
@@ -56,6 +56,7 @@ export function OperatorLayout() {
   const barcodeHandlerRef = useRef<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
   const [historyData, setHistoryData] = useState<WCHistoryData>({ dayCount: 0, recentRecords: [] });
   const [queueTransactions, setQueueTransactions] = useState<QueueTransaction[]>([]);
+  const [currentGearLevel, setCurrentGearLevel] = useState<number | null>(null);
   const [welderGateEmpNo, setWelderGateEmpNo] = useState('');
   const [welderGateError, setWelderGateError] = useState('');
   const [welderGateLoading, setWelderGateLoading] = useState(false);
@@ -73,10 +74,10 @@ export function OperatorLayout() {
   const loadQueueTransactions = useCallback(async () => {
     if (!queueTxnWCId) return;
     try {
-      const txns = await workCenterApi.getQueueTransactions(queueTxnWCId);
+      const txns = await workCenterApi.getQueueTransactions(queueTxnWCId, user?.defaultSiteId);
       setQueueTransactions(txns);
     } catch { /* keep stale */ }
-  }, [queueTxnWCId]);
+  }, [queueTxnWCId, user?.defaultSiteId]);
 
   useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
@@ -92,6 +93,16 @@ export function OperatorLayout() {
     if (!cache?.cachedWorkCenterId) return;
     loadNumberOfWelders();
   }, [cache?.cachedWorkCenterId]);
+
+  useEffect(() => {
+    if (!user?.defaultSiteId) return;
+    adminPlantGearApi.getAll()
+      .then((plants) => {
+        const mine = plants.find((p) => p.plantId === user.defaultSiteId);
+        setCurrentGearLevel(mine?.currentGearLevel ?? null);
+      })
+      .catch(() => { /* keep null */ });
+  }, [user?.defaultSiteId]);
 
   useEffect(() => {
     if (user && isWelder && cache?.cachedWorkCenterId) {
@@ -133,12 +144,12 @@ export function OperatorLayout() {
     try {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, today, user.defaultSiteId);
+      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, today, user.defaultSiteId, cache.cachedAssetId || undefined);
       setHistoryData(data);
     } catch {
       // Keep stale data
     }
-  }, [cache?.cachedWorkCenterId, user?.defaultSiteId]);
+  }, [cache?.cachedWorkCenterId, user?.defaultSiteId, cache?.cachedAssetId]);
 
   const loadNumberOfWelders = useCallback(async () => {
     if (!cache?.cachedWorkCenterId) return;
@@ -310,7 +321,7 @@ export function OperatorLayout() {
       />
 
       <div className={styles.middle}>
-        <LeftPanel externalInput={externalInput} />
+        <LeftPanel externalInput={externalInput} currentGearLevel={currentGearLevel} />
 
         <main
           className={styles.content}

@@ -59,6 +59,7 @@ public class VendorsController : ControllerBase
             IsActive = true
         };
         _db.Vendors.Add(vendor);
+        SyncVendorPlants(vendor.Id, dto.PlantIds);
         await _db.SaveChangesAsync(cancellationToken);
         return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, PlantIds = vendor.PlantIds, IsActive = vendor.IsActive });
     }
@@ -72,6 +73,10 @@ public class VendorsController : ControllerBase
         vendor.VendorType = dto.VendorType;
         vendor.PlantIds = dto.PlantIds;
         vendor.IsActive = dto.IsActive;
+
+        var existing = _db.VendorPlants.Where(vp => vp.VendorId == id);
+        _db.VendorPlants.RemoveRange(existing);
+        SyncVendorPlants(id, dto.PlantIds);
         await _db.SaveChangesAsync(cancellationToken);
         return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, PlantIds = vendor.PlantIds, IsActive = vendor.IsActive });
     }
@@ -84,5 +89,22 @@ public class VendorsController : ControllerBase
         vendor.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
         return Ok(new AdminVendorDto { Id = vendor.Id, Name = vendor.Name, VendorType = vendor.VendorType, PlantIds = vendor.PlantIds, IsActive = vendor.IsActive });
+    }
+
+    private void SyncVendorPlants(Guid vendorId, string? plantIds)
+    {
+        if (string.IsNullOrWhiteSpace(plantIds)) return;
+
+        var guids = plantIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(s => Guid.TryParse(s, out _))
+            .Select(Guid.Parse)
+            .ToList();
+
+        _db.VendorPlants.AddRange(guids.Select(g => new VendorPlant
+        {
+            Id = Guid.NewGuid(),
+            VendorId = vendorId,
+            PlantId = g
+        }));
     }
 }

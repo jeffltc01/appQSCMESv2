@@ -131,7 +131,11 @@ export interface MaterialQueueItem {
   shellSize?: string;
   heatNumber: string;
   coilNumber: string;
+  lotNumber?: string;
   quantity: number;
+  productId?: string;
+  vendorMillId?: string;
+  vendorProcessorId?: string;
   cardId?: string;
   cardColor?: string;
   createdAt?: string;

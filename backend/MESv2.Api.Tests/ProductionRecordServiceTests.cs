@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.DTOs;
+using MESv2.Api.Models;
 using MESv2.Api.Services;
 
 namespace MESv2.Api.Tests;
@@ -139,5 +140,69 @@ public class ProductionRecordServiceTests
 
         Assert.NotNull(result.Warning);
         Assert.Contains("Duplicate", result.Warning, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Create_WithShellSize_ResolvesShellProduct()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new ProductionRecordService(db);
+        var dto = new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-SHELL-120",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>(),
+            ShellSize = "120"
+        };
+
+        await sut.CreateAsync(dto);
+
+        var serial = await db.SerialNumbers
+            .Include(s => s.Product).ThenInclude(p => p!.ProductType)
+            .FirstAsync(s => s.Serial == "SN-SHELL-120");
+        Assert.Equal("shell", serial.Product!.ProductType!.SystemTypeName);
+    }
+
+    [Fact]
+    public async Task Create_WithHeatCoil_CreatesPlateTraceabilityLog()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var plateProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "plate" && p.TankSize == 120);
+        var plateSn = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "Heat H999 Coil C999",
+            ProductId = plateProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            HeatNumber = "H999",
+            CoilNumber = "C999",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(plateSn);
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        var dto = new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-SHELL-PLT",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>(),
+            ShellSize = "120",
+            HeatNumber = "H999",
+            CoilNumber = "C999"
+        };
+
+        await sut.CreateAsync(dto);
+
+        var shellSn = await db.SerialNumbers.FirstAsync(s => s.Serial == "SN-SHELL-PLT");
+        var traceLog = await db.TraceabilityLogs
+            .FirstOrDefaultAsync(t => t.FromSerialNumberId == plateSn.Id
+                && t.ToSerialNumberId == shellSn.Id
+                && t.Relationship == "plate");
+        Assert.NotNull(traceLog);
     }
 }

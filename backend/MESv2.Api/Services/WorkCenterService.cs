@@ -54,7 +54,7 @@ public class WorkCenterService : IWorkCenterService
     public async Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder, cancellationToken);
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive, cancellationToken);
         if (user == null) return null;
         return new WelderDto { UserId = user.Id, DisplayName = user.DisplayName, EmployeeNumber = user.EmployeeNumber };
     }
@@ -64,7 +64,7 @@ public class WorkCenterService : IWorkCenterService
         var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
 
         var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive
                 && (plantId == Guid.Empty || u.DefaultSiteId == plantId), cancellationToken);
         if (user == null)
             return null;
@@ -108,7 +108,7 @@ public class WorkCenterService : IWorkCenterService
         return true;
     }
 
-    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string date, int limit, CancellationToken cancellationToken = default)
+    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
     {
         if (!DateTime.TryParse(date, out var dateParsed))
             dateParsed = DateTime.UtcNow.Date;
@@ -118,17 +118,21 @@ public class WorkCenterService : IWorkCenterService
         var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
         var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
 
-        var records = await _db.ProductionRecords
+        var query = _db.ProductionRecords
             .Include(r => r.SerialNumber)
             .Include(r => r.SerialNumber!.Product)
             .Where(r => r.WorkCenterId == wcId && r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
+            .Where(r => r.ProductionLine.PlantId == plantId);
+
+        if (assetId.HasValue)
+            query = query.Where(r => r.AssetId == assetId.Value);
+
+        var records = await query
             .OrderByDescending(r => r.Timestamp)
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        var dayCount = await _db.ProductionRecords
-            .Where(r => r.WorkCenterId == wcId && r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
-            .CountAsync(cancellationToken);
+        var dayCount = await query.CountAsync(cancellationToken);
 
         var recordIds = records.Select(r => r.Id).ToList();
         var annotationsExist = await _db.Annotations
@@ -567,7 +571,11 @@ public class WorkCenterService : IWorkCenterService
         ShellSize = m.SerialNumber?.Product?.TankSize.ToString(),
         HeatNumber = m.SerialNumber?.HeatNumber ?? string.Empty,
         CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
+        LotNumber = m.SerialNumber?.LotNumber,
         Quantity = m.Quantity,
+        ProductId = m.SerialNumber?.ProductId,
+        VendorMillId = m.SerialNumber?.MillVendorId,
+        VendorProcessorId = m.SerialNumber?.ProcessorVendorId,
         CardId = m.CardId,
         CardColor = m.CardColor,
         CreatedAt = m.CreatedAt
@@ -621,8 +629,12 @@ public class WorkCenterService : IWorkCenterService
         return null;
     }
 
-    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, Guid? plantId = null, CancellationToken cancellationToken = default)
     {
+        var tz = plantId.HasValue
+            ? await GetPlantTimeZoneAsync(plantId.Value, cancellationToken)
+            : TimeZoneInfo.Utc;
+
         var transactions = await _db.QueueTransactions
             .Where(qt => qt.WorkCenterId == wcId)
             .OrderByDescending(qt => qt.Timestamp)
@@ -636,6 +648,10 @@ public class WorkCenterService : IWorkCenterService
                 Timestamp = qt.Timestamp
             })
             .ToListAsync(cancellationToken);
+
+        foreach (var tx in transactions)
+            tx.Timestamp = TimeZoneInfo.ConvertTimeFromUtc(tx.Timestamp, tz);
+
         return transactions;
     }
 }
