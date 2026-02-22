@@ -314,19 +314,44 @@ export interface UpdateWorkCenterProductionLineRequest {
   downtimeThresholdMinutes: number;
 }
 
-export interface UpdateCharacteristicRequest {
+export interface CreateCharacteristicRequest {
+  code: string;
   name: string;
   specHigh?: number;
   specLow?: number;
   specTarget?: number;
+  minTankSize?: number;
   productTypeId?: string;
   workCenterIds: string[];
+}
+
+export interface UpdateCharacteristicRequest {
+  code: string;
+  name: string;
+  specHigh?: number;
+  specLow?: number;
+  specTarget?: number;
+  minTankSize?: number;
+  productTypeId?: string;
+  workCenterIds: string[];
+  isActive: boolean;
+}
+
+export interface CreateControlPlanRequest {
+  characteristicId: string;
+  workCenterProductionLineId: string;
+  isEnabled: boolean;
+  resultType: string;
+  isGateCheck: boolean;
+  codeRequired: boolean;
 }
 
 export interface UpdateControlPlanRequest {
   isEnabled: boolean;
   resultType: string;
   isGateCheck: boolean;
+  codeRequired: boolean;
+  isActive: boolean;
 }
 
 export interface CreateAssetRequest {
@@ -334,6 +359,7 @@ export interface CreateAssetRequest {
   workCenterId: string;
   productionLineId: string;
   limbleIdentifier?: string;
+  laneName?: string;
 }
 
 export interface UpdateAssetRequest {
@@ -341,6 +367,7 @@ export interface UpdateAssetRequest {
   workCenterId: string;
   productionLineId: string;
   limbleIdentifier?: string;
+  laneName?: string;
   isActive: boolean;
 }
 
@@ -405,7 +432,7 @@ export interface UpdatePlantPrinterRequest {
 }
 
 export interface UpdateAnnotationRequest {
-  flag: boolean;
+  status: string;
   notes?: string;
   resolvedNotes?: string;
   resolvedByUserId?: string;

@@ -264,7 +264,7 @@ public class DowntimeServiceTests
 
         Assert.NotNull(annotation);
         Assert.Equal("Correction Needed", annotation!.AnnotationType.Name);
-        Assert.True(annotation.Flag);
+        Assert.Equal(AnnotationStatus.Open, annotation.Status);
         Assert.Contains("Auto-generated", annotation.Notes);
         Assert.Contains("Auto-logout", annotation.SystemTypeInfo);
     }

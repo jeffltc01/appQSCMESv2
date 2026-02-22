@@ -61,7 +61,7 @@ Displayed on the right side of the screen.
 | Element | Description |
 |---|---|
 | **Day Count** | Large number showing total transactions at this work center today. |
-| **Last 5 Records** | Compact list of recent production records with timestamp, shell/identifier, tank size, and an annotation flag. Tap the flag to create or view an annotation. |
+| **Last 5 Records** | Compact list of recent production records with timestamp, shell/identifier, tank size, and an annotation icon. Tap the icon to create or view an annotation. |
 
 ### Scan Overlay
 
@@ -74,10 +74,14 @@ Every barcode scan triggers a full-screen overlay for immediate visual feedback:
 
 The overlay auto-dismisses after about 1.5–2 seconds or can be tapped to dismiss immediately.
 
+## Inactivity & Auto-Logout
+
+If downtime tracking is enabled for the work center, the system monitors for inactivity (no scans or screen touches). After the configured inactivity threshold (typically 5 minutes), a downtime overlay appears. If the operator does not dismiss the overlay within **60 minutes** of the last activity, the system automatically logs them out, creates an auto-generated downtime event, and attaches a Correction Needed annotation (status: Open). See the [Login](login) article for full details.
+
 ## Tips
 
 - If External Input is on and you need to interact with the screen by touch, flip the toggle off first.
 - The WC History panel refreshes automatically after each new production record — no manual refresh needed.
-- Annotation flags on history rows are tappable. Use them to note issues like material lot corrections or quality holds.
-- Operators are locked into their assigned work center (kiosk mode). The only way out is to log out.
+- Annotation icons on history rows are tappable. Use them to note issues like material lot corrections or quality holds.
+- Operators are locked into their assigned work center (kiosk mode). The only way out is to log out or wait for the 60-minute inactivity auto-logout.
 - Team Leads and Supervisors have a back/menu button to return to the Admin Menu.

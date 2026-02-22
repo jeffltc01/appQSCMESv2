@@ -179,7 +179,7 @@ public class SerialNumberServiceTests
         db.ControlPlans.Add(new ControlPlan
         {
             Id = cpId, CharacteristicId = charId,
-            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            WorkCenterProductionLineId = TestHelpers.wcplLongSeamInspId,
             IsEnabled = true, ResultType = "passfail", IsGateCheck = false
         });
         db.InspectionRecords.Add(new InspectionRecord

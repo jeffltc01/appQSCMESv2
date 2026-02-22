@@ -32,6 +32,18 @@ public static class TestHelpers
     public static readonly Guid wcRollsMaterialId = Guid.Parse("fb111111-1111-1111-1111-111111111111");
     public static readonly Guid wcFitupQueueId = Guid.Parse("fc111111-1111-1111-1111-111111111111");
 
+    // WorkCenterProductionLine IDs (Plant 1, Line 1)
+    public static readonly Guid wcplRollsId = Guid.Parse("d0010001-0000-0000-0000-000000000001");
+    public static readonly Guid wcplLongSeamId = Guid.Parse("d0010001-0000-0000-0000-000000000002");
+    public static readonly Guid wcplLongSeamInspId = Guid.Parse("d0010001-0000-0000-0000-000000000003");
+    public static readonly Guid wcplFitupId = Guid.Parse("d0010001-0000-0000-0000-000000000004");
+    public static readonly Guid wcplRoundSeamId = Guid.Parse("d0010001-0000-0000-0000-000000000005");
+    public static readonly Guid wcplRoundSeamInspId = Guid.Parse("d0010001-0000-0000-0000-000000000006");
+    public static readonly Guid wcplHydroId = Guid.Parse("d0010001-0000-0000-0000-000000000007");
+    public static readonly Guid wcplRtXrayQueueId = Guid.Parse("d0010001-0000-0000-0000-000000000008");
+    public static readonly Guid wcplSpotXrayId = Guid.Parse("d0010001-0000-0000-0000-000000000009");
+    public static readonly Guid wcplNameplateId = Guid.Parse("d0010001-0000-0000-0000-00000000000a");
+
     /// <summary>
     /// Creates a new MesDbContext using an in-memory database with a unique name.
     /// Database is created and seeded (DbContext seed data + one Asset for the first work center).

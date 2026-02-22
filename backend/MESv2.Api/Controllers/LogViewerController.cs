@@ -89,7 +89,7 @@ public class LogViewerController : ControllerBase
             Id = Guid.NewGuid(),
             ProductionRecordId = dto.ProductionRecordId,
             AnnotationTypeId = dto.AnnotationTypeId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             Notes = dto.Notes,
             InitiatedByUserId = dto.InitiatedByUserId,
             CreatedAt = DateTime.UtcNow
@@ -109,7 +109,7 @@ public class LogViewerController : ControllerBase
             SerialNumber = serial ?? "",
             AnnotationTypeName = annotationType.Name,
             AnnotationTypeId = annotationType.Id,
-            Flag = annotation.Flag,
+            Status = annotation.Status.ToString(),
             Notes = annotation.Notes,
             InitiatedByName = user.DisplayName,
             CreatedAt = annotation.CreatedAt

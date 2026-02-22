@@ -120,6 +120,7 @@ export interface DefectLocation {
 
 export interface Characteristic {
   id: string;
+  code: string;
   name: string;
   minTankSize?: number;
 }
@@ -180,7 +181,7 @@ export interface Annotation {
   productionRecordId: string;
   annotationTypeId: string;
   typeName: string;
-  flag: boolean;
+  status: string;
   notes?: string;
   initiatedBy: string;
   resolvedBy?: string;
@@ -365,24 +366,30 @@ export interface WorkCenterProductionLine {
 
 export interface AdminCharacteristic {
   id: string;
+  code: string;
   name: string;
   specHigh?: number;
   specLow?: number;
   specTarget?: number;
+  minTankSize?: number;
   productTypeId?: string;
   productTypeName?: string;
   workCenterIds: string[];
+  isActive: boolean;
 }
 
 export interface AdminControlPlan {
   id: string;
   characteristicId: string;
   characteristicName: string;
-  workCenterId: string;
+  workCenterProductionLineId: string;
   workCenterName: string;
+  productionLineName: string;
   isEnabled: boolean;
   resultType: string;
   isGateCheck: boolean;
+  codeRequired: boolean;
+  isActive: boolean;
 }
 
 export interface AdminAsset {
@@ -393,6 +400,7 @@ export interface AdminAsset {
   productionLineId: string;
   productionLineName: string;
   limbleIdentifier?: string;
+  laneName?: string;
   isActive: boolean;
 }
 
@@ -504,7 +512,7 @@ export interface AdminAnnotation {
   serialNumber: string;
   annotationTypeName: string;
   annotationTypeId: string;
-  flag: boolean;
+  status: string;
   notes?: string;
   initiatedByName: string;
   resolvedByName?: string;

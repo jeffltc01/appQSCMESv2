@@ -71,7 +71,7 @@ public class HydroServiceTests
         var charId = Guid.NewGuid();
         var ptId = Guid.NewGuid();
         db.ProductTypes.Add(new ProductType { Id = ptId, Name = "Test" });
-        db.Characteristics.Add(new Characteristic { Id = charId, Name = "RS1", ProductTypeId = ptId });
+        db.Characteristics.Add(new Characteristic { Id = charId, Code = "T01", Name = "RS1", ProductTypeId = ptId });
         db.DefectLocations.Add(new DefectLocation { Id = Guid.NewGuid(), Code = "LOC1", Name = "Location 1", CharacteristicId = charId });
         db.DefectLocations.Add(new DefectLocation { Id = Guid.NewGuid(), Code = "LOC2", Name = "Location 2", CharacteristicId = Guid.NewGuid() });
         await db.SaveChangesAsync();

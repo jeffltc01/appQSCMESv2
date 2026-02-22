@@ -4,7 +4,7 @@ namespace MESv2.Migration.Mappers;
 
 public static class ControlPlanMapper
 {
-    public static ControlPlan? Map(dynamic row)
+    public static ControlPlan? Map(dynamic row, Guid workCenterProductionLineId)
     {
         int enabled = (int?)row.CollectionEnabled ?? 0;
         int gateCheck = (int?)row.IsGateCheck ?? 0;
@@ -13,7 +13,7 @@ public static class ControlPlanMapper
         {
             Id = (Guid)row.Id,
             CharacteristicId = (Guid)row.CharacteristicId,
-            WorkCenterId = (Guid)row.CollectionWorkCenterId,
+            WorkCenterProductionLineId = workCenterProductionLineId,
             IsEnabled = enabled != 0,
             ResultType = (string)(row.ResultType ?? ""),
             IsGateCheck = gateCheck != 0

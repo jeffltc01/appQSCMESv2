@@ -255,7 +255,7 @@ public class SupervisorDashboardService : ISupervisorDashboardService
                 Id = Guid.NewGuid(),
                 ProductionRecordId = recordId,
                 AnnotationTypeId = request.AnnotationTypeId,
-                Flag = true,
+                Status = AnnotationStatus.Open,
                 Notes = request.Comment,
                 InitiatedByUserId = userId,
                 CreatedAt = now,

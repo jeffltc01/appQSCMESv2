@@ -102,6 +102,8 @@ public class MesDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Asset>()
+            .Property(a => a.LaneName).HasMaxLength(50);
+        modelBuilder.Entity<Asset>()
             .HasOne(a => a.WorkCenter)
             .WithMany(w => w.Assets)
             .HasForeignKey(a => a.WorkCenterId)
@@ -212,6 +214,9 @@ public class MesDbContext : DbContext
             .WithMany(t => t.Characteristics)
             .HasForeignKey(c => c.ProductTypeId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Characteristic>()
+            .HasIndex(c => c.Code)
+            .IsUnique();
 
         modelBuilder.Entity<InspectionRecord>()
             .HasOne(i => i.SerialNumber)
@@ -245,9 +250,9 @@ public class MesDbContext : DbContext
             .HasForeignKey(c => c.CharacteristicId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<ControlPlan>()
-            .HasOne(c => c.WorkCenter)
-            .WithMany(w => w.ControlPlans)
-            .HasForeignKey(c => c.WorkCenterId)
+            .HasOne(c => c.WorkCenterProductionLine)
+            .WithMany(wcpl => wcpl.ControlPlans)
+            .HasForeignKey(c => c.WorkCenterProductionLineId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<DefectLog>()
@@ -341,6 +346,11 @@ public class MesDbContext : DbContext
             .WithMany()
             .HasForeignKey(w => w.MaterialQueueForWCId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Annotation>()
+            .Property(a => a.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20);
 
         modelBuilder.Entity<Annotation>()
             .HasOne(a => a.ProductionRecord)

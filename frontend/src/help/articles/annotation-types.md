@@ -14,13 +14,13 @@ Configure the types of annotations that can be applied to production records (e.
 | Element | Description |
 |---|---|
 | **Name** | The full name of the annotation type (e.g., "Quality Hold"). Required. |
-| **Abbreviation** | A short code displayed on flags and badges (e.g., "QH"). Required. |
+| **Abbreviation** | A short code displayed on badges and annotation icons (e.g., "QH"). Required. |
 | **Requires Resolution** | Checkbox. When checked, annotations of this type must be explicitly resolved before the serial number can proceed. |
 | **Operator Can Create** | Checkbox. When checked, floor operators can create annotations of this type directly from operator screens. When unchecked, only supervisors and above can create them. |
-| **Display Color** | A hex color code (e.g., "#FF0000") used for the flag and badge on production screens. A color swatch preview is shown on the card. Required. |
+| **Display Color** | A hex color code (e.g., "#FF0000") used for the annotation icon and badge on production screens. A color swatch preview is shown on the card. Required. |
 
 ## Tips
 
-- Choose distinct, high-contrast colors for each type so operators can quickly identify annotation flags on the floor.
-- The Requires Resolution flag is important for quality holds — it ensures the issue is tracked to completion before the tank moves forward.
+- Choose distinct, high-contrast colors for each type so operators can quickly identify annotation icons on the floor.
+- The Requires Resolution setting is important for quality holds — it ensures the issue is tracked to completion before the tank moves forward.
 - Deleting an annotation type is permanent. If annotations of that type already exist on production records, consider deactivating it instead if that option is available, or renaming it with a "RETIRED" prefix.

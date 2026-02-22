@@ -50,7 +50,7 @@ public class AnnotationsController : ControllerBase
                     ? a.ProductionRecord.SerialNumber.Serial : "",
                 AnnotationTypeName = a.AnnotationType.Name,
                 AnnotationTypeId = a.AnnotationTypeId,
-                Flag = a.Flag,
+                Status = a.Status.ToString(),
                 Notes = a.Notes,
                 InitiatedByName = a.InitiatedByUser.DisplayName,
                 ResolvedByName = a.ResolvedByUser != null ? a.ResolvedByUser.DisplayName : null,
@@ -96,7 +96,7 @@ public class AnnotationsController : ControllerBase
         {
             Id = Guid.NewGuid(),
             AnnotationTypeId = dto.AnnotationTypeId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             Notes = dto.Notes,
             InitiatedByUserId = dto.InitiatedByUserId,
             CreatedAt = DateTime.UtcNow,
@@ -113,7 +113,7 @@ public class AnnotationsController : ControllerBase
             SerialNumber = "",
             AnnotationTypeName = annotationType.Name,
             AnnotationTypeId = annotationType.Id,
-            Flag = annotation.Flag,
+            Status = annotation.Status.ToString(),
             Notes = annotation.Notes,
             InitiatedByName = user.DisplayName,
             CreatedAt = annotation.CreatedAt,
@@ -141,7 +141,8 @@ public class AnnotationsController : ControllerBase
 
         if (annotation == null) return NotFound();
 
-        annotation.Flag = dto.Flag;
+        if (Enum.TryParse<AnnotationStatus>(dto.Status, true, out var parsed))
+            annotation.Status = parsed;
         annotation.Notes = dto.Notes;
         annotation.ResolvedNotes = dto.ResolvedNotes;
         if (dto.ResolvedByUserId.HasValue)
@@ -159,7 +160,7 @@ public class AnnotationsController : ControllerBase
             SerialNumber = annotation.ProductionRecord?.SerialNumber?.Serial ?? "",
             AnnotationTypeName = annotation.AnnotationType.Name,
             AnnotationTypeId = annotation.AnnotationTypeId,
-            Flag = annotation.Flag,
+            Status = annotation.Status.ToString(),
             Notes = annotation.Notes,
             InitiatedByName = annotation.InitiatedByUser.DisplayName,
             ResolvedByName = resolvedUser?.DisplayName,

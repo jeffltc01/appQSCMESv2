@@ -89,7 +89,7 @@ public class InspectionRecordServiceTests
         var characteristicId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         db.DefectCodes.Add(new DefectCode { Id = defectCodeId, Code = "D1", Name = "Defect 1" });
-        db.Characteristics.Add(new Characteristic { Id = characteristicId, Name = "Char 1", ProductTypeId = null });
+        db.Characteristics.Add(new Characteristic { Id = characteristicId, Code = "T01", Name = "Char 1", ProductTypeId = null });
         db.DefectLocations.Add(new DefectLocation { Id = locationId, Code = "L1", Name = "Location 1", CharacteristicId = characteristicId });
         await db.SaveChangesAsync();
 
@@ -126,7 +126,7 @@ public class InspectionRecordServiceTests
         var characteristicId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         db.DefectCodes.Add(new DefectCode { Id = defectCodeId, Code = "D1", Name = "Defect 1" });
-        db.Characteristics.Add(new Characteristic { Id = characteristicId, Name = "Char 1", ProductTypeId = null });
+        db.Characteristics.Add(new Characteristic { Id = characteristicId, Code = "T01", Name = "Char 1", ProductTypeId = null });
         db.DefectLocations.Add(new DefectLocation { Id = locationId, Code = "L1", Name = "Location 1", CharacteristicId = characteristicId });
         await db.SaveChangesAsync();
 

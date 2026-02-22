@@ -8,7 +8,7 @@ import {
   Select,
   Textarea,
 } from '@fluentui/react-components';
-import { AddRegular, EditRegular, FlagFilled } from '@fluentui/react-icons';
+import { AddRegular, EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import {
@@ -29,7 +29,7 @@ import type {
 import { formatDateTime } from '../../utils/dateFormat.ts';
 import styles from './AnnotationMaintenanceScreen.module.css';
 
-type StatusFilter = 'all' | 'flagged' | 'resolved' | 'unresolved';
+type StatusFilter = 'all' | 'open' | 'closed' | 'resolved' | 'unresolved';
 
 export function AnnotationMaintenanceScreen() {
   const { user } = useAuth();
@@ -54,7 +54,7 @@ export function AnnotationMaintenanceScreen() {
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
 
-  const [editFlag, setEditFlag] = useState(false);
+  const [editStatus, setEditStatus] = useState('Open');
   const [editNotes, setEditNotes] = useState('');
   const [editResolvedNotes, setEditResolvedNotes] = useState('');
   const [markResolved, setMarkResolved] = useState(false);
@@ -114,8 +114,10 @@ export function AnnotationMaintenanceScreen() {
       result = result.filter((a) => a.annotationTypeId === typeFilter);
     }
 
-    if (statusFilter === 'flagged') {
-      result = result.filter((a) => a.flag);
+    if (statusFilter === 'open') {
+      result = result.filter((a) => a.status === 'Open');
+    } else if (statusFilter === 'closed') {
+      result = result.filter((a) => a.status === 'Closed');
     } else if (statusFilter === 'resolved') {
       result = result.filter((a) => !!a.resolvedByName);
     } else if (statusFilter === 'unresolved') {
@@ -127,7 +129,7 @@ export function AnnotationMaintenanceScreen() {
 
   const openEdit = (item: AdminAnnotation) => {
     setEditing(item);
-    setEditFlag(item.flag);
+    setEditStatus(item.status);
     setEditNotes(item.notes ?? '');
     setEditResolvedNotes(item.resolvedNotes ?? '');
     setMarkResolved(!!item.resolvedByName);
@@ -141,7 +143,7 @@ export function AnnotationMaintenanceScreen() {
     setModalError('');
     try {
       const updated = await adminAnnotationApi.update(editing.id, {
-        flag: editFlag,
+        status: editStatus,
         notes: editNotes || undefined,
         resolvedNotes: editResolvedNotes || undefined,
         resolvedByUserId: markResolved && !editing.resolvedByName ? user?.id : undefined,
@@ -250,7 +252,8 @@ export function AnnotationMaintenanceScreen() {
             style={{ minWidth: 140 }}
           >
             <option value="all">All</option>
-            <option value="flagged">Flagged</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
             <option value="resolved">Resolved</option>
             <option value="unresolved">Unresolved</option>
           </Select>
@@ -302,7 +305,7 @@ export function AnnotationMaintenanceScreen() {
                   <th>Date</th>
                   <th>Serial #</th>
                   <th>Type</th>
-                  <th>Flag</th>
+                  <th>Status</th>
                   <th>Notes</th>
                   <th>Initiated By</th>
                   <th>Resolved By</th>
@@ -316,19 +319,10 @@ export function AnnotationMaintenanceScreen() {
                   <tr key={a.id}>
                     <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(a.createdAt)}</td>
                     <td>{a.serialNumber}</td>
+                    <td>{a.annotationTypeName}</td>
                     <td>
-                      <span className={styles.typeCellInner}>
-                        <FlagFilled
-                          fontSize={16}
-                          className={styles.typeFlag}
-                          style={{ color: annotationTypes.find((t) => t.id === a.annotationTypeId)?.displayColor ?? '#212529' }}
-                        />
-                        {a.annotationTypeName}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`${styles.flagBadge} ${a.flag ? styles.flagYes : styles.flagNo}`}>
-                        {a.flag ? 'Yes' : 'No'}
+                      <span className={`${styles.statusBadge} ${a.status === 'Open' ? styles.statusOpen : styles.statusClosed}`}>
+                        {a.status}
                       </span>
                     </td>
                     <td className={styles.notesCell} title={a.notes ?? ''}>{a.notes || '—'}</td>
@@ -379,11 +373,14 @@ export function AnnotationMaintenanceScreen() {
               <strong>Type:</strong> {editing.annotationTypeName} &nbsp;|&nbsp;
               <strong>Initiated by:</strong> {editing.initiatedByName}
             </div>
-            <Checkbox
-              label="Flagged"
-              checked={editFlag}
-              onChange={(_, d) => setEditFlag(!!d.checked)}
-            />
+            <Label>Status</Label>
+            <Select
+              value={editStatus}
+              onChange={(_, d) => setEditStatus(d.value)}
+            >
+              <option value="Open">Open</option>
+              <option value="Closed">Closed</option>
+            </Select>
             <Label>Notes</Label>
             <Input
               value={editNotes}

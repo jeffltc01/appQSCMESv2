@@ -284,7 +284,7 @@ public class DowntimeService : IDowntimeService
                     Id = Guid.NewGuid(),
                     DowntimeEventId = entity.Id,
                     AnnotationTypeId = correctionNeededType.Id,
-                    Flag = true,
+                    Status = AnnotationStatus.Open,
                     Notes = "Auto-generated downtime event — reason unknown. Please review and assign the correct reason.",
                     SystemTypeInfo = "Auto-logout downtime — reason unknown",
                     InitiatedByUserId = initiatedByUserId,

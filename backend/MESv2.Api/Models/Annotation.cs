@@ -1,5 +1,7 @@
 namespace MESv2.Api.Models;
 
+public enum AnnotationStatus { Open, Closed }
+
 public class Annotation
 {
     public Guid Id { get; set; }
@@ -7,7 +9,7 @@ public class Annotation
     public Guid? SerialNumberId { get; set; }
     public Guid? DowntimeEventId { get; set; }
     public Guid AnnotationTypeId { get; set; }
-    public bool Flag { get; set; }
+    public AnnotationStatus Status { get; set; } = AnnotationStatus.Open;
     public string? Notes { get; set; }
     public string? SystemTypeInfo { get; set; }
     public Guid InitiatedByUserId { get; set; }

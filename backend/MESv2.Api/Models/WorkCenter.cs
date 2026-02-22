@@ -15,7 +15,6 @@ public class WorkCenter
     public ICollection<MaterialQueueItem> MaterialQueueItems { get; set; } = new List<MaterialQueueItem>();
     public ICollection<ProductionRecord> ProductionRecords { get; set; } = new List<ProductionRecord>();
     public ICollection<InspectionRecord> InspectionRecords { get; set; } = new List<InspectionRecord>();
-    public ICollection<ControlPlan> ControlPlans { get; set; } = new List<ControlPlan>();
     public ICollection<CharacteristicWorkCenter> CharacteristicWorkCenters { get; set; } = new List<CharacteristicWorkCenter>();
     public ICollection<DefectWorkCenter> DefectWorkCenters { get; set; } = new List<DefectWorkCenter>();
     public ICollection<WorkCenterProductionLine> WorkCenterProductionLines { get; set; } = new List<WorkCenterProductionLine>();

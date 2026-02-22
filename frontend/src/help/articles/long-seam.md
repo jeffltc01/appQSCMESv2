@@ -20,9 +20,9 @@ Occasionally the Rolls operator affixes barcode labels but forgets to scan. When
 
 1. The system **auto-creates** the serial number record.
 2. The material lot is **assumed** from the previous shell scanned at this station.
-3. An **automatic annotation** is created flagging the record for lot validation.
+3. An **automatic annotation** (status: Open) is created marking the record for lot validation.
 4. The operator sees a green overlay with a note: "Shell recorded (Rolls missed — annotation created)."
-5. A Team Lead, Supervisor, or Quality can review and correct the lot assignment later via the annotation flag in WC History.
+5. A Team Lead, Supervisor, or Quality can review and correct the lot assignment later via the annotation icon in WC History.
 
 ## Fields & Controls
 
@@ -40,6 +40,6 @@ Occasionally the Rolls operator affixes barcode labels but forgets to scan. When
 ## Tips
 
 - You can scan whichever label is easier to reach — both identify the same shell.
-- If you see a green overlay with an annotation note, the upstream Rolls scan was missed. Production continues normally; the annotation flags the data gap for correction.
+- If you see a green overlay with an annotation note, the upstream Rolls scan was missed. Production continues normally; the annotation marks the data gap for correction.
 - Duplicate scans are rejected — the system prevents the same shell from being recorded twice at Long Seam.
 - A welder must be signed in before scanning. If no welder is active, the Welder Gate dialog blocks the screen.

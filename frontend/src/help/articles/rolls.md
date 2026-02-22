@@ -47,7 +47,7 @@ When the External Input toggle in the bottom bar is Off, you can type a serial n
 
 - The material queue is managed by Material Handling using the Rolls Material Queue screen. If the queue is empty, contact Material Handling.
 - If the two labels do not match, the scan state resets and you must start over with Label 1.
-- The WC History panel on the right shows the day count and last 5 records. Tap an annotation flag on a history row to create or view an annotation for that record.
+- The WC History panel on the right shows the day count and last 5 records. Tap an annotation icon on a history row to create or view an annotation for that record.
 
 ## Changes from MES v1
 

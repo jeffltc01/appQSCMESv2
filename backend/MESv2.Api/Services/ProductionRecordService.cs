@@ -37,8 +37,39 @@ public class ProductionRecordService : IProductionRecordService
             .FirstOrDefaultAsync(cancellationToken) == "Rolls";
 
         var isCatchUp = false;
+        Guid? previousRollsSerialId = null;
         if (serial == null)
         {
+            if (!isRollsWC)
+            {
+                var rollsRecords = _db.ProductionRecords
+                    .Where(r => r.ProductionLineId == dto.ProductionLineId
+                                && r.WorkCenter.DataEntryType == "Rolls");
+
+                // Shell serials are sequential zero-padded numbers (e.g. "012744").
+                // String comparison preserves numeric order for fixed-width serials,
+                // so we can find the nearest predecessor entirely in SQL.
+                var predecessor = await rollsRecords
+                    .Where(r => r.SerialNumber.Serial.CompareTo(dto.SerialNumber) < 0)
+                    .OrderByDescending(r => r.SerialNumber.Serial)
+                    .Select(r => new { r.SerialNumberId, r.SerialNumber.ProductId })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                // Fallback: if no predecessor found (e.g. first shell ever), use most recent by timestamp
+                var match = predecessor
+                    ?? await rollsRecords
+                        .OrderByDescending(r => r.Timestamp)
+                        .Select(r => new { r.SerialNumberId, r.SerialNumber.ProductId })
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                if (match != null)
+                {
+                    previousRollsSerialId = match.SerialNumberId;
+                    if (resolvedProductId == null)
+                        resolvedProductId = match.ProductId;
+                }
+            }
+
             serial = new SerialNumber
             {
                 Id = Guid.NewGuid(),
@@ -108,17 +139,46 @@ public class ProductionRecordService : IProductionRecordService
 
         if (isCatchUp)
         {
+            if (previousRollsSerialId.HasValue)
+            {
+                var plateLink = await _db.TraceabilityLogs
+                    .Where(t => t.ToSerialNumberId == previousRollsSerialId.Value
+                                && t.Relationship == "plate")
+                    .Select(t => new { t.FromSerialNumberId, t.Quantity })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (plateLink != null)
+                {
+                    _db.TraceabilityLogs.Add(new TraceabilityLog
+                    {
+                        Id = Guid.NewGuid(),
+                        FromSerialNumberId = plateLink.FromSerialNumberId,
+                        ToSerialNumberId = serial.Id,
+                        ProductionRecordId = record.Id,
+                        Relationship = "plate",
+                        Quantity = plateLink.Quantity,
+                        Timestamp = DateTime.UtcNow
+                    });
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
+
             var correctionNeededType = await _db.AnnotationTypes
                 .FirstOrDefaultAsync(at => at.Name == "Correction Needed", cancellationToken);
             if (correctionNeededType != null)
             {
+                var hasTraceability = await _db.TraceabilityLogs
+                    .AnyAsync(t => t.ToSerialNumberId == serial.Id && t.Relationship == "plate", cancellationToken);
+
                 _db.Annotations.Add(new Annotation
                 {
                     Id = Guid.NewGuid(),
                     ProductionRecordId = record.Id,
                     AnnotationTypeId = correctionNeededType.Id,
-                    Flag = true,
-                    Notes = $"Rolls scan missed for shell {dto.SerialNumber}. Material lot assumed from previous shell — validate.",
+                    Status = AnnotationStatus.Open,
+                    Notes = hasTraceability
+                        ? $"Rolls scan missed for shell {dto.SerialNumber}. Product and material lot inherited from previous Rolls record — verify correct product and material lot."
+                        : $"Rolls scan missed for shell {dto.SerialNumber}. No previous Rolls record found — product and material lot unknown. Verify and assign correct product and material lot.",
                     InitiatedByUserId = dto.OperatorId,
                     CreatedAt = DateTime.UtcNow
                 });

@@ -9,7 +9,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 1. **Select a log type.** Choose from the five available log types using the tab or dropdown at the top: Rolls, Fitup, Hydro, RT X-ray, or Spot X-ray. Each type displays its own set of columns.
 2. **Set filters.** Use the site selector and date range picker to narrow the results. Filters are applied immediately.
 3. **Scan the results.** The table loads matching records. Result columns are color-coded — green for accepted, red for rejected — so you can spot failures at a glance.
-4. **Check annotations.** Records with annotations display an inline flag. Tap the flag to view the annotation details.
+4. **Check annotations.** Records with annotations display an inline annotation icon. Tap the icon to view the annotation details.
 5. **Deep-link.** The selected log type is stored as a URL parameter, so you can bookmark or share a direct link to a specific log view.
 
 ## Log Types & Columns
@@ -24,7 +24,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 | **Shell Code** | The shell's unique code. |
 | **Size** | Tank size in gallons. |
 | **Welders** | Welder(s) who worked on the shell. |
-| **Annotations** | Inline annotation flag, if any. |
+| **Annotations** | Inline annotation icon, if any. |
 
 ### Fitup
 
@@ -36,7 +36,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 | **Alpha Code** | The assembly's alpha code identifier. |
 | **Size** | Tank size in gallons. |
 | **Welders** | Welder(s) who performed the fitup. |
-| **Annotations** | Inline annotation flag, if any. |
+| **Annotations** | Inline annotation icon, if any. |
 
 ### Hydro
 
@@ -50,7 +50,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 | **Welders** | Welder(s) associated with the tank. |
 | **Result** | Pass or Fail (color-coded). |
 | **Defects** | Any defects recorded during the test. |
-| **Annotations** | Inline annotation flag, if any. |
+| **Annotations** | Inline annotation icon, if any. |
 
 ### RT X-ray
 
@@ -62,7 +62,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 | **Operator** | The inspector who performed the X-ray. |
 | **Result** | Accept or Reject (color-coded). |
 | **Defects** | Any defects identified. |
-| **Annotations** | Inline annotation flag, if any. |
+| **Annotations** | Inline annotation icon, if any. |
 
 ### Spot X-ray
 
@@ -75,7 +75,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 | **Operator** | The inspector who performed the X-ray. |
 | **Result** | Accept or Reject (color-coded). |
 | **Shots** | Number of X-ray shots taken. |
-| **Annotations** | Inline annotation flag, if any. |
+| **Annotations** | Inline annotation icon, if any. |
 
 ## Fields & Controls
 
@@ -85,7 +85,7 @@ The Log Viewer provides a filterable, read-only view of production log records a
 | **Site selector** | Filters records to a specific plant. |
 | **Date Range picker** | Sets the start and end dates for the query. |
 | **Result cell** | Color-coded: green background for Accept/Pass, red background for Reject/Fail. |
-| **Annotation flag** | Inline icon on rows that have annotations. Tap to view details. |
+| **Annotation icon** | Inline icon on rows that have annotations. Tap to view details. |
 
 ## Tips
 

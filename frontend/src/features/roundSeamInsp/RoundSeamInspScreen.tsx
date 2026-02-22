@@ -141,14 +141,19 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
           const loc = defectLocations.find((l) => l.id === parts[0] || l.code === parts[0]);
           if (!loc) { showScanResult({ type: 'error', message: 'Location not applicable' }); return; }
           let charMatch: Characteristic | undefined;
-          if (parts.length > 1) charMatch = characteristics.find((c) => c.id === parts[1] || c.name === parts[1]);
+          if (parts.length > 1) charMatch = characteristics.find((c) => c.id === parts[1] || c.code === parts[1] || c.name === parts[1]);
           tryCompletePending({ ...pending, locationId: loc.id, locationName: loc.name, characteristicId: charMatch?.id ?? pending.characteristicId, characteristicName: charMatch?.name ?? pending.characteristicName }); return;
+        }
+        if (bc.prefix === 'C') {
+          const charMatch = characteristics.find((c) => c.id === bc.value || c.code === bc.value || c.name === bc.value);
+          if (!charMatch) { showScanResult({ type: 'error', message: 'Characteristic not found' }); return; }
+          tryCompletePending({ ...pending, characteristicId: charMatch.id, characteristicName: charMatch.name }); return;
         }
         if (bc.prefix === 'FD') {
           const fd = parseFullDefect(bc.value);
           if (!fd) { showScanResult({ type: 'error', message: 'Invalid full defect format' }); return; }
           const code = defectCodes.find((c) => c.id === fd.defectCode || c.code === fd.defectCode);
-          const char = characteristics.find((c) => c.id === fd.characteristic || c.name === fd.characteristic);
+          const char = characteristics.find((c) => c.id === fd.characteristic || c.code === fd.characteristic || c.name === fd.characteristic);
           const loc = defectLocations.find((l) => l.id === fd.location || l.code === fd.location);
           if (!code || !loc) { showScanResult({ type: 'error', message: 'Invalid defect or location' }); return; }
           addDefectEntry(code.id, code.name, char?.id ?? '', char?.name ?? '', loc.id, loc.name); return;

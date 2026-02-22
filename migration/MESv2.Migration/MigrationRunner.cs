@@ -455,11 +455,22 @@ public class MigrationRunner
         _log.SetSourceCount(list.Count);
 
         using var db = _dbFactory();
+        var wcplLookup = await db.WorkCenterProductionLines
+            .ToDictionaryAsync(wcpl => wcpl.WorkCenterId, wcpl => wcpl.Id);
+
         foreach (var row in list)
         {
             try
             {
-                var entity = ControlPlanMapper.Map(row);
+                Guid collectionWcId = (Guid)row.CollectionWorkCenterId;
+                if (!wcplLookup.TryGetValue(collectionWcId, out var wcplId))
+                {
+                    _log.Warn($"ControlPlan {row.Id}: No WorkCenterProductionLine found for WorkCenter {collectionWcId}");
+                    _log.IncrementSkipped();
+                    continue;
+                }
+
+                var entity = ControlPlanMapper.Map(row, wcplId);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
                 var existing = await db.ControlPlans.FindAsync(entity.Id);
                 if (existing != null)

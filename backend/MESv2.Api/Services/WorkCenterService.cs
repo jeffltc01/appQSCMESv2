@@ -366,7 +366,7 @@ public class WorkCenterService : IWorkCenterService
     {
         var query = _db.CharacteristicWorkCenters
             .Include(c => c.Characteristic)
-            .Where(c => c.WorkCenterId == wcId);
+            .Where(c => c.WorkCenterId == wcId && c.Characteristic.IsActive);
 
         if (tankSize.HasValue)
             query = query.Where(c => c.Characteristic.MinTankSize == null || c.Characteristic.MinTankSize <= tankSize.Value);
@@ -376,7 +376,7 @@ public class WorkCenterService : IWorkCenterService
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
 
-        return list.Select(c => new CharacteristicDto { Id = c.Id, Name = c.Name, MinTankSize = c.MinTankSize }).ToList();
+        return list.Select(c => new CharacteristicDto { Id = c.Id, Code = c.Code, Name = c.Name, MinTankSize = c.MinTankSize }).ToList();
     }
 
     private async Task<Guid> GetPlantIdForWorkCenter(Guid wcId, CancellationToken cancellationToken)

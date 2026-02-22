@@ -23,7 +23,7 @@ public class AIReviewController : ControllerBase
         Guid wcId, [FromQuery] Guid plantId, [FromQuery] string date,
         CancellationToken cancellationToken)
     {
-        if (!IsAuthorizedInspectorOrAbove())
+        if (!IsAuthorizedInspectorOrDirectorPlus())
             return Forbid();
 
         var records = await _service.GetRecordsAsync(wcId, plantId, date, cancellationToken);
@@ -34,7 +34,7 @@ public class AIReviewController : ControllerBase
     public async Task<ActionResult<AIReviewResultDto>> SubmitReview(
         [FromBody] CreateAIReviewRequest request, CancellationToken cancellationToken)
     {
-        if (!IsAuthorizedInspectorOrAbove())
+        if (!IsAuthorizedInspectorOrDirectorPlus())
             return Forbid();
 
         var userId = GetUserId();
@@ -45,11 +45,11 @@ public class AIReviewController : ControllerBase
         return Ok(result);
     }
 
-    private bool IsAuthorizedInspectorOrAbove()
+    private bool IsAuthorizedInspectorOrDirectorPlus()
     {
         if (Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&
             decimal.TryParse(tierHeader, out var callerTier))
-            return callerTier <= 5.5m;
+            return callerTier <= 2m || callerTier == 5.5m;
         return false;
     }
 

@@ -92,7 +92,7 @@ public class AIReviewService : IAIReviewService
                 Id = Guid.NewGuid(),
                 ProductionRecordId = recordId,
                 AnnotationTypeId = AIReviewAnnotationTypeId,
-                Flag = true,
+                Status = AnnotationStatus.Open,
                 Notes = request.Comment,
                 InitiatedByUserId = userId,
                 CreatedAt = now,

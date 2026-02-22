@@ -43,6 +43,7 @@ const mockAssets = [
     productionLineId: 'pl1',
     productionLineName: 'Line 1 (Cleveland)',
     limbleIdentifier: 'LMB-001',
+    laneName: 'Lane A',
     isActive: true,
   },
 ];
@@ -105,6 +106,7 @@ describe('AssetManagementScreen', () => {
     });
     expect(screen.getByText('Rolls 1')).toBeInTheDocument();
     expect(screen.getByText('LMB-001')).toBeInTheDocument();
+    expect(screen.getByText('Lane A')).toBeInTheDocument();
   });
 
   it('shows production line name on card', async () => {

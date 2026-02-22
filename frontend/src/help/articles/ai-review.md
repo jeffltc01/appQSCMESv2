@@ -1,8 +1,8 @@
 # AI Review (Authorized Inspector Review)
 
-AI Review allows Authorized Inspectors and supervisors to perform batch reviews of production records. The screen shows a table of today's production records for a selected work center. Reviewers select one or more records, optionally add a comment, and submit the review in a single batch.
+AI Review allows Authorized Inspectors to perform batch reviews of production records. The screen shows a table of today's production records for a selected work center. The AI selects one or more records, optionally add a comment, and submit the annotation in a single batch.
 
-**Access:** Authorized Inspectors (5.5) and Supervisors (4.0) and above.
+**Access:** Authorized Inspectors (5.5) and Quality / Operations Director (2.0) and above.
 
 ## How It Works
 
@@ -15,14 +15,16 @@ AI Review allows Authorized Inspectors and supervisors to perform batch reviews 
 
 ## Fields & Controls
 
-| Element | Description |
-|---|---|
-| **Work Center dropdown** | Filters the table to show production records for the selected work center. |
-| **Record table** | Displays today's production records with key fields (serial number, product, operator, timestamps, etc.). |
-| **Checkbox** | Select individual records for batch review. Disabled for already-reviewed records. |
-| **Comment field** | Optional text input for a review comment applied to all selected records. |
-| **Submit Review button** | Submits the review for all checked records. |
-| **Already reviewed indicator** | Visual cue (disabled checkbox and/or styling) indicating a record has already been reviewed. |
+
+| Element                        | Description                                                                                               |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **Work Center dropdown**       | Filters the table to show production records for the selected work center.                                |
+| **Record table**               | Displays today's production records with key fields (serial number, product, operator, timestamps, etc.). |
+| **Checkbox**                   | Select individual records for batch review. Disabled for already-reviewed records.                        |
+| **Comment field**              | Optional text input for a review comment applied to all selected records.                                 |
+| **Submit Review button**       | Submits the review for all checked records.                                                               |
+| **Already reviewed indicator** | Visual cue (disabled checkbox and/or styling) indicating a record has already been reviewed.              |
+
 
 ## Tips
 
@@ -30,3 +32,4 @@ AI Review allows Authorized Inspectors and supervisors to perform batch reviews 
 - Already-reviewed records remain visible for reference but cannot be reviewed again from this screen.
 - The 30-second auto-refresh ensures you see new records without manually reloading. If you are mid-selection, your checkboxes are preserved across refreshes.
 - If no records appear, confirm the correct work center is selected and that production has started for the day.
+

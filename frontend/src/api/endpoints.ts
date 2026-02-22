@@ -32,7 +32,9 @@ import type {
   UpdateDefectLocationRequest,
   UpdateWorkCenterConfigRequest,
   UpdateWorkCenterGroupRequest,
+  CreateCharacteristicRequest,
   UpdateCharacteristicRequest,
+  CreateControlPlanRequest,
   UpdateControlPlanRequest,
   CreateAssetRequest,
   UpdateAssetRequest,
@@ -355,12 +357,16 @@ export const adminWorkCenterApi = {
 
 export const adminCharacteristicApi = {
   getAll: () => api.get<AdminCharacteristic[]>('/characteristics/admin'),
+  create: (req: CreateCharacteristicRequest) => api.post<AdminCharacteristic>('/characteristics', req),
   update: (id: string, req: UpdateCharacteristicRequest) => api.put<AdminCharacteristic>(`/characteristics/${id}`, req),
+  remove: (id: string) => api.delete<AdminCharacteristic>(`/characteristics/${id}`),
 };
 
 export const adminControlPlanApi = {
   getAll: () => api.get<AdminControlPlan[]>('/control-plans'),
+  create: (req: CreateControlPlanRequest) => api.post<AdminControlPlan>('/control-plans', req),
   update: (id: string, req: UpdateControlPlanRequest) => api.put<AdminControlPlan>(`/control-plans/${id}`, req),
+  remove: (id: string) => api.delete<AdminControlPlan>(`/control-plans/${id}`),
 };
 
 export const adminAssetApi = {

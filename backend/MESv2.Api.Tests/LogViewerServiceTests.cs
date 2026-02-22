@@ -125,7 +125,7 @@ public class LogViewerServiceTests
             Id = Guid.NewGuid(),
             ProductionRecordId = r.Id,
             AnnotationTypeId = AnnotTypeCorrectionId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             InitiatedByUserId = TestHelpers.TestUserId,
             CreatedAt = DateTime.UtcNow
         });

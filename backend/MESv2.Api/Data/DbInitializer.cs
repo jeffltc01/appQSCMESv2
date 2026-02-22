@@ -284,11 +284,11 @@ public static class DbInitializer
         var charRs4Id = Guid.Parse("c2000004-0000-0000-0000-000000000004");
 
         context.Characteristics.AddRange(
-            new Characteristic { Id = charLongSeamId, Name = "Long Seam", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs1Id, Name = "RS1", MinTankSize = 0, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs2Id, Name = "RS2", MinTankSize = 0, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs3Id, Name = "RS3", MinTankSize = 1000, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
-            new Characteristic { Id = charRs4Id, Name = "RS4", MinTankSize = 1001, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null }
+            new Characteristic { Id = charLongSeamId, Code = "001", Name = "Long Seam", SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs1Id, Code = "002", Name = "RS1", MinTankSize = 0, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs2Id, Code = "003", Name = "RS2", MinTankSize = 0, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs3Id, Code = "004", Name = "RS3", MinTankSize = 1000, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null },
+            new Characteristic { Id = charRs4Id, Code = "005", Name = "RS4", MinTankSize = 1001, SpecHigh = null, SpecLow = null, SpecTarget = null, ProductTypeId = null }
         );
 
         context.CharacteristicWorkCenters.AddRange(
@@ -380,6 +380,9 @@ public static class DbInitializer
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000005"), WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt1, DisplayName = "Round Seam", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000006"), WorkCenterId = wcRoundSeamInsp, ProductionLineId = line1Plt1, DisplayName = "Round Seam Inspection", NumberOfWelders = 0 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000007"), WorkCenterId = wcHydro, ProductionLineId = line1Plt1, DisplayName = "Hydro", NumberOfWelders = 0 },
+            new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000008"), WorkCenterId = wcRtXrayQueue, ProductionLineId = line1Plt1, DisplayName = "RT X-ray Queue", NumberOfWelders = 0 },
+            new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-000000000009"), WorkCenterId = wcSpotXray, ProductionLineId = line1Plt1, DisplayName = "Spot X-ray", NumberOfWelders = 0 },
+            new WorkCenterProductionLine { Id = Guid.Parse("d0010001-0000-0000-0000-00000000000a"), WorkCenterId = wcNameplate, ProductionLineId = line1Plt1, DisplayName = "Nameplate", NumberOfWelders = 0 },
             // Plant 2, Line 1
             new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000001"), WorkCenterId = wcRolls, ProductionLineId = line1Plt2, DisplayName = "Rolls", NumberOfWelders = 1 },
             new WorkCenterProductionLine { Id = Guid.Parse("d0020001-0000-0000-0000-000000000002"), WorkCenterId = wcLongSeam, ProductionLineId = line1Plt2, DisplayName = "Long Seam", NumberOfWelders = 1 },

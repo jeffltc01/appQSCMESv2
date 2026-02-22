@@ -40,6 +40,7 @@ interface MenuTile {
   label: string;
   icon: React.ReactNode;
   minRoleTier: number;
+  canAccess?: (roleTier: number) => boolean;
   route: string;
   implemented: boolean;
 }
@@ -70,7 +71,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Defect Codes', icon: <ShieldErrorRegular />, minRoleTier: 3, route: '/menu/defect-codes', implemented: true },
       { label: 'Defect Locations', icon: <LocationRegular />, minRoleTier: 3, route: '/menu/defect-locations', implemented: true },
       { label: 'Characteristics', icon: <ClipboardTextLtrRegular />, minRoleTier: 3, route: '/menu/characteristics', implemented: true },
-      { label: 'Control Plans', icon: <ListRegular />, minRoleTier: 2, route: '/menu/control-plans', implemented: true },
+      { label: 'Control Plans', icon: <ListRegular />, minRoleTier: 3, route: '/menu/control-plans', implemented: true },
       { label: 'Annotation Types', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/annotation-types', implemented: true },
       { label: 'Annotations', icon: <NoteRegular />, minRoleTier: 3, route: '/menu/annotations', implemented: true },
     ],
@@ -94,7 +95,7 @@ const MENU_GROUPS: MenuGroup[] = [
     tiles: [
       { label: 'Supervisor Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
       { label: 'Digital Twin', icon: <BranchRegular />, minRoleTier: 4, route: '/menu/digital-twin', implemented: true },
-      { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 5.5, route: '/menu/ai-review', implemented: true },
+      { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
       { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
       { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
       { label: 'Change Logs', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/change-logs', implemented: false },
@@ -154,7 +155,7 @@ export function MenuScreen() {
       <main className={styles.content}>
         <div className={styles.groupContainer}>
           {MENU_GROUPS.map((group) => {
-            const visibleTiles = group.tiles.filter((t) => roleTier <= t.minRoleTier);
+            const visibleTiles = group.tiles.filter((t) => t.canAccess ? t.canAccess(roleTier) : roleTier <= t.minRoleTier);
             if (visibleTiles.length === 0) return null;
 
             return (

@@ -207,7 +207,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
           }
           const code = defectCodes.find((c) => c.id === fd.defectCode || c.code === fd.defectCode);
           const loc = defectLocations.find((l) => l.id === fd.location || l.code === fd.location);
-          const char = characteristics.find((ch) => ch.id === fd.characteristic) ?? assumedCharacteristic;
+          const char = characteristics.find((ch) => ch.id === fd.characteristic || ch.code === fd.characteristic) ?? assumedCharacteristic;
           if (!code || !loc) {
             showScanResult({ type: 'error', message: 'Invalid defect or location in full defect barcode' });
             return;

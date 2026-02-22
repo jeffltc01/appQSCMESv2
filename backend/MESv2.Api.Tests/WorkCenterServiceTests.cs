@@ -306,7 +306,7 @@ public class WorkCenterServiceTests
             Id = Guid.NewGuid(),
             ProductionRecordId = prId,
             AnnotationTypeId = defectTypeId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             Notes = "Test defect",
             InitiatedByUserId = TestHelpers.TestUserId,
             CreatedAt = utcTimestamp

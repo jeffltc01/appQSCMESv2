@@ -25,6 +25,7 @@ export function AssetManagementScreen() {
   const [workCenterId, setWorkCenterId] = useState('');
   const [productionLineId, setProductionLineId] = useState('');
   const [limbleIdentifier, setLimbleIdentifier] = useState('');
+  const [laneName, setLaneName] = useState('');
   const [isActive, setIsActive] = useState(true);
 
   const load = useCallback(async () => {
@@ -57,7 +58,7 @@ export function AssetManagementScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setName(''); setWorkCenterId(''); setProductionLineId(''); setLimbleIdentifier(''); setIsActive(true);
+    setName(''); setWorkCenterId(''); setProductionLineId(''); setLimbleIdentifier(''); setLaneName(''); setIsActive(true);
     setError(''); setModalOpen(true);
   };
 
@@ -66,6 +67,7 @@ export function AssetManagementScreen() {
     setName(item.name); setWorkCenterId(item.workCenterId);
     setProductionLineId(item.productionLineId);
     setLimbleIdentifier(item.limbleIdentifier ?? '');
+    setLaneName(item.laneName ?? '');
     setIsActive(item.isActive);
     setError(''); setModalOpen(true);
   };
@@ -74,10 +76,10 @@ export function AssetManagementScreen() {
     setSaving(true); setError('');
     try {
       if (editing) {
-        const updated = await adminAssetApi.update(editing.id, { name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined, isActive });
+        const updated = await adminAssetApi.update(editing.id, { name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined, laneName: laneName || undefined, isActive });
         setItems(prev => prev.map(a => a.id === updated.id ? updated : a));
       } else {
-        const created = await adminAssetApi.create({ name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined });
+        const created = await adminAssetApi.create({ name, workCenterId, productionLineId, limbleIdentifier: limbleIdentifier || undefined, laneName: laneName || undefined });
         setItems(prev => [...prev, created]);
       }
       setModalOpen(false);
@@ -112,6 +114,12 @@ export function AssetManagementScreen() {
                 <div className={styles.cardField}>
                   <span className={styles.cardFieldLabel}>Limble ID</span>
                   <span className={styles.cardFieldValue}>{item.limbleIdentifier}</span>
+                </div>
+              )}
+              {item.laneName && (
+                <div className={styles.cardField}>
+                  <span className={styles.cardFieldLabel}>Lane Name</span>
+                  <span className={styles.cardFieldValue}>{item.laneName}</span>
                 </div>
               )}
               <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
@@ -152,6 +160,8 @@ export function AssetManagementScreen() {
         </Dropdown>
         <Label>Limble Identifier (optional)</Label>
         <Input value={limbleIdentifier} onChange={(_, d) => setLimbleIdentifier(d.value)} />
+        <Label>Lane Name (optional)</Label>
+        <Input value={laneName} onChange={(_, d) => setLaneName(d.value)} maxLength={50} />
         {editing && (
           <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
         )}

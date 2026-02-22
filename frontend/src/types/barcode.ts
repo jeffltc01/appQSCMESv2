@@ -8,6 +8,7 @@ export type BarcodePrefix =
   | 'TS'
   | 'S'
   | 'CL'
+  | 'C'
   | 'O'
   | 'FLT'
   | 'NOSHELL';
@@ -40,7 +41,7 @@ export function parseBarcode(raw: string): ParsedBarcode | null {
   const value = trimmed.substring(semicolonIndex + 1);
 
   const validPrefixes: BarcodePrefix[] = [
-    'SC', 'D', 'L', 'FD', 'INP', 'KC', 'TS', 'S', 'CL', 'O', 'FLT', 'NOSHELL',
+    'SC', 'D', 'L', 'FD', 'INP', 'KC', 'TS', 'S', 'CL', 'C', 'O', 'FLT', 'NOSHELL',
   ];
 
   if (!validPrefixes.includes(prefix as BarcodePrefix)) return null;

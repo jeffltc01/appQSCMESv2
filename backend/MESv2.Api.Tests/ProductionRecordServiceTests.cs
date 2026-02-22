@@ -195,9 +195,164 @@ public class ProductionRecordServiceTests
             .FirstOrDefaultAsync(a => a.ProductionRecordId == result.Id);
         Assert.NotNull(annotation);
         Assert.Equal("Correction Needed", annotation.AnnotationType.Name);
-        Assert.True(annotation.Flag);
+        Assert.Equal(AnnotationStatus.Open, annotation.Status);
         Assert.Contains("SN-CATCHUP-ANN", annotation.Notes!);
         Assert.Contains("Rolls scan missed", annotation.Notes!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Create_CatchUp_MatchesBySerialNumber_InheritsProductAndTraceability()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shell120 = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var shell500 = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+
+        var plate100 = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "Heat H100 Coil C100",
+            HeatNumber = "H100", CoilNumber = "C100", CreatedAt = DateTime.UtcNow.AddMinutes(-20)
+        };
+        var plate200 = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "Heat H200 Coil C200",
+            HeatNumber = "H200", CoilNumber = "C200", CreatedAt = DateTime.UtcNow.AddMinutes(-15)
+        };
+        // Shell 012743 on lot H100 (120-gal), recorded first
+        var rolls743 = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "012743", ProductId = shell120.Id,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-12)
+        };
+        // Shell 012745 on lot H200 (500-gal), recorded second (later timestamp)
+        var rolls745 = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "012745", ProductId = shell500.Id,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-8)
+        };
+        db.SerialNumbers.AddRange(plate100, plate200, rolls743, rolls745);
+
+        var rec743Id = Guid.NewGuid();
+        var rec745Id = Guid.NewGuid();
+        db.ProductionRecords.AddRange(
+            new ProductionRecord
+            {
+                Id = rec743Id, SerialNumberId = rolls743.Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+                OperatorId = TestHelpers.TestUserId, Timestamp = DateTime.UtcNow.AddMinutes(-12)
+            },
+            new ProductionRecord
+            {
+                Id = rec745Id, SerialNumberId = rolls745.Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+                OperatorId = TestHelpers.TestUserId, Timestamp = DateTime.UtcNow.AddMinutes(-8)
+            });
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(), FromSerialNumberId = plate100.Id, ToSerialNumberId = rolls743.Id,
+                ProductionRecordId = rec743Id, Relationship = "plate", Quantity = 1,
+                Timestamp = DateTime.UtcNow.AddMinutes(-12)
+            },
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(), FromSerialNumberId = plate200.Id, ToSerialNumberId = rolls745.Id,
+                ProductionRecordId = rec745Id, Relationship = "plate", Quantity = 1,
+                Timestamp = DateTime.UtcNow.AddMinutes(-8)
+            });
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+
+        // Shell 012744 missed Rolls — should match 012743 (nearest predecessor), NOT 012745 (most recent)
+        var result = await sut.CreateAsync(new CreateProductionRecordDto
+        {
+            SerialNumber = "012744",
+            WorkCenterId = TestHelpers.wcLongSeamId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        });
+
+        var serial = await db.SerialNumbers.FirstAsync(s => s.Serial == "012744");
+        Assert.Equal(shell120.Id, serial.ProductId);
+
+        var traceLink = await db.TraceabilityLogs
+            .FirstOrDefaultAsync(t => t.ToSerialNumberId == serial.Id && t.Relationship == "plate");
+        Assert.NotNull(traceLink);
+        Assert.Equal(plate100.Id, traceLink!.FromSerialNumberId);
+
+        var annotation = await db.Annotations.FirstOrDefaultAsync(a => a.ProductionRecordId == result.Id);
+        Assert.NotNull(annotation);
+        Assert.Contains("inherited from previous Rolls record", annotation!.Notes!);
+        Assert.Contains("verify correct product and material lot", annotation.Notes!);
+    }
+
+    [Fact]
+    public async Task Create_CatchUp_NoRollsHistory_NoTraceabilityOrProduct()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new ProductionRecordService(db);
+
+        var result = await sut.CreateAsync(new CreateProductionRecordDto
+        {
+            SerialNumber = "000001",
+            WorkCenterId = TestHelpers.wcLongSeamId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        });
+
+        var serial = await db.SerialNumbers.FirstAsync(s => s.Serial == "000001");
+        Assert.Null(serial.ProductId);
+
+        var traceLink = await db.TraceabilityLogs
+            .FirstOrDefaultAsync(t => t.ToSerialNumberId == serial.Id && t.Relationship == "plate");
+        Assert.Null(traceLink);
+
+        var annotation = await db.Annotations.FirstOrDefaultAsync(a => a.ProductionRecordId == result.Id);
+        Assert.NotNull(annotation);
+        Assert.Contains("No previous Rolls record found", annotation!.Notes!);
+    }
+
+    [Fact]
+    public async Task Create_CatchUp_WithShellSize_UsesShellSizeOverRollsHistory()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shell120 = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var shell500 = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+
+        var rollsSerial = new SerialNumber
+        {
+            Id = Guid.NewGuid(), Serial = "012800", ProductId = shell120.Id,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-10)
+        };
+        db.SerialNumbers.Add(rollsSerial);
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = rollsSerial.Id,
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow.AddMinutes(-10)
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        await sut.CreateAsync(new CreateProductionRecordDto
+        {
+            SerialNumber = "012801",
+            WorkCenterId = TestHelpers.wcLongSeamId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>(),
+            ShellSize = "500"
+        });
+
+        var serial = await db.SerialNumbers.FirstAsync(s => s.Serial == "012801");
+        Assert.Equal(shell500.Id, serial.ProductId);
     }
 
     [Fact]

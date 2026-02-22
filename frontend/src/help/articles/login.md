@@ -27,6 +27,19 @@ The Login screen is the first screen you see when opening MES. Every user — fr
 | **Site dropdown** | Pre-filled with your default plant. Locked for most roles; selectable for Administrators and Directors. |
 | **Login button** | Disabled until your employee number has been validated. |
 
+## Session & Auto-Logout
+
+Operator sessions automatically expire after **60 minutes of inactivity**. The sequence is:
+
+1. After the work center's configured inactivity threshold (typically 5 minutes with no scans or screen touches), a **downtime overlay** appears on screen asking the operator to select a reason.
+2. If the operator is present, they dismiss the overlay and select a downtime reason. The inactivity timer resets.
+3. If the overlay is **not dismissed** and 60 total minutes of inactivity pass, the system automatically:
+   - Creates a **downtime event** covering the full idle period (marked as auto-generated with an unknown reason).
+   - Creates a **Correction Needed** annotation on the downtime event prompting a supervisor to assign the correct reason.
+   - **Logs the operator out** and returns to the Login screen.
+
+Auto-logout only applies to operator screens. Admin screens (Team Lead and above) do not have an inactivity timer.
+
 ## Tips
 
 - You can press **Enter** on the keyboard to move from the Employee Number field to the PIN field (if visible), or to submit the form.

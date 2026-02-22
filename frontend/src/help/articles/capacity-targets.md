@@ -16,18 +16,20 @@ Capacity Targets defines the expected units-per-hour throughput for each work ce
 
 ## Fields & Controls
 
-| Element | Description |
-|---|---|
-| **Plant selector** | Chooses which plant to configure targets for. Directors (2.0)+ can switch plants. |
-| **Production Line selector** | Chooses which production line's work centers to display. |
-| **Work Center rows** | One row per work center, sorted by production sequence order. |
-| **Gear Level columns** | One column per gear level defined for the plant. |
-| **Target cell** | Editable cell containing the units-per-hour target. |
-| **Per-tank-size toggle** | Switches a cell between a single default value and individual values per tank size. |
-| **Per-tank-size breakdown** | When expanded, shows a sub-row for each tank size with its own target value. |
-| **Unsaved changes indicator** | Visual badge or banner that appears when any cell has been modified. |
-| **Save button** | Bulk-saves all modified cells in a single operation. |
-| **Reset button** | Reverts all unsaved changes to the last saved values. |
+
+| Element                       | Description                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------- |
+| **Plant selector**            | Chooses which plant to configure targets for. Directors (2.0)+ can switch plants.   |
+| **Production Line selector**  | Chooses which production line's work centers to display.                            |
+| **Work Center rows**          | One row per work center, sorted by production sequence order.                       |
+| **Gear Level columns**        | One column per gear level defined for the plant.                                    |
+| **Target cell**               | Editable cell containing the units-per-hour target.                                 |
+| **Per-tank-size toggle**      | Switches a cell between a single default value and individual values per tank size. |
+| **Per-tank-size breakdown**   | When expanded, shows a sub-row for each tank size with its own target value.        |
+| **Unsaved changes indicator** | Visual badge or banner that appears when any cell has been modified.                |
+| **Save button**               | Bulk-saves all modified cells in a single operation.                                |
+| **Reset button**              | Reverts all unsaved changes to the last saved values.                               |
+
 
 ## Tips
 
@@ -35,3 +37,4 @@ Capacity Targets defines the expected units-per-hour throughput for each work ce
 - Use the per-tank-size breakdown for work centers where cycle time varies significantly by tank size (e.g., a large tank takes much longer than a small tank at the same station).
 - The grid saves all changes in a single bulk operation, so you can edit multiple cells and save once rather than saving each cell individually.
 - If a cell is left empty (no target), OEE Performance cannot be calculated for that work center at that gear level — the Supervisor Dashboard will show a warning.
+

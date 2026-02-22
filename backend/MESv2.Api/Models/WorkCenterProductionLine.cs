@@ -12,6 +12,7 @@ public class WorkCenterProductionLine
 
     public WorkCenter WorkCenter { get; set; } = null!;
     public ProductionLine ProductionLine { get; set; } = null!;
+    public ICollection<ControlPlan> ControlPlans { get; set; } = new List<ControlPlan>();
     public ICollection<WorkCenterProductionLineDowntimeReason> WorkCenterProductionLineDowntimeReasons { get; set; } = new List<WorkCenterProductionLineDowntimeReason>();
     public ICollection<DowntimeEvent> DowntimeEvents { get; set; } = new List<DowntimeEvent>();
     public ICollection<WorkCenterCapacityTarget> CapacityTargets { get; set; } = new List<WorkCenterCapacityTarget>();

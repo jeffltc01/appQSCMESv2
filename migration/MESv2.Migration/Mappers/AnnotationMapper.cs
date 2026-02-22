@@ -39,16 +39,18 @@ public static class AnnotationMapper
         }
 
         string? flagStatus = row.FlagStatus as string;
-        bool flag = !string.IsNullOrEmpty(flagStatus)
-            && !flagStatus.Equals("None", StringComparison.OrdinalIgnoreCase)
-            && !flagStatus.Equals("Resolved", StringComparison.OrdinalIgnoreCase);
+        var status = string.IsNullOrEmpty(flagStatus)
+            || flagStatus.Equals("None", StringComparison.OrdinalIgnoreCase)
+            || flagStatus.Equals("Resolved", StringComparison.OrdinalIgnoreCase)
+            ? AnnotationStatus.Closed
+            : AnnotationStatus.Open;
 
         return new Annotation
         {
             Id = (Guid)row.Id,
             ProductionRecordId = productionRecordId.Value,
             AnnotationTypeId = (Guid)row.AnnotationTypeUID,
-            Flag = flag,
+            Status = status,
             Notes = (string?)row.AnnotationNotes,
             InitiatedByUserId = (Guid?)row.InitiatedById ?? Guid.Empty,
             ResolvedByUserId = (Guid?)row.ResolvedByUID,

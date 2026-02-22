@@ -196,9 +196,9 @@ describe('WorkCenterConfigScreen', () => {
       expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
     });
 
-    // Buttons: Menu, Logout, WC Edit, PL Add, PL Edit, PL Delete
+    // Buttons: Menu, Help, Logout, WC Edit, PL Add, PL Edit, PL Delete
     const allButtons = screen.getAllByRole('button');
-    const plEditButton = allButtons[4];
+    const plEditButton = allButtons[5];
     await user.click(plEditButton);
 
     await waitFor(() => {

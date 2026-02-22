@@ -227,7 +227,7 @@ describe('ProductionLogsScreen', () => {
       serialNumber: '020401',
       annotationTypeName: 'Note',
       annotationTypeId: 'at1',
-      flag: true,
+      status: 'Open',
       notes: 'Test note',
       initiatedByName: 'Test User',
       createdAt: '2026-02-21T00:00:00Z',

@@ -230,7 +230,7 @@ The operator chips show all operators who have production records at this work c
 
 - OEE thresholds are color-coded: green is on target, yellow is a warning zone, and red means the metric is below acceptable levels. Use these colors as a quick health check.
 - The 30-second auto-refresh keeps the dashboard current without manual reloading. If you navigate away and come back, the data reloads immediately.
-- Use the Annotate mode at the end of a shift to flag records that need follow-up — annotations are visible in the Log Viewer and Serial Number Lookup as well.
+- Use the Annotate mode at the end of a shift to mark records that need follow-up — annotations are visible in the Log Viewer and Serial Number Lookup as well.
 - If Planned shows "--", check that a **Shift Schedule** and **Capacity Targets** have been configured for this work center and plant. Both are required for the Planned column and OEE to calculate.
 - OEE Availability will be low if downtime events are not being closed properly. Open (unended) downtime events accumulate indefinitely.
 - FPY and Total Defects only appear for work centers in the Long Seam family (Rolls, Long Seam) and Round Seam family (Fitup, Round Seam). Other work centers show Count, Avg Time Between Scans, and Qty/Hour only.

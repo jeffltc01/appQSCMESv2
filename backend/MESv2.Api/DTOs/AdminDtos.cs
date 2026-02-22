@@ -256,23 +256,41 @@ public class UpdateWorkCenterProductionLineDto
 public class AdminCharacteristicDto
 {
     public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public decimal? SpecHigh { get; set; }
     public decimal? SpecLow { get; set; }
     public decimal? SpecTarget { get; set; }
+    public int? MinTankSize { get; set; }
     public Guid? ProductTypeId { get; set; }
     public string? ProductTypeName { get; set; }
+    public List<Guid> WorkCenterIds { get; set; } = new();
+    public bool IsActive { get; set; }
+}
+
+public class CreateCharacteristicDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public decimal? SpecHigh { get; set; }
+    public decimal? SpecLow { get; set; }
+    public decimal? SpecTarget { get; set; }
+    public int? MinTankSize { get; set; }
+    public Guid? ProductTypeId { get; set; }
     public List<Guid> WorkCenterIds { get; set; } = new();
 }
 
 public class UpdateCharacteristicDto
 {
+    public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public decimal? SpecHigh { get; set; }
     public decimal? SpecLow { get; set; }
     public decimal? SpecTarget { get; set; }
+    public int? MinTankSize { get; set; }
     public Guid? ProductTypeId { get; set; }
     public List<Guid> WorkCenterIds { get; set; } = new();
+    public bool IsActive { get; set; }
 }
 
 // ---- Control Plans ----
@@ -281,11 +299,24 @@ public class AdminControlPlanDto
     public Guid Id { get; set; }
     public Guid CharacteristicId { get; set; }
     public string CharacteristicName { get; set; } = string.Empty;
-    public Guid WorkCenterId { get; set; }
+    public Guid WorkCenterProductionLineId { get; set; }
     public string WorkCenterName { get; set; } = string.Empty;
+    public string ProductionLineName { get; set; } = string.Empty;
     public bool IsEnabled { get; set; }
     public string ResultType { get; set; } = string.Empty;
     public bool IsGateCheck { get; set; }
+    public bool CodeRequired { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class CreateControlPlanDto
+{
+    public Guid CharacteristicId { get; set; }
+    public Guid WorkCenterProductionLineId { get; set; }
+    public bool IsEnabled { get; set; }
+    public string ResultType { get; set; } = string.Empty;
+    public bool IsGateCheck { get; set; }
+    public bool CodeRequired { get; set; }
 }
 
 public class UpdateControlPlanDto
@@ -293,6 +324,8 @@ public class UpdateControlPlanDto
     public bool IsEnabled { get; set; }
     public string ResultType { get; set; } = string.Empty;
     public bool IsGateCheck { get; set; }
+    public bool CodeRequired { get; set; }
+    public bool IsActive { get; set; }
 }
 
 // ---- Assets ----
@@ -305,6 +338,7 @@ public class AdminAssetDto
     public Guid ProductionLineId { get; set; }
     public string ProductionLineName { get; set; } = string.Empty;
     public string? LimbleIdentifier { get; set; }
+    public string? LaneName { get; set; }
     public bool IsActive { get; set; }
 }
 
@@ -314,6 +348,7 @@ public class CreateAssetDto
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public string? LimbleIdentifier { get; set; }
+    public string? LaneName { get; set; }
 }
 
 public class UpdateAssetDto
@@ -322,6 +357,7 @@ public class UpdateAssetDto
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public string? LimbleIdentifier { get; set; }
+    public string? LaneName { get; set; }
     public bool IsActive { get; set; }
 }
 
@@ -486,7 +522,7 @@ public class AdminAnnotationDto
     public string SerialNumber { get; set; } = string.Empty;
     public string AnnotationTypeName { get; set; } = string.Empty;
     public Guid AnnotationTypeId { get; set; }
-    public bool Flag { get; set; }
+    public string Status { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public string InitiatedByName { get; set; } = string.Empty;
     public string? ResolvedByName { get; set; }
@@ -508,7 +544,7 @@ public class CreateAnnotationDto
 
 public class UpdateAnnotationDto
 {
-    public bool Flag { get; set; }
+    public string Status { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public string? ResolvedNotes { get; set; }
     public Guid? ResolvedByUserId { get; set; }

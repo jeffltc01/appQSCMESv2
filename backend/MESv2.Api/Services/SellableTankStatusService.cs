@@ -57,7 +57,7 @@ public class SellableTankStatusService : ISellableTankStatusService
         allRelatedSnIds.UnionWith(shellLogs.Select(t => t.FromSerialNumberId!.Value));
 
         var gateCheckCpIds = await _db.ControlPlans
-            .Where(cp => cp.IsGateCheck && cp.IsEnabled)
+            .Where(cp => cp.IsGateCheck && cp.IsEnabled && cp.IsActive)
             .Select(cp => cp.Id)
             .ToListAsync(cancellationToken);
 

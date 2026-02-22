@@ -77,7 +77,7 @@ public class AIReviewServiceTests
             Id = Guid.NewGuid(),
             ProductionRecordId = r1.Id,
             AnnotationTypeId = AIReviewAnnotationTypeId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             InitiatedByUserId = TestHelpers.TestUserId,
             CreatedAt = DateTime.UtcNow,
         });
@@ -117,7 +117,7 @@ public class AIReviewServiceTests
         Assert.All(annotations, a =>
         {
             Assert.Equal("Looks good", a.Notes);
-            Assert.True(a.Flag);
+            Assert.Equal(AnnotationStatus.Open, a.Status);
             Assert.Equal(TestHelpers.TestUserId, a.InitiatedByUserId);
         });
     }
@@ -136,7 +136,7 @@ public class AIReviewServiceTests
             Id = Guid.NewGuid(),
             ProductionRecordId = r1.Id,
             AnnotationTypeId = AIReviewAnnotationTypeId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             InitiatedByUserId = TestHelpers.TestUserId,
             CreatedAt = DateTime.UtcNow,
         });

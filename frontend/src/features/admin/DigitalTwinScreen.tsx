@@ -236,6 +236,9 @@ function StationNodeWithArrow({
           <div className={`${styles.wipBadge} ${wipClass}`}>
             {station.wipCount} WIP
           </div>
+          {station.isBottleneck && (
+            <div className={styles.bottleneckLabel}>Bottleneck</div>
+          )}
           {station.isGateCheck && (
             <div className={styles.gateCheckIcon} title="Gate Check">
               &#x2713;

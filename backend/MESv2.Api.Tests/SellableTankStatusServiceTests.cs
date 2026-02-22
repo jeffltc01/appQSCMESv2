@@ -22,15 +22,15 @@ public class SellableTankStatusServiceTests
         var db = TestHelpers.CreateInMemoryContext();
 
         db.Characteristics.AddRange(
-            new Characteristic { Id = RtXrayCharId, Name = "RT X-ray" },
-            new Characteristic { Id = SpotXrayCharId, Name = "Spot X-ray" },
-            new Characteristic { Id = HydroCharId, Name = "Hydro" }
+            new Characteristic { Id = RtXrayCharId, Code = "100", Name = "RT X-ray" },
+            new Characteristic { Id = SpotXrayCharId, Code = "101", Name = "Spot X-ray" },
+            new Characteristic { Id = HydroCharId, Code = "102", Name = "Hydro" }
         );
 
         db.ControlPlans.AddRange(
-            new ControlPlan { Id = RtXrayCpId, CharacteristicId = RtXrayCharId, WorkCenterId = TestHelpers.wcRtXrayQueueId, IsEnabled = true, ResultType = "passfail", IsGateCheck = true },
-            new ControlPlan { Id = SpotXrayCpId, CharacteristicId = SpotXrayCharId, WorkCenterId = TestHelpers.wcSpotXrayId, IsEnabled = true, ResultType = "passfail", IsGateCheck = true },
-            new ControlPlan { Id = HydroCpId, CharacteristicId = HydroCharId, WorkCenterId = TestHelpers.wcHydroId, IsEnabled = true, ResultType = "passfail", IsGateCheck = true }
+            new ControlPlan { Id = RtXrayCpId, CharacteristicId = RtXrayCharId, WorkCenterProductionLineId = TestHelpers.wcplRtXrayQueueId, IsEnabled = true, ResultType = "passfail", IsGateCheck = true },
+            new ControlPlan { Id = SpotXrayCpId, CharacteristicId = SpotXrayCharId, WorkCenterProductionLineId = TestHelpers.wcplSpotXrayId, IsEnabled = true, ResultType = "passfail", IsGateCheck = true },
+            new ControlPlan { Id = HydroCpId, CharacteristicId = HydroCharId, WorkCenterProductionLineId = TestHelpers.wcplHydroId, IsEnabled = true, ResultType = "passfail", IsGateCheck = true }
         );
 
         db.SaveChanges();

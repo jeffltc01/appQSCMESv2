@@ -20,7 +20,7 @@ import { formatDateTime } from '../../utils/dateFormat.ts';
 import styles from './SerialNumberLookupScreen.module.css';
 
 const NODE_TYPE_COLORS: Record<string, { bg: string; label: string }> = {
-  sellable:  { bg: '#28a745', label: 'Finished' },
+  sellable:  { bg: '#28a745', label: 'Finished SN' },
   assembled: { bg: '#606ca3', label: 'Fitup' },
   shell:     { bg: '#e41e2f', label: 'Shells' },
   plate:     { bg: '#ffc107', label: 'Plate' },

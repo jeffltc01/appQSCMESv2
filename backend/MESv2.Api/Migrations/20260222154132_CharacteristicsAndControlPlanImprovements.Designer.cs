@@ -4,6 +4,7 @@ using MESv2.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MESv2.Api.Migrations
 {
     [DbContext(typeof(MesDbContext))]
-    partial class MesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260222154132_CharacteristicsAndControlPlanImprovements")]
+    partial class CharacteristicsAndControlPlanImprovements
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -79,6 +82,9 @@ namespace MESv2.Api.Migrations
                     b.Property<Guid?>("DowntimeEventId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("Flag")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("InitiatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -102,11 +108,6 @@ namespace MESv2.Api.Migrations
 
                     b.Property<Guid?>("SerialNumberId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("SystemTypeInfo")
                         .HasColumnType("nvarchar(max)");
@@ -163,10 +164,6 @@ namespace MESv2.Api.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<string>("LaneName")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("LimbleIdentifier")
                         .HasColumnType("nvarchar(max)");

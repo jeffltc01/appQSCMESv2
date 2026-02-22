@@ -199,7 +199,7 @@ public class SupervisorDashboardServiceTests
             Id = Guid.NewGuid(),
             ProductionRecordId = recId,
             AnnotationTypeId = NoteAnnotationTypeId,
-            Flag = true,
+            Status = AnnotationStatus.Open,
             Notes = "test note",
             InitiatedByUserId = TestHelpers.TestUserId,
             CreatedAt = MidDay,

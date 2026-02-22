@@ -49,6 +49,7 @@ public class AssetsController : ControllerBase
                 ProductionLineId = a.ProductionLineId,
                 ProductionLineName = a.ProductionLine.Name + " (" + a.ProductionLine.Plant.Name + ")",
                 LimbleIdentifier = a.LimbleIdentifier,
+                LaneName = a.LaneName,
                 IsActive = a.IsActive
             })
             .ToListAsync(cancellationToken);
@@ -64,14 +65,15 @@ public class AssetsController : ControllerBase
             Name = dto.Name,
             WorkCenterId = dto.WorkCenterId,
             ProductionLineId = dto.ProductionLineId,
-            LimbleIdentifier = dto.LimbleIdentifier
+            LimbleIdentifier = dto.LimbleIdentifier,
+            LaneName = dto.LaneName
         };
         _db.Assets.Add(asset);
         await _db.SaveChangesAsync(cancellationToken);
 
         var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
         var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
-        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, IsActive = asset.IsActive });
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, LaneName = asset.LaneName, IsActive = asset.IsActive });
     }
 
     [HttpPut("{id:guid}")]
@@ -84,11 +86,12 @@ public class AssetsController : ControllerBase
         asset.WorkCenterId = dto.WorkCenterId;
         asset.ProductionLineId = dto.ProductionLineId;
         asset.LimbleIdentifier = dto.LimbleIdentifier;
+        asset.LaneName = dto.LaneName;
         asset.IsActive = dto.IsActive;
         await _db.SaveChangesAsync(cancellationToken);
 
         var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
         var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
-        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, IsActive = asset.IsActive });
+        return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, LaneName = asset.LaneName, IsActive = asset.IsActive });
     }
 }

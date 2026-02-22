@@ -61,7 +61,7 @@ const mockAnnotations = [
     serialNumber: 'SN-001',
     annotationTypeName: 'Weld Defect',
     annotationTypeId: 'at1',
-    flag: true,
+    status: 'Open',
     notes: 'Bad weld on seam',
     initiatedByName: 'Operator Joe',
     resolvedByName: undefined,
@@ -73,7 +73,7 @@ const mockAnnotations = [
     serialNumber: 'SN-002',
     annotationTypeName: 'Surface Scratch',
     annotationTypeId: 'at2',
-    flag: false,
+    status: 'Closed',
     notes: 'Minor surface issue',
     initiatedByName: 'Operator Jane',
     resolvedByName: 'Inspector Smith',
@@ -180,16 +180,16 @@ describe('AnnotationMaintenanceScreen', () => {
     expect(screen.queryByText('SN-002')).not.toBeInTheDocument();
   });
 
-  it('shows flag badges correctly', async () => {
+  it('shows status badges correctly', async () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('SN-001')).toBeInTheDocument();
     });
 
-    const yesFlags = screen.getAllByText('Yes');
-    const noFlags = screen.getAllByText('No');
-    expect(yesFlags.length).toBeGreaterThanOrEqual(1);
-    expect(noFlags.length).toBeGreaterThanOrEqual(1);
+    const openBadges = screen.getAllByText('Open');
+    const closedBadges = screen.getAllByText('Closed');
+    expect(openBadges.length).toBeGreaterThanOrEqual(1);
+    expect(closedBadges.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows resolved/unresolved status', async () => {

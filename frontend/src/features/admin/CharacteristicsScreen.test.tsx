@@ -16,6 +16,9 @@ const tier3User = { plantCode: '000', plantName: 'Cleveland', displayName: 'QM U
 vi.mock('../../api/endpoints.ts', () => ({
   adminCharacteristicApi: {
     getAll: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
   },
   adminProductApi: {
     getTypes: vi.fn(),
@@ -38,12 +41,27 @@ function renderScreen() {
 const mockCharacteristics = [
   {
     id: 'c1',
+    code: '001',
     name: 'Long Seam',
     specHigh: 10,
     specLow: 1,
     specTarget: 5,
+    minTankSize: null,
     productTypeName: 'Shell',
     workCenterIds: ['wc1'],
+    isActive: true,
+  },
+  {
+    id: 'c2',
+    code: '002',
+    name: 'RS1',
+    specHigh: null,
+    specLow: null,
+    specTarget: null,
+    minTankSize: 0,
+    productTypeName: null,
+    workCenterIds: [],
+    isActive: false,
   },
 ];
 
@@ -99,6 +117,24 @@ describe('CharacteristicsScreen', () => {
     expect(screen.getByText(/1.*10/)).toBeInTheDocument();
   });
 
+  it('renders Code and MinTankSize on cards', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Long Seam')).toBeInTheDocument();
+    });
+    expect(screen.getByText('001')).toBeInTheDocument();
+    expect(screen.getByText('002')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+
+  it('shows inactive badge for deactivated items', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('RS1')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Inactive')).toBeInTheDocument();
+  });
+
   it('shows empty state when no items', async () => {
     vi.mocked(adminCharacteristicApi.getAll).mockResolvedValue([]);
     renderScreen();
@@ -107,12 +143,12 @@ describe('CharacteristicsScreen', () => {
     });
   });
 
-  it('does not show Add button', async () => {
+  it('shows Add button for Admin', async () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Long Seam')).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /Add/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add/i })).toBeInTheDocument();
   });
 
   it('displays correct title', async () => {
@@ -131,6 +167,14 @@ describe('CharacteristicsScreen', () => {
         expect(screen.getByText('Long Seam')).toBeInTheDocument();
       });
       expect(screen.queryByLabelText(/edit/i)).not.toBeInTheDocument();
+    });
+
+    it('hides Add button for non-Admin', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText('Long Seam')).toBeInTheDocument();
+      });
+      expect(screen.queryByRole('button', { name: /Add/i })).not.toBeInTheDocument();
     });
   });
 });

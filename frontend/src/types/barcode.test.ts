@@ -63,6 +63,11 @@ describe('parseBarcode', () => {
     expect(result).toEqual({ prefix: 'NOSHELL', value: '0', raw: 'NOSHELL;0' });
   });
 
+  it('parses C characteristic prefix', () => {
+    const result = parseBarcode('C;001');
+    expect(result).toEqual({ prefix: 'C', value: '001', raw: 'C;001' });
+  });
+
   it('returns null for empty string', () => {
     expect(parseBarcode('')).toBeNull();
   });
