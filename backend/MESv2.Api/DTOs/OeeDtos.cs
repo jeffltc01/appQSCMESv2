@@ -90,6 +90,22 @@ public class UpdateWorkCenterCapacityTargetDto
     public decimal TargetUnitsPerHour { get; set; }
 }
 
+// ---- Bulk Capacity Targets ----
+
+public class BulkUpsertCapacityTargetsDto
+{
+    public Guid ProductionLineId { get; set; }
+    public List<BulkCapacityTargetItemDto> Targets { get; set; } = new();
+}
+
+public class BulkCapacityTargetItemDto
+{
+    public Guid WorkCenterProductionLineId { get; set; }
+    public Guid PlantGearId { get; set; }
+    public int? TankSize { get; set; }
+    public decimal TargetUnitsPerHour { get; set; }
+}
+
 // ---- OEE Results ----
 
 public class OeeMetricsDto

@@ -292,4 +292,147 @@ public class SupervisorDashboardServiceTests
 
         Assert.Equal(7, result.WeekDailyCounts.Count);
     }
+
+    // ---- Performance Table tests ----
+
+    [Fact]
+    public async Task GetPerformanceTable_Day_Returns24Rows()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
+
+        Assert.Equal(24, result.Rows.Count);
+        Assert.NotNull(result.TotalRow);
+        Assert.Equal("Total", result.TotalRow!.Label);
+        Assert.Equal(1, result.TotalRow.Actual);
+    }
+
+    [Fact]
+    public async Task GetPerformanceTable_Week_Returns7Rows()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        SeedRecord(db, TestHelpers.wcRollsId, EarlierInWeek);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "week");
+
+        Assert.Equal(7, result.Rows.Count);
+        Assert.NotNull(result.TotalRow);
+        Assert.Equal(2, result.TotalRow!.Actual);
+    }
+
+    [Fact]
+    public async Task GetPerformanceTable_Month_ReturnsWeekRows()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "month");
+
+        Assert.True(result.Rows.Count >= 4, "A month should have at least 4 week rows");
+        Assert.All(result.Rows, r => Assert.StartsWith("Week ", r.Label));
+        Assert.NotNull(result.TotalRow);
+    }
+
+    [Fact]
+    public async Task GetPerformanceTable_Day_PlannedNull_WhenNoCapacityTargets()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
+
+        Assert.All(result.Rows, r => Assert.Null(r.Planned));
+        Assert.Null(result.TotalRow!.Planned);
+    }
+
+    [Fact]
+    public async Task GetPerformanceTable_Day_PlannedPopulated_WhenCapacityTargetExists()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var wcplId = Guid.Parse("d0010001-0000-0000-0000-000000000001");
+        var gearId = Guid.Parse("61111111-1111-1111-1111-111111111111");
+
+        db.WorkCenterCapacityTargets.Add(new Models.WorkCenterCapacityTarget
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterProductionLineId = wcplId,
+            PlantGearId = gearId,
+            TankSize = null,
+            TargetUnitsPerHour = 10m,
+        });
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
+
+        Assert.All(result.Rows, r => Assert.Equal(10m, r.Planned));
+    }
+
+    [Fact]
+    public async Task GetPerformanceTable_Day_DeltaCalculated()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var wcplId = Guid.Parse("d0010001-0000-0000-0000-000000000001");
+        var gearId = Guid.Parse("61111111-1111-1111-1111-111111111111");
+
+        db.WorkCenterCapacityTargets.Add(new Models.WorkCenterCapacityTarget
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterProductionLineId = wcplId,
+            PlantGearId = gearId,
+            TankSize = null,
+            TargetUnitsPerHour = 5m,
+        });
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-20));
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-10));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
+
+        // The hour containing the records (hour 17 in CDT = hour 12 local) should have actual=3, delta=-2
+        var hourRow = result.Rows.FirstOrDefault(r => r.Actual == 3);
+        Assert.NotNull(hourRow);
+        Assert.Equal(-2m, hourRow!.Delta);
+    }
+
+    [Fact]
+    public async Task GetPerformanceTable_InvalidView_ReturnsEmpty()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var result = await sut.GetPerformanceTableAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "invalid");
+
+        Assert.Empty(result.Rows);
+        Assert.Null(result.TotalRow);
+    }
 }

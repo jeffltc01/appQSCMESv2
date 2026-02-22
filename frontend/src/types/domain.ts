@@ -660,6 +660,20 @@ export interface SupervisorRecord {
   annotations: ExistingAnnotation[];
 }
 
+export interface PerformanceTableRow {
+  label: string;
+  planned: number | null;
+  actual: number;
+  delta: number | null;
+  fpy: number | null;
+  downtimeMinutes: number;
+}
+
+export interface PerformanceTableResponse {
+  rows: PerformanceTableRow[];
+  totalRow: PerformanceTableRow | null;
+}
+
 // ---- Digital Twin ----
 
 export type StationStatusValue = 'Active' | 'Slow' | 'Idle' | 'Down';

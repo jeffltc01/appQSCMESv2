@@ -47,6 +47,23 @@ public class SupervisorDashboardController : ControllerBase
         return Ok(records);
     }
 
+    [HttpGet("{wcId:guid}/performance-table")]
+    public async Task<ActionResult<PerformanceTableResponseDto>> GetPerformanceTable(
+        Guid wcId,
+        [FromQuery] Guid plantId,
+        [FromQuery] string date,
+        [FromQuery] string view,
+        [FromQuery] Guid? operatorId,
+        CancellationToken cancellationToken)
+    {
+        if (!IsTeamLeadOrAbove())
+            return Forbid();
+
+        var result = await _service.GetPerformanceTableAsync(
+            wcId, plantId, date, view, operatorId, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpPost("annotate")]
     public async Task<ActionResult<SupervisorAnnotationResultDto>> SubmitAnnotation(
         [FromBody] CreateSupervisorAnnotationRequest request,

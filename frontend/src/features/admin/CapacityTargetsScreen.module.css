@@ -1,81 +1,189 @@
-.formCard {
-  border: 1px solid #dee2e6;
-  padding: 20px;
-  margin-bottom: 24px;
-  background: #ffffff;
-}
-
-.formHeader {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1b2a4a;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 16px;
-  font-family: 'Roboto', sans-serif;
-}
-
-.formGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
   gap: 16px;
+  margin-bottom: 20px;
+  align-items: flex-end;
 }
 
-.formField {
+.filterField {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 200px;
 }
 
-.groupSection {
-  margin-bottom: 24px;
-}
-
-.groupHeader {
-  font-size: 13px;
+.filterField label {
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #1b2a4a;
-  margin-bottom: 8px;
-  font-family: 'Roboto', sans-serif;
+  color: #495057;
 }
 
-.table {
+.helpText {
+  flex: 1;
+  font-size: 12px;
+  color: #6c757d;
+  line-height: 1.5;
+  align-self: center;
+  padding-left: 8px;
+}
+
+.helpText strong {
+  color: #495057;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  border: 1px solid #dee2e6;
+}
+
+.gridTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  margin-bottom: 8px;
+  table-layout: fixed;
 }
 
-.table th {
-  text-align: left;
-  padding: 8px 12px;
+.gridTable th {
   background: #1b2a4a;
   color: #ffffff;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  padding: 10px 12px;
+  text-align: center;
+  border-right: 1px solid #2d3f6a;
 }
 
-.table td {
-  padding: 8px 12px;
+.gridTable th:first-child {
+  text-align: left;
+  width: 180px;
+  min-width: 180px;
+}
+
+.gridTable td {
+  padding: 0;
   border-bottom: 1px solid #dee2e6;
+  border-right: 1px solid #e9ecef;
+  vertical-align: top;
+}
+
+.gridTable td:first-child {
+  padding: 10px 12px;
+  font-weight: 600;
+  color: #1b2a4a;
+  background: #f8f9fa;
   vertical-align: middle;
 }
 
-.table tbody tr:hover {
-  background: #f1f3f5;
+.gridTable tbody tr:hover td:first-child {
+  background: #edf0f4;
 }
 
-.uphCell {
-  font-weight: 700;
+.cell {
+  position: relative;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+}
+
+.cellExpanded {
+  position: relative;
+  background: #eef3ff;
+  padding: 8px 10px;
+}
+
+.toggleIcon {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 3px;
+  color: #adb5bd;
+  font-size: 11px;
+  transition: color 0.15s, background 0.15s;
+  z-index: 1;
+}
+
+.toggleIcon:hover {
+  color: #495057;
+  background: #e9ecef;
+}
+
+.toggleIconActive {
   color: #2b3b84;
+  background: #dbe4ff;
 }
 
-.defaultLabel {
-  font-style: italic;
-  color: #868e96;
+.toggleIconActive:hover {
+  color: #1b2a4a;
+  background: #bac8ff;
+}
+
+.gearInput {
+  width: 64px;
+  text-align: center;
+}
+
+.gearInput input {
+  text-align: center;
+}
+
+.tankSizeList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.tankSizeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tankSizeLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #495057;
+  min-width: 58px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.tankSizeInput {
+  width: 56px;
+}
+
+.tankSizeInput input {
+  text-align: center;
   font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  align-items: center;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 0;
+  color: #868e96;
+  font-style: italic;
+}
+
+.dirtyBadge {
+  font-size: 12px;
+  color: #e67700;
+  font-weight: 600;
 }

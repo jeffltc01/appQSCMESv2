@@ -4,17 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { SupervisorDashboardScreen } from './SupervisorDashboardScreen';
-import type { SupervisorDashboardMetrics, SupervisorRecord } from '../../types/domain';
-
-vi.mock('recharts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('recharts')>();
-  return {
-    ...actual,
-    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-      <div style={{ width: 500, height: 300 }}>{children}</div>
-    ),
-  };
-});
+import type { SupervisorDashboardMetrics, SupervisorRecord, PerformanceTableResponse } from '../../types/domain';
 
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: {
@@ -26,6 +16,7 @@ vi.mock('../../api/endpoints', () => ({
   supervisorDashboardApi: {
     getMetrics: vi.fn().mockResolvedValue(null),
     getRecords: vi.fn().mockResolvedValue([]),
+    getPerformanceTable: vi.fn().mockResolvedValue({ rows: [], totalRow: null }),
     submitAnnotation: vi.fn().mockResolvedValue({ annotationsCreated: 0 }),
   },
   siteApi: { getSites: vi.fn().mockResolvedValue([]) },
@@ -69,10 +60,8 @@ const mockMetrics: SupervisorDashboardMetrics = {
   weekAvgTimeBetweenScans: 142,
   dayQtyPerHour: 8.2,
   weekQtyPerHour: 7.6,
-  hourlyCounts: emptyHourlyCounts.map((h) =>
-    h.hour >= 6 && h.hour <= 16 ? { ...h, count: Math.floor(Math.random() * 5) + 1 } : h,
-  ),
-  weekDailyCounts: emptyDailyCounts.map((d, i) => ({ ...d, count: (i + 1) * 5 })),
+  hourlyCounts: emptyHourlyCounts,
+  weekDailyCounts: emptyDailyCounts,
   operators: [
     { id: 'op-1', displayName: 'John D.', recordCount: 25 },
     { id: 'op-2', displayName: 'Jane S.', recordCount: 17 },
@@ -100,6 +89,23 @@ const mockRecords: SupervisorRecord[] = [
   },
 ];
 
+const mockPerfTable: PerformanceTableResponse = {
+  rows: [
+    { label: '06:00', planned: 10, actual: 8, delta: -2, fpy: 100, downtimeMinutes: 5 },
+    { label: '07:00', planned: 10, actual: 12, delta: 2, fpy: 95.5, downtimeMinutes: 0 },
+    { label: '08:00', planned: 10, actual: 10, delta: 0, fpy: null, downtimeMinutes: 0 },
+  ],
+  totalRow: { label: 'Total', planned: 30, actual: 30, delta: 0, fpy: 97.8, downtimeMinutes: 5 },
+};
+
+async function selectWorkCenter(user: ReturnType<typeof userEvent.setup>) {
+  await waitFor(() => {
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+  await user.click(screen.getByRole('combobox'));
+  await user.click(screen.getByText('Rolls'));
+}
+
 describe('SupervisorDashboardScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,15 +128,11 @@ describe('SupervisorDashboardScreen', () => {
   it('loads metrics and displays KPI cards when work center is selected', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     const user = userEvent.setup();
 
     renderScreen();
-    await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByText('Rolls'));
+    await selectWorkCenter(user);
 
     await waitFor(() => {
       expect(screen.getByText('42')).toBeInTheDocument();
@@ -138,18 +140,117 @@ describe('SupervisorDashboardScreen', () => {
     });
   });
 
-  it('shows FPY cards with correct values', async () => {
+  it('shows toggle buttons when work center is selected', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     const user = userEvent.setup();
 
     renderScreen();
+    await selectWorkCenter(user);
+
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Day' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Week' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Month' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Annotate' })).toBeInTheDocument();
+    });
+  });
+
+  it('shows performance table with Day view by default', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hourly Performance - Today')).toBeInTheDocument();
+      expect(screen.getByText('06:00')).toBeInTheDocument();
+      expect(screen.getByText('07:00')).toBeInTheDocument();
+      expect(screen.getByText('Total')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByText('Rolls'));
+    expect(supervisorDashboardApi.getPerformanceTable).toHaveBeenCalledWith(
+      'wc-1', 'site-1', 'day', expect.any(String), undefined,
+    );
+  });
+
+  it('renders performance table column headers', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByText('Planned')).toBeInTheDocument();
+      expect(screen.getByText('Actual')).toBeInTheDocument();
+      expect(screen.getByText('Delta')).toBeInTheDocument();
+      expect(screen.getByText('FPY')).toBeInTheDocument();
+      expect(screen.getByText('Downtime (min)')).toBeInTheDocument();
+    });
+  });
+
+  it('clicking Week toggle changes view and fetches week data', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Day' })).toBeInTheDocument();
+    });
+
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockClear();
+    await user.click(screen.getByRole('button', { name: 'Week' }));
+
+    await waitFor(() => {
+      expect(supervisorDashboardApi.getPerformanceTable).toHaveBeenCalledWith(
+        'wc-1', 'site-1', 'week', expect.any(String), undefined,
+      );
+    });
+  });
+
+  it('clicking Annotate shows production records instead of performance table', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Annotate' })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Production Records - Today')).toBeInTheDocument();
+      expect(screen.getByText('SN-001')).toBeInTheDocument();
+      expect(screen.getByText('SN-002')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Hourly Performance - Today')).not.toBeInTheDocument();
+  });
+
+  it('shows FPY cards with correct values', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
 
     await waitFor(() => {
       expect(screen.getByText('96.5%')).toBeInTheDocument();
@@ -160,15 +261,11 @@ describe('SupervisorDashboardScreen', () => {
   it('displays operator chips', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     const user = userEvent.setup();
 
     renderScreen();
-    await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByText('Rolls'));
+    await selectWorkCenter(user);
 
     await waitFor(() => {
       expect(screen.getByText('John D. (25)')).toBeInTheDocument();
@@ -180,15 +277,11 @@ describe('SupervisorDashboardScreen', () => {
   it('clicking operator chip triggers metrics reload with operator filter', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     const user = userEvent.setup();
 
     renderScreen();
-    await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByText('Rolls'));
+    await selectWorkCenter(user);
 
     await waitFor(() => {
       expect(screen.getByText('John D. (25)')).toBeInTheDocument();
@@ -204,39 +297,42 @@ describe('SupervisorDashboardScreen', () => {
     });
   });
 
-  it('shows records table with annotation badges', async () => {
+  it('shows annotation badges in annotate view', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     const user = userEvent.setup();
 
     renderScreen();
+    await selectWorkCenter(user);
+
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Annotate' })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByText('Rolls'));
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
 
     await waitFor(() => {
       expect(screen.getByText('SN-001')).toBeInTheDocument();
-      expect(screen.getByText('SN-002')).toBeInTheDocument();
       expect(screen.getByText('N')).toBeInTheDocument();
     });
   });
 
-  it('submits annotation with selected type', async () => {
+  it('submits annotation with selected type from annotate view', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     vi.mocked(supervisorDashboardApi.submitAnnotation).mockResolvedValue({ annotationsCreated: 1 });
     const user = userEvent.setup();
 
     renderScreen();
+    await selectWorkCenter(user);
+
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Annotate' })).toBeInTheDocument();
     });
 
-    await user.click(screen.getAllByRole('combobox')[0]);
-    await user.click(screen.getByText('Rolls'));
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
 
     await waitFor(() => {
       expect(screen.getByText('SN-001')).toBeInTheDocument();
@@ -260,16 +356,18 @@ describe('SupervisorDashboardScreen', () => {
   it('shows success message after annotation', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
     vi.mocked(supervisorDashboardApi.submitAnnotation).mockResolvedValue({ annotationsCreated: 1 });
     const user = userEvent.setup();
 
     renderScreen();
+    await selectWorkCenter(user);
+
     await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Annotate' })).toBeInTheDocument();
     });
 
-    await user.click(screen.getAllByRole('combobox')[0]);
-    await user.click(screen.getByText('Rolls'));
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
 
     await waitFor(() => {
       expect(screen.getByText('SN-001')).toBeInTheDocument();
@@ -295,6 +393,7 @@ describe('SupervisorDashboardScreen', () => {
     };
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(metricsNoFpy);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue([]);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue({ rows: [], totalRow: null });
     const user = userEvent.setup();
 
     renderScreen();
@@ -322,15 +421,11 @@ describe('SupervisorDashboardScreen', () => {
     };
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(metricsNullDay);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue([]);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue({ rows: [], totalRow: null });
     const user = userEvent.setup();
 
     renderScreen();
-    await waitFor(() => {
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByText('Rolls'));
+    await selectWorkCenter(user);
 
     await waitFor(() => {
       expect(screen.getByText('First Pass Yield')).toBeInTheDocument();
@@ -338,5 +433,28 @@ describe('SupervisorDashboardScreen', () => {
 
     expect(screen.getByText('--')).toBeInTheDocument();
     expect(screen.getByText('97.3%')).toBeInTheDocument();
+  });
+
+  it('does not call getPerformanceTable when in annotate mode', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Annotate' })).toBeInTheDocument();
+    });
+
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockClear();
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Production Records - Today')).toBeInTheDocument();
+    });
+
+    expect(supervisorDashboardApi.getPerformanceTable).not.toHaveBeenCalled();
   });
 });

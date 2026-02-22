@@ -197,35 +197,65 @@
   letter-spacing: 0.3px;
 }
 
-/* ---- Charts ---- */
-.chartsRow {
+/* ---- View toggle buttons ---- */
+.viewToggles {
   display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
+  gap: 0;
+  align-self: flex-end;
 }
 
-.chartCard {
-  flex: 1;
-  min-width: 380px;
-  border: 1px solid #dee2e6;
-  overflow: hidden;
-}
-
-.chartHeader {
-  background: #1b2a4a;
-  color: #ffffff;
-  padding: 8px 12px;
-  font-size: 11px;
+.viewToggle {
+  padding: 8px 20px;
+  font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   font-family: 'Roboto', sans-serif;
+  border: 2px solid #2b3b84;
+  background: transparent;
+  color: #2b3b84;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.chartBody {
-  padding: 16px 12px;
-  background: #ffffff;
+.viewToggle + .viewToggle {
+  border-left: none;
+}
+
+.viewToggle:hover {
+  background: #2b3b84;
+  color: #ffffff;
+}
+
+.viewToggleActive {
+  background: #2b3b84;
+  color: #ffffff;
+}
+
+/* ---- Performance table ---- */
+.perfLabel {
+  font-weight: 600;
+}
+
+.deltaPositive {
+  color: #2b8a3e;
+  font-weight: 600;
+}
+
+.deltaNegative {
+  color: #e41e2f;
+  font-weight: 600;
+}
+
+.totalRow {
+  font-weight: 700;
+  background: #f1f3f5;
+}
+
+.totalRow td {
+  border-top: 2px solid #1b2a4a;
+  padding: 10px 12px;
 }
 
 /* ---- Annotation table ---- */

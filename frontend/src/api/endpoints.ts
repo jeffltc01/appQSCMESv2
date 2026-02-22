@@ -69,6 +69,7 @@ import type {
   UpdateDowntimeConfigRequest,
   SetDowntimeReasonsRequest,
   CreateDowntimeEventRequest,
+  BulkUpsertCapacityTargetsRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -120,6 +121,7 @@ import type {
   SpotXrayLogResponse,
   SupervisorDashboardMetrics,
   SupervisorRecord,
+  PerformanceTableResponse,
   DowntimeReasonCategory,
   DowntimeReason,
   DowntimeConfig,
@@ -471,6 +473,11 @@ export const supervisorDashboardApi = {
     api.get<SupervisorRecord[]>(`/supervisor-dashboard/${wcId}/records?plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(date)}`),
   submitAnnotation: (req: CreateSupervisorAnnotationRequest) =>
     api.post<SupervisorAnnotationResultDto>('/supervisor-dashboard/annotate', req),
+  getPerformanceTable: (wcId: string, plantId: string, view: string, date: string, operatorId?: string) => {
+    const params = new URLSearchParams({ plantId, view, date });
+    if (operatorId) params.set('operatorId', operatorId);
+    return api.get<PerformanceTableResponse>(`/supervisor-dashboard/${wcId}/performance-table?${params}`);
+  },
 };
 
 export const downtimeReasonCategoryApi = {
@@ -536,4 +543,8 @@ export const capacityTargetApi = {
     api.put<CapacityTarget>(`/capacity-targets/${id}`, req),
   delete: (id: string) =>
     api.delete<void>(`/capacity-targets/${id}`),
+  bulkUpsert: (req: BulkUpsertCapacityTargetsRequest) =>
+    api.put<CapacityTarget[]>('/capacity-targets/bulk', req),
+  getTankSizes: (plantId: string) =>
+    api.get<number[]>(`/capacity-targets/tank-sizes?plantId=${encodeURIComponent(plantId)}`),
 };

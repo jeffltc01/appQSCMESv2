@@ -192,6 +192,78 @@ public class OeeService : IOeeService
         return true;
     }
 
+    public async Task<IReadOnlyList<WorkCenterCapacityTargetDto>> BulkUpsertCapacityTargetsAsync(
+        BulkUpsertCapacityTargetsDto dto, CancellationToken ct = default)
+    {
+        var wcplIds = await _db.WorkCenterProductionLines
+            .Where(w => w.ProductionLineId == dto.ProductionLineId)
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+
+        if (wcplIds.Count == 0)
+            return Array.Empty<WorkCenterCapacityTargetDto>();
+
+        var existing = await _db.WorkCenterCapacityTargets
+            .Where(t => wcplIds.Contains(t.WorkCenterProductionLineId))
+            .ToListAsync(ct);
+
+        var incomingKeys = dto.Targets
+            .Select(t => (t.WorkCenterProductionLineId, t.PlantGearId, t.TankSize))
+            .ToHashSet();
+
+        // Delete targets not present in payload
+        var toDelete = existing
+            .Where(e => !incomingKeys.Contains((e.WorkCenterProductionLineId, e.PlantGearId, e.TankSize)))
+            .ToList();
+        _db.WorkCenterCapacityTargets.RemoveRange(toDelete);
+
+        // Upsert targets from payload
+        foreach (var item in dto.Targets)
+        {
+            var match = existing.FirstOrDefault(e =>
+                e.WorkCenterProductionLineId == item.WorkCenterProductionLineId
+                && e.PlantGearId == item.PlantGearId
+                && e.TankSize == item.TankSize);
+
+            if (match != null)
+            {
+                match.TargetUnitsPerHour = item.TargetUnitsPerHour;
+            }
+            else
+            {
+                _db.WorkCenterCapacityTargets.Add(new WorkCenterCapacityTarget
+                {
+                    Id = Guid.NewGuid(),
+                    WorkCenterProductionLineId = item.WorkCenterProductionLineId,
+                    PlantGearId = item.PlantGearId,
+                    TankSize = item.TankSize,
+                    TargetUnitsPerHour = item.TargetUnitsPerHour,
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        // Return refreshed list for the plant
+        var plantId = await _db.ProductionLines
+            .Where(pl => pl.Id == dto.ProductionLineId)
+            .Select(pl => pl.PlantId)
+            .FirstOrDefaultAsync(ct);
+
+        return await GetCapacityTargetsAsync(plantId, ct);
+    }
+
+    public async Task<IReadOnlyList<int>> GetDistinctTankSizesAsync(
+        Guid plantId, CancellationToken ct = default)
+    {
+        return await _db.ProductPlants
+            .Where(pp => pp.PlantId == plantId)
+            .Select(pp => pp.Product.TankSize)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToListAsync(ct);
+    }
+
     // ---- OEE Calculation ----
 
     public async Task<OeeMetricsDto> CalculateOeeAsync(

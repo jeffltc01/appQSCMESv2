@@ -15,4 +15,8 @@ public interface ISupervisorDashboardService
     Task<SupervisorAnnotationResultDto> SubmitAnnotationAsync(
         Guid userId, CreateSupervisorAnnotationRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<PerformanceTableResponseDto> GetPerformanceTableAsync(
+        Guid wcId, Guid plantId, string date, string view,
+        Guid? operatorId = null, CancellationToken cancellationToken = default);
 }

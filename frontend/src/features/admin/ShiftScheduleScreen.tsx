@@ -1,51 +1,117 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Spinner } from '@fluentui/react-components';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Button, Dropdown, Input, Label, Option, Spinner } from '@fluentui/react-components';
 import { AddRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
-import { shiftScheduleApi } from '../../api/endpoints.ts';
+import { shiftScheduleApi, siteApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import type { ShiftSchedule } from '../../types/domain.ts';
+import type { Plant, ShiftSchedule } from '../../types/domain.ts';
 import styles from './ShiftScheduleScreen.module.css';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function getSundayOfWeek(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+function getWeekNumber(date: Date): number {
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((date.getTime() - startOfYear.getTime()) / 86400000) + 1;
+  return Math.ceil((dayOfYear + startOfYear.getDay()) / 7);
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatWeekLabel(sunday: Date): string {
+  const sat = new Date(sunday);
+  sat.setDate(sat.getDate() + 6);
+  const wk = getWeekNumber(sunday);
+  const sMonth = SHORT_MONTHS[sunday.getMonth()];
+  const eMonth = SHORT_MONTHS[sat.getMonth()];
+  const range = sMonth === eMonth
+    ? `${sMonth} ${sunday.getDate()} - ${sat.getDate()}`
+    : `${sMonth} ${sunday.getDate()} - ${eMonth} ${sat.getDate()}`;
+  return `Week ${wk} (${range})`;
+}
+
+function formatWeekLabelFromStr(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const sunday = date.getDay() === 0 ? date : getSundayOfWeek(date);
+  return formatWeekLabel(sunday);
+}
+
+interface WeekOption { value: string; label: string }
+
+function buildWeekOptions(): WeekOption[] {
+  const currentSunday = getSundayOfWeek(new Date());
+  const options: WeekOption[] = [];
+  for (let offset = -4; offset <= 26; offset++) {
+    const sunday = new Date(currentSunday);
+    sunday.setDate(sunday.getDate() + offset * 7);
+    options.push({ value: toDateStr(sunday), label: formatWeekLabel(sunday) });
+  }
+  return options;
+}
+
+function currentSundayStr(): string {
+  return toDateStr(getSundayOfWeek(new Date()));
+}
 
 interface DraftSchedule {
   effectiveDate: string;
   days: { hours: string; breakMinutes: string }[];
 }
 
+const PRESET_5x8 = DAYS.map((_, i) =>
+  i < 5 ? { hours: '8', breakMinutes: '30' } : { hours: '0', breakMinutes: '0' },
+);
+const PRESET_4x10 = DAYS.map((_, i) =>
+  i < 4 ? { hours: '10', breakMinutes: '30' } : { hours: '0', breakMinutes: '0' },
+);
+
 const emptyDraft = (): DraftSchedule => ({
-  effectiveDate: new Date().toISOString().slice(0, 10),
+  effectiveDate: currentSundayStr(),
   days: DAYS.map(() => ({ hours: '0', breakMinutes: '0' })),
-});
-
-const presetFiveEights = (): DraftSchedule => ({
-  effectiveDate: new Date().toISOString().slice(0, 10),
-  days: DAYS.map((_, i) => i < 5 ? { hours: '8', breakMinutes: '30' } : { hours: '0', breakMinutes: '0' }),
-});
-
-const presetFourTens = (): DraftSchedule => ({
-  effectiveDate: new Date().toISOString().slice(0, 10),
-  days: DAYS.map((_, i) => i < 4 ? { hours: '10', breakMinutes: '30' } : { hours: '0', breakMinutes: '0' }),
 });
 
 export function ShiftScheduleScreen() {
   const { user } = useAuth();
-  const plantId = user?.defaultSiteId ?? '';
+  const showPlantSelector = (user?.roleTier ?? 99) <= 2;
+
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [selectedPlantId, setSelectedPlantId] = useState(user?.defaultSiteId ?? '');
   const [schedules, setSchedules] = useState<ShiftSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftSchedule>(emptyDraft());
   const [saving, setSaving] = useState(false);
 
+  const weekOptions = useMemo(buildWeekOptions, []);
+
+  useEffect(() => {
+    siteApi.getSites().then(setPlants).catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
-    if (!plantId) return;
+    if (!selectedPlantId) return;
     setLoading(true);
-    try { setSchedules(await shiftScheduleApi.getAll(plantId)); }
-    catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, [plantId]);
+    setError(null);
+    try {
+      setSchedules(await shiftScheduleApi.getAll(selectedPlantId));
+    } catch (err: unknown) {
+      const msg = (err && typeof err === 'object' && 'message' in err) ? (err as { message: string }).message : 'Failed to load shift schedules.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedPlantId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -53,7 +119,7 @@ export function ShiftScheduleScreen() {
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
-        plantId,
+        plantId: selectedPlantId,
         effectiveDate: draft.effectiveDate,
       };
       DAYS.forEach((day, i) => {
@@ -88,12 +154,32 @@ export function ShiftScheduleScreen() {
         <div style={{ textAlign: 'center', padding: 48 }}><Spinner size="medium" label="Loading..." /></div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
+          <div className={styles.filterBar}>
+            {showPlantSelector && plants.length > 0 ? (
+              <>
+                <Label weight="semibold">Plant</Label>
+                <Dropdown
+                  value={plants.find(p => p.id === selectedPlantId)?.name ?? ''}
+                  selectedOptions={[selectedPlantId]}
+                  onOptionSelect={(_, d) => { if (d.optionValue) setSelectedPlantId(d.optionValue); }}
+                  style={{ minWidth: 180 }}
+                >
+                  {plants.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+                </Dropdown>
+              </>
+            ) : plants.length > 0 && (
+              <>
+                <Label weight="semibold">Plant</Label>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>
+                  {plants.find(p => p.id === selectedPlantId)?.name ?? ''}
+                </span>
+              </>
+            )}
             <Button
               appearance="primary"
               icon={<AddRegular />}
               onClick={() => { setShowForm(true); setDraft(emptyDraft()); }}
-              style={{ borderRadius: 0 }}
+              style={{ borderRadius: 0, marginLeft: 'auto' }}
             >
               New Schedule
             </Button>
@@ -104,18 +190,33 @@ export function ShiftScheduleScreen() {
               <div className={styles.formHeader}>New Shift Schedule</div>
               <div className={styles.formRow}>
                 <div className={styles.formField}>
-                  <Label weight="semibold">Effective Date</Label>
-                  <Input
-                    type="date"
-                    value={draft.effectiveDate}
-                    onChange={(_, d) => setDraft(prev => ({ ...prev, effectiveDate: d.value }))}
-                  />
+                  <Label weight="semibold">Week</Label>
+                  <Dropdown
+                    value={weekOptions.find(o => o.value === draft.effectiveDate)?.label ?? draft.effectiveDate}
+                    selectedOptions={[draft.effectiveDate]}
+                    onOptionSelect={(_, d) => {
+                      if (d.optionValue) setDraft(prev => ({ ...prev, effectiveDate: d.optionValue as string }));
+                    }}
+                    style={{ minWidth: 260 }}
+                  >
+                    {weekOptions.map(o => (
+                      <Option key={o.value} value={o.value}>{o.label}</Option>
+                    ))}
+                  </Dropdown>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                  <Button size="small" onClick={() => setDraft(presetFiveEights())} style={{ borderRadius: 0 }}>
+                  <Button
+                    size="small"
+                    onClick={() => setDraft(prev => ({ ...prev, days: PRESET_5x8.map(d => ({ ...d })) }))}
+                    style={{ borderRadius: 0 }}
+                  >
                     5x8s Preset
                   </Button>
-                  <Button size="small" onClick={() => setDraft(presetFourTens())} style={{ borderRadius: 0 }}>
+                  <Button
+                    size="small"
+                    onClick={() => setDraft(prev => ({ ...prev, days: PRESET_4x10.map(d => ({ ...d })) }))}
+                    style={{ borderRadius: 0 }}
+                  >
                     4x10s Preset
                   </Button>
                 </div>
@@ -174,7 +275,14 @@ export function ShiftScheduleScreen() {
             </div>
           )}
 
-          {schedules.length === 0 && !showForm ? (
+          {error ? (
+            <div style={{ textAlign: 'center', padding: 48, color: '#c92a2a' }}>
+              {error}
+              <div style={{ marginTop: 12 }}>
+                <Button appearance="outline" onClick={load} style={{ borderRadius: 0 }}>Retry</Button>
+              </div>
+            </div>
+          ) : schedules.length === 0 && !showForm ? (
             <div style={{ textAlign: 'center', padding: 48, color: '#868e96' }}>
               No shift schedules configured. OEE cannot be calculated without a shift schedule.
             </div>
@@ -182,7 +290,7 @@ export function ShiftScheduleScreen() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Effective Date</th>
+                  <th>Week</th>
                   {DAY_LABELS.map(d => <th key={d}>{d}</th>)}
                   <th>Created</th>
                   <th></th>
@@ -191,7 +299,7 @@ export function ShiftScheduleScreen() {
               <tbody>
                 {schedules.map(s => (
                   <tr key={s.id}>
-                    <td className={styles.dateCell}>{s.effectiveDate}</td>
+                    <td className={styles.dateCell}>{formatWeekLabelFromStr(s.effectiveDate)}</td>
                     {DAYS.map(day => {
                       const hrs = s[`${day}Hours` as keyof ShiftSchedule] as number;
                       const brk = s[`${day}BreakMinutes` as keyof ShiftSchedule] as number;

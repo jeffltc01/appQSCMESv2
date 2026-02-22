@@ -273,6 +273,343 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         return new SupervisorAnnotationResultDto { AnnotationsCreated = created };
     }
 
+    public async Task<PerformanceTableResponseDto> GetPerformanceTableAsync(
+        Guid wcId, Guid plantId, string date, string view,
+        Guid? operatorId = null, CancellationToken cancellationToken = default)
+    {
+        if (!DateTime.TryParse(date, out var dateParsed))
+            dateParsed = DateTime.UtcNow.Date;
+
+        var tz = await GetPlantTimeZoneAsync(plantId, cancellationToken);
+        var localDate = dateParsed.Date;
+
+        var dataEntryType = await _db.WorkCenters
+            .Where(w => w.Id == wcId)
+            .Select(w => w.DataEntryType)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var charIds = GetApplicableCharacteristicIds(dataEntryType);
+
+        var wcplIds = await _db.WorkCenterProductionLines
+            .Where(wcpl => wcpl.WorkCenterId == wcId && wcpl.ProductionLine.PlantId == plantId)
+            .Select(wcpl => wcpl.Id)
+            .ToListAsync(cancellationToken);
+
+        var avgTargetUnitsPerHour = await ResolveTargetUnitsPerHourAsync(wcId, plantId, cancellationToken);
+
+        return view.ToLowerInvariant() switch
+        {
+            "day" => await BuildDayTableAsync(wcId, plantId, localDate, tz, charIds, wcplIds, avgTargetUnitsPerHour, operatorId, cancellationToken),
+            "week" => await BuildWeekTableAsync(wcId, plantId, localDate, tz, charIds, wcplIds, avgTargetUnitsPerHour, operatorId, cancellationToken),
+            "month" => await BuildMonthTableAsync(wcId, plantId, localDate, tz, charIds, wcplIds, avgTargetUnitsPerHour, operatorId, cancellationToken),
+            _ => new PerformanceTableResponseDto(),
+        };
+    }
+
+    private async Task<decimal?> ResolveTargetUnitsPerHourAsync(
+        Guid wcId, Guid plantId, CancellationToken ct)
+    {
+        var wcplIds = await _db.WorkCenterProductionLines
+            .Where(wcpl => wcpl.WorkCenterId == wcId && wcpl.ProductionLine.PlantId == plantId)
+            .Select(wcpl => wcpl.Id)
+            .ToListAsync(ct);
+
+        if (wcplIds.Count == 0) return null;
+
+        var targets = await _db.WorkCenterCapacityTargets
+            .Where(t => wcplIds.Contains(t.WorkCenterProductionLineId))
+            .ToListAsync(ct);
+
+        if (targets.Count == 0) return null;
+
+        // Find the most recently used gear from production records
+        var recentGearId = await _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId && r.ProductionLine.PlantId == plantId && r.PlantGearId != null)
+            .OrderByDescending(r => r.Timestamp)
+            .Select(r => r.PlantGearId)
+            .FirstOrDefaultAsync(ct);
+
+        IEnumerable<WorkCenterCapacityTarget> filtered = targets;
+        if (recentGearId != null)
+        {
+            var gearFiltered = targets.Where(t => t.PlantGearId == recentGearId.Value).ToList();
+            if (gearFiltered.Count > 0)
+                filtered = gearFiltered;
+        }
+
+        // Sum across production lines (a WC with 2 lines each doing 5/hr = 10/hr WC capacity)
+        var byLine = filtered.GroupBy(t => t.WorkCenterProductionLineId)
+            .Select(g => g.Average(t => t.TargetUnitsPerHour));
+
+        return byLine.Sum();
+    }
+
+    private async Task<PerformanceTableResponseDto> BuildDayTableAsync(
+        Guid wcId, Guid plantId, DateTime localDate, TimeZoneInfo tz,
+        Guid[]? charIds, List<Guid> wcplIds, decimal? targetUph,
+        Guid? operatorId, CancellationToken ct)
+    {
+        var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
+        var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
+
+        var baseQuery = _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp >= startOfDay && r.Timestamp < endOfDay);
+        if (operatorId.HasValue)
+            baseQuery = baseQuery.Where(r => r.OperatorId == operatorId.Value);
+
+        var records = await baseQuery
+            .Select(r => new { r.Timestamp, r.SerialNumberId })
+            .ToListAsync(ct);
+
+        var hourlyActual = records
+            .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.Timestamp, tz).Hour)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var downtimeByHour = await GetDowntimeByHourAsync(wcplIds, startOfDay, endOfDay, tz, ct);
+
+        var rows = new List<PerformanceTableRowDto>();
+        for (var h = 0; h < 24; h++)
+        {
+            var actual = hourlyActual.GetValueOrDefault(h);
+            var hourStart = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h), tz);
+            var hourEnd = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h + 1), tz);
+            decimal? fpy = charIds is not null
+                ? (await ComputeFpyAsync(wcId, plantId, hourStart, hourEnd, charIds, operatorId, ct)).fpy
+                : null;
+
+            rows.Add(new PerformanceTableRowDto
+            {
+                Label = $"{h:D2}:00",
+                Planned = targetUph,
+                Actual = actual,
+                Delta = targetUph.HasValue ? actual - targetUph.Value : null,
+                Fpy = fpy,
+                DowntimeMinutes = downtimeByHour.GetValueOrDefault(h),
+            });
+        }
+
+        return BuildResponse(rows);
+    }
+
+    private async Task<PerformanceTableResponseDto> BuildWeekTableAsync(
+        Guid wcId, Guid plantId, DateTime localDate, TimeZoneInfo tz,
+        Guid[]? charIds, List<Guid> wcplIds, decimal? targetUph,
+        Guid? operatorId, CancellationToken ct)
+    {
+        var dow = localDate.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)localDate.DayOfWeek - 1;
+        var weekStart = localDate.AddDays(-dow);
+        var startOfWeek = TimeZoneInfo.ConvertTimeToUtc(weekStart, tz);
+        var endOfWeek = TimeZoneInfo.ConvertTimeToUtc(weekStart.AddDays(7), tz);
+
+        var schedule = await _db.ShiftSchedules
+            .Where(s => s.PlantId == plantId && s.EffectiveDate <= DateOnly.FromDateTime(localDate))
+            .OrderByDescending(s => s.EffectiveDate)
+            .FirstOrDefaultAsync(ct);
+
+        var baseQuery = _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp >= startOfWeek && r.Timestamp < endOfWeek);
+        if (operatorId.HasValue)
+            baseQuery = baseQuery.Where(r => r.OperatorId == operatorId.Value);
+
+        var records = await baseQuery
+            .Select(r => new { r.Timestamp, r.SerialNumberId })
+            .ToListAsync(ct);
+
+        var dailyActual = records
+            .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.Timestamp, tz).Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var rows = new List<PerformanceTableRowDto>();
+        var dayNames = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
+        for (var d = 0; d < 7; d++)
+        {
+            var day = weekStart.AddDays(d);
+            var dayStart = TimeZoneInfo.ConvertTimeToUtc(day, tz);
+            var dayEnd = TimeZoneInfo.ConvertTimeToUtc(day.AddDays(1), tz);
+            var actual = dailyActual.GetValueOrDefault(day);
+
+            var plannedMinutes = schedule?.GetPlannedMinutes(day.DayOfWeek) ?? 0;
+            var dailyPlanned = targetUph.HasValue && plannedMinutes > 0
+                ? Math.Round(targetUph.Value * (plannedMinutes / 60m), 1)
+                : (decimal?)null;
+
+            var downtimeMin = wcplIds.Count > 0
+                ? await _db.DowntimeEvents
+                    .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
+                                && e.StartedAt < dayEnd && e.EndedAt > dayStart)
+                    .SumAsync(e => e.DurationMinutes, ct)
+                : 0m;
+
+            decimal? fpy = charIds is not null
+                ? (await ComputeFpyAsync(wcId, plantId, dayStart, dayEnd, charIds, operatorId, ct)).fpy
+                : null;
+
+            rows.Add(new PerformanceTableRowDto
+            {
+                Label = dayNames[d],
+                Planned = dailyPlanned,
+                Actual = actual,
+                Delta = dailyPlanned.HasValue ? actual - dailyPlanned.Value : null,
+                Fpy = fpy,
+                DowntimeMinutes = Math.Round(downtimeMin, 1),
+            });
+        }
+
+        return BuildResponse(rows);
+    }
+
+    private async Task<PerformanceTableResponseDto> BuildMonthTableAsync(
+        Guid wcId, Guid plantId, DateTime localDate, TimeZoneInfo tz,
+        Guid[]? charIds, List<Guid> wcplIds, decimal? targetUph,
+        Guid? operatorId, CancellationToken ct)
+    {
+        var monthStart = new DateTime(localDate.Year, localDate.Month, 1);
+        var monthEnd = monthStart.AddMonths(1);
+        var utcMonthStart = TimeZoneInfo.ConvertTimeToUtc(monthStart, tz);
+        var utcMonthEnd = TimeZoneInfo.ConvertTimeToUtc(monthEnd, tz);
+
+        var schedule = await _db.ShiftSchedules
+            .Where(s => s.PlantId == plantId && s.EffectiveDate <= DateOnly.FromDateTime(localDate))
+            .OrderByDescending(s => s.EffectiveDate)
+            .FirstOrDefaultAsync(ct);
+
+        var baseQuery = _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp >= utcMonthStart && r.Timestamp < utcMonthEnd);
+        if (operatorId.HasValue)
+            baseQuery = baseQuery.Where(r => r.OperatorId == operatorId.Value);
+
+        var records = await baseQuery
+            .Select(r => new { r.Timestamp, r.SerialNumberId })
+            .ToListAsync(ct);
+
+        // Group days in the month by ISO week number
+        var weeks = new SortedDictionary<int, List<DateTime>>();
+        for (var d = monthStart; d < monthEnd; d = d.AddDays(1))
+        {
+            var isoWeek = System.Globalization.ISOWeek.GetWeekOfYear(d);
+            if (!weeks.ContainsKey(isoWeek))
+                weeks[isoWeek] = new List<DateTime>();
+            weeks[isoWeek].Add(d);
+        }
+
+        var rows = new List<PerformanceTableRowDto>();
+        foreach (var (weekNum, days) in weeks)
+        {
+            var weekStartLocal = days.Min();
+            var weekEndLocal = days.Max().AddDays(1);
+            var utcStart = TimeZoneInfo.ConvertTimeToUtc(weekStartLocal, tz);
+            var utcEnd = TimeZoneInfo.ConvertTimeToUtc(weekEndLocal, tz);
+
+            var actual = records
+                .Count(r => r.Timestamp >= utcStart && r.Timestamp < utcEnd);
+
+            decimal? weekPlanned = null;
+            if (targetUph.HasValue && schedule != null)
+            {
+                decimal sum = 0;
+                foreach (var day in days)
+                {
+                    var pm = schedule.GetPlannedMinutes(day.DayOfWeek);
+                    if (pm > 0)
+                        sum += targetUph.Value * (pm / 60m);
+                }
+                weekPlanned = Math.Round(sum, 1);
+            }
+
+            var downtimeMin = wcplIds.Count > 0
+                ? await _db.DowntimeEvents
+                    .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
+                                && e.StartedAt < utcEnd && e.EndedAt > utcStart)
+                    .SumAsync(e => e.DurationMinutes, ct)
+                : 0m;
+
+            decimal? fpy = charIds is not null
+                ? (await ComputeFpyAsync(wcId, plantId, utcStart, utcEnd, charIds, operatorId, ct)).fpy
+                : null;
+
+            rows.Add(new PerformanceTableRowDto
+            {
+                Label = $"Week {weekNum}",
+                Planned = weekPlanned,
+                Actual = actual,
+                Delta = weekPlanned.HasValue ? actual - weekPlanned.Value : null,
+                Fpy = fpy,
+                DowntimeMinutes = Math.Round(downtimeMin, 1),
+            });
+        }
+
+        return BuildResponse(rows);
+    }
+
+    private async Task<Dictionary<int, decimal>> GetDowntimeByHourAsync(
+        List<Guid> wcplIds, DateTime utcDayStart, DateTime utcDayEnd,
+        TimeZoneInfo tz, CancellationToken ct)
+    {
+        if (wcplIds.Count == 0)
+            return new Dictionary<int, decimal>();
+
+        var events = await _db.DowntimeEvents
+            .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
+                        && e.StartedAt < utcDayEnd && e.EndedAt > utcDayStart)
+            .Select(e => new { e.StartedAt, e.EndedAt })
+            .ToListAsync(ct);
+
+        var result = new Dictionary<int, decimal>();
+        foreach (var evt in events)
+        {
+            var clampedStart = evt.StartedAt < utcDayStart ? utcDayStart : evt.StartedAt;
+            var clampedEnd = evt.EndedAt > utcDayEnd ? utcDayEnd : evt.EndedAt;
+
+            var localStart = TimeZoneInfo.ConvertTimeFromUtc(clampedStart, tz);
+            var localEnd = TimeZoneInfo.ConvertTimeFromUtc(clampedEnd, tz);
+
+            // Distribute minutes across the hours the event spans
+            var cursor = localStart;
+            while (cursor < localEnd)
+            {
+                var hourEnd = new DateTime(cursor.Year, cursor.Month, cursor.Day, cursor.Hour, 0, 0).AddHours(1);
+                var bucketEnd = hourEnd < localEnd ? hourEnd : localEnd;
+                var minutes = (decimal)(bucketEnd - cursor).TotalMinutes;
+                var hour = cursor.Hour;
+
+                result[hour] = result.GetValueOrDefault(hour) + Math.Round(minutes, 1);
+                cursor = bucketEnd;
+            }
+        }
+
+        return result;
+    }
+
+    private static PerformanceTableResponseDto BuildResponse(List<PerformanceTableRowDto> rows)
+    {
+        var totalPlanned = rows.Any(r => r.Planned.HasValue) ? rows.Sum(r => r.Planned ?? 0) : (decimal?)null;
+        var totalActual = rows.Sum(r => r.Actual);
+
+        // Weighted average FPY: only over rows that have a value
+        var fpyRows = rows.Where(r => r.Fpy.HasValue && r.Actual > 0).ToList();
+        decimal? totalFpy = fpyRows.Count > 0
+            ? Math.Round(fpyRows.Sum(r => r.Fpy!.Value * r.Actual) / fpyRows.Sum(r => r.Actual), 1)
+            : null;
+
+        return new PerformanceTableResponseDto
+        {
+            Rows = rows,
+            TotalRow = new PerformanceTableRowDto
+            {
+                Label = "Total",
+                Planned = totalPlanned.HasValue ? Math.Round(totalPlanned.Value, 1) : null,
+                Actual = totalActual,
+                Delta = totalPlanned.HasValue ? totalActual - totalPlanned.Value : null,
+                Fpy = totalFpy,
+                DowntimeMinutes = Math.Round(rows.Sum(r => r.DowntimeMinutes), 1),
+            },
+        };
+    }
+
     // ---- Private helpers ----
 
     private async Task<(decimal? fpy, int defectCount)> ComputeFpyAsync(

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Button,
   Spinner,
@@ -9,25 +9,27 @@ import {
   Checkbox,
 } from '@fluentui/react-components';
 import { NoteRegular } from '@fluentui/react-icons';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  ResponsiveContainer,
-  Cell,
-} from 'recharts';
 import { AdminLayout } from './AdminLayout.tsx';
 import { workCenterApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import type { WorkCenter, SupervisorDashboardMetrics, SupervisorRecord } from '../../types/domain.ts';
+import type {
+  WorkCenter,
+  SupervisorDashboardMetrics,
+  SupervisorRecord,
+  PerformanceTableResponse,
+} from '../../types/domain.ts';
 import { todayISOString, formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './SupervisorDashboardScreen.module.css';
 
 const REFRESH_INTERVAL_MS = 30_000;
+
+type ViewMode = 'day' | 'week' | 'month' | 'annotate';
+const VIEW_MODES: { key: ViewMode; label: string }[] = [
+  { key: 'day', label: 'Day' },
+  { key: 'week', label: 'Week' },
+  { key: 'month', label: 'Month' },
+  { key: 'annotate', label: 'Annotate' },
+];
 
 const ANNOTATION_TYPES = [
   { id: 'a1000001-0000-0000-0000-000000000001', name: 'Note' },
@@ -42,7 +44,9 @@ export function SupervisorDashboardScreen() {
   const [selectedWcName, setSelectedWcName] = useState('');
   const [metrics, setMetrics] = useState<SupervisorDashboardMetrics | null>(null);
   const [records, setRecords] = useState<SupervisorRecord[]>([]);
+  const [perfTable, setPerfTable] = useState<PerformanceTableResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [annotationTypeId, setAnnotationTypeId] = useState(ANNOTATION_TYPES[0].id);
@@ -56,32 +60,44 @@ export function SupervisorDashboardScreen() {
     workCenterApi.getWorkCenters().then(setWorkCenters).catch(() => {});
   }, []);
 
-
   const loadData = useCallback(async () => {
     if (!selectedWcId || !user?.defaultSiteId) return;
     setLoading(true);
     try {
       const today = todayISOString();
-      const [metricsData, recordsData] = await Promise.all([
+      const fetches: Promise<unknown>[] = [
         supervisorDashboardApi.getMetrics(
           selectedWcId, user.defaultSiteId, today,
           selectedOperatorId ?? undefined,
-        ),
-        supervisorDashboardApi.getRecords(selectedWcId, user.defaultSiteId, today),
-      ]);
-      setMetrics(metricsData);
-      setRecords(recordsData);
-      setCheckedIds((prev) => {
-        const validIds = new Set(recordsData.map((r) => r.id));
-        return new Set([...prev].filter((id) => validIds.has(id)));
-      });
+        ).then(setMetrics),
+        supervisorDashboardApi.getRecords(selectedWcId, user.defaultSiteId, today)
+          .then((data) => {
+            setRecords(data);
+            setCheckedIds((prev) => {
+              const validIds = new Set(data.map((r) => r.id));
+              return new Set([...prev].filter((id) => validIds.has(id)));
+            });
+          }),
+      ];
+
+      if (viewMode !== 'annotate') {
+        fetches.push(
+          supervisorDashboardApi.getPerformanceTable(
+            selectedWcId, user.defaultSiteId, viewMode, today,
+            selectedOperatorId ?? undefined,
+          ).then(setPerfTable),
+        );
+      }
+
+      await Promise.all(fetches);
     } catch {
       setMetrics(null);
       setRecords([]);
+      setPerfTable(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedWcId, user?.defaultSiteId, selectedOperatorId]);
+  }, [selectedWcId, user?.defaultSiteId, selectedOperatorId, viewMode]);
 
   useEffect(() => {
     if (selectedWcId) {
@@ -89,6 +105,7 @@ export function SupervisorDashboardScreen() {
     } else {
       setMetrics(null);
       setRecords([]);
+      setPerfTable(null);
       setCheckedIds(new Set());
     }
   }, [selectedWcId, loadData]);
@@ -142,7 +159,6 @@ export function SupervisorDashboardScreen() {
     }
   };
 
-
   const formatSeconds = (s: number) => {
     if (s === 0) return '--';
     const min = Math.floor(s / 60);
@@ -150,35 +166,7 @@ export function SupervisorDashboardScreen() {
     return min > 0 ? `${min}m ${sec}s` : `${sec}s`;
   };
 
-  const hourlyAvg = useMemo(() => {
-    if (!metrics) return 0;
-    const nonZero = metrics.hourlyCounts.filter((h) => h.count > 0);
-    if (nonZero.length === 0) return 0;
-    return nonZero.reduce((sum, h) => sum + h.count, 0) / nonZero.length;
-  }, [metrics]);
-
-  const hourlyChartData = useMemo(() => {
-    if (!metrics) return [];
-    return metrics.hourlyCounts.map((h) => ({
-      name: `${h.hour}:00`,
-      count: h.count,
-      belowAvg: h.count > 0 && h.count < hourlyAvg,
-    }));
-  }, [metrics, hourlyAvg]);
-
-  const weeklyChartData = useMemo(() => {
-    if (!metrics) return [];
-    return metrics.weekDailyCounts.map((d) => {
-      const dt = new Date(d.date + 'T00:00:00');
-      return {
-        name: dt.toLocaleDateString([], { weekday: 'short' }),
-        count: d.count,
-      };
-    });
-  }, [metrics]);
-
-  const dayNames: string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const todayDayName = dayNames[new Date().getDay()];
+  const formatNum = (v: number | null) => (v !== null ? String(v) : '--');
 
   return (
     <AdminLayout title="Supervisor Dashboard">
@@ -200,6 +188,21 @@ export function SupervisorDashboardScreen() {
             ))}
           </Dropdown>
         </div>
+
+        {selectedWcId && (
+          <div className={styles.viewToggles}>
+            {VIEW_MODES.map((vm) => (
+              <button
+                key={vm.key}
+                className={`${styles.viewToggle} ${viewMode === vm.key ? styles.viewToggleActive : ''}`}
+                onClick={() => setViewMode(vm.key)}
+              >
+                {vm.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {selectedWcId && <span className={styles.refreshNote}>Auto-refreshes every 30s</span>}
       </div>
 
@@ -402,156 +405,166 @@ export function SupervisorDashboardScreen() {
             </div>
           </div>
 
-          {/* Charts */}
-          <div className={styles.chartsRow}>
-            <div className={styles.chartCard}>
-              <div className={styles.chartHeader}>Hourly Count - Today</div>
-              <div className={styles.chartBody}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={hourlyChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={1} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip />
-                    {hourlyAvg > 0 && (
-                      <ReferenceLine
-                        y={hourlyAvg}
-                        stroke="#868e96"
-                        strokeDasharray="4 4"
-                        label={{ value: 'Avg', position: 'insideTopRight', fontSize: 10, fill: '#868e96' }}
-                      />
-                    )}
-                    <Bar dataKey="count" maxBarSize={28}>
-                      {hourlyChartData.map((entry, index) => (
-                        <Cell
-                          key={index}
-                          fill={entry.belowAvg ? '#e41e2f' : '#2b3b84'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className={styles.chartCard}>
-              <div className={styles.chartHeader}>Weekly Trend</div>
-              <div className={styles.chartBody}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={weeklyChartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="count" maxBarSize={36}>
-                      {weeklyChartData.map((entry, index) => (
-                        <Cell
-                          key={index}
-                          fill={entry.name === todayDayName ? '#2b3b84' : '#8da0cb'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Production Records & Annotation */}
-          <div className={styles.sectionHeader}>Production Records - Today</div>
-          {records.length === 0 ? (
-            <div className={styles.emptyState}>No production records today at this work center.</div>
-          ) : (
+          {/* Performance Table (Day / Week / Month) */}
+          {viewMode !== 'annotate' && perfTable && (
             <>
+              <div className={styles.sectionHeader}>
+                {viewMode === 'day' ? 'Hourly Performance - Today'
+                  : viewMode === 'week' ? 'Daily Performance - This Week'
+                  : 'Weekly Performance - This Month'}
+              </div>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th style={{ width: 40 }}></th>
-                    <th>Time</th>
-                    <th>Serial / Shell Code</th>
-                    <th>Size</th>
-                    <th>Operator</th>
-                    <th>Annotations</th>
+                    <th>{viewMode === 'day' ? 'Hour' : viewMode === 'week' ? 'Day' : 'Week'}</th>
+                    <th>Planned</th>
+                    <th>Actual</th>
+                    <th>Delta</th>
+                    <th>FPY</th>
+                    <th>Downtime (min)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <Checkbox
-                          checked={checkedIds.has(r.id)}
-                          onChange={() => toggleCheck(r.id)}
-                        />
+                  {perfTable.rows.map((row) => (
+                    <tr key={row.label}>
+                      <td className={styles.perfLabel}>{row.label}</td>
+                      <td>{formatNum(row.planned)}</td>
+                      <td>{row.actual}</td>
+                      <td className={
+                        row.delta !== null
+                          ? (row.delta >= 0 ? styles.deltaPositive : styles.deltaNegative)
+                          : undefined
+                      }>
+                        {row.delta !== null ? (row.delta >= 0 ? `+${row.delta}` : String(row.delta)) : '--'}
                       </td>
-                      <td>{formatTimeOnly(r.timestamp)}</td>
-                      <td>{r.serialOrIdentifier}</td>
-                      <td>{r.tankSize ?? '—'}</td>
-                      <td>{r.operatorName}</td>
-                      <td>
-                        {r.annotations.map((a, i) => (
-                          <span
-                            key={i}
-                            className={styles.annotationBadge}
-                            style={{ color: a.displayColor ?? '#868e96' }}
-                          >
-                            {a.abbreviation ?? a.typeName}
-                          </span>
-                        ))}
-                      </td>
+                      <td>{row.fpy !== null ? `${row.fpy}%` : '--'}</td>
+                      <td>{row.downtimeMinutes > 0 ? row.downtimeMinutes : '--'}</td>
                     </tr>
                   ))}
                 </tbody>
+                {perfTable.totalRow && (
+                  <tfoot>
+                    <tr className={styles.totalRow}>
+                      <td className={styles.perfLabel}>{perfTable.totalRow.label}</td>
+                      <td>{formatNum(perfTable.totalRow.planned)}</td>
+                      <td>{perfTable.totalRow.actual}</td>
+                      <td className={
+                        perfTable.totalRow.delta !== null
+                          ? (perfTable.totalRow.delta >= 0 ? styles.deltaPositive : styles.deltaNegative)
+                          : undefined
+                      }>
+                        {perfTable.totalRow.delta !== null
+                          ? (perfTable.totalRow.delta >= 0 ? `+${perfTable.totalRow.delta}` : String(perfTable.totalRow.delta))
+                          : '--'}
+                      </td>
+                      <td>{perfTable.totalRow.fpy !== null ? `${perfTable.totalRow.fpy}%` : '--'}</td>
+                      <td>{perfTable.totalRow.downtimeMinutes > 0 ? perfTable.totalRow.downtimeMinutes : '--'}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
+            </>
+          )}
 
-              <div className={styles.submitArea}>
-                <div className={styles.annotationTypeField}>
-                  <Label weight="semibold">Annotation Type</Label>
-                  <Dropdown
-                    value={annotationTypeName}
-                    selectedOptions={[annotationTypeId]}
-                    onOptionSelect={(_, data) => {
-                      setAnnotationTypeId(data.optionValue ?? ANNOTATION_TYPES[0].id);
-                      setAnnotationTypeName(data.optionText ?? ANNOTATION_TYPES[0].name);
-                    }}
-                    style={{ minWidth: 200 }}
-                  >
-                    {ANNOTATION_TYPES.map((at) => (
-                      <Option key={at.id} value={at.id} text={at.name}>
-                        {at.name}
-                      </Option>
-                    ))}
-                  </Dropdown>
-                </div>
-                <div className={styles.commentField}>
-                  <Label weight="semibold">Comment (optional)</Label>
-                  <Textarea
-                    value={comment}
-                    onChange={(_, d) => setComment(d.value)}
-                    placeholder="Add a note..."
-                    rows={2}
-                    resize="vertical"
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <Button
-                  appearance="primary"
-                  icon={<NoteRegular />}
-                  onClick={handleSubmit}
-                  disabled={checkedIds.size === 0 || submitting}
-                  style={{ borderRadius: 0 }}
-                >
-                  {submitting ? <Spinner size="tiny" /> : `Annotate ${checkedIds.size} Record(s)`}
-                </Button>
-              </div>
+          {/* Annotate View: Production Records & Annotation */}
+          {viewMode === 'annotate' && (
+            <>
+              <div className={styles.sectionHeader}>Production Records - Today</div>
+              {records.length === 0 ? (
+                <div className={styles.emptyState}>No production records today at this work center.</div>
+              ) : (
+                <>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 40 }}></th>
+                        <th>Time</th>
+                        <th>Serial / Shell Code</th>
+                        <th>Size</th>
+                        <th>Operator</th>
+                        <th>Annotations</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {records.map((r) => (
+                        <tr key={r.id}>
+                          <td>
+                            <Checkbox
+                              checked={checkedIds.has(r.id)}
+                              onChange={() => toggleCheck(r.id)}
+                            />
+                          </td>
+                          <td>{formatTimeOnly(r.timestamp)}</td>
+                          <td>{r.serialOrIdentifier}</td>
+                          <td>{r.tankSize ?? '—'}</td>
+                          <td>{r.operatorName}</td>
+                          <td>
+                            {r.annotations.map((a, i) => (
+                              <span
+                                key={i}
+                                className={styles.annotationBadge}
+                                style={{ color: a.displayColor ?? '#868e96' }}
+                              >
+                                {a.abbreviation ?? a.typeName}
+                              </span>
+                            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-              {submitMessage && (
-                <div
-                  className={`${styles.submitMessage} ${
-                    submitMessage.includes('Failed') ? styles.submitMessageError : styles.submitMessageSuccess
-                  }`}
-                >
-                  {submitMessage}
-                </div>
+                  <div className={styles.submitArea}>
+                    <div className={styles.annotationTypeField}>
+                      <Label weight="semibold">Annotation Type</Label>
+                      <Dropdown
+                        value={annotationTypeName}
+                        selectedOptions={[annotationTypeId]}
+                        onOptionSelect={(_, data) => {
+                          setAnnotationTypeId(data.optionValue ?? ANNOTATION_TYPES[0].id);
+                          setAnnotationTypeName(data.optionText ?? ANNOTATION_TYPES[0].name);
+                        }}
+                        style={{ minWidth: 200 }}
+                      >
+                        {ANNOTATION_TYPES.map((at) => (
+                          <Option key={at.id} value={at.id} text={at.name}>
+                            {at.name}
+                          </Option>
+                        ))}
+                      </Dropdown>
+                    </div>
+                    <div className={styles.commentField}>
+                      <Label weight="semibold">Comment (optional)</Label>
+                      <Textarea
+                        value={comment}
+                        onChange={(_, d) => setComment(d.value)}
+                        placeholder="Add a note..."
+                        rows={2}
+                        resize="vertical"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <Button
+                      appearance="primary"
+                      icon={<NoteRegular />}
+                      onClick={handleSubmit}
+                      disabled={checkedIds.size === 0 || submitting}
+                      style={{ borderRadius: 0 }}
+                    >
+                      {submitting ? <Spinner size="tiny" /> : `Annotate ${checkedIds.size} Record(s)`}
+                    </Button>
+                  </div>
+
+                  {submitMessage && (
+                    <div
+                      className={`${styles.submitMessage} ${
+                        submitMessage.includes('Failed') ? styles.submitMessageError : styles.submitMessageSuccess
+                      }`}
+                    >
+                      {submitMessage}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

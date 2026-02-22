@@ -51,6 +51,24 @@ public class CapacityTargetsController : ControllerBase
         return await _oeeService.DeleteCapacityTargetAsync(id, ct) ? NoContent() : NotFound();
     }
 
+    [HttpPut("bulk")]
+    public async Task<ActionResult<IReadOnlyList<WorkCenterCapacityTargetDto>>> BulkUpsert(
+        [FromBody] BulkUpsertCapacityTargetsDto dto, CancellationToken ct)
+    {
+        if (!IsTeamLeadOrAbove()) return Forbid();
+        var result = await _oeeService.BulkUpsertCapacityTargetsAsync(dto, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("tank-sizes")]
+    public async Task<ActionResult<IReadOnlyList<int>>> GetTankSizes(
+        [FromQuery] Guid plantId, CancellationToken ct)
+    {
+        if (!IsTeamLeadOrAbove()) return Forbid();
+        var result = await _oeeService.GetDistinctTankSizesAsync(plantId, ct);
+        return Ok(result);
+    }
+
     private bool IsTeamLeadOrAbove()
     {
         if (Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&

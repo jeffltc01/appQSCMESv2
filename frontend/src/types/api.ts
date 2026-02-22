@@ -522,6 +522,20 @@ export interface SupervisorAnnotationResultDto {
   annotationsCreated: number;
 }
 
+// ---- Capacity Targets (Bulk) ----
+
+export interface BulkCapacityTargetItem {
+  workCenterProductionLineId: string;
+  plantGearId: string;
+  tankSize: number | null;
+  targetUnitsPerHour: number;
+}
+
+export interface BulkUpsertCapacityTargetsRequest {
+  productionLineId: string;
+  targets: BulkCapacityTargetItem[];
+}
+
 // ---- Downtime ----
 export interface CreateDowntimeReasonCategoryRequest {
   plantId: string;

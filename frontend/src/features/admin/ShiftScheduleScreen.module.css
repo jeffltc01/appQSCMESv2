@@ -1,3 +1,10 @@
+.filterBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
 .formCard {
   border: 1px solid #dee2e6;
   padding: 20px;
@@ -95,6 +102,7 @@
 .dateCell {
   font-weight: 600;
   color: #1b2a4a;
+  white-space: nowrap;
 }
 
 .dayActive {

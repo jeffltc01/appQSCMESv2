@@ -15,6 +15,8 @@ public interface IOeeService
     Task<WorkCenterCapacityTargetDto> CreateCapacityTargetAsync(CreateWorkCenterCapacityTargetDto dto, CancellationToken ct = default);
     Task<WorkCenterCapacityTargetDto?> UpdateCapacityTargetAsync(Guid id, UpdateWorkCenterCapacityTargetDto dto, CancellationToken ct = default);
     Task<bool> DeleteCapacityTargetAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkCenterCapacityTargetDto>> BulkUpsertCapacityTargetsAsync(BulkUpsertCapacityTargetsDto dto, CancellationToken ct = default);
+    Task<IReadOnlyList<int>> GetDistinctTankSizesAsync(Guid plantId, CancellationToken ct = default);
 
     // OEE Calculation
     Task<OeeMetricsDto> CalculateOeeAsync(Guid wcId, Guid plantId, string date, CancellationToken ct = default);

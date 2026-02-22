@@ -75,3 +75,19 @@ public class SupervisorAnnotationResultDto
 {
     public int AnnotationsCreated { get; set; }
 }
+
+public class PerformanceTableRowDto
+{
+    public string Label { get; set; } = string.Empty;
+    public decimal? Planned { get; set; }
+    public int Actual { get; set; }
+    public decimal? Delta { get; set; }
+    public decimal? Fpy { get; set; }
+    public decimal DowntimeMinutes { get; set; }
+}
+
+public class PerformanceTableResponseDto
+{
+    public List<PerformanceTableRowDto> Rows { get; set; } = new();
+    public PerformanceTableRowDto? TotalRow { get; set; }
+}
