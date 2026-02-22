@@ -76,7 +76,9 @@ public class InspectionRecordService : IInspectionRecordService
                 DefectCodeId = defect.DefectCodeId,
                 CharacteristicId = defect.CharacteristicId,
                 LocationId = defect.LocationId,
-                LocationDetail = null,
+                LocDetails1 = null,
+                LocDetails2 = null,
+                LocDetailsCode = null,
                 IsRepaired = false,
                 RepairedByUserId = null,
                 Timestamp = DateTime.UtcNow

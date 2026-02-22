@@ -296,6 +296,13 @@ public class MesDbContext : DbContext
             .HasForeignKey(d => d.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<DefectLog>()
+            .Property(d => d.LocDetails1).HasPrecision(18, 6);
+        modelBuilder.Entity<DefectLog>()
+            .Property(d => d.LocDetails2).HasPrecision(18, 6);
+        modelBuilder.Entity<DefectLog>()
+            .Property(d => d.LocDetailsCode).HasMaxLength(20);
+
         modelBuilder.Entity<DefectLocation>()
             .HasOne(d => d.Characteristic)
             .WithMany(c => c.DefectLocations)

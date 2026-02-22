@@ -9,7 +9,9 @@ public class DefectLog
     public Guid DefectCodeId { get; set; }
     public Guid CharacteristicId { get; set; }
     public Guid LocationId { get; set; }
-    public string? LocationDetail { get; set; }
+    public decimal? LocDetails1 { get; set; }
+    public decimal? LocDetails2 { get; set; }
+    public string? LocDetailsCode { get; set; }
     public bool IsRepaired { get; set; }
     public Guid? RepairedByUserId { get; set; }
     public DateTime? RepairedDateTime { get; set; }
