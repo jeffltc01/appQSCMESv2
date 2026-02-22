@@ -124,6 +124,10 @@ import type {
   DowntimeConfig,
   DowntimeEvent,
   DigitalTwinSnapshot,
+  ShiftSchedule,
+  CreateShiftScheduleRequest,
+  CapacityTarget,
+  CreateCapacityTargetRequest,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -508,4 +512,26 @@ export const digitalTwinApi = {
     api.get<DigitalTwinSnapshot>(
       `/digital-twin/${productionLineId}/snapshot?plantId=${encodeURIComponent(plantId)}`,
     ),
+};
+
+export const shiftScheduleApi = {
+  getAll: (plantId: string) =>
+    api.get<ShiftSchedule[]>(`/shift-schedules?plantId=${encodeURIComponent(plantId)}`),
+  create: (req: CreateShiftScheduleRequest) =>
+    api.post<ShiftSchedule>('/shift-schedules', req),
+  update: (id: string, req: Partial<CreateShiftScheduleRequest>) =>
+    api.put<ShiftSchedule>(`/shift-schedules/${id}`, req),
+  delete: (id: string) =>
+    api.delete<void>(`/shift-schedules/${id}`),
+};
+
+export const capacityTargetApi = {
+  getAll: (plantId: string) =>
+    api.get<CapacityTarget[]>(`/capacity-targets?plantId=${encodeURIComponent(plantId)}`),
+  create: (req: CreateCapacityTargetRequest) =>
+    api.post<CapacityTarget>('/capacity-targets', req),
+  update: (id: string, req: { targetUnitsPerHour: number }) =>
+    api.put<CapacityTarget>(`/capacity-targets/${id}`, req),
+  delete: (id: string) =>
+    api.delete<void>(`/capacity-targets/${id}`),
 };

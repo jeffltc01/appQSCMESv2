@@ -45,6 +45,7 @@ builder.Services.AddScoped<ILogViewerService, LogViewerService>();
 builder.Services.AddScoped<ISupervisorDashboardService, SupervisorDashboardService>();
 builder.Services.AddScoped<IDigitalTwinService, DigitalTwinService>();
 builder.Services.AddScoped<IDowntimeService, DowntimeService>();
+builder.Services.AddScoped<IOeeService, OeeService>();
 
 // --- JWT configuration ---
 string jwtKey;

@@ -66,6 +66,11 @@ public class ProductionRecordService : IProductionRecordService
         if (duplicate)
             warning = (warning != null ? warning + " " : "") + "Duplicate production record detected.";
 
+        var plantGearId = await _db.ProductionLines
+            .Where(pl => pl.Id == dto.ProductionLineId)
+            .Select(pl => pl.Plant.CurrentPlantGearId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var record = new ProductionRecord
         {
             Id = Guid.NewGuid(),
@@ -76,7 +81,7 @@ public class ProductionRecordService : IProductionRecordService
             OperatorId = dto.OperatorId,
             Timestamp = DateTime.UtcNow,
             InspectionResult = dto.InspectionResult,
-            PlantGearId = null
+            PlantGearId = plantGearId
         };
 
         _db.ProductionRecords.Add(record);

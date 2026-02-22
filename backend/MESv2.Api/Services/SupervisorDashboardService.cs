@@ -26,11 +26,13 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
     private readonly MesDbContext _db;
     private readonly ILogger<SupervisorDashboardService> _logger;
+    private readonly IOeeService _oeeService;
 
-    public SupervisorDashboardService(MesDbContext db, ILogger<SupervisorDashboardService> logger)
+    public SupervisorDashboardService(MesDbContext db, ILogger<SupervisorDashboardService> logger, IOeeService oeeService)
     {
         _db = db;
         _logger = logger;
+        _oeeService = oeeService;
     }
 
     public async Task<SupervisorDashboardMetricsDto> GetMetricsAsync(
@@ -140,6 +142,35 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             })
             .OrderByDescending(o => o.RecordCount)
             .ToListAsync(cancellationToken);
+
+        // ---- OEE (unfiltered by operator) ----
+        try
+        {
+            var oee = await _oeeService.CalculateOeeAsync(wcId, plantId, date, cancellationToken);
+            dto.OeeAvailability = oee.Availability;
+            dto.OeePerformance = oee.Performance;
+            dto.OeePlannedMinutes = oee.PlannedMinutes;
+            dto.OeeDowntimeMinutes = oee.DowntimeMinutes;
+            dto.OeeRunTimeMinutes = oee.RunTimeMinutes;
+
+            // Use FPY as the Quality component when available
+            if (dto.DayFPY.HasValue)
+            {
+                dto.OeeQuality = dto.DayFPY;
+                if (oee.Availability.HasValue && oee.Performance.HasValue)
+                    dto.OeeOverall = Math.Round(
+                        oee.Availability.Value / 100m * oee.Performance.Value / 100m * dto.DayFPY.Value / 100m * 100m, 1);
+            }
+            else if (oee.Availability.HasValue && oee.Performance.HasValue)
+            {
+                dto.OeeQuality = 100m;
+                dto.OeeOverall = Math.Round(oee.Availability.Value / 100m * oee.Performance.Value / 100m * 100m, 1);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OEE calculation failed for WC {WcId}", wcId);
+        }
 
         return dto;
     }

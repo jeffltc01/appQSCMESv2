@@ -234,6 +234,75 @@ export function SupervisorDashboardScreen() {
             </div>
           )}
 
+          {/* OEE Cards */}
+          {metrics.oeeAvailability !== null && (
+            <div className={styles.oeeRow}>
+              <div className={styles.oeeCard}>
+                <div className={styles.oeeHeader}>OEE</div>
+                <div className={styles.oeeBody}>
+                  <span className={
+                    metrics.oeeOverall !== null
+                      ? (metrics.oeeOverall >= 85 ? styles.oeeNumberGreen
+                        : metrics.oeeOverall >= 60 ? styles.oeeNumberAmber
+                        : styles.oeeNumberRed)
+                      : styles.oeeNumber
+                  }>
+                    {metrics.oeeOverall !== null ? `${metrics.oeeOverall}%` : '--'}
+                  </span>
+                </div>
+              </div>
+              <div className={styles.oeeCard}>
+                <div className={styles.oeeHeader}>Availability</div>
+                <div className={styles.oeeBody}>
+                  <span className={
+                    metrics.oeeAvailability >= 90 ? styles.oeeNumberGreen
+                      : metrics.oeeAvailability >= 70 ? styles.oeeNumberAmber
+                      : styles.oeeNumberRed
+                  }>
+                    {metrics.oeeAvailability}%
+                  </span>
+                  <span className={styles.oeeSubtext}>
+                    {metrics.oeeDowntimeMinutes !== null ? `${metrics.oeeDowntimeMinutes}m down` : ''}
+                  </span>
+                </div>
+              </div>
+              <div className={styles.oeeCard}>
+                <div className={styles.oeeHeader}>Performance</div>
+                <div className={styles.oeeBody}>
+                  <span className={
+                    metrics.oeePerformance !== null
+                      ? (metrics.oeePerformance >= 95 ? styles.oeeNumberGreen
+                        : metrics.oeePerformance >= 70 ? styles.oeeNumberAmber
+                        : styles.oeeNumberRed)
+                      : styles.oeeNumber
+                  }>
+                    {metrics.oeePerformance !== null ? `${metrics.oeePerformance}%` : '--'}
+                  </span>
+                  <span className={styles.oeeSubtext}>
+                    {metrics.oeeRunTimeMinutes !== null ? `${metrics.oeeRunTimeMinutes}m run` : ''}
+                  </span>
+                </div>
+              </div>
+              <div className={styles.oeeCard}>
+                <div className={styles.oeeHeader}>Quality</div>
+                <div className={styles.oeeBody}>
+                  <span className={
+                    metrics.oeeQuality !== null
+                      ? (metrics.oeeQuality >= 99 ? styles.oeeNumberGreen
+                        : metrics.oeeQuality >= 95 ? styles.oeeNumberAmber
+                        : styles.oeeNumberRed)
+                      : styles.oeeNumber
+                  }>
+                    {metrics.oeeQuality !== null ? `${metrics.oeeQuality}%` : '--'}
+                  </span>
+                  <span className={styles.oeeSubtext}>
+                    {metrics.oeePlannedMinutes !== null ? `${metrics.oeePlannedMinutes}m planned` : ''}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* KPI Cards */}
           <div className={styles.kpiRow}>
             <div className={styles.kpiCard}>

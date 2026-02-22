@@ -20,8 +20,12 @@ public class SupervisorDashboardServiceTests
     // Three days earlier (same week, still mid-day)
     private static readonly DateTime EarlierInWeek = new(2026, 6, 8, 18, 0, 0, DateTimeKind.Utc);
 
-    private SupervisorDashboardService CreateService(Data.MesDbContext db) =>
-        new(db, new Mock<ILogger<SupervisorDashboardService>>().Object);
+    private SupervisorDashboardService CreateService(Data.MesDbContext db)
+    {
+        var oeeLogger = new Mock<ILogger<OeeService>>().Object;
+        var oeeService = new OeeService(db, oeeLogger);
+        return new(db, new Mock<ILogger<SupervisorDashboardService>>().Object, oeeService);
+    }
 
     private static void SeedRecord(
         Data.MesDbContext db, Guid wcId, DateTime timestamp, Guid? operatorId = null, Guid? snId = null)

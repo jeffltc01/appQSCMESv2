@@ -16,6 +16,15 @@ public class SupervisorDashboardMetricsDto
     public List<HourlyCountDto> HourlyCounts { get; set; } = new();
     public List<DailyCountDto> WeekDailyCounts { get; set; } = new();
     public List<OperatorSummaryDto> Operators { get; set; } = new();
+
+    // OEE metrics (day only, null when shift schedule or capacity targets are not configured)
+    public decimal? OeeAvailability { get; set; }
+    public decimal? OeePerformance { get; set; }
+    public decimal? OeeQuality { get; set; }
+    public decimal? OeeOverall { get; set; }
+    public decimal? OeePlannedMinutes { get; set; }
+    public decimal? OeeDowntimeMinutes { get; set; }
+    public decimal? OeeRunTimeMinutes { get; set; }
 }
 
 public class HourlyCountDto

@@ -330,6 +330,43 @@ public class ProductionRecordServiceTests
     }
 
     [Fact]
+    public async Task Create_StampsPlantGearId_FromPlantCurrentGear()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var gearId = Guid.Parse("61111111-1111-1111-1111-111111111113");
+        var plant = await db.Plants.FindAsync(TestHelpers.PlantPlt1Id);
+        plant!.CurrentPlantGearId = gearId;
+        await db.SaveChangesAsync();
+
+        var serial = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SN-GEAR-STAMP",
+            ProductId = null,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(serial);
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        var dto = new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-GEAR-STAMP",
+            WorkCenterId = TestHelpers.wcRollsId,
+            AssetId = TestHelpers.TestAssetId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        var record = await db.ProductionRecords.FindAsync(result.Id);
+        Assert.NotNull(record);
+        Assert.Equal(gearId, record.PlantGearId);
+    }
+
+    [Fact]
     public async Task Create_AtRolls_CompletesQueueItemWhenQuantityExhausted()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

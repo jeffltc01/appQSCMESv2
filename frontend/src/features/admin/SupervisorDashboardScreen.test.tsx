@@ -77,6 +77,13 @@ const mockMetrics: SupervisorDashboardMetrics = {
     { id: 'op-1', displayName: 'John D.', recordCount: 25 },
     { id: 'op-2', displayName: 'Jane S.', recordCount: 17 },
   ],
+  oeeAvailability: null,
+  oeePerformance: null,
+  oeeQuality: null,
+  oeeOverall: null,
+  oeePlannedMinutes: null,
+  oeeDowntimeMinutes: null,
+  oeeRunTimeMinutes: null,
 };
 
 const mockRecords: SupervisorRecord[] = [

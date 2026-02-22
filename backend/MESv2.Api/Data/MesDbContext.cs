@@ -51,6 +51,8 @@ public class MesDbContext : DbContext
     public DbSet<DowntimeReason> DowntimeReasons => Set<DowntimeReason>();
     public DbSet<WorkCenterProductionLineDowntimeReason> WorkCenterProductionLineDowntimeReasons => Set<WorkCenterProductionLineDowntimeReason>();
     public DbSet<DowntimeEvent> DowntimeEvents => Set<DowntimeEvent>();
+    public DbSet<ShiftSchedule> ShiftSchedules => Set<ShiftSchedule>();
+    public DbSet<WorkCenterCapacityTarget> WorkCenterCapacityTargets => Set<WorkCenterCapacityTarget>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -645,6 +647,54 @@ public class MesDbContext : DbContext
             .HasIndex(e => new { e.WorkCenterProductionLineId, e.StartedAt });
         modelBuilder.Entity<DowntimeEvent>()
             .Property(e => e.DurationMinutes)
+            .HasPrecision(10, 2);
+
+        // ----- Shift Schedule -----
+        modelBuilder.Entity<ShiftSchedule>()
+            .HasOne(s => s.Plant)
+            .WithMany()
+            .HasForeignKey(s => s.PlantId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ShiftSchedule>()
+            .HasOne(s => s.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ShiftSchedule>()
+            .HasIndex(s => new { s.PlantId, s.EffectiveDate })
+            .IsUnique();
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.MondayHours).HasPrecision(5, 2);
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.TuesdayHours).HasPrecision(5, 2);
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.WednesdayHours).HasPrecision(5, 2);
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.ThursdayHours).HasPrecision(5, 2);
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.FridayHours).HasPrecision(5, 2);
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.SaturdayHours).HasPrecision(5, 2);
+        modelBuilder.Entity<ShiftSchedule>()
+            .Property(s => s.SundayHours).HasPrecision(5, 2);
+
+        // ----- Work Center Capacity Targets -----
+        modelBuilder.Entity<WorkCenterCapacityTarget>()
+            .HasOne(t => t.WorkCenterProductionLine)
+            .WithMany(wcpl => wcpl.CapacityTargets)
+            .HasForeignKey(t => t.WorkCenterProductionLineId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<WorkCenterCapacityTarget>()
+            .HasOne(t => t.PlantGear)
+            .WithMany()
+            .HasForeignKey(t => t.PlantGearId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkCenterCapacityTarget>()
+            .HasIndex(t => new { t.WorkCenterProductionLineId, t.TankSize, t.PlantGearId })
+            .IsUnique()
+            .HasFilter("[TankSize] IS NOT NULL");
+        modelBuilder.Entity<WorkCenterCapacityTarget>()
+            .Property(t => t.TargetUnitsPerHour)
             .HasPrecision(10, 2);
 
     }
