@@ -1,6 +1,6 @@
 # Shift Schedule
 
-Shift Schedule manages weekly work schedules for each plant. Each row in the table represents one week and shows the scheduled hours and break minutes for each day (Monday through Sunday). Schedules are used by the Supervisor Dashboard and OEE calculations to determine planned production time.
+Shift Schedule manages weekly work schedules for each plant. Each row in the table represents one week and shows the scheduled hours and break minutes for each day (Monday through Sunday). Schedules are used by the Supervisor / Team Lead Dashboard and OEE calculations to determine planned production time.
 
 **Access:** Quality Manager (3.0) and above. Directors (2.0) and above can switch between plants.
 
@@ -35,7 +35,7 @@ Shift Schedule manages weekly work schedules for each plant. Each row in the tab
 
 ## Tips
 
-- OEE calculations depend on shift schedules. If no schedule exists for the current week, the Supervisor Dashboard will show a warning that OEE cannot be calculated.
+- OEE calculations depend on shift schedules. If no schedule exists for the current week, the Supervisor / Team Lead Dashboard will show a warning that OEE cannot be calculated.
 - Use the presets as a starting point and then tweak individual days for weeks with holidays or overtime.
 - The net minutes display updates live as you change hours and breaks, so you can see the impact of adjustments immediately.
 - Each plant maintains its own independent schedule. If all plants run the same shifts, you still need to create schedules for each plant separately.

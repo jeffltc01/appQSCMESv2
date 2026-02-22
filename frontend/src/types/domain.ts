@@ -385,6 +385,9 @@ export interface AdminControlPlan {
   workCenterProductionLineId: string;
   workCenterName: string;
   productionLineName: string;
+  plantId: string;
+  plantName: string;
+  plantCode: string;
   isEnabled: boolean;
   resultType: string;
   isGateCheck: boolean;

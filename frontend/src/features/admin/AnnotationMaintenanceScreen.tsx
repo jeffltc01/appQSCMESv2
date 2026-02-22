@@ -3,7 +3,6 @@ import {
   Button,
   Input,
   Label,
-  Checkbox,
   Spinner,
   Select,
   Textarea,
@@ -57,7 +56,6 @@ export function AnnotationMaintenanceScreen() {
   const [editStatus, setEditStatus] = useState('Open');
   const [editNotes, setEditNotes] = useState('');
   const [editResolvedNotes, setEditResolvedNotes] = useState('');
-  const [markResolved, setMarkResolved] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
@@ -132,7 +130,6 @@ export function AnnotationMaintenanceScreen() {
     setEditStatus(item.status);
     setEditNotes(item.notes ?? '');
     setEditResolvedNotes(item.resolvedNotes ?? '');
-    setMarkResolved(!!item.resolvedByName);
     setModalError('');
     setModalOpen(true);
   };
@@ -146,7 +143,7 @@ export function AnnotationMaintenanceScreen() {
         status: editStatus,
         notes: editNotes || undefined,
         resolvedNotes: editResolvedNotes || undefined,
-        resolvedByUserId: markResolved && !editing.resolvedByName ? user?.id : undefined,
+        resolvedByUserId: editStatus === 'Closed' && !editing.resolvedByName ? user?.id : undefined,
       });
       setItems((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
       setModalOpen(false);
@@ -393,13 +390,6 @@ export function AnnotationMaintenanceScreen() {
               onChange={(_, d) => setEditResolvedNotes(d.value)}
               placeholder="Resolution details..."
             />
-            {!editing.resolvedByName && (
-              <Checkbox
-                label={`Mark as Resolved (by ${user?.displayName ?? 'you'})`}
-                checked={markResolved}
-                onChange={(_, d) => setMarkResolved(!!d.checked)}
-              />
-            )}
             {editing.resolvedByName && (
               <div style={{ fontSize: 13, color: '#155724' }}>
                 Already resolved by {editing.resolvedByName}

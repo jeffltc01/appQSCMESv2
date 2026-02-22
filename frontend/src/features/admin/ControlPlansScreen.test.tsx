@@ -3,15 +3,20 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { ControlPlansScreen } from './ControlPlansScreen.tsx';
-import { adminControlPlanApi } from '../../api/endpoints.ts';
+import { adminControlPlanApi, siteApi } from '../../api/endpoints.ts';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1 };
-const tier3User = { plantCode: '000', plantName: 'Cleveland', displayName: 'QM User', roleTier: 3 };
+const adminUser = { id: 'u1', plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Test Admin', roleTier: 1, defaultSiteId: 's1' };
+const tier3User = { id: 'u2', plantCode: '000', plantName: 'Cleveland', displayName: 'QM User', roleTier: 3, defaultSiteId: 's1' };
+
+const mockSites = [
+  { id: 's1', code: 'PLT1', name: 'Cleveland', timeZoneId: 'America/New_York' },
+  { id: 's2', code: 'PLT2', name: 'Houston', timeZoneId: 'America/Chicago' },
+];
 
 vi.mock('../../api/endpoints.ts', () => ({
   adminControlPlanApi: {
@@ -26,6 +31,9 @@ vi.mock('../../api/endpoints.ts', () => ({
   adminWorkCenterApi: {
     getAll: vi.fn().mockResolvedValue([]),
     getProductionLineConfigs: vi.fn().mockResolvedValue([]),
+  },
+  siteApi: {
+    getSites: vi.fn(),
   },
 }));
 
@@ -47,6 +55,9 @@ const mockControlPlans = [
     workCenterProductionLineId: 'wcpl1',
     workCenterName: 'Rolls 1',
     productionLineName: 'Line 1',
+    plantId: 's1',
+    plantName: 'Cleveland',
+    plantCode: 'PLT1',
     isEnabled: true,
     resultType: 'PassFail',
     isGateCheck: false,
@@ -60,6 +71,9 @@ const mockControlPlans = [
     workCenterProductionLineId: 'wcpl2',
     workCenterName: 'Round Seam',
     productionLineName: 'Line 2',
+    plantId: 's1',
+    plantName: 'Cleveland',
+    plantCode: 'PLT1',
     isEnabled: true,
     resultType: 'AcceptReject',
     isGateCheck: true,
@@ -72,6 +86,7 @@ describe('ControlPlansScreen', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminControlPlanApi.getAll).mockResolvedValue(mockControlPlans);
+    vi.mocked(siteApi.getSites).mockResolvedValue(mockSites);
   });
 
   it('renders loading state initially', async () => {
@@ -142,6 +157,22 @@ describe('ControlPlansScreen', () => {
     expect(screen.getByText('Control Plans')).toBeInTheDocument();
   });
 
+  it('shows site filter for director+', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Long Seam')).toBeInTheDocument();
+    });
+    expect(screen.getByText('All Sites')).toBeInTheDocument();
+  });
+
+  it('shows plant info on cards', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Long Seam')).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('Cleveland (PLT1)').length).toBeGreaterThanOrEqual(1);
+  });
+
   describe('Tier 3 read-only behavior', () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue({ user: tier3User, logout: vi.fn() });
@@ -153,6 +184,14 @@ describe('ControlPlansScreen', () => {
         expect(screen.getByText('Long Seam')).toBeInTheDocument();
       });
       expect(screen.queryByRole('button', { name: /Add/i })).not.toBeInTheDocument();
+    });
+
+    it('hides site filter for tier 3 users', async () => {
+      renderScreen();
+      await waitFor(() => {
+        expect(screen.getByText('Long Seam')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('All Sites')).not.toBeInTheDocument();
     });
   });
 });

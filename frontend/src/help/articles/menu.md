@@ -49,7 +49,7 @@ Tile-based navigation grid for supervisory and administrative functions. Visible
 
 | Tile | Min Role | Description |
 |---|---|---|
-| Supervisor Dashboard | 5.0 | Real-time production counts and metrics |
+| Supervisor / Team Lead Dashboard | 5.0 | Real-time production counts and metrics |
 | Digital Twin | 4.0 | Visual production line status |
 | AI Review | 5.5 | AI-assisted quality review of inspection data |
 | Who's On the Floor | 5.0 | See which operators and welders are currently signed in |

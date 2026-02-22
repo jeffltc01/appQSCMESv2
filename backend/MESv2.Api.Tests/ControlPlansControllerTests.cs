@@ -43,7 +43,7 @@ public class ControlPlansControllerTests
         var controller = CreateController(out var db);
         SeedControlPlan(db);
 
-        var result = await controller.GetAll(CancellationToken.None);
+        var result = await controller.GetAll(null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<AdminControlPlanDto>>(ok.Value).ToList();
@@ -52,18 +52,45 @@ public class ControlPlansControllerTests
     }
 
     [Fact]
-    public async Task GetAll_IncludesProductionLineName()
+    public async Task GetAll_IncludesProductionLineAndPlantName()
     {
         var controller = CreateController(out var db);
         SeedControlPlan(db);
 
-        var result = await controller.GetAll(CancellationToken.None);
+        var result = await controller.GetAll(null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<AdminControlPlanDto>>(ok.Value).ToList();
         var first = list.First();
         Assert.False(string.IsNullOrEmpty(first.ProductionLineName));
         Assert.False(string.IsNullOrEmpty(first.WorkCenterName));
+        Assert.False(string.IsNullOrEmpty(first.PlantName));
+        Assert.False(string.IsNullOrEmpty(first.PlantCode));
+    }
+
+    [Fact]
+    public async Task GetAll_FiltersBySiteId()
+    {
+        var controller = CreateController(out var db);
+        SeedControlPlan(db);
+
+        var result = await controller.GetAll(TestHelpers.PlantPlt1Id, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminControlPlanDto>>(ok.Value).ToList();
+        Assert.NotEmpty(list);
+        Assert.All(list, cp => Assert.Equal(TestHelpers.PlantPlt1Id, cp.PlantId));
+    }
+
+    [Fact]
+    public async Task GetAll_FiltersBySiteId_ReturnsEmpty_WhenNoMatch()
+    {
+        var controller = CreateController(out var db);
+        SeedControlPlan(db);
+
+        var result = await controller.GetAll(Guid.NewGuid(), CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminControlPlanDto>>(ok.Value).ToList();
+        Assert.Empty(list);
     }
 
     [Fact]
@@ -119,6 +146,56 @@ public class ControlPlansControllerTests
         };
 
         var result = await controller.Create(dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Create_CodeRequired_CannotBeDisabled()
+    {
+        var controller = CreateController(out var db);
+        var dto = new CreateControlPlanDto
+        {
+            CharacteristicId = db.Characteristics.First().Id,
+            WorkCenterProductionLineId = TestHelpers.wcplRollsId,
+            IsEnabled = false,
+            ResultType = "PassFail",
+            IsGateCheck = true,
+            CodeRequired = true
+        };
+
+        var result = await controller.Create(dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Update_CodeRequired_CannotBeDisabled()
+    {
+        var controller = CreateController(out var db);
+        var charId = db.Characteristics.First().Id;
+        var cp = new ControlPlan
+        {
+            Id = Guid.NewGuid(),
+            CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplRollsId,
+            IsEnabled = true,
+            ResultType = "PassFail",
+            IsGateCheck = true,
+            CodeRequired = true
+        };
+        db.ControlPlans.Add(cp);
+        db.SaveChanges();
+
+        var dto = new UpdateControlPlanDto
+        {
+            IsEnabled = false,
+            ResultType = "PassFail",
+            IsGateCheck = true,
+            CodeRequired = true,
+            IsActive = true
+        };
+        var result = await controller.Update(cp.Id, dto, CancellationToken.None);
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }

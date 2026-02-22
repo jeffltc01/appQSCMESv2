@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button, Label, Dropdown, Option, Checkbox, Spinner, Badge } from '@fluentui/react-components';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Button, Label, Dropdown, Option, Checkbox, Spinner, Badge, Select } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
-import { adminControlPlanApi, adminCharacteristicApi } from '../../api/endpoints.ts';
+import { adminControlPlanApi, adminCharacteristicApi, siteApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import type { AdminControlPlan, AdminCharacteristic } from '../../types/domain.ts';
+import type { AdminControlPlan, AdminCharacteristic, Plant } from '../../types/domain.ts';
 import type { WorkCenterProductionLine } from '../../types/domain.ts';
 import { adminWorkCenterApi } from '../../api/endpoints.ts';
 import styles from './CardList.module.css';
@@ -14,7 +14,9 @@ const RESULT_TYPES = ['PassFail', 'AcceptReject', 'GoNoGo', 'NumericInt', 'Numer
 
 export function ControlPlansScreen() {
   const { user } = useAuth();
-  const isAdmin = (user?.roleTier ?? 99) <= 1;
+  const roleTier = user?.roleTier ?? 99;
+  const isAdmin = roleTier <= 1;
+  const isDirectorPlus = roleTier <= 2;
   const [items, setItems] = useState<AdminControlPlan[]>([]);
   const [characteristics, setCharacteristics] = useState<AdminCharacteristic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,11 @@ export function ControlPlansScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const [sites, setSites] = useState<Plant[]>([]);
+  const [siteFilter, setSiteFilter] = useState<string>(
+    isDirectorPlus ? '' : (user?.defaultSiteId ?? ''),
+  );
 
   const [characteristicId, setCharacteristicId] = useState('');
   const [wcplId, setWcplId] = useState('');
@@ -35,17 +42,24 @@ export function ControlPlansScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const siteId = isDirectorPlus ? (siteFilter || undefined) : user?.defaultSiteId;
       const [plans, chars] = await Promise.all([
-        adminControlPlanApi.getAll(),
+        adminControlPlanApi.getAll(siteId),
         adminCharacteristicApi.getAll(),
       ]);
       setItems(plans);
       setCharacteristics(chars.filter(c => c.isActive));
     } catch { setError('Failed to load control plans.'); }
     finally { setLoading(false); }
-  }, []);
+  }, [isDirectorPlus, siteFilter, user?.defaultSiteId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (isDirectorPlus) {
+      siteApi.getSites().then(setSites).catch(() => {});
+    }
+  }, [isDirectorPlus]);
 
   const loadWcpls = useCallback(async () => {
     try {
@@ -60,6 +74,13 @@ export function ControlPlansScreen() {
       setWcpls(allWcpls);
     } catch { /* skip */ }
   }, []);
+
+  const filteredWcpls = useMemo(() => {
+    if (!siteFilter) return wcpls;
+    const site = sites.find(s => s.id === siteFilter);
+    if (!site) return wcpls;
+    return wcpls.filter(w => w.plantName === site.name);
+  }, [wcpls, siteFilter, sites]);
 
   const openCreate = () => {
     setEditing(null); setIsCreating(true);
@@ -81,7 +102,10 @@ export function ControlPlansScreen() {
 
   const handleCodeRequiredChange = (checked: boolean) => {
     setCodeRequired(checked);
-    if (checked) setIsGateCheck(true);
+    if (checked) {
+      setIsGateCheck(true);
+      setIsEnabled(true);
+    }
   };
 
   const handleSave = async () => {
@@ -114,6 +138,22 @@ export function ControlPlansScreen() {
 
   return (
     <AdminLayout title="Control Plans" onAdd={isAdmin ? openCreate : undefined}>
+      {isDirectorPlus && (
+        <div className={styles.filterBar}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>Site</label>
+          <Select
+            value={siteFilter}
+            onChange={(_, d) => setSiteFilter(d.value)}
+            style={{ minWidth: 160 }}
+          >
+            <option value="">All Sites</option>
+            {sites.map(s => (
+              <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
@@ -140,8 +180,12 @@ export function ControlPlansScreen() {
                 <span className={styles.cardFieldValue}>{item.workCenterName}</span>
               </div>
               <div className={styles.cardField}>
-                <span className={styles.cardFieldLabel}>Production Line</span>
+                <span className={styles.cardFieldLabel}>Line</span>
                 <span className={styles.cardFieldValue}>{item.productionLineName}</span>
+              </div>
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Site</span>
+                <span className={styles.cardFieldValue}>{item.plantName} ({item.plantCode})</span>
               </div>
               <div className={styles.cardField}>
                 <span className={styles.cardFieldLabel}>Result Type</span>
@@ -184,15 +228,19 @@ export function ControlPlansScreen() {
             </Dropdown>
             <Label>Work Center / Production Line</Label>
             <Dropdown
-              value={wcpls.find(w => w.id === wcplId)?.displayName ?? ''}
+              value={filteredWcpls.find(w => w.id === wcplId)?.displayName
+                ? `${filteredWcpls.find(w => w.id === wcplId)!.displayName} (${filteredWcpls.find(w => w.id === wcplId)!.plantName})`
+                : ''}
               selectedOptions={[wcplId]}
               onOptionSelect={(_, d) => setWcplId(d.optionValue ?? '')}
             >
-              {wcpls.map(w => <Option key={w.id} value={w.id}>{w.displayName}</Option>)}
+              {filteredWcpls.map(w => (
+                <Option key={w.id} value={w.id}>{w.displayName} ({w.plantName})</Option>
+              ))}
             </Dropdown>
           </>
         )}
-        <Checkbox label="Enabled" checked={isEnabled} onChange={(_, d) => setIsEnabled(!!d.checked)} />
+        <Checkbox label="Enabled" checked={isEnabled} disabled={codeRequired} onChange={(_, d) => setIsEnabled(!!d.checked)} />
         <Label>Result Type</Label>
         <Dropdown value={resultType} selectedOptions={[resultType]} onOptionSelect={(_, d) => { if (d.optionValue) setResultType(d.optionValue); }}>
           {RESULT_TYPES.map(rt => <Option key={rt} value={rt}>{rt}</Option>)}

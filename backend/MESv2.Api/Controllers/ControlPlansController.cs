@@ -23,12 +23,20 @@ public class ControlPlansController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<AdminControlPlanDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AdminControlPlanDto>>> GetAll(
+        [FromQuery] Guid? siteId,
+        CancellationToken cancellationToken)
     {
-        var list = await _db.ControlPlans
+        var query = _db.ControlPlans
             .Include(cp => cp.Characteristic)
             .Include(cp => cp.WorkCenterProductionLine).ThenInclude(wcpl => wcpl.WorkCenter)
-            .Include(cp => cp.WorkCenterProductionLine).ThenInclude(wcpl => wcpl.ProductionLine)
+            .Include(cp => cp.WorkCenterProductionLine).ThenInclude(wcpl => wcpl.ProductionLine).ThenInclude(pl => pl.Plant)
+            .AsQueryable();
+
+        if (siteId.HasValue)
+            query = query.Where(cp => cp.WorkCenterProductionLine.ProductionLine.PlantId == siteId.Value);
+
+        var list = await query
             .OrderBy(cp => cp.Characteristic.Name)
                 .ThenBy(cp => cp.WorkCenterProductionLine.WorkCenter.Name)
             .Select(cp => new AdminControlPlanDto
@@ -39,6 +47,9 @@ public class ControlPlansController : ControllerBase
                 WorkCenterProductionLineId = cp.WorkCenterProductionLineId,
                 WorkCenterName = cp.WorkCenterProductionLine.WorkCenter.Name,
                 ProductionLineName = cp.WorkCenterProductionLine.ProductionLine.Name,
+                PlantId = cp.WorkCenterProductionLine.ProductionLine.PlantId,
+                PlantName = cp.WorkCenterProductionLine.ProductionLine.Plant.Name,
+                PlantCode = cp.WorkCenterProductionLine.ProductionLine.Plant.Code,
                 IsEnabled = cp.IsEnabled,
                 ResultType = cp.ResultType,
                 IsGateCheck = cp.IsGateCheck,
@@ -61,6 +72,9 @@ public class ControlPlansController : ControllerBase
         if (dto.CodeRequired && !dto.IsGateCheck)
             return BadRequest("CodeRequired control plans must also be gate checks.");
 
+        if (dto.CodeRequired && !dto.IsEnabled)
+            return BadRequest("CodeRequired control plans cannot be disabled.");
+
         var cp = new ControlPlan
         {
             Id = Guid.NewGuid(),
@@ -76,7 +90,7 @@ public class ControlPlansController : ControllerBase
 
         var wcpl = await _db.WorkCenterProductionLines
             .Include(w => w.WorkCenter)
-            .Include(w => w.ProductionLine)
+            .Include(w => w.ProductionLine).ThenInclude(pl => pl.Plant)
             .FirstAsync(w => w.Id == cp.WorkCenterProductionLineId, cancellationToken);
         var charName = (await _db.Characteristics.FindAsync(new object[] { cp.CharacteristicId }, cancellationToken))?.Name ?? "";
 
@@ -88,6 +102,9 @@ public class ControlPlansController : ControllerBase
             WorkCenterProductionLineId = cp.WorkCenterProductionLineId,
             WorkCenterName = wcpl.WorkCenter.Name,
             ProductionLineName = wcpl.ProductionLine.Name,
+            PlantId = wcpl.ProductionLine.PlantId,
+            PlantName = wcpl.ProductionLine.Plant.Name,
+            PlantCode = wcpl.ProductionLine.Plant.Code,
             IsEnabled = cp.IsEnabled,
             ResultType = cp.ResultType,
             IsGateCheck = cp.IsGateCheck,
@@ -108,10 +125,13 @@ public class ControlPlansController : ControllerBase
         if (dto.CodeRequired && !dto.IsGateCheck)
             return BadRequest("CodeRequired control plans must also be gate checks.");
 
+        if (dto.CodeRequired && !dto.IsEnabled)
+            return BadRequest("CodeRequired control plans cannot be disabled.");
+
         var cp = await _db.ControlPlans
             .Include(x => x.Characteristic)
             .Include(x => x.WorkCenterProductionLine).ThenInclude(w => w.WorkCenter)
-            .Include(x => x.WorkCenterProductionLine).ThenInclude(w => w.ProductionLine)
+            .Include(x => x.WorkCenterProductionLine).ThenInclude(w => w.ProductionLine).ThenInclude(pl => pl.Plant)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (cp == null) return NotFound();
 
@@ -130,6 +150,9 @@ public class ControlPlansController : ControllerBase
             WorkCenterProductionLineId = cp.WorkCenterProductionLineId,
             WorkCenterName = cp.WorkCenterProductionLine.WorkCenter.Name,
             ProductionLineName = cp.WorkCenterProductionLine.ProductionLine.Name,
+            PlantId = cp.WorkCenterProductionLine.ProductionLine.PlantId,
+            PlantName = cp.WorkCenterProductionLine.ProductionLine.Plant.Name,
+            PlantCode = cp.WorkCenterProductionLine.ProductionLine.Plant.Code,
             IsEnabled = cp.IsEnabled,
             ResultType = cp.ResultType,
             IsGateCheck = cp.IsGateCheck,
@@ -147,7 +170,7 @@ public class ControlPlansController : ControllerBase
         var cp = await _db.ControlPlans
             .Include(x => x.Characteristic)
             .Include(x => x.WorkCenterProductionLine).ThenInclude(w => w.WorkCenter)
-            .Include(x => x.WorkCenterProductionLine).ThenInclude(w => w.ProductionLine)
+            .Include(x => x.WorkCenterProductionLine).ThenInclude(w => w.ProductionLine).ThenInclude(pl => pl.Plant)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (cp == null) return NotFound();
 
@@ -162,6 +185,9 @@ public class ControlPlansController : ControllerBase
             WorkCenterProductionLineId = cp.WorkCenterProductionLineId,
             WorkCenterName = cp.WorkCenterProductionLine.WorkCenter.Name,
             ProductionLineName = cp.WorkCenterProductionLine.ProductionLine.Name,
+            PlantId = cp.WorkCenterProductionLine.ProductionLine.PlantId,
+            PlantName = cp.WorkCenterProductionLine.ProductionLine.Plant.Name,
+            PlantCode = cp.WorkCenterProductionLine.ProductionLine.Plant.Code,
             IsEnabled = cp.IsEnabled,
             ResultType = cp.ResultType,
             IsGateCheck = cp.IsGateCheck,

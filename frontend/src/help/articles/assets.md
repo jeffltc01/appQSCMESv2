@@ -29,3 +29,6 @@ Track physical assets (welders, positioners, fixtures) assigned to work centers 
 - If you use Limble for maintenance management, always fill in the Limble Identifier so maintenance data stays linked.
 - Site-scoped users only see assets belonging to their assigned site. An Admin or Director can view all sites.
 
+## Changes from MES v1
+
+- **Limble Identifier** v1 did not have this field, this field was added for future functionality where work orders could be created directly against an Asset in Limble based on the Asset the user is logged into in the MES.

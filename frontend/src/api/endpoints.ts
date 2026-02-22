@@ -363,7 +363,7 @@ export const adminCharacteristicApi = {
 };
 
 export const adminControlPlanApi = {
-  getAll: () => api.get<AdminControlPlan[]>('/control-plans'),
+  getAll: (siteId?: string) => api.get<AdminControlPlan[]>(`/control-plans${siteId ? `?siteId=${siteId}` : ''}`),
   create: (req: CreateControlPlanRequest) => api.post<AdminControlPlan>('/control-plans', req),
   update: (id: string, req: UpdateControlPlanRequest) => api.put<AdminControlPlan>(`/control-plans/${id}`, req),
   remove: (id: string) => api.delete<AdminControlPlan>(`/control-plans/${id}`),

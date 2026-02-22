@@ -7,8 +7,8 @@ View and manage annotations across production records in a table layout. Annotat
 1. **Browse.** The table lists all annotations with key details in columns. Use the filters above the table to narrow results.
 2. **Filter.** Apply filters for text search, annotation type, status (All, Open, Closed, Resolved, Unresolved), and site (Directors and above can filter across sites).
 3. **Create an annotation.** Click **Create Annotation**. Select an annotation type, enter notes, and optionally link the annotation to a specific Plant, Production Line, or Work Center. Click **Save**.
-4. **Edit an annotation.** Click a row to open the edit panel. You can change the status (Open / Closed), edit notes, add resolution notes, and mark the annotation as resolved.
-5. **Resolve.** Enter resolution notes and mark the annotation resolved. The Resolved By field is automatically set to your name.
+4. **Edit an annotation.** Click a row to open the edit panel. You can change the status (Open / Closed), edit notes, and add resolution notes.
+5. **Resolve.** When you set the status to **Closed**, the annotation is automatically marked as resolved and the Resolved By field is set to your name.
 
 ## Fields & Controls
 

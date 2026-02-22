@@ -1,8 +1,8 @@
-# Supervisor Dashboard
+# Supervisor / Team Lead Dashboard
 
-The Supervisor Dashboard is a comprehensive real-time view of production performance for a selected work center. It combines OEE metrics, KPI cards, hourly/daily/weekly performance tables, and an annotation workflow into a single screen. Data auto-refreshes every 30 seconds.
+This Dashboard is a comprehensive real-time view of production performance for a selected work center. It combines OEE metrics, KPI cards, hourly/daily/weekly performance tables, and an annotation workflow into a single screen. Data auto-refreshes every 30 seconds.
 
-**Access:** Supervisors (4.0) and above.
+**Access:** Team Leads (5.0), Supervisors (4.0), and all higher-privilege roles.
 
 ## How It Works
 
@@ -13,7 +13,7 @@ The Supervisor Dashboard is a comprehensive real-time view of production perform
 3. **Review OEE cards.** Four cards display Overall OEE, Availability, Performance, and Quality. Each card is color-coded against configurable thresholds (green = on target, yellow = warning, red = below target).
 4. **Review KPI cards.** Additional cards show Count, First Pass Yield (FPY), Defects, Average Time Between Scans, and Quantity per Hour.
 5. **Drill into performance tables.** The table below the cards shows time-bucketed rows (hourly in Day view, daily in Week view, weekly in Month view). Each row displays Planned, Actual, Delta, FPY%, and Downtime.
-6. **Filter by operator.** Use the operator chip filter to show performance data for a specific operator or group of operators.
+6. **Filter by operator.** Use the operator chip filter to show performance data for a specific operator or group of operators.  The list of operators is automatically calculated based on who has logged records at that work center.
 
 ### Annotating Records
 
@@ -26,16 +26,18 @@ The Supervisor Dashboard is a comprehensive real-time view of production perform
 
 All dashboard data comes from the MES database, scoped to the selected work center and plant. KPI metrics and the performance table are recalculated on every 30-second refresh.
 
-| Data | Source Table(s) | Scope |
-|---|---|---|
-| Production counts & timestamps | **ProductionRecords** | Current day and current week (Mon-Sun), filtered to selected WC + plant |
-| Shift schedule (planned time) | **ShiftSchedules** | Most recent schedule with an effective date on or before the current date |
-| Capacity targets (planned output) | **WorkCenterCapacityTargets** | Targets for this WC's production lines, filtered by current plant gear |
-| Downtime | **DowntimeEvents** | Events overlapping the time window for this WC's production lines |
-| Defects (for FPY) | **DefectLogs** | Defect entries linked to serial numbers at this WC |
-| Plant gear level | **ProductionRecords.PlantGearId** | Most recent record's gear ID is used to select the correct capacity targets |
-| Operators | **ProductionRecords → Users** | Operators with records at this WC in the current week |
-| Annotations | **Annotations → AnnotationTypes** | Existing annotations linked to production records |
+
+| Data                              | Source Table(s)                   | Scope                                                                       |
+| --------------------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| Production counts & timestamps    | **ProductionRecords**             | Current day and current week (Mon-Sun), filtered to selected WC + plant     |
+| Shift schedule (planned time)     | **ShiftSchedules**                | Most recent schedule with an effective date on or before the current date   |
+| Capacity targets (planned output) | **WorkCenterCapacityTargets**     | Targets for this WC's production lines, filtered by current plant gear      |
+| Downtime                          | **DowntimeEvents**                | Events overlapping the time window for this WC's production lines           |
+| Defects (for FPY)                 | **DefectLogs**                    | Defect entries linked to serial numbers at this WC                          |
+| Plant gear level                  | **ProductionRecords.PlantGearId** | Most recent record's gear ID is used to select the correct capacity targets |
+| Operators                         | **ProductionRecords → Users**     | Operators with records at this WC in the current week                       |
+| Annotations                       | **Annotations → AnnotationTypes** | Existing annotations linked to production records                           |
+
 
 ## Calculations
 
@@ -51,28 +53,33 @@ OEE is calculated by the OEE Service using the standard formula **OEE = Availabi
 - **Downtime** (minutes) is the sum of all `DowntimeEvent.DurationMinutes` for this work center's production lines that overlap the current day.
 - **Run Time** = Planned Time - Downtime (floored at 0).
 
-| Threshold | Color |
-|---|---|
-| >= 90% | Green |
-| >= 70% | Yellow |
-| < 70% | Red |
+
+| Threshold | Color  |
+| --------- | ------ |
+| >= 90%    | Green  |
+| >= 70%    | Yellow |
+| < 70%     | Red    |
+
 
 #### Performance
 
 **Performance = Sum of Ideal Cycle Times / Run Time x 100** (capped at 200%)
 
 For each production record created today:
+
 1. The system looks up the matching **Capacity Target** based on the record's work center production line + plant gear ID + tank size. If no exact tank-size match exists, it falls back to the default target (null tank size) for that gear and production line.
 2. **Ideal Cycle Time** for that record = 60 / Target Units Per Hour (in minutes).
 3. The sum of all ideal cycle times is divided by the actual run time to get the performance ratio.
 
 If the work center has multiple production lines, the capacity targets are resolved per-line. The target used for the Planned column is the sum of averages across lines.
 
-| Threshold | Color |
-|---|---|
-| >= 95% | Green |
-| >= 70% | Yellow |
-| < 70% | Red |
+
+| Threshold | Color  |
+| --------- | ------ |
+| >= 95%    | Green  |
+| >= 70%    | Yellow |
+| < 70%     | Red    |
+
 
 #### Quality
 
@@ -80,21 +87,25 @@ If the work center has multiple production lines, the capacity targets are resol
 
 Quality uses the same FPY calculation described below. If FPY is not available for this work center type, Quality defaults to 100%.
 
-| Threshold | Color |
-|---|---|
-| >= 99% | Green |
-| >= 95% | Yellow |
-| < 95% | Red |
+
+| Threshold | Color  |
+| --------- | ------ |
+| >= 99%    | Green  |
+| >= 95%    | Yellow |
+| < 95%     | Red    |
+
 
 #### Overall OEE
 
 **Overall OEE = (Availability / 100) x (Performance / 100) x (Quality / 100) x 100**
 
-| Threshold | Color |
-|---|---|
-| >= 85% | Green |
-| >= 60% | Yellow |
-| < 60% | Red |
+
+| Threshold | Color  |
+| --------- | ------ |
+| >= 85%    | Green  |
+| >= 60%    | Yellow |
+| < 60%     | Red    |
+
 
 ### KPI Cards
 
@@ -106,11 +117,13 @@ Simple count of production records at this work center for the current day (midn
 
 FPY measures the percentage of units that passed inspection without any defects on their first visit to this work center. It is only available for work centers that have an applicable inspection characteristic:
 
-| Work Center DataEntryType | Applicable Characteristics |
-|---|---|
-| Rolls, Barcode-LongSeam | Long Seam characteristic |
-| Fitup, Barcode-RoundSeam | Round Seam characteristics (RS1-RS4) |
-| All others | FPY not shown |
+
+| Work Center DataEntryType | Applicable Characteristics           |
+| ------------------------- | ------------------------------------ |
+| Rolls, Barcode-LongSeam   | Long Seam characteristic             |
+| Fitup, Barcode-RoundSeam  | Round Seam characteristics (RS1-RS4) |
+| All others                | FPY not shown                        |
+
 
 The calculation:
 
@@ -148,9 +161,9 @@ The performance table shows time-bucketed rows with planned vs. actual output, F
 The Planned value for each time bucket depends on the **Capacity Target** and the **Shift Schedule**:
 
 1. **Target Units Per Hour** is resolved by:
-   - Finding all WorkCenterCapacityTargets for this work center's production lines at this plant.
-   - Filtering to the most recently used plant gear (determined from the most recent production record that has a gear ID).
-   - Averaging the target per production line, then summing across lines.
+  - Finding all WorkCenterCapacityTargets for this work center's production lines at this plant.
+  - Filtering to the most recently used plant gear (determined from the most recent production record that has a gear ID).
+  - Averaging the target per production line, then summing across lines.
 2. **Hourly view (Day):** Planned per hour = floor(Target Units Per Hour).
 3. **Daily view (Week):** Planned per day = floor(Target Units Per Hour x Planned Minutes for that day / 60).
 4. **Weekly view (Month):** Planned per week = floor(sum of daily planned values for each day in the week).
@@ -188,43 +201,51 @@ The operator chips show all operators who have production records at this work c
 
 ### OEE Cards
 
-| Card | Description |
-|---|---|
-| **Overall OEE** | Availability x Performance x Quality. |
-| **Availability** | Run Time / Planned Time. Shows downtime minutes as subtext. |
-| **Performance** | Ideal cycle time ratio vs. run time. Shows run time minutes as subtext. |
-| **Quality** | Day FPY (or 100% if FPY is not applicable). Shows planned minutes as subtext. |
+
+| Card             | Description                                                                   |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Overall OEE**  | Availability x Performance x Quality.                                         |
+| **Availability** | Run Time / Planned Time. Shows downtime minutes as subtext.                   |
+| **Performance**  | Ideal cycle time ratio vs. run time. Shows run time minutes as subtext.       |
+| **Quality**      | Day FPY (or 100% if FPY is not applicable). Shows planned minutes as subtext. |
+
 
 ### KPI Cards
 
-| Card | Description |
-|---|---|
-| **Count** | Day and Week production record counts. |
-| **First Pass Yield** | Day and Week FPY percentages (only for Long Seam and Round Seam type work centers). |
-| **Total Defects** | Day and Week defect counts (only for Long Seam and Round Seam type work centers). |
-| **Avg Time Between Scans** | Day and Week average gap between consecutive scans. |
-| **Qty / Hour** | Day and Week running average units per hour. |
+
+| Card                       | Description                                                                         |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| **Count**                  | Day and Week production record counts.                                              |
+| **First Pass Yield**       | Day and Week FPY percentages (only for Long Seam and Round Seam type work centers). |
+| **Total Defects**          | Day and Week defect counts (only for Long Seam and Round Seam type work centers).   |
+| **Avg Time Between Scans** | Day and Week average gap between consecutive scans.                                 |
+| **Qty / Hour**             | Day and Week running average units per hour.                                        |
+
 
 ### Performance Table
 
-| Column | Description |
-|---|---|
-| **Time Bucket** | Hour (Day view), day name (Week view), or ISO week number (Month view). |
-| **Planned** | Expected output from capacity targets x shift schedule. |
-| **Actual** | Production records in this bucket. |
-| **Delta** | Actual minus Planned (green if positive, red if negative). |
-| **FPY** | First Pass Yield for this bucket's time window. |
-| **Downtime (min)** | Downtime event minutes in this bucket. |
+
+| Column             | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| **Time Bucket**    | Hour (Day view), day name (Week view), or ISO week number (Month view). |
+| **Planned**        | Expected output from capacity targets x shift schedule.                 |
+| **Actual**         | Production records in this bucket.                                      |
+| **Delta**          | Actual minus Planned (green if positive, red if negative).              |
+| **FPY**            | First Pass Yield for this bucket's time window.                         |
+| **Downtime (min)** | Downtime event minutes in this bucket.                                  |
+
 
 ### Controls
 
-| Element | Description |
-|---|---|
-| **Work Center dropdown** | Selects the work center to monitor. |
-| **View Mode selector** | Switches between Day, Week, Month, and Annotate views. |
+
+| Element                  | Description                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| **Work Center dropdown** | Selects the work center to monitor.                                                      |
+| **View Mode selector**   | Switches between Day, Week, Month, and Annotate views.                                   |
 | **Operator chip filter** | Filters KPIs and the performance table to a specific operator. OEE is always unfiltered. |
-| **Annotation type** | In Annotate mode: Note, Internal Review, or Correction Needed. |
-| **Annotation comment** | Free-text input for the annotation body. |
+| **Annotation type**      | In Annotate mode: Note, Internal Review, or Correction Needed.                           |
+| **Annotation comment**   | Free-text input for the annotation body.                                                 |
+
 
 ## Tips
 
@@ -236,3 +257,4 @@ The operator chips show all operators who have production records at this work c
 - FPY and Total Defects only appear for work centers in the Long Seam family (Rolls, Long Seam) and Round Seam family (Fitup, Round Seam). Other work centers show Count, Avg Time Between Scans, and Qty/Hour only.
 - The operator filter affects KPI cards and the performance table but does not affect OEE, which is always calculated for the entire work center.
 - Performance can exceed 100% if operators are producing faster than the configured capacity target. It is capped at 200% to prevent outliers from skewing the OEE calculation.
+

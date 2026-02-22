@@ -169,7 +169,7 @@ export function SupervisorDashboardScreen() {
   const formatNum = (v: number | null) => (v !== null ? String(v) : '--');
 
   return (
-    <AdminLayout title="Supervisor Dashboard">
+    <AdminLayout title="Supervisor / Team Lead Dashboard">
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarField}>

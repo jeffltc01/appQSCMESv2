@@ -52,7 +52,7 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'issue-approvals', title: 'Issue Approvals', category: 'admin', routeMatch: '/menu/issue-approvals' },
   { slug: 'ai-review', title: 'AI Review', category: 'admin', routeMatch: '/menu/ai-review' },
   { slug: 'production-logs', title: 'Log Viewer', category: 'admin', routeMatch: '/menu/production-logs' },
-  { slug: 'supervisor-dashboard', title: 'Supervisor Dashboard', category: 'admin', routeMatch: '/menu/supervisor-dashboard' },
+  { slug: 'supervisor-dashboard', title: 'Supervisor / Team Lead Dashboard', category: 'admin', routeMatch: '/menu/supervisor-dashboard' },
   { slug: 'downtime-reasons', title: 'Downtime Reasons', category: 'admin', routeMatch: '/menu/downtime-reasons' },
   { slug: 'digital-twin', title: 'Digital Twin', category: 'admin', routeMatch: '/menu/digital-twin' },
   { slug: 'shift-schedule', title: 'Shift Schedule', category: 'admin', routeMatch: '/menu/shift-schedule' },

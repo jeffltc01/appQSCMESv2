@@ -93,7 +93,7 @@ const MENU_GROUPS: MenuGroup[] = [
     label: 'Dashboards & Insights',
     accentColor: '#343a40',
     tiles: [
-      { label: 'Supervisor Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
+      { label: 'Supervisor / Team Lead Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
       { label: 'Digital Twin', icon: <BranchRegular />, minRoleTier: 4, route: '/menu/digital-twin', implemented: true },
       { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
       { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },

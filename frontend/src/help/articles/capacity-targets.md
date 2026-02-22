@@ -1,6 +1,6 @@
 # Capacity Targets
 
-Capacity Targets defines the expected units-per-hour throughput for each work center at each gear level. The screen presents an editable grid where rows are work centers (sorted by production sequence) and columns are the plant's gear levels. These targets are used by the Supervisor Dashboard to calculate OEE Performance and to populate the "Planned" column in performance tables.
+Capacity Targets defines the expected units-per-hour throughput for each work center at each gear level. The screen presents an editable grid where rows are work centers (sorted by production sequence) and columns are the plant's gear levels. These targets are used by the Supervisor / Team Lead Dashboard to calculate OEE Performance and to populate the "Planned" column in performance tables.
 
 **Access:** Quality Manager (3.0) and above. Directors (2.0) and above can switch between plants.
 
@@ -36,5 +36,5 @@ Capacity Targets defines the expected units-per-hour throughput for each work ce
 - Capacity targets directly affect OEE Performance calculations. If targets are too high, Performance will appear artificially low; if too low, it will appear inflated. Set realistic targets based on historical throughput data.
 - Use the per-tank-size breakdown for work centers where cycle time varies significantly by tank size (e.g., a large tank takes much longer than a small tank at the same station).
 - The grid saves all changes in a single bulk operation, so you can edit multiple cells and save once rather than saving each cell individually.
-- If a cell is left empty (no target), OEE Performance cannot be calculated for that work center at that gear level — the Supervisor Dashboard will show a warning.
+- If a cell is left empty (no target), OEE Performance cannot be calculated for that work center at that gear level — the Supervisor / Team Lead Dashboard will show a warning.
 

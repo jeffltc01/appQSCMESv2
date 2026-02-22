@@ -302,6 +302,9 @@ public class AdminControlPlanDto
     public Guid WorkCenterProductionLineId { get; set; }
     public string WorkCenterName { get; set; } = string.Empty;
     public string ProductionLineName { get; set; } = string.Empty;
+    public Guid PlantId { get; set; }
+    public string PlantName { get; set; } = string.Empty;
+    public string PlantCode { get; set; } = string.Empty;
     public bool IsEnabled { get; set; }
     public string ResultType { get; set; } = string.Empty;
     public bool IsGateCheck { get; set; }
