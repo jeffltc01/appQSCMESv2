@@ -27,6 +27,7 @@ public class PlantGearController : ControllerBase
                 PlantName = p.Name,
                 PlantCode = p.Code,
                 CurrentPlantGearId = p.CurrentPlantGearId,
+                LimbleLocationId = p.LimbleLocationId,
                 Gears = _db.PlantGears
                     .Where(g => g.PlantId == p.Id)
                     .OrderBy(g => g.Level)
@@ -64,6 +65,17 @@ public class PlantGearController : ControllerBase
             return BadRequest(new { message = "Invalid gear for this plant." });
 
         plant.CurrentPlantGearId = dto.PlantGearId;
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPut("{plantId:guid}/limble")]
+    public async Task<ActionResult> SetLimbleLocationId(Guid plantId, [FromBody] UpdatePlantLimbleDto dto, CancellationToken cancellationToken)
+    {
+        var plant = await _db.Plants.FindAsync(new object[] { plantId }, cancellationToken);
+        if (plant == null) return NotFound();
+
+        plant.LimbleLocationId = dto.LimbleLocationId;
         await _db.SaveChangesAsync(cancellationToken);
         return NoContent();
     }

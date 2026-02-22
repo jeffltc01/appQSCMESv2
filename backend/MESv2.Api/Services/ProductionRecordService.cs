@@ -31,6 +31,11 @@ public class ProductionRecordService : IProductionRecordService
             resolvedProductId = product?.Id;
         }
 
+        var isRollsWC = await _db.WorkCenters
+            .Where(w => w.Id == dto.WorkCenterId)
+            .Select(w => w.DataEntryType)
+            .FirstOrDefaultAsync(cancellationToken) == "Rolls";
+
         var isCatchUp = false;
         if (serial == null)
         {
@@ -43,8 +48,12 @@ public class ProductionRecordService : IProductionRecordService
             };
             _db.SerialNumbers.Add(serial);
             await _db.SaveChangesAsync(cancellationToken);
-            isCatchUp = true;
-            warning = "Rolls missed — annotation created.";
+
+            if (!isRollsWC)
+            {
+                isCatchUp = true;
+                warning = "Rolls missed — annotation created.";
+            }
         }
         else if (serial.ProductId == null && resolvedProductId != null)
         {
@@ -101,6 +110,19 @@ public class ProductionRecordService : IProductionRecordService
                     InitiatedByUserId = dto.OperatorId,
                     CreatedAt = DateTime.UtcNow
                 });
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        if (isRollsWC)
+        {
+            var activeQueueItem = await _db.MaterialQueueItems
+                .FirstOrDefaultAsync(m => m.WorkCenterId == dto.WorkCenterId && m.Status == "active", cancellationToken);
+            if (activeQueueItem != null)
+            {
+                activeQueueItem.QuantityCompleted++;
+                if (activeQueueItem.QuantityCompleted >= activeQueueItem.Quantity)
+                    activeQueueItem.Status = "completed";
                 await _db.SaveChangesAsync(cancellationToken);
             }
         }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Spinner } from '@fluentui/react-components';
 import { AdminLayout } from './AdminLayout.tsx';
 import { adminPlantGearApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
@@ -13,6 +13,7 @@ export function PlantGearScreen() {
   const [plants, setPlants] = useState<PlantWithGear[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [limbleEdits, setLimbleEdits] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -33,6 +34,18 @@ export function PlantGearScreen() {
         return { ...p, currentPlantGearId: gearId, currentGearLevel: gear?.level };
       }));
     } catch { alert('Failed to set gear.'); }
+    finally { setSaving(null); }
+  };
+
+  const handleSaveLimble = async (plantId: string) => {
+    const value = limbleEdits[plantId];
+    if (value === undefined) return;
+    setSaving(plantId);
+    try {
+      await adminPlantGearApi.setLimbleLocationId(plantId, { limbleLocationId: value || undefined });
+      setPlants(prev => prev.map(p => p.plantId === plantId ? { ...p, limbleLocationId: value || undefined } : p));
+      setLimbleEdits(prev => { const next = { ...prev }; delete next[plantId]; return next; });
+    } catch { alert('Failed to save Limble Location ID.'); }
     finally { setSaving(null); }
   };
 
@@ -69,6 +82,31 @@ export function PlantGearScreen() {
                   ))}
                 </div>
               )}
+              <div className={styles.cardField} style={{ marginTop: 8 }}>
+                <Label>Limble Location ID</Label>
+                {isReadOnly ? (
+                  <span className={styles.cardFieldValue}>{plant.limbleLocationId ?? 'Not set'}</span>
+                ) : (
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <Input
+                      size="small"
+                      value={limbleEdits[plant.plantId] ?? plant.limbleLocationId ?? ''}
+                      onChange={(_, d) => setLimbleEdits(prev => ({ ...prev, [plant.plantId]: d.value }))}
+                      placeholder="e.g. 12345"
+                    />
+                    {limbleEdits[plant.plantId] !== undefined && (
+                      <Button
+                        size="small"
+                        appearance="primary"
+                        onClick={() => handleSaveLimble(plant.plantId)}
+                        disabled={saving === plant.plantId}
+                      >
+                        Save
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

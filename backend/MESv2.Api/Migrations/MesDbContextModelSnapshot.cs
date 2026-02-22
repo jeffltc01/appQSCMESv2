@@ -516,6 +516,62 @@ namespace MESv2.Api.Migrations
                     b.ToTable("InspectionRecords");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.IssueRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Area")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BodyJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("GitHubIssueNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("GitHubIssueUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewerNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("SubmittedByUserId");
+
+                    b.ToTable("IssueRequests");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.MaterialQueueItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -538,6 +594,9 @@ namespace MESv2.Api.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantityCompleted")
                         .HasColumnType("int");
 
                     b.Property<string>("QueueType")
@@ -576,6 +635,9 @@ namespace MESv2.Api.Migrations
 
                     b.Property<Guid?>("CurrentPlantGearId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LimbleLocationId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1752,6 +1814,24 @@ namespace MESv2.Api.Migrations
                     b.Navigation("SerialNumber");
 
                     b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.IssueRequest", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MESv2.Api.Models.User", "SubmittedByUser")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ReviewedByUser");
+
+                    b.Navigation("SubmittedByUser");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.MaterialQueueItem", b =>

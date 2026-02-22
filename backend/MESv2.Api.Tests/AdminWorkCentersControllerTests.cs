@@ -14,8 +14,9 @@ public class AdminWorkCentersControllerTests
     {
         db = TestHelpers.CreateInMemoryContext();
         var mockService = new Mock<IWorkCenterService>();
+        var mockXrayService = new Mock<IXrayQueueService>();
         var mockLogger = new Mock<ILogger<WorkCentersController>>();
-        return new WorkCentersController(mockService.Object, db, mockLogger.Object);
+        return new WorkCentersController(mockService.Object, mockXrayService.Object, db, mockLogger.Object);
     }
 
     [Fact]

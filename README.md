@@ -11,7 +11,7 @@ Manufacturing Execution System for Quality Steel Corporation — manages product
 | **ORM** | Entity Framework Core |
 | **Database** | SQLite (dev) / Azure SQL (prod) |
 | **Auth** | JWT Bearer (Entra ID / External ID) |
-| **Testing** | Vitest + React Testing Library (frontend), xUnit + Moq (backend) |
+| **Testing** | Vitest + React Testing Library (frontend), xUnit + Moq (backend), Playwright (E2E) |
 
 ## Getting Started
 
@@ -43,14 +43,20 @@ Runs at `https://localhost:5001`
 ### Running Tests
 
 ```bash
-# Frontend
+# Frontend unit tests
 cd frontend
 npm test
 
-# Backend
+# Backend unit tests
 cd backend
 dotnet test
+
+# E2E tests (starts both servers automatically)
+cd e2e
+npm test
 ```
+
+E2E tests use Playwright and require the backend to be running with seed data (Development mode with a fresh database). The `webServer` config in `playwright.config.ts` will start both the .NET backend and Vite dev server automatically, or reuse already-running instances.
 
 ## Project Structure
 
@@ -62,6 +68,7 @@ appMESv2/
     MESv2.Api/          # API project
     MESv2.Api.Tests/    # xUnit tests
     MESv2.sln
+  e2e/                  # Playwright E2E tests
   infra/                # Azure Bicep templates (IaC)
     main.bicep          # Orchestrator
     main.bicepparam     # Default parameters

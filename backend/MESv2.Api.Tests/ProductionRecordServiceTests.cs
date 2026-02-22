@@ -44,14 +44,42 @@ public class ProductionRecordServiceTests
     }
 
     [Fact]
-    public async Task Create_CreatesSerial_WhenNotFound_CatchUpFlow()
+    public async Task Create_CreatesSerial_WhenNotFound_AtRolls_NoCatchUp()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new ProductionRecordService(db);
+        var dto = new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-NEW-ROLLS",
+            WorkCenterId = TestHelpers.wcRollsId,
+            AssetId = TestHelpers.TestAssetId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        };
+
+        var result = await sut.CreateAsync(dto);
+
+        Assert.NotEqual(Guid.Empty, result.Id);
+        Assert.Equal("SN-NEW-ROLLS", result.SerialNumber);
+        Assert.Null(result.Warning);
+
+        var serial = await db.SerialNumbers.FirstOrDefaultAsync(s => s.Serial == "SN-NEW-ROLLS");
+        Assert.NotNull(serial);
+
+        var annotation = await db.Annotations.FirstOrDefaultAsync(a => a.ProductionRecordId == result.Id);
+        Assert.Null(annotation);
+    }
+
+    [Fact]
+    public async Task Create_CreatesSerial_WhenNotFound_AtDownstream_CatchUpFlow()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new ProductionRecordService(db);
         var dto = new CreateProductionRecordDto
         {
             SerialNumber = "SN-CATCHUP",
-            WorkCenterId = TestHelpers.wcRollsId,
+            WorkCenterId = TestHelpers.wcLongSeamId,
             AssetId = TestHelpers.TestAssetId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
@@ -266,5 +294,71 @@ public class ProductionRecordServiceTests
                 && t.ToSerialNumberId == shellSn.Id
                 && t.Relationship == "plate");
         Assert.NotNull(traceLog);
+    }
+
+    [Fact]
+    public async Task Create_AtRolls_IncrementsActiveQueueItemQuantityCompleted()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var queueItem = new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = TestHelpers.wcRollsId,
+            Position = 1,
+            Status = "active",
+            Quantity = 10,
+            QuantityCompleted = 0,
+            QueueType = "rolls",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.MaterialQueueItems.Add(queueItem);
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        await sut.CreateAsync(new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-QUEUE-DEC",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        });
+
+        var updated = await db.MaterialQueueItems.FindAsync(queueItem.Id);
+        Assert.Equal(1, updated!.QuantityCompleted);
+        Assert.Equal("active", updated.Status);
+    }
+
+    [Fact]
+    public async Task Create_AtRolls_CompletesQueueItemWhenQuantityExhausted()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var queueItem = new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = TestHelpers.wcRollsId,
+            Position = 1,
+            Status = "active",
+            Quantity = 1,
+            QuantityCompleted = 0,
+            QueueType = "rolls",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.MaterialQueueItems.Add(queueItem);
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        await sut.CreateAsync(new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-QUEUE-LAST",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        });
+
+        var updated = await db.MaterialQueueItems.FindAsync(queueItem.Id);
+        Assert.Equal(1, updated!.QuantityCompleted);
+        Assert.Equal("completed", updated.Status);
     }
 }

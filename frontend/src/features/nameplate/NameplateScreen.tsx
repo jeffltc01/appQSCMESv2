@@ -6,7 +6,7 @@ import { productApi, nameplateApi } from '../../api/endpoints.ts';
 import styles from './NameplateScreen.module.css';
 
 export function NameplateScreen(props: WorkCenterProps) {
-  const { workCenterId, operatorId, plantId, showScanResult, refreshHistory } = props;
+  const { workCenterId, productionLineId, operatorId, plantId, showScanResult, refreshHistory } = props;
 
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -33,6 +33,7 @@ export function NameplateScreen(props: WorkCenterProps) {
         serialNumber: serialNumber.trim(),
         productId: selectedProductId,
         workCenterId,
+        productionLineId,
         operatorId,
       });
       if (result.printSucceeded) {

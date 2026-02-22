@@ -1,0 +1,48 @@
+name: "\u2753 General Question"
+description: Ask a general question about the application
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? Ask it here and we'll get back to you.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area of the application
+      description: Which part of the app does this relate to?
+      options:
+        - Login / Authentication
+        - Menu / Navigation
+        - Fitup Queue
+        - Long Seam
+        - Round Seam
+        - Rolls / Material
+        - Scan Overlay
+        - Admin - Users
+        - Admin - Products
+        - Admin - Production Lines
+        - Admin - Annotation Types
+        - General / Not specific
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What would you like to know?
+      placeholder: "How do I change my assigned work center?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any background or context that helps explain your question.
+    validations:
+      required: false

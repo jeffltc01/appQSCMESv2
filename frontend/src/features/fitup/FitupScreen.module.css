@@ -10,13 +10,14 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  justify-content: center;
 }
 
 .tankSizeDisplay {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .tankDropdown {
@@ -24,7 +25,7 @@
 }
 
 .tankValue {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
   color: #2b3b84;
 }
@@ -69,6 +70,7 @@
 }
 
 .slotBox {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,6 +86,34 @@
 .slotBox.filled {
   border: 2px solid #28a745;
   background: #e8f5e9;
+}
+
+.slotBox.headMismatch {
+  border: 3px solid #dc3545;
+  background: #fde8ea;
+}
+
+.headColorSwatch {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 2px solid #212529;
+}
+
+.slotBox.headMismatch::after {
+  content: '✕';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  font-weight: 900;
+  color: rgba(220, 53, 69, 0.55);
+  pointer-events: none;
 }
 
 .slotInfo {
@@ -131,8 +161,8 @@
 
 .queueCard {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding: 10px 14px;
   border: 1px solid #e5e5e5;
   background: #fff;
@@ -162,10 +192,13 @@
   color: #868686;
 }
 
-.cardColorDot {
-  width: 24px;
-  height: 24px;
-  border: 1px solid #e5e5e5;
+.cardColorSwatch {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 2px solid #212529;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .emptyQueue {

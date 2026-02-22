@@ -103,6 +103,7 @@ export interface QueueAdvanceResponse {
   heatNumber: string;
   coilNumber: string;
   quantity: number;
+  quantityCompleted: number;
   productDescription: string;
 }
 
@@ -112,6 +113,7 @@ export interface KanbanCardLookupResponse {
   lotNumber?: string;
   productDescription: string;
   cardColor?: string;
+  tankSize?: number;
 }
 
 export interface CreateMaterialQueueItemRequest {
@@ -158,6 +160,7 @@ export interface CreateNameplateRecordRequest {
   serialNumber: string;
   productId: string;
   workCenterId: string;
+  productionLineId: string;
   operatorId: string;
 }
 
@@ -166,6 +169,7 @@ export interface CreateHydroRecordRequest {
   nameplateSerialNumber: string;
   result: string;
   workCenterId: string;
+  productionLineId: string;
   assetId?: string;
   operatorId: string;
   defects: { defectCodeId: string; characteristicId: string; locationId: string }[];
@@ -344,6 +348,10 @@ export interface SetPlantGearRequest {
   plantGearId: string;
 }
 
+export interface UpdatePlantLimbleRequest {
+  limbleLocationId?: string;
+}
+
 export interface CreateActiveSessionRequest {
   workCenterId: string;
   productionLineId: string;
@@ -395,4 +403,111 @@ export interface UpdateAnnotationRequest {
   notes?: string;
   resolvedNotes?: string;
   resolvedByUserId?: string;
+}
+
+// ---- Issue Requests (GitHub) ----
+
+export enum IssueRequestType {
+  Bug = 0,
+  FeatureRequest = 1,
+  GeneralQuestion = 2,
+}
+
+export enum IssueRequestStatus {
+  Pending = 0,
+  Approved = 1,
+  Rejected = 2,
+}
+
+export interface IssueRequestDto {
+  id: string;
+  type: number;
+  status: number;
+  title: string;
+  area: string;
+  bodyJson: string;
+  submittedByUserId: string;
+  submittedByName: string;
+  submittedAt: string;
+  reviewedByUserId?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+  reviewerNotes?: string;
+  gitHubIssueNumber?: number;
+  gitHubIssueUrl?: string;
+}
+
+export interface CreateIssueRequestDto {
+  type: number;
+  title: string;
+  area: string;
+  bodyJson: string;
+  submittedByUserId: string;
+  submitterRoleTier: number;
+}
+
+export interface ApproveIssueRequestDto {
+  reviewerUserId: string;
+  title?: string;
+  area?: string;
+  bodyJson?: string;
+}
+
+export interface RejectIssueRequestDto {
+  reviewerUserId: string;
+  notes?: string;
+}
+
+// ---- AI Review ----
+export interface CreateAIReviewRequest {
+  productionRecordIds: string[];
+  comment?: string;
+}
+
+export interface AIReviewResultDto {
+  annotationsCreated: number;
+}
+
+// ---- Log Viewer ----
+export interface CreateLogAnnotationRequest {
+  productionRecordId: string;
+  annotationTypeId: string;
+  notes?: string;
+  initiatedByUserId: string;
+}
+
+// ---- Limble CMMS ----
+export interface LimbleStatus {
+  id: number;
+  name: string;
+}
+
+export interface LimbleTask {
+  id: number;
+  name: string;
+  description?: string;
+  priority?: number;
+  statusId?: number;
+  statusName?: string;
+  dueDate?: number;
+  createdDate?: number;
+  meta1?: string;
+}
+
+export interface CreateLimbleWorkRequest {
+  subject: string;
+  description: string;
+  priority: number;
+  requestedDueDate?: number;
+}
+
+// ---- Supervisor Dashboard ----
+export interface CreateSupervisorAnnotationRequest {
+  recordIds: string[];
+  annotationTypeId: string;
+  comment?: string;
+}
+
+export interface SupervisorAnnotationResultDto {
+  annotationsCreated: number;
 }

@@ -24,6 +24,7 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     numberOfWelders: 1,
     welderCountLoaded: true,
     externalInput: false,
+    setExternalInput: vi.fn(),
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),

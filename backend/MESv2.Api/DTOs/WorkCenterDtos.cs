@@ -14,6 +14,7 @@ public class WCHistoryEntryDto
     public string SerialOrIdentifier { get; set; } = string.Empty;
     public int? TankSize { get; set; }
     public bool HasAnnotation { get; set; }
+    public string? AnnotationColor { get; set; }
 }
 
 public class WCHistoryDto

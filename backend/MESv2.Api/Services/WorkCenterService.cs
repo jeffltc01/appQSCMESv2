@@ -68,7 +68,7 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive && u.IsCertifiedWelder
+            .FirstOrDefaultAsync(u => u.EmployeeNumber == empNo && u.IsActive
                 && (plantIds.Count == 0 || plantIds.Contains(u.DefaultSiteId)), cancellationToken);
         if (user == null)
             return null;
@@ -112,88 +112,89 @@ public class WorkCenterService : IWorkCenterService
         return true;
     }
 
-    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
+    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
     {
-        if (!DateTime.TryParse(date, out var dateParsed))
-            dateParsed = DateTime.UtcNow.Date;
-
         var tz = await GetPlantTimeZoneAsync(plantId, cancellationToken);
-        var localDate = dateParsed.Date;
+
+        DateTime localDate;
+        if (!string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out var dateParsed))
+            localDate = dateParsed.Date;
+        else
+            localDate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz).Date;
+
         var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
         var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
 
-        var query = _db.ProductionRecords
-            .Include(r => r.SerialNumber)
-            .Include(r => r.SerialNumber!.Product)
-            .Where(r => r.WorkCenterId == wcId && r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
+        var baseFilter = _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId)
             .Where(r => r.ProductionLine.PlantId == plantId);
 
         if (assetId.HasValue)
-            query = query.Where(r => r.AssetId == assetId.Value);
+            baseFilter = baseFilter.Where(r => r.AssetId == assetId.Value);
 
-        var records = await query
+        var dayCount = await baseFilter
+            .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
+            .CountAsync(cancellationToken);
+
+        var recentProdRecords = await baseFilter
+            .Include(r => r.SerialNumber)
+            .Include(r => r.SerialNumber!.Product)
             .OrderByDescending(r => r.Timestamp)
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        var dayCount = await query.CountAsync(cancellationToken);
-
-        if (dayCount > 0)
+        if (recentProdRecords.Count > 0)
         {
-            var recordIds = records.Select(r => r.Id).ToList();
-            var annotationsExist = await _db.Annotations
-                .Where(a => recordIds.Contains(a.ProductionRecordId))
-                .Select(a => a.ProductionRecordId)
-                .Distinct()
-                .ToHashSetAsync(cancellationToken);
+            var recordIds = recentProdRecords.Select(r => r.Id).ToList();
+            var annotationColors = await GetAnnotationColorsByRecordAsync(recordIds, cancellationToken);
 
-            var recentRecords = records.Select(r =>
+            var recentRecords = recentProdRecords.Select(r =>
             {
                 var serialOrIdentifier = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
                 var tankSize = r.SerialNumber?.Product?.TankSize;
+                annotationColors.TryGetValue(r.Id, out var color);
                 return new WCHistoryEntryDto
                 {
                     Id = r.Id,
                     Timestamp = r.Timestamp,
                     SerialOrIdentifier = serialOrIdentifier,
                     TankSize = tankSize,
-                    HasAnnotation = annotationsExist.Contains(r.Id)
+                    HasAnnotation = color != null,
+                    AnnotationColor = color
                 };
             }).ToList();
 
             return new WCHistoryDto { DayCount = dayCount, RecentRecords = recentRecords };
         }
 
-        var inspQuery = _db.InspectionRecords
+        var inspDayCount = await _db.InspectionRecords
+            .Where(i => i.WorkCenterId == wcId && i.Timestamp >= startOfDay && i.Timestamp < endOfDay)
+            .CountAsync(cancellationToken);
+
+        var inspRecords = await _db.InspectionRecords
             .Include(i => i.SerialNumber)
             .Include(i => i.SerialNumber!.Product)
-            .Where(i => i.WorkCenterId == wcId && i.Timestamp >= startOfDay && i.Timestamp < endOfDay);
-
-        var inspRecords = await inspQuery
+            .Where(i => i.WorkCenterId == wcId)
             .OrderByDescending(i => i.Timestamp)
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        var inspDayCount = await inspQuery.CountAsync(cancellationToken);
-
         var prodRecordIds = inspRecords.Select(i => i.ProductionRecordId).Distinct().ToList();
-        var inspAnnotations = await _db.Annotations
-            .Where(a => prodRecordIds.Contains(a.ProductionRecordId))
-            .Select(a => a.ProductionRecordId)
-            .Distinct()
-            .ToHashSetAsync(cancellationToken);
+        var inspAnnotationColors = await GetAnnotationColorsByRecordAsync(prodRecordIds, cancellationToken);
 
         var inspEntries = inspRecords.Select(i =>
         {
             var serialOrIdentifier = i.SerialNumber?.Serial ?? i.Id.ToString("N")[..8];
             var tankSize = i.SerialNumber?.Product?.TankSize;
+            inspAnnotationColors.TryGetValue(i.ProductionRecordId, out var color);
             return new WCHistoryEntryDto
             {
                 Id = i.Id,
                 Timestamp = i.Timestamp,
                 SerialOrIdentifier = serialOrIdentifier,
                 TankSize = tankSize,
-                HasAnnotation = inspAnnotations.Contains(i.ProductionRecordId)
+                HasAnnotation = color != null,
+                AnnotationColor = color
             };
         }).ToList();
 
@@ -214,7 +215,11 @@ public class WorkCenterService : IWorkCenterService
             .OrderBy(m => m.Position)
             .ToListAsync(cancellationToken);
 
-        return items.Select(MapQueueItem).ToList();
+        var cardColorMap = await ResolveCardColorsAsync(
+            items.Select(m => m.CardId).Where(c => c != null).Distinct().ToList()!,
+            cancellationToken);
+
+        return items.Select(m => MapQueueItem(m, cardColorMap)).ToList();
     }
 
     public async Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default)
@@ -249,6 +254,7 @@ public class WorkCenterService : IWorkCenterService
         HeatNumber = m.SerialNumber?.HeatNumber ?? string.Empty,
         CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
         Quantity = m.Quantity,
+        QuantityCompleted = m.QuantityCompleted,
         ProductDescription = m.SerialNumber?.Product?.ProductNumber ?? string.Empty
     };
 
@@ -604,24 +610,82 @@ public class WorkCenterService : IWorkCenterService
         }).ToList();
     }
 
-    private static MaterialQueueItemDto MapQueueItem(MaterialQueueItem m) => new()
+    private static MaterialQueueItemDto MapQueueItem(MaterialQueueItem m,
+        Dictionary<string, string?>? cardColorMap = null)
     {
-        Id = m.Id,
-        Position = m.Position,
-        Status = m.Status,
-        ProductDescription = m.SerialNumber?.Product?.ProductNumber ?? string.Empty,
-        ShellSize = m.SerialNumber?.Product?.TankSize.ToString(),
-        HeatNumber = m.SerialNumber?.HeatNumber ?? string.Empty,
-        CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
-        LotNumber = m.SerialNumber?.LotNumber,
-        Quantity = m.Quantity,
-        ProductId = m.SerialNumber?.ProductId,
-        VendorMillId = m.SerialNumber?.MillVendorId,
-        VendorProcessorId = m.SerialNumber?.ProcessorVendorId,
-        CardId = m.CardId,
-        CardColor = m.CardColor,
-        CreatedAt = m.CreatedAt
-    };
+        string? color = m.CardColor;
+        if (cardColorMap != null && m.CardId != null)
+            cardColorMap.TryGetValue(m.CardId, out color);
+
+        return new MaterialQueueItemDto
+        {
+            Id = m.Id,
+            Position = m.Position,
+            Status = m.Status,
+            ProductDescription = m.SerialNumber?.Product?.ProductNumber ?? string.Empty,
+            ShellSize = m.SerialNumber?.Product?.TankSize.ToString(),
+            HeatNumber = m.SerialNumber?.HeatNumber ?? string.Empty,
+            CoilNumber = m.SerialNumber?.CoilNumber ?? string.Empty,
+            LotNumber = m.SerialNumber?.LotNumber,
+            Quantity = m.Quantity,
+            ProductId = m.SerialNumber?.ProductId,
+            VendorMillId = m.SerialNumber?.MillVendorId,
+            VendorProcessorId = m.SerialNumber?.ProcessorVendorId,
+            CardId = m.CardId,
+            CardColor = color,
+            CreatedAt = m.CreatedAt
+        };
+    }
+
+    private static string StripCardPrefix(string cardId) =>
+        cardId.StartsWith("KC;", StringComparison.OrdinalIgnoreCase) ? cardId[3..] : cardId;
+
+    private async Task<Dictionary<string, string?>> ResolveCardColorsAsync(
+        List<string> cardIds, CancellationToken cancellationToken)
+    {
+        if (cardIds.Count == 0)
+            return new Dictionary<string, string?>();
+
+        var stripped = cardIds.Select(StripCardPrefix).Distinct().ToList();
+        var dbColors = await _db.BarcodeCards
+            .Where(b => stripped.Contains(b.CardValue))
+            .ToDictionaryAsync(b => b.CardValue, b => (string?)b.Color, cancellationToken);
+
+        var result = new Dictionary<string, string?>();
+        foreach (var id in cardIds)
+        {
+            var key = StripCardPrefix(id);
+            if (dbColors.TryGetValue(key, out var color))
+                result[id] = color;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Returns a map of ProductionRecordId → DisplayColor for the highest-priority
+    /// annotation on each record.  Priority: RequiresResolution types first, then
+    /// most-recently created.
+    /// </summary>
+    private async Task<Dictionary<Guid, string>> GetAnnotationColorsByRecordAsync(
+        List<Guid> recordIds, CancellationToken cancellationToken)
+    {
+        if (recordIds.Count == 0)
+            return new Dictionary<Guid, string>();
+
+        var annotations = await _db.Annotations
+            .Include(a => a.AnnotationType)
+            .Where(a => recordIds.Contains(a.ProductionRecordId))
+            .ToListAsync(cancellationToken);
+
+        return annotations
+            .GroupBy(a => a.ProductionRecordId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(a => a.AnnotationType.RequiresResolution)
+                      .ThenByDescending(a => a.CreatedAt)
+                      .First()
+                      .AnnotationType.DisplayColor ?? "#212529");
+    }
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(Guid plantId, CancellationToken cancellationToken)
     {
@@ -649,13 +713,23 @@ public class WorkCenterService : IWorkCenterService
         if (queueItem != null)
         {
             var sn = queueItem.SerialNumber;
+            var resolvedColor = queueItem.CardColor;
+            if (resolvedColor == null && queueItem.CardId != null)
+            {
+                var lookupVal = StripCardPrefix(queueItem.CardId);
+                resolvedColor = (await _db.BarcodeCards
+                    .Where(b => b.CardValue == lookupVal)
+                    .Select(b => b.Color)
+                    .FirstOrDefaultAsync(cancellationToken));
+            }
             return new KanbanCardLookupDto
             {
                 HeatNumber = sn?.HeatNumber ?? string.Empty,
                 CoilNumber = sn?.CoilNumber ?? string.Empty,
                 LotNumber = sn?.LotNumber,
                 ProductDescription = sn?.Product?.ProductNumber ?? string.Empty,
-                CardColor = queueItem.CardColor
+                CardColor = resolvedColor,
+                TankSize = sn?.Product?.TankSize
             };
         }
 

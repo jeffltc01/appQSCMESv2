@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { HydroScreen } from './HydroScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
+import { roundSeamApi, nameplateApi } from '../../api/endpoints';
 
 vi.mock('../../api/endpoints', () => ({
   roundSeamApi: { getAssemblyByShell: vi.fn() },
@@ -14,7 +15,7 @@ vi.mock('../../api/endpoints', () => ({
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
     workCenterId: 'wc-hydro', plantId: 'plant-1', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
-    welders: [], numberOfWelders: 0, welderCountLoaded: true, externalInput: false,
+    welders: [], numberOfWelders: 0, welderCountLoaded: true, externalInput: false, setExternalInput: vi.fn(),
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };
@@ -52,5 +53,37 @@ describe('HydroScreen', () => {
   it('hides manual input in external mode', () => {
     renderScreen({ externalInput: true });
     expect(screen.queryByPlaceholderText(/enter serial/i)).not.toBeInTheDocument();
+  });
+
+  it('shows error when shell and nameplate tank sizes do not match', async () => {
+    const showScanResult = vi.fn();
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['SH-001'],
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 250,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      showScanResult,
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'SC', value: 'SH-001' }, 'SC;SH-001'); });
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+
+    const lastCall = showScanResult.mock.calls[showScanResult.mock.calls.length - 1][0];
+    expect(lastCall.type).toBe('error');
+    expect(lastCall.message).toContain('Tank size mismatch');
   });
 });

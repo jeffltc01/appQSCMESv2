@@ -216,7 +216,7 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
-    public async Task GetHistory_ExcludesRecordsOutsideLocalDay()
+    public async Task GetHistory_DayCountZero_ButRecentRecordsStillReturned()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
@@ -225,10 +225,10 @@ public class WorkCenterServiceTests
         SeedProductionRecord(db, TestHelpers.wcRollsId, new DateTime(2026, 3, 15, 3, 0, 0, DateTimeKind.Utc));
         await db.SaveChangesAsync();
 
-        // Querying for March 15 (local) should NOT find this record (it's March 14 in Central time)
+        // Querying for March 15 (local) — day count should be 0, but the record still appears in recent list
         var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-03-15", 10);
         Assert.Equal(0, result.DayCount);
-        Assert.Empty(result.RecentRecords);
+        Assert.Single(result.RecentRecords);
     }
 
     [Fact]
@@ -246,6 +246,69 @@ public class WorkCenterServiceTests
         var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
         Assert.Equal(2, result.DayCount);
         Assert.Equal(2, result.RecentRecords.Count);
+    }
+
+    [Fact]
+    public async Task GetHistory_ReturnsAnnotationColor_WhenAnnotationExists()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var utcTimestamp = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+        var snId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = snId,
+            Serial = "SN-ANNOT1",
+            ProductId = TestProductId,
+            CreatedAt = utcTimestamp
+        });
+        var prId = Guid.NewGuid();
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = prId,
+            SerialNumberId = snId,
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = utcTimestamp,
+            PlantGearId = TestPlantGearId
+        });
+
+        var defectTypeId = Guid.Parse("a1000003-0000-0000-0000-000000000003");
+        db.Annotations.Add(new Annotation
+        {
+            Id = Guid.NewGuid(),
+            ProductionRecordId = prId,
+            AnnotationTypeId = defectTypeId,
+            Flag = true,
+            Notes = "Test defect",
+            InitiatedByUserId = TestHelpers.TestUserId,
+            CreatedAt = utcTimestamp
+        });
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+
+        Assert.Single(result.RecentRecords);
+        Assert.True(result.RecentRecords[0].HasAnnotation);
+        Assert.Equal("#ff0000", result.RecentRecords[0].AnnotationColor);
+    }
+
+    [Fact]
+    public async Task GetHistory_ReturnsNullAnnotationColor_WhenNoAnnotation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        SeedProductionRecord(db, TestHelpers.wcRollsId, new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+
+        Assert.Single(result.RecentRecords);
+        Assert.False(result.RecentRecords[0].HasAnnotation);
+        Assert.Null(result.RecentRecords[0].AnnotationColor);
     }
 
     [Fact]
@@ -292,7 +355,7 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
-    public async Task AddWelder_ReturnsNull_WhenNotCertified()
+    public async Task AddWelder_Succeeds_EvenWhenNotCertified()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
@@ -302,7 +365,8 @@ public class WorkCenterServiceTests
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
         var result = await sut.AddWelderAsync(TestHelpers.wcRollsId, "EMP001");
 
-        Assert.Null(result);
+        Assert.NotNull(result);
+        Assert.Equal(user.Id, result.UserId);
     }
 
     [Fact]

@@ -46,6 +46,7 @@ public class MesDbContext : DbContext
     public DbSet<ProductPlant> ProductPlants => Set<ProductPlant>();
     public DbSet<PlantPrinter> PlantPrinters => Set<PlantPrinter>();
     public DbSet<PrintLog> PrintLogs => Set<PrintLog>();
+    public DbSet<IssueRequest> IssueRequests => Set<IssueRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -568,6 +569,21 @@ public class MesDbContext : DbContext
             .IsUnique();
         modelBuilder.Entity<PrintLog>()
             .HasIndex(pl => pl.SerialNumberId);
+
+        modelBuilder.Entity<IssueRequest>()
+            .HasOne(ir => ir.SubmittedByUser)
+            .WithMany()
+            .HasForeignKey(ir => ir.SubmittedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<IssueRequest>()
+            .HasOne(ir => ir.ReviewedByUser)
+            .WithMany()
+            .HasForeignKey(ir => ir.ReviewedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<IssueRequest>()
+            .HasIndex(ir => ir.Status);
+        modelBuilder.Entity<IssueRequest>()
+            .HasIndex(ir => ir.SubmittedByUserId);
 
     }
 }

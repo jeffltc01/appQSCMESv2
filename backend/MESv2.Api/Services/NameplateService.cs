@@ -46,7 +46,7 @@ public class NameplateService : INameplateService
             SerialNumberId = sn.Id,
             WorkCenterId = dto.WorkCenterId,
             OperatorId = dto.OperatorId,
-            ProductionLineId = Guid.Empty,
+            ProductionLineId = dto.ProductionLineId,
             Timestamp = DateTime.UtcNow
         };
         _db.ProductionRecords.Add(record);
@@ -56,11 +56,14 @@ public class NameplateService : INameplateService
         var (printSucceeded, printMessage) = await PrintForSerialAsync(
             sn.Id, dto.ProductId, plantId, dto.OperatorId, cancellationToken);
 
+        var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
+
         return new NameplateRecordResponseDto
         {
             Id = sn.Id,
             SerialNumber = sn.Serial,
             ProductId = dto.ProductId,
+            TankSize = product?.TankSize,
             Timestamp = record.Timestamp,
             PrintSucceeded = printSucceeded,
             PrintMessage = printMessage
@@ -79,6 +82,7 @@ public class NameplateService : INameplateService
             Id = sn.Id,
             SerialNumber = sn.Serial,
             ProductId = sn.ProductId ?? Guid.Empty,
+            TankSize = sn.Product?.TankSize,
             Timestamp = sn.CreatedAt
         };
     }
@@ -102,6 +106,7 @@ public class NameplateService : INameplateService
             Id = sn.Id,
             SerialNumber = sn.Serial,
             ProductId = sn.ProductId ?? Guid.Empty,
+            TankSize = sn.Product?.TankSize,
             Timestamp = sn.CreatedAt,
             PrintSucceeded = printSucceeded,
             PrintMessage = printMessage

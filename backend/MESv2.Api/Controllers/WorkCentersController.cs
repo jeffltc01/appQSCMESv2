@@ -11,12 +11,14 @@ namespace MESv2.Api.Controllers;
 public class WorkCentersController : ControllerBase
 {
     private readonly IWorkCenterService _workCenterService;
+    private readonly IXrayQueueService _xrayQueueService;
     private readonly MesDbContext _db;
     private readonly ILogger<WorkCentersController> _logger;
 
-    public WorkCentersController(IWorkCenterService workCenterService, MesDbContext db, ILogger<WorkCentersController> logger)
+    public WorkCentersController(IWorkCenterService workCenterService, IXrayQueueService xrayQueueService, MesDbContext db, ILogger<WorkCentersController> logger)
     {
         _workCenterService = workCenterService;
+        _xrayQueueService = xrayQueueService;
         _db = db;
         _logger = logger;
     }
@@ -62,7 +64,7 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] string date, [FromQuery] int limit = 5, [FromQuery] Guid? assetId = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] string? date = null, [FromQuery] int limit = 5, [FromQuery] Guid? assetId = null, CancellationToken cancellationToken = default)
     {
         var result = await _workCenterService.GetHistoryAsync(id, plantId, date, limit, assetId, cancellationToken);
         return Ok(result);
@@ -184,6 +186,35 @@ public class WorkCentersController : ControllerBase
     {
         var deleted = await _workCenterService.DeleteFitupQueueItemAsync(id, itemId, cancellationToken);
         if (!deleted) return NotFound();
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/xray-queue")]
+    public async Task<ActionResult<IEnumerable<XrayQueueItemDto>>> GetXrayQueue(Guid id, CancellationToken cancellationToken)
+    {
+        var list = await _xrayQueueService.GetQueueAsync(id, cancellationToken);
+        return Ok(list);
+    }
+
+    [HttpPost("{id:guid}/xray-queue")]
+    public async Task<ActionResult<XrayQueueItemDto>> AddXrayQueueItem(Guid id, [FromBody] AddXrayQueueItemDto dto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _xrayQueueService.AddAsync(id, dto, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}/xray-queue/{itemId:guid}")]
+    public async Task<ActionResult> RemoveXrayQueueItem(Guid id, Guid itemId, CancellationToken cancellationToken)
+    {
+        var removed = await _xrayQueueService.RemoveAsync(id, itemId, cancellationToken);
+        if (!removed) return NotFound();
         return NoContent();
     }
 

@@ -7,7 +7,7 @@ import {
   Spinner,
   Select,
 } from '@fluentui/react-components';
-import { EditRegular } from '@fluentui/react-icons';
+import { EditRegular, FlagFilled } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { adminAnnotationApi, adminAnnotationTypeApi, siteApi } from '../../api/endpoints.ts';
@@ -228,7 +228,16 @@ export function AnnotationMaintenanceScreen() {
                   <tr key={a.id}>
                     <td style={{ whiteSpace: 'nowrap' }}>{formatDate(a.createdAt)}</td>
                     <td>{a.serialNumber}</td>
-                    <td>{a.annotationTypeName}</td>
+                    <td>
+                      <span className={styles.typeCellInner}>
+                        <FlagFilled
+                          fontSize={16}
+                          className={styles.typeFlag}
+                          style={{ color: annotationTypes.find((t) => t.id === a.annotationTypeId)?.displayColor ?? '#212529' }}
+                        />
+                        {a.annotationTypeName}
+                      </span>
+                    </td>
                     <td>
                       <span className={`${styles.flagBadge} ${a.flag ? styles.flagYes : styles.flagNo}`}>
                         {a.flag ? 'Yes' : 'No'}

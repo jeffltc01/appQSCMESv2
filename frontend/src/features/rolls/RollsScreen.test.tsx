@@ -28,6 +28,7 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     numberOfWelders: 1,
     welderCountLoaded: true,
     externalInput: false,
+    setExternalInput: vi.fn(),
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),
@@ -64,7 +65,7 @@ describe('RollsScreen', () => {
 
     renderRolls();
     await waitFor(() => {
-      expect(screen.getByText('PL .218NOM X 83.00')).toBeInTheDocument();
+      expect(screen.getByText(/\(120\).*PL \.218NOM X 83\.00/)).toBeInTheDocument();
       expect(screen.getByText('15')).toBeInTheDocument();
     });
   });
@@ -75,6 +76,7 @@ describe('RollsScreen', () => {
       heatNumber: 'HEAT001',
       coilNumber: 'COIL001',
       quantity: 10,
+      quantityCompleted: 0,
       productDescription: 'PL .218',
     });
 
@@ -119,6 +121,7 @@ describe('RollsScreen', () => {
       heatNumber: 'H1',
       coilNumber: 'C1',
       quantity: 10,
+      quantityCompleted: 0,
       productDescription: 'PL .218',
     });
 
@@ -155,6 +158,7 @@ describe('RollsScreen', () => {
       heatNumber: 'H1',
       coilNumber: 'C1',
       quantity: 10,
+      quantityCompleted: 0,
       productDescription: 'PL .218',
     });
 

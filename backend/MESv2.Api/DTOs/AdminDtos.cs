@@ -353,12 +353,18 @@ public class PlantWithGearDto
     public string PlantCode { get; set; } = string.Empty;
     public Guid? CurrentPlantGearId { get; set; }
     public int? CurrentGearLevel { get; set; }
+    public string? LimbleLocationId { get; set; }
     public List<PlantGearDto> Gears { get; set; } = new();
 }
 
 public class SetPlantGearDto
 {
     public Guid PlantGearId { get; set; }
+}
+
+public class UpdatePlantLimbleDto
+{
+    public string? LimbleLocationId { get; set; }
 }
 
 // ---- Active Sessions ----
@@ -490,4 +496,26 @@ public class UpdateAnnotationDto
     public string? Notes { get; set; }
     public string? ResolvedNotes { get; set; }
     public Guid? ResolvedByUserId { get; set; }
+}
+
+// ---- AI Review ----
+public class AIReviewRecordDto
+{
+    public Guid Id { get; set; }
+    public DateTime Timestamp { get; set; }
+    public string SerialOrIdentifier { get; set; } = string.Empty;
+    public string? TankSize { get; set; }
+    public string OperatorName { get; set; } = string.Empty;
+    public bool AlreadyReviewed { get; set; }
+}
+
+public class CreateAIReviewRequest
+{
+    public List<Guid> ProductionRecordIds { get; set; } = new();
+    public string? Comment { get; set; }
+}
+
+public class AIReviewResultDto
+{
+    public int AnnotationsCreated { get; set; }
 }

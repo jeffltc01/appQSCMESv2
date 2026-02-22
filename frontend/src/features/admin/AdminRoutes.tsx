@@ -17,6 +17,11 @@ import { SerialNumberLookupScreen } from './SerialNumberLookupScreen.tsx';
 import { SellableTankStatusScreen } from './SellableTankStatusScreen.tsx';
 import { AnnotationMaintenanceScreen } from './AnnotationMaintenanceScreen.tsx';
 import { PlantPrinterScreen } from './PlantPrinterScreen.tsx';
+import { ReportIssueScreen } from './ReportIssueScreen.tsx';
+import { IssueApprovalsScreen } from './IssueApprovalsScreen.tsx';
+import { AIReviewScreen } from './AIReviewScreen.tsx';
+import { ProductionLogsScreen } from './ProductionLogsScreen.tsx';
+import { SupervisorDashboardScreen } from './SupervisorDashboardScreen.tsx';
 
 export function AdminRoutes() {
   return (
@@ -39,6 +44,11 @@ export function AdminRoutes() {
       <Route path="serial-lookup" element={<SerialNumberLookupScreen />} />
       <Route path="sellable-tank-status" element={<SellableTankStatusScreen />} />
       <Route path="plant-printers" element={<PlantPrinterScreen />} />
+      <Route path="report-issue" element={<ReportIssueScreen />} />
+      <Route path="issue-approvals" element={<IssueApprovalsScreen />} />
+      <Route path="ai-review" element={<AIReviewScreen />} />
+      <Route path="production-logs" element={<ProductionLogsScreen />} />
+      <Route path="supervisor-dashboard" element={<SupervisorDashboardScreen />} />
       <Route path="*" element={<Navigate to="/menu" replace />} />
     </Routes>
   );

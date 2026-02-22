@@ -1,0 +1,249 @@
+.toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.toolbarField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.refreshNote {
+  font-size: 12px;
+  color: #adb5bd;
+  margin-left: auto;
+  align-self: center;
+}
+
+/* ---- Operator chips ---- */
+.operatorChips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Roboto', sans-serif;
+  border: 2px solid #2b3b84;
+  background: transparent;
+  color: #2b3b84;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chip:hover {
+  background: #2b3b84;
+  color: #ffffff;
+}
+
+.chipActive {
+  background: #2b3b84;
+  color: #ffffff;
+}
+
+/* ---- KPI cards ---- */
+.kpiRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.kpiCard {
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
+  border: 1px solid #dee2e6;
+  overflow: hidden;
+}
+
+.kpiHeader {
+  background: #1b2a4a;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.kpiBody {
+  padding: 12px;
+  text-align: center;
+}
+
+.kpiValues {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.kpiValueGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.kpiLabel {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #868e96;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.kpiNumber {
+  font-size: 24px;
+  font-weight: 700;
+  color: #212529;
+  font-family: 'Roboto', sans-serif;
+}
+
+.kpiNumberGreen {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2b8a3e;
+  font-family: 'Roboto', sans-serif;
+}
+
+.kpiNumberRed {
+  font-size: 24px;
+  font-weight: 700;
+  color: #e41e2f;
+  font-family: 'Roboto', sans-serif;
+}
+
+/* ---- Charts ---- */
+.chartsRow {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.chartCard {
+  flex: 1;
+  min-width: 380px;
+  border: 1px solid #dee2e6;
+  overflow: hidden;
+}
+
+.chartHeader {
+  background: #1b2a4a;
+  color: #ffffff;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.chartBody {
+  padding: 16px 12px;
+  background: #ffffff;
+}
+
+/* ---- Annotation table ---- */
+.sectionHeader {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1b2a4a;
+  margin-bottom: 12px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #1b2a4a;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background: #f1f3f5;
+}
+
+.annotationBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-right: 4px;
+  border: 1px solid currentColor;
+}
+
+.submitArea {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  margin-top: 16px;
+}
+
+.commentField {
+  flex: 1;
+  max-width: 400px;
+}
+
+.annotationTypeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 24px;
+  color: #868e96;
+  font-size: 15px;
+}
+
+.submitMessage {
+  margin-top: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.submitMessageSuccess {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.submitMessageError {
+  background: #fde7e9;
+  color: #d13438;
+}

@@ -75,9 +75,55 @@ public class HydroServiceTests
         Assert.Equal("LOC1", result[0].Code);
     }
 
-    private static Guid SeedSellableSn(MESv2.Api.Data.MesDbContext db, string serial)
+    [Fact]
+    public async Task Create_TankSizeMismatch_Throws()
     {
-        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSellableSn(db, "W00100010", tankSize: 250);
+        SeedAssemblySn(db, "AC", tankSize: 120);
+
+        var sut = new HydroService(db);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.CreateAsync(new CreateHydroRecordDto
+            {
+                AssemblyAlphaCode = "AC",
+                NameplateSerialNumber = "W00100010",
+                Result = "ACCEPTED",
+                WorkCenterId = TestHelpers.wcHydroId,
+                OperatorId = TestHelpers.TestUserId,
+                Defects = new List<DefectEntryDto>()
+            }));
+
+        Assert.Contains("Tank size mismatch", ex.Message);
+    }
+
+    [Fact]
+    public async Task Create_MatchingTankSizes_Succeeds()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSellableSn(db, "W00100011", tankSize: 250);
+        SeedAssemblySn(db, "AD", tankSize: 250);
+
+        var sut = new HydroService(db);
+
+        var result = await sut.CreateAsync(new CreateHydroRecordDto
+        {
+            AssemblyAlphaCode = "AD",
+            NameplateSerialNumber = "W00100011",
+            Result = "ACCEPTED",
+            WorkCenterId = TestHelpers.wcHydroId,
+            OperatorId = TestHelpers.TestUserId,
+            Defects = new List<DefectEntryDto>()
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal("ACCEPTED", result.Result);
+    }
+
+    private static Guid SeedSellableSn(MESv2.Api.Data.MesDbContext db, string serial, int tankSize = 120)
+    {
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == tankSize);
         var snId = Guid.NewGuid();
         db.SerialNumbers.Add(new SerialNumber
         {
@@ -91,9 +137,9 @@ public class HydroServiceTests
         return snId;
     }
 
-    private static Guid SeedAssemblySn(MESv2.Api.Data.MesDbContext db, string alphaCode)
+    private static Guid SeedAssemblySn(MESv2.Api.Data.MesDbContext db, string alphaCode, int tankSize = 120)
     {
-        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == tankSize);
         var snId = Guid.NewGuid();
         db.SerialNumbers.Add(new SerialNumber
         {

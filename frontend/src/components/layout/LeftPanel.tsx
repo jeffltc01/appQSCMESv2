@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Tooltip } from '@fluentui/react-components';
 import {
@@ -6,8 +7,11 @@ import {
   CalendarRegular,
   SettingsRegular,
   SignOutRegular,
+  BugRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { MaintenanceRequestDialog } from '../../features/maintenance/MaintenanceRequestDialog.tsx';
+import { IssueRequestDialog } from '../../features/issueRequest/IssueRequestDialog.tsx';
 import styles from './LeftPanel.module.css';
 
 interface LeftPanelProps {
@@ -17,7 +21,9 @@ interface LeftPanelProps {
 
 export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const [maintDialogOpen, setMaintDialogOpen] = useState(false);
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -39,6 +45,7 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Maintenance Request"
+          onClick={() => setMaintDialogOpen(true)}
         />
       </Tooltip>
 
@@ -60,6 +67,17 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           className={styles.iconBtn}
           disabled={disabled}
           aria-label="Schedule"
+        />
+      </Tooltip>
+
+      <Tooltip content="Report Issue" relationship="label" positioning="after">
+        <Button
+          appearance="subtle"
+          icon={<BugRegular fontSize={60} />}
+          className={styles.iconBtn}
+          disabled={disabled}
+          aria-label="Report Issue"
+          onClick={() => setIssueDialogOpen(true)}
         />
       </Tooltip>
 
@@ -86,6 +104,20 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           onClick={handleLogout}
         />
       </Tooltip>
+
+      <MaintenanceRequestDialog
+        open={maintDialogOpen}
+        onClose={() => setMaintDialogOpen(false)}
+        employeeNumber={user?.employeeNumber ?? ''}
+        displayName={user?.displayName ?? ''}
+      />
+
+      <IssueRequestDialog
+        open={issueDialogOpen}
+        onClose={() => setIssueDialogOpen(false)}
+        userId={user?.id ?? ''}
+        roleTier={user?.roleTier ?? 99}
+      />
     </nav>
   );
 }

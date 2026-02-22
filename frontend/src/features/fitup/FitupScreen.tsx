@@ -13,9 +13,15 @@ function shellCountForSize(tankSize: number): number {
   return 1;
 }
 
+function isComponentMismatch(assemblyTankSize: number, componentTankSize: number | undefined | null): boolean {
+  if (assemblyTankSize === 0 || componentTankSize == null) return false;
+  return componentTankSize !== assemblyTankSize;
+}
+
 interface ShellSlot {
   serial: string;
   filled: boolean;
+  tankSize?: number;
 }
 
 export function FitupScreen(props: WorkCenterProps) {
@@ -89,13 +95,9 @@ export function FitupScreen(props: WorkCenterProps) {
 
         if (tankSize === 0) {
           updateTankSize(ctx.tankSize);
-          setShells([{ serial, filled: true }]);
+          setShells([{ serial, filled: true, tankSize: ctx.tankSize }]);
           showScanResult({ type: 'success', message: `Shell ${serial} added` });
         } else {
-          if (ctx.tankSize !== tankSize) {
-            showScanResult({ type: 'error', message: 'Shell size does not match the assembly' });
-            return;
-          }
           const idx = shells.findIndex((s) => !s.filled);
           if (idx === -1) {
             showScanResult({ type: 'error', message: 'All shell slots are filled' });
@@ -105,8 +107,12 @@ export function FitupScreen(props: WorkCenterProps) {
             showScanResult({ type: 'error', message: 'This shell has already been added to this assembly' });
             return;
           }
-          setShells((prev) => prev.map((s, i) => (i === idx ? { serial, filled: true } : s)));
-          showScanResult({ type: 'success', message: `Shell ${serial} added` });
+          setShells((prev) => prev.map((s, i) => (i === idx ? { serial, filled: true, tankSize: ctx.tankSize } : s)));
+          if (ctx.tankSize !== tankSize) {
+            showScanResult({ type: 'error', message: `Shell is ${ctx.tankSize} gal but assembly is ${tankSize} gal` });
+          } else {
+            showScanResult({ type: 'success', message: `Shell ${serial} added` });
+          }
         }
       } catch {
         showScanResult({ type: 'error', message: `Failed to look up shell ${serial}` });
@@ -126,6 +132,7 @@ export function FitupScreen(props: WorkCenterProps) {
           productDescription: data.productDescription,
           cardId,
           cardColor: data.cardColor,
+          tankSize: data.tankSize,
         };
         if (headScanCount === 0) {
           setLeftHead(lot);
@@ -145,17 +152,10 @@ export function FitupScreen(props: WorkCenterProps) {
   );
 
   const swapHeads = useCallback(() => {
-    setLeftHead((prev) => {
-      const old = prev;
-      setRightHead((rh) => {
-        setLeftHead(rh);
-        return old;
-      });
-      return prev;
-    });
-    const tmp = leftHead;
-    setLeftHead(rightHead);
-    setRightHead(tmp);
+    const tmpLeft = leftHead;
+    const tmpRight = rightHead;
+    setLeftHead(tmpRight);
+    setRightHead(tmpLeft);
     showScanResult({ type: 'success', message: 'Heads swapped' });
   }, [leftHead, rightHead, showScanResult]);
 
@@ -167,6 +167,12 @@ export function FitupScreen(props: WorkCenterProps) {
     }
     if (!leftHead) {
       showScanResult({ type: 'error', message: 'Scan a kanban card for head material before saving' });
+      return;
+    }
+    const hasHeadMismatch = isComponentMismatch(tankSize, leftHead?.tankSize) || isComponentMismatch(tankSize, rightHead?.tankSize);
+    const hasShellMismatch = shells.some((s) => s.filled && isComponentMismatch(tankSize, s.tankSize));
+    if (hasHeadMismatch || hasShellMismatch) {
+      showScanResult({ type: 'error', message: 'Component tank sizes do not match — fix mismatches before saving' });
       return;
     }
 
@@ -278,38 +284,37 @@ export function FitupScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={styles.topRow}>
-        {!props.externalInput && (
-          <>
-            <Button appearance="secondary" size="medium" onClick={resetAssembly}>Reset</Button>
-            <Button
-              appearance="primary" size="medium" onClick={saveAssembly}
-              disabled={!shells.every((s) => s.filled) || shells.length === 0 || !leftHead}
-            >
-              Save
-            </Button>
-          </>
+      <div className={styles.tankSizeDisplay}>
+        <Label>Tank Size:</Label>
+        {!props.externalInput ? (
+          <Dropdown
+            value={tankSize ? String(tankSize) : ''}
+            selectedOptions={tankSize ? [String(tankSize)] : []}
+            onOptionSelect={(_: unknown, d: OptionOnSelectData) => {
+              if (d.optionValue) updateTankSize(parseInt(d.optionValue, 10));
+            }}
+            className={styles.tankDropdown}
+          >
+            {[120, 250, 320, 500, 1000, 1500].map((s) => (
+              <Option key={s} value={String(s)}>{String(s)}</Option>
+            ))}
+          </Dropdown>
+        ) : (
+          <span className={styles.tankValue}>{tankSize || '—'}</span>
         )}
-        <div className={styles.tankSizeDisplay}>
-          <Label>Tank Size</Label>
-          {!props.externalInput ? (
-            <Dropdown
-              value={tankSize ? String(tankSize) : ''}
-              selectedOptions={tankSize ? [String(tankSize)] : []}
-              onOptionSelect={(_: unknown, d: OptionOnSelectData) => {
-                if (d.optionValue) updateTankSize(parseInt(d.optionValue, 10));
-              }}
-              className={styles.tankDropdown}
-            >
-              {[120, 250, 320, 500, 1000, 1500].map((s) => (
-                <Option key={s} value={String(s)}>{String(s)}</Option>
-              ))}
-            </Dropdown>
-          ) : (
-            <span className={styles.tankValue}>{tankSize || '—'}</span>
-          )}
-        </div>
       </div>
+
+      {!props.externalInput && (
+        <div className={styles.topRow}>
+          <Button appearance="secondary" size="medium" onClick={resetAssembly}>Reset</Button>
+          <Button
+            appearance="primary" size="medium" onClick={saveAssembly}
+            disabled={!shells.every((s) => s.filled) || shells.length === 0 || !leftHead || isComponentMismatch(tankSize, leftHead?.tankSize) || isComponentMismatch(tankSize, rightHead?.tankSize) || shells.some((s) => s.filled && isComponentMismatch(tankSize, s.tankSize))}
+          >
+            Save
+          </Button>
+        </div>
+      )}
 
       {reassemblyPrompt && (
         <div className={styles.reassemblyPrompt}>
@@ -324,7 +329,13 @@ export function FitupScreen(props: WorkCenterProps) {
       <div className={styles.assemblyDiagram}>
         <div className={styles.headSlot}>
           <span className={styles.slotLabel}>Left Head</span>
-          <div className={`${styles.slotBox} ${leftHead ? styles.filled : ''}`}>
+          <div className={`${styles.slotBox} ${leftHead ? (isComponentMismatch(tankSize, leftHead.tankSize) ? styles.headMismatch : styles.filled) : ''}`}>
+            {leftHead && (
+              <span
+                className={styles.headColorSwatch}
+                style={{ backgroundColor: leftHead.cardColor ? leftHead.cardColor.toLowerCase() : '#dee2e6' }}
+              />
+            )}
             {leftHead ? (
               <span className={styles.slotInfo}>
                 {leftHead.productDescription}<br />
@@ -341,7 +352,7 @@ export function FitupScreen(props: WorkCenterProps) {
         {shells.map((shell, idx) => (
           <div key={idx} className={styles.shellSlot}>
             <span className={styles.slotLabel}>Shell {idx + 1}</span>
-            <div className={`${styles.slotBox} ${shell.filled ? styles.filled : ''}`}>
+            <div className={`${styles.slotBox} ${shell.filled ? (isComponentMismatch(tankSize, shell.tankSize) ? styles.headMismatch : styles.filled) : ''}`}>
               {shell.filled ? (
                 <span className={styles.slotInfo}>{shell.serial}</span>
               ) : (
@@ -362,7 +373,13 @@ export function FitupScreen(props: WorkCenterProps) {
 
         <div className={styles.headSlot}>
           <span className={styles.slotLabel}>Right Head</span>
-          <div className={`${styles.slotBox} ${rightHead ? styles.filled : ''}`}>
+          <div className={`${styles.slotBox} ${rightHead ? (isComponentMismatch(tankSize, rightHead.tankSize) ? styles.headMismatch : styles.filled) : ''}`}>
+            {rightHead && (
+              <span
+                className={styles.headColorSwatch}
+                style={{ backgroundColor: rightHead.cardColor ? rightHead.cardColor.toLowerCase() : '#dee2e6' }}
+              />
+            )}
             {rightHead ? (
               <span className={styles.slotInfo}>
                 {rightHead.productDescription}<br />
@@ -420,13 +437,16 @@ export function FitupScreen(props: WorkCenterProps) {
               onClick={() => { if (!props.externalInput && item.cardId) applyHeadLot(item.cardId); }}
               disabled={props.externalInput}
             >
+              <span
+                className={styles.cardColorSwatch}
+                style={{ backgroundColor: item.cardColor ? item.cardColor.toLowerCase() : '#dee2e6' }}
+              />
               <div className={styles.queueCardInfo}>
-                <span>{item.productDescription}</span>
-                <span className={styles.queueCardDetail}>Heat {item.heatNumber} / Coil {item.coilNumber}</span>
+                <span>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
+                <span className={styles.queueCardDetail}>
+                  Card {item.cardId ?? '—'} &middot; Heat {item.heatNumber} / Coil {item.coilNumber}
+                </span>
               </div>
-              {item.cardColor && (
-                <span className={styles.cardColorDot} style={{ backgroundColor: item.cardColor.toLowerCase() }} />
-              )}
             </button>
           ))
         )}

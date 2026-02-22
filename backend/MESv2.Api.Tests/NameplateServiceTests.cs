@@ -26,6 +26,7 @@ public class NameplateServiceTests
             SerialNumber = "W00100001",
             ProductId = product.Id,
             WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId
         });
 
@@ -61,6 +62,7 @@ public class NameplateServiceTests
                 SerialNumber = "W00100002",
                 ProductId = product.Id,
                 WorkCenterId = TestHelpers.wcNameplateId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
                 OperatorId = TestHelpers.TestUserId
             }));
     }
@@ -126,6 +128,7 @@ public class NameplateServiceTests
             SerialNumber = "W00200001",
             ProductId = product.Id,
             WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId
         });
 
@@ -154,6 +157,7 @@ public class NameplateServiceTests
             SerialNumber = "W00200002",
             ProductId = product.Id,
             WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId
         });
 
@@ -196,6 +200,7 @@ public class NameplateServiceTests
             SerialNumber = "W00200003",
             ProductId = product.Id,
             WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId
         });
 
@@ -236,6 +241,7 @@ public class NameplateServiceTests
             SerialNumber = "W00200004",
             ProductId = product.Id,
             WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId
         });
 

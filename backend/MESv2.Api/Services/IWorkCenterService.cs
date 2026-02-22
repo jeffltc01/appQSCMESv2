@@ -9,7 +9,7 @@ public interface IWorkCenterService
     Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default);
     Task<WelderDto?> AddWelderAsync(Guid wcId, string empNo, CancellationToken cancellationToken = default);
     Task<bool> RemoveWelderAsync(Guid wcId, Guid userId, CancellationToken cancellationToken = default);
-    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default);
+    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default);
     Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task ReportFaultAsync(Guid wcId, string description, CancellationToken cancellationToken = default);

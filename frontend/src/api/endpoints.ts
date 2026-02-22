@@ -38,6 +38,7 @@ import type {
   UpdateAssetRequest,
   CreateBarcodeCardRequest,
   SetPlantGearRequest,
+  UpdatePlantLimbleRequest,
   CreateActiveSessionRequest,
   CreateWorkCenterProductionLineRequest,
   UpdateWorkCenterProductionLineRequest,
@@ -48,6 +49,18 @@ import type {
   UpdateAnnotationRequest,
   CreatePlantPrinterRequest,
   UpdatePlantPrinterRequest,
+  CreateAIReviewRequest,
+  AIReviewResultDto,
+  LimbleStatus,
+  LimbleTask,
+  CreateLimbleWorkRequest,
+  IssueRequestDto,
+  CreateIssueRequestDto,
+  ApproveIssueRequestDto,
+  RejectIssueRequestDto,
+  CreateLogAnnotationRequest,
+  CreateSupervisorAnnotationRequest,
+  SupervisorAnnotationResultDto,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -91,6 +104,14 @@ import type {
   AdminPlantPrinter,
   SerialNumberLookup,
   SellableTankStatus,
+  AIReviewRecord,
+  RollsLogEntry,
+  FitupLogEntry,
+  HydroLogEntry,
+  RtXrayLogEntry,
+  SpotXrayLogResponse,
+  SupervisorDashboardMetrics,
+  SupervisorRecord,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -338,6 +359,7 @@ export const adminKanbanCardApi = {
 export const adminPlantGearApi = {
   getAll: () => api.get<PlantWithGear[]>('/plant-gear'),
   setGear: (plantId: string, req: SetPlantGearRequest) => api.put<void>(`/plant-gear/${plantId}`, req),
+  setLimbleLocationId: (plantId: string, req: UpdatePlantLimbleRequest) => api.put<void>(`/plant-gear/${plantId}/limble`, req),
 };
 
 export const adminAnnotationTypeApi = {
@@ -376,4 +398,59 @@ export const activeSessionApi = {
   upsert: (req: CreateActiveSessionRequest) => api.post<void>('/active-sessions', req),
   heartbeat: () => api.put<void>('/active-sessions/heartbeat'),
   endSession: () => api.delete<void>('/active-sessions'),
+};
+
+export const issueRequestApi = {
+  submit: (req: CreateIssueRequestDto) =>
+    api.post<IssueRequestDto>('/issue-requests', req),
+  getMine: (userId: string) =>
+    api.get<IssueRequestDto[]>(`/issue-requests/mine?userId=${encodeURIComponent(userId)}`),
+  getPending: () =>
+    api.get<IssueRequestDto[]>('/issue-requests/pending'),
+  approve: (id: string, req: ApproveIssueRequestDto) =>
+    api.put<IssueRequestDto>(`/issue-requests/${id}/approve`, req),
+  reject: (id: string, req: RejectIssueRequestDto) =>
+    api.put<IssueRequestDto>(`/issue-requests/${id}/reject`, req),
+};
+
+export const aiReviewApi = {
+  getRecords: (wcId: string, plantId: string, date: string) =>
+    api.get<AIReviewRecord[]>(`/ai-review/${wcId}/records?plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(date)}`),
+  submitReview: (req: CreateAIReviewRequest) =>
+    api.post<AIReviewResultDto>('/ai-review', req),
+};
+
+export const limbleApi = {
+  getStatuses: () => api.get<LimbleStatus[]>('/limble/statuses'),
+  getMyRequests: (empNo: string) =>
+    api.get<LimbleTask[]>(`/limble/my-requests?empNo=${encodeURIComponent(empNo)}`),
+  createWorkRequest: (req: CreateLimbleWorkRequest) =>
+    api.post<LimbleTask>('/limble/work-requests', req),
+};
+
+export const logViewerApi = {
+  getRollsLog: (siteId: string, startDate: string, endDate: string) =>
+    api.get<RollsLogEntry[]>(`/logs/rolls?siteId=${encodeURIComponent(siteId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  getFitupLog: (siteId: string, startDate: string, endDate: string) =>
+    api.get<FitupLogEntry[]>(`/logs/fitup?siteId=${encodeURIComponent(siteId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  getHydroLog: (siteId: string, startDate: string, endDate: string) =>
+    api.get<HydroLogEntry[]>(`/logs/hydro?siteId=${encodeURIComponent(siteId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  getRtXrayLog: (siteId: string, startDate: string, endDate: string) =>
+    api.get<RtXrayLogEntry[]>(`/logs/rt-xray?siteId=${encodeURIComponent(siteId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  getSpotXrayLog: (siteId: string, startDate: string, endDate: string) =>
+    api.get<SpotXrayLogResponse>(`/logs/spot-xray?siteId=${encodeURIComponent(siteId)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  createAnnotation: (req: CreateLogAnnotationRequest) =>
+    api.post<AdminAnnotation>('/logs/annotations', req),
+};
+
+export const supervisorDashboardApi = {
+  getMetrics: (wcId: string, plantId: string, date: string, operatorId?: string) => {
+    const params = new URLSearchParams({ plantId, date });
+    if (operatorId) params.set('operatorId', operatorId);
+    return api.get<SupervisorDashboardMetrics>(`/supervisor-dashboard/${wcId}/metrics?${params}`);
+  },
+  getRecords: (wcId: string, plantId: string, date: string) =>
+    api.get<SupervisorRecord[]>(`/supervisor-dashboard/${wcId}/records?plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(date)}`),
+  submitAnnotation: (req: CreateSupervisorAnnotationRequest) =>
+    api.post<SupervisorAnnotationResultDto>('/supervisor-dashboard/annotate', req),
 };

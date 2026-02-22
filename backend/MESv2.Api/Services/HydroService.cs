@@ -17,11 +17,24 @@ public class HydroService : IHydroService
     public async Task<HydroRecordResponseDto> CreateAsync(CreateHydroRecordDto dto, CancellationToken cancellationToken = default)
     {
         var sellableSn = await _db.SerialNumbers
+            .Include(s => s.Product)
             .FirstOrDefaultAsync(s => s.Serial == dto.NameplateSerialNumber, cancellationToken)
             ?? throw new InvalidOperationException($"Sellable serial number '{dto.NameplateSerialNumber}' not found.");
 
         var assemblySn = await _db.SerialNumbers
+            .Include(s => s.Product)
             .FirstOrDefaultAsync(s => s.Serial == dto.AssemblyAlphaCode && s.Product!.ProductType!.SystemTypeName == "assembled", cancellationToken);
+
+        if (assemblySn != null)
+        {
+            var assemblyTankSize = assemblySn.Product?.TankSize;
+            var sellableTankSize = sellableSn.Product?.TankSize;
+            if (assemblyTankSize != null && sellableTankSize != null && assemblyTankSize != sellableTankSize)
+            {
+                throw new InvalidOperationException(
+                    $"Tank size mismatch: the shell's assembly is {assemblyTankSize} gal but the nameplate is {sellableTankSize} gal. These must match.");
+            }
+        }
 
         var record = new ProductionRecord
         {
@@ -30,7 +43,7 @@ public class HydroService : IHydroService
             WorkCenterId = dto.WorkCenterId,
             AssetId = dto.AssetId,
             OperatorId = dto.OperatorId,
-            ProductionLineId = Guid.Empty,
+            ProductionLineId = dto.ProductionLineId,
             Timestamp = DateTime.UtcNow,
             InspectionResult = dto.Result
         };

@@ -1,12 +1,16 @@
+import { useNavigate } from 'react-router-dom';
 import { FlagRegular, FlagFilled } from '@fluentui/react-icons';
 import type { WCHistoryData } from '../../types/domain.ts';
 import styles from './WCHistory.module.css';
 
 interface WCHistoryProps {
   data: WCHistoryData;
+  logType?: string;
 }
 
-export function WCHistory({ data }: WCHistoryProps) {
+export function WCHistory({ data, logType }: WCHistoryProps) {
+  const navigate = useNavigate();
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -37,8 +41,8 @@ export function WCHistory({ data }: WCHistoryProps) {
               <div key={record.id} className={styles.row}>
                 <span className={styles.colAnnot}>
                   {record.hasAnnotation
-                    ? <FlagFilled fontSize={14} className={styles.flagActive} />
-                    : <FlagRegular fontSize={14} className={styles.flagInactive} />}
+                    ? <FlagFilled fontSize={20} className={styles.flagActive} style={{ color: record.annotationColor ?? '#212529' }} />
+                    : <FlagRegular fontSize={20} className={styles.flagInactive} />}
                 </span>
                 <span className={styles.colDateTime}>{dateStr} {timeStr}</span>
                 <span className={styles.colSerial}>{record.serialOrIdentifier}</span>
@@ -48,6 +52,16 @@ export function WCHistory({ data }: WCHistoryProps) {
           })
         )}
       </div>
+
+      {logType && (
+        <button
+          className={styles.viewFullLogBtn}
+          onClick={() => navigate(`/menu/production-logs?logType=${logType}`)}
+          type="button"
+        >
+          View Full Log
+        </button>
+      )}
     </div>
   );
 }

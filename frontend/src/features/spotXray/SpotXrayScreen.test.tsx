@@ -7,7 +7,7 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
     workCenterId: 'wc-spot', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
-    plantId: 'plant-1', welders: [], numberOfWelders: 0, welderCountLoaded: true, externalInput: false,
+    plantId: 'plant-1', welders: [], numberOfWelders: 0, welderCountLoaded: true, externalInput: false, setExternalInput: vi.fn(),
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };

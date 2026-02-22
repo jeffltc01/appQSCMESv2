@@ -75,11 +75,15 @@
 }
 
 .flagActive {
-  color: #212529;
+  filter:
+    drop-shadow(1px 0 0 #212529)
+    drop-shadow(-1px 0 0 #212529)
+    drop-shadow(0 1px 0 #212529)
+    drop-shadow(0 -1px 0 #212529);
 }
 
 .flagInactive {
-  color: #212529;
+  color: #ced4da;
 }
 
 .queueTableHeader {
@@ -115,4 +119,24 @@
   font-style: italic;
   text-align: center;
   padding: 16px 8px;
+}
+
+.viewFullLogBtn {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin-top: auto;
+  background: none;
+  border: none;
+  border-top: 1px solid #dee2e6;
+  color: #2b3b84;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.viewFullLogBtn:hover {
+  background: #f1f3f5;
+  text-decoration: underline;
 }

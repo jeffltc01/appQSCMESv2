@@ -92,9 +92,49 @@ jobs:
           npm ci
           npm test
 
+  e2e-test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: ${{ env.FRONTEND_PATH }}
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
   deploy-test:
     name: Deploy to Test
-    needs: [build-backend, build-frontend, test]
+    needs: [build-backend, build-frontend, test, e2e-test]
     runs-on: ubuntu-latest
     if: >-
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test') ||
@@ -135,7 +175,7 @@ jobs:
 
   deploy-production:
     name: Deploy to Production
-    needs: [build-backend, build-frontend, test]
+    needs: [build-backend, build-frontend, test, e2e-test]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
     environment: production

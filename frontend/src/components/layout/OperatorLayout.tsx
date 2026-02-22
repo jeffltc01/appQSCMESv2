@@ -29,6 +29,18 @@ import { NameplateScreen } from '../../features/nameplate/NameplateScreen.tsx';
 import { HydroScreen } from '../../features/hydro/HydroScreen.tsx';
 import styles from './OperatorLayout.module.css';
 
+const DATA_ENTRY_TO_LOG_TYPE: Record<string, string> = {
+  Rolls: 'rolls',
+  Fitup: 'fitup',
+  Hydro: 'hydro',
+  'MatQueue-Shell': 'rt-xray',
+  Spot: 'spot-xray',
+};
+
+function dataEntryTypeToLogType(dataEntryType: string): string | undefined {
+  return DATA_ENTRY_TO_LOG_TYPE[dataEntryType];
+}
+
 export function OperatorLayout() {
   const { user, logout } = useAuth();
   const cache = getTabletCache();
@@ -141,9 +153,7 @@ export function OperatorLayout() {
   const loadHistory = useCallback(async () => {
     if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;
     try {
-      const now = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, today, user.defaultSiteId, cache.cachedAssetId || undefined);
+      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, '', user.defaultSiteId, cache.cachedAssetId || undefined);
       setHistoryData(data);
     } catch {
       // Keep stale data
@@ -299,6 +309,7 @@ export function OperatorLayout() {
     numberOfWelders,
     welderCountLoaded,
     externalInput,
+    setExternalInput,
     materialQueueForWCId: cache?.cachedMaterialQueueForWCId,
     showScanResult,
     refreshHistory,
@@ -335,7 +346,7 @@ export function OperatorLayout() {
           {isQueueScreen ? (
             <QueueHistory transactions={queueTransactions} />
           ) : (
-            <WCHistory data={historyData} />
+            <WCHistory data={historyData} logType={dataEntryTypeToLogType(dataEntryType)} />
           )}
         </aside>
       </div>
@@ -457,6 +468,7 @@ export interface WorkCenterProps {
   numberOfWelders: number;
   welderCountLoaded: boolean;
   externalInput: boolean;
+  setExternalInput: (value: boolean) => void;
   materialQueueForWCId?: string;
   showScanResult: (result: ScanResult) => void;
   refreshHistory: () => void;

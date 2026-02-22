@@ -148,6 +148,7 @@ export interface HeadLotInfo {
   productDescription: string;
   cardId?: string;
   cardColor?: string;
+  tankSize?: number;
 }
 
 export interface WCHistoryEntry {
@@ -156,6 +157,7 @@ export interface WCHistoryEntry {
   serialOrIdentifier: string;
   tankSize?: number;
   hasAnnotation: boolean;
+  annotationColor?: string;
 }
 
 export interface WCHistoryData {
@@ -237,6 +239,7 @@ export interface NameplateRecordInfo {
   id: string;
   serialNumber: string;
   productId: string;
+  tankSize?: number;
   timestamp: string;
   printSucceeded: boolean;
   printMessage?: string;
@@ -402,6 +405,7 @@ export interface PlantWithGear {
   plantCode: string;
   currentPlantGearId?: string;
   currentGearLevel?: number;
+  limbleLocationId?: string;
   gears: PlantGearItem[];
 }
 
@@ -488,4 +492,141 @@ export interface AdminAnnotation {
   resolvedByName?: string;
   resolvedNotes?: string;
   createdAt: string;
+}
+
+export interface AIReviewRecord {
+  id: string;
+  timestamp: string;
+  serialOrIdentifier: string;
+  tankSize?: string;
+  operatorName: string;
+  alreadyReviewed: boolean;
+}
+
+// ---- Log Viewer types ----
+
+export interface LogAnnotationBadge {
+  abbreviation: string;
+  color: string;
+}
+
+export interface RollsLogEntry {
+  id: string;
+  timestamp: string;
+  coilHeatLot: string;
+  thickness?: string;
+  shellCode: string;
+  tankSize?: number;
+  welders: string[];
+  annotations: LogAnnotationBadge[];
+}
+
+export interface FitupLogEntry {
+  id: string;
+  timestamp: string;
+  headNo1?: string;
+  headNo2?: string;
+  shellNo1?: string;
+  shellNo2?: string;
+  shellNo3?: string;
+  alphaCode?: string;
+  tankSize?: number;
+  welders: string[];
+  annotations: LogAnnotationBadge[];
+}
+
+export interface HydroLogEntry {
+  id: string;
+  timestamp: string;
+  nameplate?: string;
+  alphaCode?: string;
+  tankSize?: number;
+  operator: string;
+  welders: string[];
+  result?: string;
+  defectCount: number;
+  annotations: LogAnnotationBadge[];
+}
+
+export interface RtXrayLogEntry {
+  id: string;
+  timestamp: string;
+  shellCode: string;
+  tankSize?: number;
+  operator: string;
+  result?: string;
+  defects?: string;
+  annotations: LogAnnotationBadge[];
+}
+
+export interface SpotXrayShotCount {
+  date: string;
+  count: number;
+}
+
+export interface SpotXrayLogEntry {
+  id: string;
+  timestamp: string;
+  tanks: string;
+  inspected?: string;
+  tankSize?: number;
+  operator: string;
+  result?: string;
+  shots?: string;
+  annotations: LogAnnotationBadge[];
+}
+
+export interface SpotXrayLogResponse {
+  shotCounts: SpotXrayShotCount[];
+  entries: SpotXrayLogEntry[];
+}
+
+// ---- Supervisor Dashboard types ----
+
+export interface HourlyCount {
+  hour: number;
+  count: number;
+}
+
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+export interface OperatorSummary {
+  id: string;
+  displayName: string;
+  recordCount: number;
+}
+
+export interface SupervisorDashboardMetrics {
+  dayCount: number;
+  weekCount: number;
+  dayFPY: number | null;
+  weekFPY: number | null;
+  dayDefects: number;
+  weekDefects: number;
+  dayAvgTimeBetweenScans: number;
+  weekAvgTimeBetweenScans: number;
+  dayQtyPerHour: number;
+  weekQtyPerHour: number;
+  hourlyCounts: HourlyCount[];
+  weekDailyCounts: DailyCount[];
+  operators: OperatorSummary[];
+}
+
+export interface ExistingAnnotation {
+  annotationTypeId: string;
+  typeName: string;
+  abbreviation?: string;
+  displayColor?: string;
+}
+
+export interface SupervisorRecord {
+  id: string;
+  timestamp: string;
+  serialOrIdentifier: string;
+  tankSize?: string;
+  operatorName: string;
+  annotations: ExistingAnnotation[];
 }

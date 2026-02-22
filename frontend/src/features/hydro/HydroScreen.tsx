@@ -19,15 +19,17 @@ interface DefectWizardState {
 
 export function HydroScreen(props: WorkCenterProps) {
   const {
-    workCenterId, assetId, operatorId,
-    showScanResult, refreshHistory, registerBarcodeHandler,
+    workCenterId, productionLineId, assetId, operatorId,
+    setExternalInput, showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
   const [state, setState] = useState<HydroState>('WaitingForScans');
   const [shellSerial, setShellSerial] = useState('');
   const [assemblyAlpha, setAssemblyAlpha] = useState('');
   const [assemblyShells, setAssemblyShells] = useState<string[]>([]);
+  const [assemblyTankSize, setAssemblyTankSize] = useState<number | null>(null);
   const [nameplateSerial, setNameplateSerial] = useState('');
+  const [nameplateTankSize, setNameplateTankSize] = useState<number | null>(null);
   const [defects, setDefects] = useState<DefectEntry[]>([]);
   const [wizard, setWizard] = useState<DefectWizardState | null>(null);
 
@@ -57,23 +59,39 @@ export function HydroScreen(props: WorkCenterProps) {
       setShellSerial(serial);
       setAssemblyAlpha(assembly.alphaCode);
       setAssemblyShells(assembly.shells ?? []);
+      setAssemblyTankSize(assembly.tankSize ?? null);
       showScanResult({ type: 'success', message: `Assembly ${assembly.alphaCode} found` });
-      if (nameplateSerial) setState('ReadyForInspection');
+      if (nameplateSerial) {
+        if (nameplateTankSize != null && assembly.tankSize != null && assembly.tankSize !== nameplateTankSize) {
+          showScanResult({ type: 'error', message: `Tank size mismatch: shell assembly is ${assembly.tankSize} gal but nameplate is ${nameplateTankSize} gal` });
+          return;
+        }
+        setState('ReadyForInspection');
+        setExternalInput(false);
+      }
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Shell not found in any assembly' });
     }
-  }, [nameplateSerial, showScanResult]);
+  }, [nameplateSerial, nameplateTankSize, showScanResult, setExternalInput]);
 
   const scanNameplate = useCallback(async (serial: string) => {
     try {
-      await nameplateApi.getBySerial(serial);
+      const np = await nameplateApi.getBySerial(serial);
       setNameplateSerial(serial);
+      setNameplateTankSize(np.tankSize ?? null);
       showScanResult({ type: 'success', message: `Nameplate ${serial} found` });
-      if (assemblyAlpha) setState('ReadyForInspection');
+      if (assemblyAlpha) {
+        if (assemblyTankSize != null && np.tankSize != null && assemblyTankSize !== np.tankSize) {
+          showScanResult({ type: 'error', message: `Tank size mismatch: shell assembly is ${assemblyTankSize} gal but nameplate is ${np.tankSize} gal` });
+          return;
+        }
+        setState('ReadyForInspection');
+        setExternalInput(false);
+      }
     } catch {
       showScanResult({ type: 'error', message: 'Nameplate serial number not found' });
     }
-  }, [assemblyAlpha, showScanResult]);
+  }, [assemblyAlpha, assemblyTankSize, showScanResult, setExternalInput]);
 
   const handleAccept = useCallback(async () => {
     try {
@@ -82,6 +100,7 @@ export function HydroScreen(props: WorkCenterProps) {
         nameplateSerialNumber: nameplateSerial,
         result: defects.length > 0 ? 'ACCEPTED' : 'ACCEPTED',
         workCenterId,
+        productionLineId,
         assetId: assetId || undefined,
         operatorId,
         defects: defects.map((d) => ({ defectCodeId: d.defectCodeId, characteristicId: d.characteristicId, locationId: d.locationId })),
@@ -99,11 +118,14 @@ export function HydroScreen(props: WorkCenterProps) {
     setShellSerial('');
     setAssemblyAlpha('');
     setAssemblyShells([]);
+    setAssemblyTankSize(null);
     setNameplateSerial('');
+    setNameplateTankSize(null);
     setDefects([]);
     setWizard(null);
     setManualInput('');
-  }, []);
+    setExternalInput(true);
+  }, [setExternalInput]);
 
   const openWizard = useCallback(() => {
     setState('DefectEntry');
@@ -142,16 +164,19 @@ export function HydroScreen(props: WorkCenterProps) {
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
-      if (!bc) { showScanResult({ type: 'error', message: 'Unknown barcode' }); return; }
       if (state === 'WaitingForScans') {
-        if (bc.prefix === 'SC') { scanShell(parseShellLabel(bc.value).serialNumber); return; }
-        if (bc.prefix === 'NOSHELL' && bc.value === '0') { setShellSerial(''); showScanResult({ type: 'success', message: 'No shell mode' }); return; }
-        scanNameplate(bc.value.includes(';') ? bc.value : _raw.replace(/^[^;]*;/, ''));
-        return;
+        if (bc?.prefix === 'SC') { scanShell(parseShellLabel(bc.value).serialNumber); return; }
+        if (bc?.prefix === 'NOSHELL' && bc.value === '0') { setShellSerial(''); showScanResult({ type: 'success', message: 'No shell mode' }); return; }
+        const serial = bc ? (bc.value.includes(';') ? bc.value : _raw.replace(/^[^;]*;/, '')) : _raw.trim();
+        if (serial) {
+          if (assemblyAlpha) { scanNameplate(serial); }
+          else { scanShell(serial); }
+          return;
+        }
       }
-      showScanResult({ type: 'error', message: 'Invalid barcode in this context' });
+      showScanResult({ type: 'error', message: bc ? 'Invalid barcode in this context' : 'Unknown barcode' });
     },
-    [state, scanShell, scanNameplate, showScanResult],
+    [state, assemblyAlpha, scanShell, scanNameplate, showScanResult],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);

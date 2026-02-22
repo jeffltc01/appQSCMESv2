@@ -21,7 +21,7 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
   return {
     workCenterId: 'wc-rs', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1', plantId: 'plant-1',
     welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
-    numberOfWelders: 1, welderCountLoaded: true, externalInput: false,
+    numberOfWelders: 1, welderCountLoaded: true, externalInput: false, setExternalInput: vi.fn(),
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
   };

@@ -55,8 +55,8 @@ export function RollsScreen(props: WorkCenterProps) {
         heatNumber: data.heatNumber,
         coilNumber: data.coilNumber,
         queueQuantity: data.quantity,
-        materialRemaining: data.quantity,
-        shellCount: 0,
+        materialRemaining: data.quantity - data.quantityCompleted,
+        shellCount: data.quantityCompleted,
         productDescription: data.productDescription,
       });
       setScanState('scanLabel1');
@@ -341,7 +341,7 @@ export function RollsScreen(props: WorkCenterProps) {
               onClick={() => { if (!props.externalInput && promptState === 'none') advanceQueue(); }}
               disabled={props.externalInput || promptState !== 'none'}
             >
-              <span className={styles.queueDesc}>{item.productDescription}</span>
+              <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
               <span className={styles.queueQty}>{item.quantity}</span>
             </button>
           ))

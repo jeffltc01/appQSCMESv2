@@ -34,6 +34,7 @@ function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps 
     numberOfWelders: 1,
     welderCountLoaded: true,
     externalInput: false,
+    setExternalInput: vi.fn(),
     showScanResult: vi.fn(),
     refreshHistory: vi.fn(),
     registerBarcodeHandler: vi.fn(),
@@ -93,7 +94,7 @@ describe('FitupScreen', () => {
 
   it('shows tank size dropdown in manual mode', () => {
     renderFitup();
-    expect(screen.getByText('Tank Size')).toBeInTheDocument();
+    expect(screen.getByText('Tank Size:')).toBeInTheDocument();
   });
 
   it('has reset button in manual mode', () => {
@@ -265,6 +266,36 @@ describe('FitupScreen', () => {
     expect(assemblyApi.create).not.toHaveBeenCalled();
     // Popup should be dismissed — back to normal view
     await waitFor(() => expect(screen.queryByText('AA')).not.toBeInTheDocument());
+  });
+
+  it('shows red X on heads when head tank size does not match shell', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+      shellSize: '120',
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'HEMI 37" ID',
+      cardColor: 'Red',
+      tankSize: 500,
+    });
+
+    const { props, container } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    await waitFor(() => expect(serialNumberApi.getContext).toHaveBeenCalled());
+
+    handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    await waitFor(() => expect(materialQueueApi.getCardLookup).toHaveBeenCalled());
+
+    await waitFor(() => {
+      const mismatchBoxes = container.querySelectorAll('[class*="headMismatch"]');
+      expect(mismatchBoxes.length).toBe(2);
+    });
   });
 
   it('handles tank size override via barcode', () => {

@@ -34,6 +34,16 @@ builder.Services.AddScoped<ISellableTankStatusService, SellableTankStatusService
 builder.Services.Configure<NiceLabelOptions>(builder.Configuration.GetSection("NiceLabel"));
 builder.Services.AddHttpClient<INiceLabelService, NiceLabelService>();
 
+builder.Services.Configure<LimbleOptions>(builder.Configuration.GetSection("Limble"));
+builder.Services.AddHttpClient<ILimbleService, LimbleService>();
+
+builder.Services.Configure<GitHubOptions>(builder.Configuration.GetSection("GitHub"));
+builder.Services.AddHttpClient<IGitHubService, GitHubService>();
+builder.Services.AddScoped<IIssueRequestService, IssueRequestService>();
+builder.Services.AddScoped<IAIReviewService, AIReviewService>();
+builder.Services.AddScoped<ILogViewerService, LogViewerService>();
+builder.Services.AddScoped<ISupervisorDashboardService, SupervisorDashboardService>();
+
 // --- JWT configuration ---
 string jwtKey;
 if (builder.Environment.IsDevelopment())

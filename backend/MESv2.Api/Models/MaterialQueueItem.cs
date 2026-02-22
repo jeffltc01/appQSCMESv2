@@ -7,6 +7,7 @@ public class MaterialQueueItem
     public int Position { get; set; }
     public string Status { get; set; } = string.Empty;
     public int Quantity { get; set; }
+    public int QuantityCompleted { get; set; }
     public string? CardId { get; set; }
     public string? CardColor { get; set; }
     public DateTime CreatedAt { get; set; }

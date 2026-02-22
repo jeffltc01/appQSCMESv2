@@ -21,6 +21,11 @@ import {
   SearchRegular,
   CheckmarkCircleRegular,
   PrintRegular,
+  BugRegular,
+  ClipboardTaskListLtrRegular,
+  ShieldCheckmarkRegular,
+  TableRegular,
+  DataBarVerticalRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import styles from './MenuScreen.module.css';
@@ -52,6 +57,11 @@ const MENU_TILES: MenuTile[] = [
   { label: 'Serial Number Lookup', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/serial-lookup', implemented: true },
   { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
   { label: 'Plant Printers', icon: <PrintRegular />, minRoleTier: 3, route: '/menu/plant-printers', implemented: true },
+  { label: 'Report Issue', icon: <BugRegular />, minRoleTier: 5, route: '/menu/report-issue', implemented: true },
+  { label: 'Issue Approvals', icon: <ClipboardTaskListLtrRegular />, minRoleTier: 3, route: '/menu/issue-approvals', implemented: true },
+  { label: 'Supervisor Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
+  { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 5.5, route: '/menu/ai-review', implemented: true },
+  { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
   { label: 'Change Logs', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/change-logs', implemented: false },
   { label: 'Operator View', icon: <DesktopRegular />, minRoleTier: 5, route: '/tablet-setup', implemented: true },
 ];

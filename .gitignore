@@ -34,6 +34,11 @@ Thumbs.db
 # Test results
 frontend/coverage/
 backend/TestResults/
+e2e/playwright-report/
+e2e/test-results/
+
+# E2E
+e2e/node_modules/
 
 # Scratch / test files
 *.pdf

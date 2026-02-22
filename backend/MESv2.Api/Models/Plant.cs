@@ -7,6 +7,7 @@ public class Plant
     public string Name { get; set; } = string.Empty;
     public string TimeZoneId { get; set; } = "America/Chicago";
     public Guid? CurrentPlantGearId { get; set; }
+    public string? LimbleLocationId { get; set; }
 
     public PlantGear? CurrentPlantGear { get; set; }
     public ICollection<ProductionLine> ProductionLines { get; set; } = new List<ProductionLine>();

@@ -25,6 +25,7 @@ function tankBracket(size: number): number {
 export function RoundSeamScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId,
+    welders: parentWelders,
     welderCountLoaded = true,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
@@ -45,6 +46,10 @@ export function RoundSeamScreen(props: WorkCenterProps) {
     loadSetup();
     loadAvailableWelders();
   }, [workCenterId]);
+
+  useEffect(() => {
+    loadAvailableWelders();
+  }, [parentWelders.length]);
 
   const pendingSetupOpenRef = useRef(false);
 

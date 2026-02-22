@@ -154,11 +154,15 @@ export function FitupQueueScreen(props: WorkCenterProps) {
       ) : (
         queue.map((item) => (
           <div key={item.id} className={styles.queueCard}>
+            <span
+              className={styles.cardColorSwatch}
+              style={{ backgroundColor: item.cardColor || '#dee2e6' }}
+              title={item.cardColor || 'No color'}
+            />
             <div className={styles.queueInfo}>
-              <span className={styles.queueDesc}>{item.productDescription}</span>
+              <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
               <div className={styles.queueMeta}>
-                {item.cardColor && <span className={styles.colorSwatch} style={{ backgroundColor: item.cardColor }} />}
-                <span>{item.cardId ?? ''}</span>
+                <span>Card {item.cardId ?? '—'}</span>
                 {item.createdAt && <span>{new Date(item.createdAt).toLocaleTimeString()}</span>}
               </div>
             </div>
