@@ -43,7 +43,6 @@ export interface CreateProductionRecordRequest {
   productionLineId: string;
   operatorId: string;
   welderIds: string[];
-  inspectionResult?: 'pass' | 'fail';
   shellSize?: string;
   heatNumber?: string;
   coilNumber?: string;
@@ -56,10 +55,16 @@ export interface CreateProductionRecordResponse {
   warning?: string;
 }
 
+export interface InspectionResultEntry {
+  controlPlanId: string;
+  resultText: string;
+}
+
 export interface CreateInspectionRecordRequest {
   serialNumber: string;
   workCenterId: string;
   operatorId: string;
+  results: InspectionResultEntry[];
   defects: {
     defectCodeId: string;
     characteristicId: string;
@@ -171,7 +176,7 @@ export interface CreateNameplateRecordRequest {
 export interface CreateHydroRecordRequest {
   assemblyAlphaCode: string;
   nameplateSerialNumber: string;
-  result: string;
+  results: InspectionResultEntry[];
   workCenterId: string;
   productionLineId: string;
   assetId?: string;
@@ -183,7 +188,6 @@ export interface HydroRecordResponse {
   id: string;
   assemblyAlphaCode: string;
   nameplateSerialNumber: string;
-  result: string;
   timestamp: string;
 }
 

@@ -360,7 +360,7 @@ public class SerialNumberService : ISerialNumberService
                         Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
                         CompletedBy = r.Operator?.DisplayName ?? "",
                         AssetName = r.Asset?.Name,
-                        InspectionResult = r.InspectionResult
+                        InspectionResult = null
                     }));
             }
 

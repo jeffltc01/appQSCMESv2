@@ -277,4 +277,77 @@ public class ControlPlansControllerTests
         var result = await controller.Delete(cp.Id, CancellationToken.None);
         Assert.IsType<ForbidResult>(result.Result);
     }
+
+    [Fact]
+    public async Task GetByWorkCenter_ReturnsEnabledActiveControlPlans()
+    {
+        var controller = CreateController(out var db);
+        var charId = db.Characteristics.First().Id;
+
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = Guid.NewGuid(), CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplRollsId,
+            IsEnabled = true, ResultType = "PassFail", IsGateCheck = false, IsActive = true
+        });
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = Guid.NewGuid(), CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplRollsId,
+            IsEnabled = false, ResultType = "PassFail", IsGateCheck = false, IsActive = true
+        });
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = Guid.NewGuid(), CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplRollsId,
+            IsEnabled = true, ResultType = "PassFail", IsGateCheck = false, IsActive = false
+        });
+        db.SaveChanges();
+
+        var result = await controller.GetByWorkCenter(
+            TestHelpers.wcRollsId, TestHelpers.ProductionLine1Plt1Id, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<OperatorControlPlanDto>>(ok.Value).ToList();
+        Assert.Single(list);
+        Assert.Equal("PassFail", list[0].ResultType);
+        Assert.False(string.IsNullOrEmpty(list[0].CharacteristicName));
+    }
+
+    [Fact]
+    public async Task GetByWorkCenter_ReturnsEmpty_WhenNoMatchingJunction()
+    {
+        var controller = CreateController(out _);
+
+        var result = await controller.GetByWorkCenter(
+            Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<OperatorControlPlanDto>>(ok.Value).ToList();
+        Assert.Empty(list);
+    }
+
+    [Fact]
+    public async Task GetByWorkCenter_ReturnsCorrectIsGateCheck()
+    {
+        var controller = CreateController(out var db);
+        var charId = db.Characteristics.First().Id;
+
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = Guid.NewGuid(), CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplHydroId,
+            IsEnabled = true, ResultType = "AcceptReject", IsGateCheck = true, IsActive = true
+        });
+        db.SaveChanges();
+
+        var result = await controller.GetByWorkCenter(
+            TestHelpers.wcHydroId, TestHelpers.ProductionLine1Plt1Id, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<OperatorControlPlanDto>>(ok.Value).ToList();
+        Assert.Single(list);
+        Assert.True(list[0].IsGateCheck);
+        Assert.Equal("AcceptReject", list[0].ResultType);
+    }
 }

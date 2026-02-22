@@ -261,11 +261,6 @@ public class MesDbContext : DbContext
             .HasForeignKey(d => d.ProductionRecordId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<DefectLog>()
-            .HasOne(d => d.InspectionRecord)
-            .WithMany(i => i.DefectLogs)
-            .HasForeignKey(d => d.InspectionRecordId)
-            .OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<DefectLog>()
             .HasOne(d => d.SerialNumber)
             .WithMany()
             .HasForeignKey(d => d.SerialNumberId)

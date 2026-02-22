@@ -3,8 +3,8 @@ import { Button, Input, Label, Dropdown, Option, type OptionOnSelectData } from 
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel, parseFullDefect } from '../../types/barcode.ts';
-import type { DefectCode, DefectLocation, Characteristic, DefectEntry } from '../../types/domain.ts';
-import { serialNumberApi, workCenterApi, inspectionRecordApi } from '../../api/endpoints.ts';
+import type { DefectCode, DefectLocation, Characteristic, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
+import { serialNumberApi, workCenterApi, inspectionRecordApi, controlPlanApi } from '../../api/endpoints.ts';
 import styles from './LongSeamInspScreen.module.css';
 
 type ScreenState = 'WaitingForShell' | 'AwaitingDefects';
@@ -18,7 +18,7 @@ interface PendingDefect {
 
 export function LongSeamInspScreen(props: WorkCenterProps) {
   const {
-    workCenterId, operatorId,
+    workCenterId, productionLineId, operatorId,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -32,6 +32,9 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
   const [defectLocations, setDefectLocations] = useState<DefectLocation[]>([]);
   const [characteristics, setCharacteristics] = useState<Characteristic[]>([]);
   const [assumedCharacteristic, setAssumedCharacteristic] = useState<Characteristic | null>(null);
+
+  const [controlPlans, setControlPlans] = useState<OperatorControlPlan[]>([]);
+  const [inspectionResults, setInspectionResults] = useState<Record<string, string>>({});
 
   const [manualSerial, setManualSerial] = useState('');
   const [manualDefectCode, setManualDefectCode] = useState('');
@@ -53,7 +56,21 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
       setCharacteristics(chars);
       if (chars.length > 0) setAssumedCharacteristic(chars[0]);
     } catch { /* keep empty */ }
-  }, [workCenterId]);
+    if (productionLineId) {
+      try {
+        const plans = await controlPlanApi.getForWorkCenter(workCenterId, productionLineId);
+        setControlPlans(plans);
+      } catch { /* keep empty */ }
+    }
+  }, [workCenterId, productionLineId]);
+
+  function getResultLabels(resultType: string): [string, string] {
+    switch (resultType) {
+      case 'AcceptReject': return ['Accept', 'Reject'];
+      case 'GoNoGo': return ['Go', 'NoGo'];
+      default: return ['Pass', 'Fail'];
+    }
+  }
 
   const loadShell = useCallback(
     async (serial: string) => {
@@ -64,6 +81,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
         setScreenState('AwaitingDefects');
         setDefects([]);
         setPending({});
+        setInspectionResults({});
         showScanResult({ type: 'success', message: `Shell ${serial} loaded` });
       } catch {
         showScanResult({ type: 'error', message: 'Failed to load shell' });
@@ -113,6 +131,10 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
         serialNumber,
         workCenterId,
         operatorId,
+        results: controlPlans.map(cp => ({
+          controlPlanId: cp.id,
+          resultText: inspectionResults[cp.id] || '',
+        })).filter(r => r.resultText),
         defects: defects.map((d) => ({
           defectCodeId: d.defectCodeId,
           characteristicId: d.characteristicId,
@@ -131,10 +153,11 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
       setTankSize(null);
       setDefects([]);
       setPending({});
+      setInspectionResults({});
     } catch {
       showScanResult({ type: 'error', message: 'Failed to save inspection record. Please try again.' });
     }
-  }, [serialNumber, workCenterId, operatorId, defects, showScanResult, refreshHistory]);
+  }, [serialNumber, workCenterId, operatorId, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
@@ -293,6 +316,35 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
         <span>Tank Size <strong>{tankSize ?? '—'}</strong></span>
       </div>
 
+      {controlPlans.length > 0 && (
+        <div className={styles.defectTable} style={{ marginBottom: 12 }}>
+          <div className={styles.tableHeader}><span>Characteristic</span><span>Result</span></div>
+          {controlPlans.map((cp) => {
+            const [posLabel, negLabel] = getResultLabels(cp.resultType);
+            const selected = inspectionResults[cp.id];
+            return (
+              <div key={cp.id} className={styles.tableRow} style={{ alignItems: 'center' }}>
+                <span>{cp.characteristicName}</span>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <Button
+                    size="small"
+                    appearance={selected === posLabel ? 'primary' : 'outline'}
+                    style={selected === posLabel ? { backgroundColor: '#0e7a0d', borderColor: '#0e7a0d', color: '#fff' } : undefined}
+                    onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: posLabel }))}
+                  >{posLabel}</Button>
+                  <Button
+                    size="small"
+                    appearance={selected === negLabel ? 'primary' : 'outline'}
+                    style={selected === negLabel ? { backgroundColor: '#d13438', borderColor: '#d13438', color: '#fff' } : undefined}
+                    onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: negLabel }))}
+                  >{negLabel}</Button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className={styles.defectTable}>
         <div className={styles.tableHeader}>
           <span>Defect</span>
@@ -351,7 +403,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
             <Button appearance="primary" size="large" onClick={saveInspection} className={styles.submitBtn}>
               Save
             </Button>
-            <Button appearance="secondary" size="large" onClick={() => { setDefects([]); setPending({}); }}>
+            <Button appearance="secondary" size="large" onClick={() => { setDefects([]); setPending({}); setInspectionResults({}); }}>
               Clear All
             </Button>
           </div>

@@ -60,6 +60,37 @@ public class ControlPlansController : ControllerBase
         return Ok(list);
     }
 
+    [HttpGet("by-work-center")]
+    public async Task<ActionResult<IEnumerable<OperatorControlPlanDto>>> GetByWorkCenter(
+        [FromQuery] Guid workCenterId,
+        [FromQuery] Guid productionLineId,
+        CancellationToken cancellationToken)
+    {
+        var wcplId = await _db.WorkCenterProductionLines
+            .Where(w => w.WorkCenterId == workCenterId && w.ProductionLineId == productionLineId)
+            .Select(w => (Guid?)w.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (wcplId == null)
+            return Ok(Array.Empty<OperatorControlPlanDto>());
+
+        var list = await _db.ControlPlans
+            .Include(cp => cp.Characteristic)
+            .Where(cp => cp.WorkCenterProductionLineId == wcplId.Value
+                && cp.IsEnabled && cp.IsActive)
+            .OrderBy(cp => cp.Characteristic.Name)
+            .Select(cp => new OperatorControlPlanDto
+            {
+                Id = cp.Id,
+                CharacteristicName = cp.Characteristic.Name,
+                ResultType = cp.ResultType,
+                IsGateCheck = cp.IsGateCheck
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(list);
+    }
+
     [HttpPost]
     public async Task<ActionResult<AdminControlPlanDto>> Create([FromBody] CreateControlPlanDto dto, CancellationToken cancellationToken)
     {

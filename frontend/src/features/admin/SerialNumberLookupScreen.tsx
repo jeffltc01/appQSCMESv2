@@ -167,7 +167,7 @@ function deriveGateStatus(node: TraceabilityNode): GateStatus | null {
 
   const hasReject = gateEvents.some(e => {
     const r = e.inspectionResult!.toLowerCase();
-    return r.includes('reject') || r.includes('fail');
+    return r.includes('reject') || r.includes('fail') || r === 'nogo';
   });
   return hasReject ? 'fail' : 'pass';
 }

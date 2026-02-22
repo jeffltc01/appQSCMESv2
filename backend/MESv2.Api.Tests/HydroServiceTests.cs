@@ -19,14 +19,13 @@ public class HydroServiceTests
         {
             AssemblyAlphaCode = "AA",
             NameplateSerialNumber = "W00100001",
-            Result = "ACCEPTED",
+            Results = new List<InspectionResultEntryDto>(),
             WorkCenterId = TestHelpers.wcHydroId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
         });
 
         Assert.NotNull(result);
-        Assert.Equal("ACCEPTED", result.Result);
         Assert.Equal("AA", result.AssemblyAlphaCode);
     }
 
@@ -43,7 +42,7 @@ public class HydroServiceTests
         {
             AssemblyAlphaCode = "AB",
             NameplateSerialNumber = "W00100002",
-            Result = "ACCEPTED",
+            Results = new List<InspectionResultEntryDto>(),
             WorkCenterId = TestHelpers.wcHydroId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
@@ -97,7 +96,7 @@ public class HydroServiceTests
             {
                 AssemblyAlphaCode = "AC",
                 NameplateSerialNumber = "W00100010",
-                Result = "ACCEPTED",
+                Results = new List<InspectionResultEntryDto>(),
                 WorkCenterId = TestHelpers.wcHydroId,
                 OperatorId = TestHelpers.TestUserId,
                 Defects = new List<DefectEntryDto>()
@@ -119,14 +118,13 @@ public class HydroServiceTests
         {
             AssemblyAlphaCode = "AD",
             NameplateSerialNumber = "W00100011",
-            Result = "ACCEPTED",
+            Results = new List<InspectionResultEntryDto>(),
             WorkCenterId = TestHelpers.wcHydroId,
             OperatorId = TestHelpers.TestUserId,
             Defects = new List<DefectEntryDto>()
         });
 
         Assert.NotNull(result);
-        Assert.Equal("ACCEPTED", result.Result);
     }
 
     private static Guid SeedSellableSn(MESv2.Api.Data.MesDbContext db, string serial, int tankSize = 120)

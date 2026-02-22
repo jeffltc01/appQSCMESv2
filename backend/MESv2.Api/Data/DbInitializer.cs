@@ -496,7 +496,6 @@ public static class DbInitializer
                 ProductionLineId = o.ProductionLineId,
                 OperatorId = o.OperatorId,
                 Timestamp = o.Timestamp,
-                InspectionResult = null,
                 PlantGearId = null,
             });
         }

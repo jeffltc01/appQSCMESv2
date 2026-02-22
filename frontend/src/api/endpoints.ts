@@ -107,6 +107,7 @@ import type {
   WorkCenterType,
   AdminCharacteristic,
   AdminControlPlan,
+  OperatorControlPlan,
   AdminAsset,
   AdminBarcodeCard,
   PlantWithGear,
@@ -207,6 +208,13 @@ export const productionRecordApi = {
 export const inspectionRecordApi = {
   create: (req: CreateInspectionRecordRequest) =>
     api.post<InspectionRecord>('/inspection-records', req),
+};
+
+export const controlPlanApi = {
+  getForWorkCenter: (workCenterId: string, productionLineId: string) =>
+    api.get<OperatorControlPlan[]>(
+      `/control-plans/by-work-center?workCenterId=${encodeURIComponent(workCenterId)}&productionLineId=${encodeURIComponent(productionLineId)}`
+    ),
 };
 
 export const assemblyApi = {

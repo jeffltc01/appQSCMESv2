@@ -345,6 +345,14 @@ public class UpdateControlPlanDto
     public bool IsActive { get; set; }
 }
 
+public class OperatorControlPlanDto
+{
+    public Guid Id { get; set; }
+    public string CharacteristicName { get; set; } = string.Empty;
+    public string ResultType { get; set; } = string.Empty;
+    public bool IsGateCheck { get; set; }
+}
+
 // ---- Assets ----
 public class AdminAssetDto
 {

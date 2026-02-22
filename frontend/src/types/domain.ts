@@ -383,6 +383,13 @@ export interface AdminCharacteristic {
   isActive: boolean;
 }
 
+export interface OperatorControlPlan {
+  id: string;
+  characteristicName: string;
+  resultType: string;
+  isGateCheck: boolean;
+}
+
 export interface AdminControlPlan {
   id: string;
   characteristicId: string;

@@ -104,8 +104,7 @@ public class SerialNumberServiceTests
         {
             Id = Guid.NewGuid(), SerialNumberId = sellable.Id, WorkCenterId = TestHelpers.wcHydroId,
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id, OperatorId = TestHelpers.TestUserId,
-            Timestamp = new DateTime(2026, 2, 15, 14, 0, 0, DateTimeKind.Utc),
-            InspectionResult = "pass"
+            Timestamp = new DateTime(2026, 2, 15, 14, 0, 0, DateTimeKind.Utc)
         };
         db.ProductionRecords.AddRange(shellPr, assemblyPr, sellablePr);
 
