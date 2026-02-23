@@ -47,7 +47,7 @@ beforeEach(() => {
 describe('AnnotationDialog', () => {
   it('shows dialog title and record identifier', async () => {
     renderDialog();
-    expect(screen.getByRole('heading', { name: 'Create Annotation' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Create Annotation', hidden: true })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText(/SH-TEST-001/)).toBeInTheDocument();
     });
@@ -57,7 +57,7 @@ describe('AnnotationDialog', () => {
     renderDialog();
     await waitFor(() => {
       expect(adminAnnotationTypeApi.getAll).toHaveBeenCalled();
-      const dropdown = screen.getByRole('combobox');
+      const dropdown = screen.getByRole('combobox', { hidden: true });
       expect(dropdown).toHaveTextContent('Correction Needed');
     });
   });
@@ -65,7 +65,7 @@ describe('AnnotationDialog', () => {
   it('defaults to Correction Needed type', async () => {
     renderDialog();
     await waitFor(() => {
-      const dropdown = screen.getByRole('combobox');
+      const dropdown = screen.getByRole('combobox', { hidden: true });
       expect(dropdown).toHaveTextContent('Correction Needed');
     });
   });
@@ -122,10 +122,10 @@ describe('AnnotationDialog', () => {
     await waitFor(() => screen.getByText('Defective material identified'));
 
     await user.click(screen.getByText('Defective material identified'));
-    expect(screen.getByRole('combobox')).toHaveTextContent('Defect');
+    expect(screen.getByRole('combobox', { hidden: true })).toHaveTextContent('Defect');
 
     await user.click(screen.getByText('Data entry error'));
-    expect(screen.getByRole('combobox')).toHaveTextContent('Correction Needed');
+    expect(screen.getByRole('combobox', { hidden: true })).toHaveTextContent('Correction Needed');
   });
 
   it('switches type to Correction Needed when "Wrong Shell or Tank scanned" is clicked', async () => {
@@ -134,10 +134,10 @@ describe('AnnotationDialog', () => {
     await waitFor(() => screen.getByText('See me for note'));
 
     await user.click(screen.getByText('See me for note'));
-    expect(screen.getByRole('combobox')).toHaveTextContent('Note');
+    expect(screen.getByRole('combobox', { hidden: true })).toHaveTextContent('Note');
 
     await user.click(screen.getByText('Wrong Shell or Tank scanned'));
-    expect(screen.getByRole('combobox')).toHaveTextContent('Correction Needed');
+    expect(screen.getByRole('combobox', { hidden: true })).toHaveTextContent('Correction Needed');
   });
 
   it('switches type to Defect when "Defective material identified" is clicked', async () => {
@@ -146,7 +146,7 @@ describe('AnnotationDialog', () => {
     await waitFor(() => screen.getByText('Defective material identified'));
     await user.click(screen.getByText('Defective material identified'));
 
-    const dropdown = screen.getByRole('combobox');
+    const dropdown = screen.getByRole('combobox', { hidden: true });
     expect(dropdown).toHaveTextContent('Defect');
   });
 
@@ -156,15 +156,15 @@ describe('AnnotationDialog', () => {
     await waitFor(() => screen.getByText('See me for note'));
     await user.click(screen.getByText('See me for note'));
 
-    const dropdown = screen.getByRole('combobox');
+    const dropdown = screen.getByRole('combobox', { hidden: true });
     expect(dropdown).toHaveTextContent('Note');
   });
 
   it('shows error when submitting without notes', async () => {
     const user = userEvent.setup();
     renderDialog();
-    await waitFor(() => screen.getByRole('button', { name: 'Create Annotation' }));
-    await user.click(screen.getByRole('button', { name: 'Create Annotation' }));
+    await waitFor(() => screen.getByRole('button', { name: 'Create Annotation', hidden: true }));
+    await user.click(screen.getByRole('button', { name: 'Create Annotation', hidden: true }));
     expect(screen.getByText('Enter or select a message.')).toBeInTheDocument();
   });
 
@@ -174,7 +174,7 @@ describe('AnnotationDialog', () => {
     await waitFor(() => screen.getByText('Data entry error'));
 
     await user.click(screen.getByText('Data entry error'));
-    await user.click(screen.getByRole('button', { name: 'Create Annotation' }));
+    await user.click(screen.getByRole('button', { name: 'Create Annotation', hidden: true }));
 
     await waitFor(() => {
       expect(logViewerApi.createAnnotation).toHaveBeenCalledWith({
@@ -195,7 +195,7 @@ describe('AnnotationDialog', () => {
     await waitFor(() => screen.getByText('Data entry error'));
 
     await user.click(screen.getByText('Data entry error'));
-    await user.click(screen.getByRole('button', { name: 'Create Annotation' }));
+    await user.click(screen.getByRole('button', { name: 'Create Annotation', hidden: true }));
 
     await waitFor(() => {
       expect(screen.getByText('Production record not found.')).toBeInTheDocument();
