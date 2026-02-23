@@ -25,6 +25,10 @@ param sqlAdminPassword string
 @description('JWT signing key (min 32 chars)')
 param jwtKey string
 
+@secure()
+@description('GitHub personal access token for issue creation (empty = feature disabled)')
+param githubToken string = ''
+
 // ---------------------------------------------------------------------------
 // Application Insights + Log Analytics
 // ---------------------------------------------------------------------------
@@ -86,6 +90,7 @@ module keyVault 'modules/keyVault.bicep' = {
     jwtKey: jwtKey
     appInsightsConnectionString: appInsights.outputs.connectionString
     corsAllowedOrigin: 'https://${swa.outputs.defaultHostname}'
+    githubToken: githubToken
   }
 }
 

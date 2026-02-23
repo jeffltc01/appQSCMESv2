@@ -21,6 +21,10 @@ param appInsightsConnectionString string
 @description('CORS allowed origin (Static Web App hostname)')
 param corsAllowedOrigin string
 
+@secure()
+@description('GitHub personal access token for issue creation (empty = feature disabled)')
+param githubToken string = ''
+
 var keyVaultName = 'qscmes-${environmentName}-kv'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -76,6 +80,14 @@ resource secretCors 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'Cors--AllowedOrigins--0'
   properties: {
     value: corsAllowedOrigin
+  }
+}
+
+resource secretGitHubToken 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'GitHub--Token'
+  properties: {
+    value: githubToken
   }
 }
 

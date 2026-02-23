@@ -67,6 +67,14 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'ApplicationInsights__ConnectionString'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=ApplicationInsights--ConnectionString)'
         }
+        {
+          name: 'Cors__AllowedOrigins__0'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=Cors--AllowedOrigins--0)'
+        }
+        {
+          name: 'GitHub__Token'
+          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=GitHub--Token)'
+        }
       ]
     }
   }
