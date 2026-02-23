@@ -82,9 +82,9 @@ The application uses three Azure environments plus local development:
 | Environment | Hosting | Database | How it's deployed |
 |---|---|---|---|
 | **Local** | `localhost:5001` / `:5173` | Local SQL Server (`MESv2Dev`) | `dotnet run` / `npm run dev` |
-| **Dev** | Azure App Service + Static Web App | Azure SQL (`MES-Dev`) | Auto on push to `main` |
-| **Test** | Azure App Service + Static Web App | Azure SQL (`MES-Test`) | Manual — "Promote to Test" workflow |
-| **Production** | Azure App Service + Static Web App | Azure SQL (`MES-Prod`) | Manual — "Promote to Production" workflow |
+| **Dev** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Dev`) | Auto on push to `main` |
+| **Test** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Test`) | Manual — "Promote to Test" workflow |
+| **Production** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Prod`) | Manual — "Promote to Production" workflow |
 
 ### Promotion Flow
 
@@ -124,7 +124,7 @@ Each environment (`dev`, `test`, `production`) needs these configured in GitHub 
 
 | Setting | `dev` | `test` | `production` |
 |---|---|---|---|
-| `BACKEND_APP_NAME` | `mes-dev-app` | `mes-test-app` | `mes-prod-app` |
+| `BACKEND_APP_NAME` | `qscmes-dev-app` | `qscmes-test-app` | `qscmes-prod-app` |
 | `SWA_DEPLOYMENT_TOKEN` | *(from Dev SWA)* | *(from Test SWA)* | *(from Prod SWA)* |
 | `AZURE_CREDENTIALS` | *(service principal)* | *(service principal)* | *(service principal)* |
 | `SQL_ADMIN_USER` | — | *(for DB copy)* | *(for DB backup)* |
@@ -151,25 +151,25 @@ Azure resources are defined as Infrastructure-as-Code using [Bicep](https://lear
 
 ```bash
 # Dev environment
-az group create --name rg-mes-dev --location <region>
+az group create --name rg-qscmes-dev --location <region>
 az deployment group create \
-  --resource-group rg-mes-dev \
+  --resource-group rg-qscmes-dev \
   --template-file infra/main.bicep \
   --parameters environmentName='dev' sqlAdminUser='mesadmin' \
                sqlAdminPassword='<secret>' jwtKey='<secret>'
 
 # Test environment
-az group create --name rg-mes-test --location <region>
+az group create --name rg-qscmes-test --location <region>
 az deployment group create \
-  --resource-group rg-mes-test \
+  --resource-group rg-qscmes-test \
   --template-file infra/main.bicep \
   --parameters environmentName='test' sqlAdminUser='mesadmin' \
                sqlAdminPassword='<secret>' jwtKey='<secret>'
 
 # Production environment
-az group create --name rg-mes-prod --location <region>
+az group create --name rg-qscmes-prod --location <region>
 az deployment group create \
-  --resource-group rg-mes-prod \
+  --resource-group rg-qscmes-prod \
   --template-file infra/main.bicep \
   --parameters environmentName='prod' sqlAdminUser='mesadmin' \
                sqlAdminPassword='<secret>' jwtKey='<secret>'

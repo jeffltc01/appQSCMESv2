@@ -1,5 +1,5 @@
 @description('Storage account name (must be globally unique, lowercase, no hyphens)')
-param storageAccountName string = 'mesbacpacs'
+param storageAccountName string = 'qscmesbacpacs'
 
 @description('Azure region for the resources')
 param location string

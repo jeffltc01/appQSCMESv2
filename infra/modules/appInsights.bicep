@@ -4,8 +4,8 @@ param environmentName string
 @description('Azure region for the resources')
 param location string
 
-var logAnalyticsName = 'mes-${environmentName}-logs'
-var appInsightsName = 'mes-${environmentName}-ai'
+var logAnalyticsName = 'qscmes-${environmentName}-logs'
+var appInsightsName = 'qscmes-${environmentName}-ai'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logAnalyticsName

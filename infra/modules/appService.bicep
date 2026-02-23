@@ -10,8 +10,8 @@ param skuName string = 'B1'
 @description('Key Vault name for secret references')
 param keyVaultName string
 
-var appServicePlanName = 'mes-${environmentName}-plan'
-var webAppName = 'mes-${environmentName}-app'
+var appServicePlanName = 'qscmes-${environmentName}-plan'
+var webAppName = 'qscmes-${environmentName}-app'
 var aspnetEnvMap = {
   dev: 'Dev'
   test: 'Test'

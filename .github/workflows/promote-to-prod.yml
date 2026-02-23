@@ -13,10 +13,10 @@ env:
   NODE_VERSION: "20"
   BACKEND_PATH: backend/MESv2.Api
   FRONTEND_PATH: frontend
-  PROD_RESOURCE_GROUP: rg-mes-prod
-  PROD_SQL_SERVER: mes-prod-sql
-  PROD_DB_NAME: MES-Prod
-  STORAGE_ACCOUNT: mesbacpacs
+  PROD_RESOURCE_GROUP: rg-qscmes-prod
+  PROD_SQL_SERVER: qscmes-prod-sql
+  PROD_DB_NAME: QSCMES-Prod
+  STORAGE_ACCOUNT: qscmesbacpacs
   STORAGE_CONTAINER: bacpacs
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
       - name: Export production database to BACPAC
         run: |
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          BACPAC_NAME="mes-prod-pre-deploy-${TIMESTAMP}.bacpac"
+          BACPAC_NAME="qscmes-prod-pre-deploy-${TIMESTAMP}.bacpac"
           echo "BACPAC_NAME=$BACPAC_NAME" >> "$GITHUB_ENV"
 
           az sql db export \

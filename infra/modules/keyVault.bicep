@@ -21,7 +21,7 @@ param appInsightsConnectionString string
 @description('CORS allowed origin (Static Web App hostname)')
 param corsAllowedOrigin string
 
-var keyVaultName = 'mes-${environmentName}-kv'
+var keyVaultName = 'qscmes-${environmentName}-kv'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName

@@ -142,6 +142,15 @@ const mockLookupResult = {
               annotationCount: 0,
               events: [],
             },
+            {
+              id: 'np-1',
+              label: 'W00100001 (nameplate)',
+              nodeType: 'nameplate',
+              serial: 'W00100001',
+              defectCount: 0,
+              annotationCount: 0,
+              events: [],
+            },
           ],
         },
       ],
@@ -311,6 +320,7 @@ describe('SerialNumberLookupScreen', () => {
     expect(legend).toHaveTextContent('Shells');
     expect(legend).toHaveTextContent('Heads');
     expect(legend).toHaveTextContent('Plate');
+    expect(legend).toHaveTextContent('Nameplate');
   });
 
   it('shows sub-components beneath parent cards', async () => {
@@ -439,6 +449,23 @@ describe('SerialNumberLookupScreen', () => {
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getByText('Test annotation')).toBeInTheDocument();
     expect(screen.getByText('Admin User')).toBeInTheDocument();
+  });
+
+  it('renders nameplate card to the right of Fitup with attachment wrapper', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('nameplate-attachment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('hero-card-np-1')).toBeInTheDocument();
+
+    const attachment = screen.getByTestId('nameplate-attachment');
+    expect(attachment).toContainElement(screen.getByTestId('hero-card-np-1'));
   });
 
   it('does not show gate icon on non-gate-check nodes like heads', async () => {

@@ -36,6 +36,7 @@ const NODE_TYPE_COLORS: Record<string, { bg: string; label: string }> = {
   leftHead:  { bg: '#ba68c8', label: 'Heads' },
   rightHead: { bg: '#ba68c8', label: 'Heads' },
   valve:     { bg: '#17a2b8', label: 'Valves' },
+  nameplate: { bg: '#ff8c00', label: 'Nameplate' },
 };
 
 function getCardColorClass(nodeType: string): string {
@@ -47,6 +48,7 @@ function getCardColorClass(nodeType: string): string {
     case 'leftHead':
     case 'rightHead': return styles.cardHead;
     case 'valve': return styles.cardValve;
+    case 'nameplate': return styles.cardNameplate;
     default: return styles.cardDefault;
   }
 }
@@ -58,6 +60,7 @@ function getNodeTypeLabel(nodeType: string): string {
 interface FlowStep {
   node: TraceabilityNode;
   subComponents: TraceabilityNode[];
+  nameplateNode?: TraceabilityNode;
 }
 
 function flattenToFlow(treeNodes: TraceabilityNode[]): FlowStep[] {
@@ -71,9 +74,12 @@ function flattenToFlow(treeNodes: TraceabilityNode[]): FlowStep[] {
     const mainChildren = children.filter(c => mainTypes.has(c.nodeType));
     const subChildren = children.filter(c => !mainTypes.has(c.nodeType));
 
+    const npChild = subChildren.find(c => c.nodeType === 'nameplate' || c.nodeType === 'NameplateToAssembly');
+    const otherSubs = subChildren.filter(c => c.nodeType !== 'nameplate' && c.nodeType !== 'NameplateToAssembly');
+
     if (mainChildren.length > 0) {
       for (const child of mainChildren) walk(child);
-      steps.push({ node, subComponents: subChildren });
+      steps.push({ node, subComponents: otherSubs, nameplateNode: npChild });
     } else {
       const ownSubs = children.filter(c => c.nodeType === 'plate' || c.nodeType === 'leftHead' || c.nodeType === 'rightHead' || c.nodeType === 'valve');
       steps.push({ node, subComponents: ownSubs });
@@ -502,14 +508,22 @@ export function SerialNumberLookupScreen() {
                         step.node.nodeType === 'shell' &&
                         i < flowSteps.length - 1 &&
                         flowSteps[i + 1].node.nodeType !== 'shell';
+                      const hasNameplate = !!step.nameplateNode;
                       return (
                       <div
                         key={step.node.id}
                         className={`${styles.flowColumn} ${i < flowSteps.length - 1 ? styles.flowColumnWithArrow : ''}`}
                         data-node-type={step.node.nodeType}
                         {...(isLastShell ? { 'data-last-shell': '' } : {})}
+                        {...(hasNameplate ? { 'data-has-nameplate': '' } : {})}
                       >
                         <HeroCard node={step.node} />
+                        {hasNameplate && (
+                          <div className={styles.nameplateAttachment} data-testid="nameplate-attachment">
+                            <div className={styles.nameplateArrowLine} />
+                            <HeroCard node={step.nameplateNode!} isSmall />
+                          </div>
+                        )}
                         {step.subComponents.length > 0 && (
                           <div className={styles.subComponentsArea}>
                             {step.subComponents.map((sub) => (

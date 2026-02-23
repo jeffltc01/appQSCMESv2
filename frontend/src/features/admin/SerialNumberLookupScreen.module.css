@@ -215,6 +215,49 @@
   margin-right: 100px;
 }
 
+/* ── Nameplate right-side attachment on the Fitup column ── */
+.flowColumn[data-has-nameplate] {
+  margin-right: 220px;
+}
+
+.flowColumnWithArrow[data-has-nameplate]::after {
+  left: calc(100% + 220px);
+  width: 36px;
+}
+.flowColumnWithArrow[data-has-nameplate]::before {
+  left: calc(100% + 220px + 36px);
+}
+
+.nameplateAttachment {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 16px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nameplateArrowLine {
+  width: 28px;
+  height: 3px;
+  background: #343a40;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.nameplateArrowLine::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-right: 10px solid #343a40;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
 /* ── Sub-components area (absolute so they don't widen the column) ── */
 .subComponentsArea {
   position: absolute;
@@ -318,6 +361,7 @@
 .cardPlate     { border-left: 4px solid #ffc107; }
 .cardHead      { border-left: 4px solid #ba68c8; }
 .cardValve     { border-left: 4px solid #17a2b8; }
+.cardNameplate { border-left: 4px solid #ff8c00; }
 .cardDefault   { border-left: 4px solid #adb5bd; }
 
 /* ── Type badge — colored pill ── */
@@ -651,6 +695,33 @@
 
   .subArrow {
     height: 24px;
+  }
+
+  .flowColumn[data-has-nameplate] {
+    margin-right: 0;
+  }
+
+  .nameplateAttachment {
+    position: static;
+    margin-top: 12px;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .flowColumnWithArrow[data-has-nameplate]::after {
+    left: 50%;
+    width: 3px;
+    height: 40px;
+    transform: translateX(-50%);
+  }
+
+  .flowColumnWithArrow[data-has-nameplate]::before {
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 12px solid #343a40;
+    border-bottom: none;
   }
 
   .controls {

@@ -4,7 +4,7 @@ param environmentName string
 @description('Azure region for the Static Web App')
 param location string
 
-var staticWebAppName = 'mes-${environmentName}-swa'
+var staticWebAppName = 'qscmes-${environmentName}-swa'
 
 resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   name: staticWebAppName

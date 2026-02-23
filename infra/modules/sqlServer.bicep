@@ -17,8 +17,13 @@ param dbSkuName string = 'Basic'
 @description('SQL Database max size in bytes (2 GB default)')
 param dbMaxSizeBytes int = 2147483648
 
-var sqlServerName = 'mes-${environmentName}-sql'
-var databaseName = 'MES-${environmentName == 'prod' ? 'Prod' : 'Test'}'
+var sqlServerName = 'qscmes-${environmentName}-sql'
+var envDisplayName = {
+  dev: 'Dev'
+  test: 'Test'
+  prod: 'Prod'
+}
+var databaseName = 'QSCMES-${envDisplayName[environmentName]}'
 
 resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
   name: sqlServerName

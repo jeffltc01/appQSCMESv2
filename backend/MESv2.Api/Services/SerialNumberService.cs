@@ -260,6 +260,7 @@ public class SerialNumberService : ISerialNumberService
             },
             "leftHead" or "rightHead" => relationship,
             "plate" => "plate",
+            "NameplateToAssembly" or "Nameplate" => "nameplate",
             _ => relationship ?? "component"
         };
     }

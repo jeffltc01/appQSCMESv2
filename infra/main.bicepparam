@@ -5,7 +5,7 @@ using './main.bicep'
 //
 // Example (test):
 //   az deployment group create \
-//     --resource-group rg-mes-test \
+//     --resource-group rg-qscmes-test \
 //     --template-file infra/main.bicep \
 //     --parameters infra/main.bicepparam \
 //     --parameters sqlAdminPassword='<secret>' jwtKey='<secret>'

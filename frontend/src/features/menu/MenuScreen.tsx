@@ -98,7 +98,6 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
       { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
       { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
-      { label: 'Change Logs', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/change-logs', implemented: false },
     ],
   },
   {

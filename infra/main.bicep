@@ -66,7 +66,7 @@ module appService 'modules/appService.bicep' = {
   params: {
     environmentName: environmentName
     location: location
-    keyVaultName: 'mes-${environmentName}-kv'
+    keyVaultName: 'qscmes-${environmentName}-kv'
   }
 }
 
