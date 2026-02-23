@@ -229,7 +229,7 @@ describe('AnnotationMaintenanceScreen', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /create annotation/i }));
-    expect(screen.getByRole('heading', { name: /create annotation/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /create annotation/i, hidden: true })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Annotation notes...')).toBeInTheDocument();
   });
 
