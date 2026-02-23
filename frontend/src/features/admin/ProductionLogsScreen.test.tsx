@@ -52,7 +52,16 @@ const mockRollsEntries = [
     shellCode: '020401',
     tankSize: 500,
     welders: ['Jeff Phillips'],
-    annotations: [{ abbreviation: 'AI', color: '#33cc33' }],
+    annotations: [{
+      id: 'ann1',
+      abbreviation: 'AI',
+      color: '#33cc33',
+      typeName: 'AI Review',
+      status: 'Open',
+      notes: 'Auto-generated AI review',
+      initiatedByName: 'System',
+      createdAt: '2026-02-19T15:00:00Z',
+    }],
   },
 ];
 
@@ -194,6 +203,25 @@ describe('ProductionLogsScreen', () => {
     await user.click(addBtns[0]);
 
     expect(screen.getByText('Add Annotation')).toBeInTheDocument();
+  });
+
+  it('opens annotation detail dialog when flag is clicked', async () => {
+    vi.mocked(logViewerApi.getRollsLog).mockResolvedValue(mockRollsEntries);
+    const user = userEvent.setup();
+    renderScreen(['/menu/production-logs?logType=rolls']);
+
+    await waitFor(() => {
+      expect(screen.getByText('020401')).toBeInTheDocument();
+    });
+
+    const flagBtn = screen.getByTitle('AI Review — click to view details');
+    await user.click(flagBtn);
+
+    expect(screen.getByText('Annotation Details')).toBeInTheDocument();
+    expect(screen.getByText('AI Review')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.getByText('Auto-generated AI review')).toBeInTheDocument();
   });
 
   it('renders ACCEPTED result with accept styling', async () => {

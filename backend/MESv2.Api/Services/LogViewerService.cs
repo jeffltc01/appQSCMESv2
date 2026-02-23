@@ -25,6 +25,8 @@ public class LogViewerService : ILogViewerService
             .Include(r => r.SerialNumber).ThenInclude(s => s.Product)
             .Include(r => r.WelderLogs).ThenInclude(w => w.User)
             .Include(r => r.Annotations).ThenInclude(a => a.AnnotationType)
+            .Include(r => r.Annotations).ThenInclude(a => a.InitiatedByUser)
+            .Include(r => r.Annotations).ThenInclude(a => a.ResolvedByUser)
             .Include(r => r.WorkCenter)
             .Where(r => r.WorkCenter.WorkCenterTypeId == wcTypeId.Value)
             .Where(r => r.ProductionLine.PlantId == siteId)
@@ -69,6 +71,8 @@ public class LogViewerService : ILogViewerService
             .Include(r => r.SerialNumber).ThenInclude(s => s.Product)
             .Include(r => r.WelderLogs).ThenInclude(w => w.User)
             .Include(r => r.Annotations).ThenInclude(a => a.AnnotationType)
+            .Include(r => r.Annotations).ThenInclude(a => a.InitiatedByUser)
+            .Include(r => r.Annotations).ThenInclude(a => a.ResolvedByUser)
             .Include(r => r.WorkCenter)
             .Where(r => r.WorkCenter.WorkCenterTypeId == wcTypeId.Value)
             .Where(r => r.ProductionLine.PlantId == siteId)
@@ -157,6 +161,8 @@ public class LogViewerService : ILogViewerService
             .Include(r => r.WelderLogs).ThenInclude(w => w.User)
             .Include(r => r.DefectLogs)
             .Include(r => r.Annotations).ThenInclude(a => a.AnnotationType)
+            .Include(r => r.Annotations).ThenInclude(a => a.InitiatedByUser)
+            .Include(r => r.Annotations).ThenInclude(a => a.ResolvedByUser)
             .Include(r => r.WorkCenter)
             .Where(r => r.WorkCenter.WorkCenterTypeId == wcTypeId.Value)
             .Where(r => r.ProductionLine.PlantId == siteId)
@@ -209,6 +215,8 @@ public class LogViewerService : ILogViewerService
             .Include(r => r.Operator)
             .Include(r => r.DefectLogs).ThenInclude(d => d.DefectCode)
             .Include(r => r.Annotations).ThenInclude(a => a.AnnotationType)
+            .Include(r => r.Annotations).ThenInclude(a => a.InitiatedByUser)
+            .Include(r => r.Annotations).ThenInclude(a => a.ResolvedByUser)
             .Include(r => r.WorkCenter)
             .Where(r => r.WorkCenter.WorkCenterTypeId == wcTypeId.Value)
             .Where(r => r.ProductionLine.PlantId == siteId)
@@ -246,6 +254,8 @@ public class LogViewerService : ILogViewerService
             .Include(r => r.SerialNumber).ThenInclude(s => s.Product)
             .Include(r => r.Operator)
             .Include(r => r.Annotations).ThenInclude(a => a.AnnotationType)
+            .Include(r => r.Annotations).ThenInclude(a => a.InitiatedByUser)
+            .Include(r => r.Annotations).ThenInclude(a => a.ResolvedByUser)
             .Include(r => r.WorkCenter)
             .Where(r => r.WorkCenter.WorkCenterTypeId == wcTypeId.Value)
             .Where(r => r.ProductionLine.PlantId == siteId)
@@ -409,8 +419,16 @@ public class LogViewerService : ILogViewerService
             .ThenByDescending(a => a.CreatedAt)
             .Select(a => new LogAnnotationBadgeDto
             {
+                Id = a.Id,
                 Abbreviation = a.AnnotationType.Abbreviation ?? a.AnnotationType.Name[..1],
-                Color = a.AnnotationType.DisplayColor ?? "#212529"
+                Color = a.AnnotationType.DisplayColor ?? "#212529",
+                TypeName = a.AnnotationType.Name,
+                Status = a.Status.ToString(),
+                Notes = a.Notes,
+                InitiatedByName = a.InitiatedByUser?.DisplayName ?? "",
+                ResolvedByName = a.ResolvedByUser?.DisplayName,
+                ResolvedNotes = a.ResolvedNotes,
+                CreatedAt = a.CreatedAt
             })
             .ToList();
     }
@@ -438,12 +456,12 @@ public class LogViewerService : ILogViewerService
                     2 => inc.Seam2ShotDateTime,
                     3 => inc.Seam3ShotDateTime,
                     4 => inc.Seam4ShotDateTime,
-                    _ => null
+                    _ => (DateTime?)null
                 };
 
                 if (!string.IsNullOrEmpty(shotNo))
                 {
-                    var dateStr = !string.IsNullOrEmpty(shotDate) ? $" ({shotDate})" : "";
+                    var dateStr = shotDate.HasValue ? $" ({shotDate.Value:o})" : "";
                     seamParts.Add($"Seam {seam}: {shotNo}{dateStr}");
                 }
             }
@@ -461,13 +479,13 @@ public class LogViewerService : ILogViewerService
         {
             for (int seam = 1; seam <= 4; seam++)
             {
-                var shotDateStr = seam switch
+                var shotDate = seam switch
                 {
                     1 => inc.Seam1ShotDateTime,
                     2 => inc.Seam2ShotDateTime,
                     3 => inc.Seam3ShotDateTime,
                     4 => inc.Seam4ShotDateTime,
-                    _ => null
+                    _ => (DateTime?)null
                 };
                 var shotNo = seam switch
                 {
@@ -481,8 +499,9 @@ public class LogViewerService : ILogViewerService
                 if (string.IsNullOrEmpty(shotNo)) continue;
 
                 string dateKey;
-                if (!string.IsNullOrEmpty(shotDateStr) && DateTime.TryParse(shotDateStr, out var shotDt))
+                if (shotDate.HasValue)
                 {
+                    var shotDt = shotDate.Value;
                     var local = TimeZoneInfo.ConvertTimeFromUtc(shotDt.Kind == DateTimeKind.Utc ? shotDt : DateTime.SpecifyKind(shotDt, DateTimeKind.Utc), tz);
                     dateKey = local.ToString("MM/dd/yyyy");
                 }

@@ -313,9 +313,9 @@ public class LogViewerServiceTests
             TankSize = 500,
             InspectTank = "020401 (OX)",
             Seam1ShotNo = "1",
-            Seam1ShotDateTime = DateTime.UtcNow.ToString("O"),
+            Seam1ShotDateTime = DateTime.UtcNow,
             Seam2ShotNo = "2",
-            Seam2ShotDateTime = DateTime.UtcNow.ToString("O"),
+            Seam2ShotDateTime = DateTime.UtcNow,
             CreatedDateTime = DateTime.UtcNow
         });
         await db.SaveChangesAsync();

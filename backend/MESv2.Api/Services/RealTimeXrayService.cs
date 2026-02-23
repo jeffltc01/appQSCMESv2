@@ -159,7 +159,6 @@ public class RealTimeXrayService : IRealTimeXrayService
                     {
                         Id = Guid.NewGuid(),
                         ProductionRecordId = productionRecord.Id,
-                        InspectionRecordId = inspectionRecord.Id,
                         SerialNumberId = serialNumber.Id,
                         DefectCodeId = defect.DefectID,
                         CharacteristicId = controlPlan.CharacteristicId,

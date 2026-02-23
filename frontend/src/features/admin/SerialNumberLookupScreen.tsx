@@ -2,6 +2,12 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  DialogActions,
   Input,
   Select,
   Spinner,
@@ -11,12 +17,15 @@ import {
   CheckmarkCircleFilled,
   DismissCircleFilled,
   SubtractCircleFilled,
+  FlagFilled,
+  FlagRegular,
+  DismissRegular,
 } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { siteApi, serialNumberApi } from '../../api/endpoints.ts';
-import type { Plant, TraceabilityNode, ManufacturingEvent, SerialNumberLookup } from '../../types/domain.ts';
-import { formatDateTime } from '../../utils/dateFormat.ts';
+import type { Plant, TraceabilityNode, ManufacturingEvent, SerialNumberLookup, LogAnnotationBadge } from '../../types/domain.ts';
+import { formatDateTime, formatShortDateTime } from '../../utils/dateFormat.ts';
 import styles from './SerialNumberLookupScreen.module.css';
 
 const NODE_TYPE_COLORS: Record<string, { bg: string; label: string }> = {
@@ -237,7 +246,39 @@ function HeroCard({
   );
 }
 
+function AnnotationFlags({
+  badges,
+  onViewDetail,
+}: {
+  badges: LogAnnotationBadge[];
+  onViewDetail: (badge: LogAnnotationBadge) => void;
+}) {
+  return (
+    <div className={styles.annotCell}>
+      {badges.length > 0
+        ? badges.map((b, i) => (
+            <button
+              key={i}
+              className={styles.flagBtn}
+              onClick={() => onViewDetail(b)}
+              title={`${b.typeName} — click to view details`}
+              type="button"
+            >
+              <FlagFilled
+                fontSize={18}
+                className={styles.flagActive}
+                style={{ color: b.color }}
+              />
+            </button>
+          ))
+        : <FlagRegular fontSize={18} className={styles.flagInactive} />}
+    </div>
+  );
+}
+
 function EventsPanel({ events }: { events: EventWithSource[] }) {
+  const [detailBadge, setDetailBadge] = useState<LogAnnotationBadge | null>(null);
+
   return (
     <div className={styles.eventsPane} data-testid="events-panel">
       <div className={styles.eventsPaneTitle}>Manufacturing Events</div>
@@ -248,6 +289,7 @@ function EventsPanel({ events }: { events: EventWithSource[] }) {
           const badgeColor = NODE_TYPE_COLORS[item.nodeType]?.bg ?? '#6c757d';
           return (
             <div key={i} className={styles.eventRow}>
+              <AnnotationFlags badges={item.event.annotations ?? []} onViewDetail={setDetailBadge} />
               <span className={styles.eventSerialBadge} style={{ background: `${badgeColor}18`, color: badgeColor }}>
                 {item.nodeSerial}
               </span>
@@ -266,6 +308,73 @@ function EventsPanel({ events }: { events: EventWithSource[] }) {
           );
         })
       )}
+
+      <Dialog open={detailBadge !== null} onOpenChange={(_, data) => { if (!data.open) setDetailBadge(null); }}>
+        <DialogSurface className={styles.detailSurface}>
+          <DialogBody>
+            <DialogTitle
+              action={
+                <Button
+                  appearance="subtle"
+                  aria-label="close"
+                  icon={<DismissRegular />}
+                  onClick={() => setDetailBadge(null)}
+                />
+              }
+            >
+              Annotation Details
+            </DialogTitle>
+            <DialogContent>
+              {detailBadge && (
+                <div className={styles.detailGrid}>
+                  <div className={styles.detailLabel}>Type</div>
+                  <div className={styles.detailValue}>
+                    <span className={styles.detailTypeDot} style={{ background: detailBadge.color }} />
+                    {detailBadge.typeName}
+                  </div>
+
+                  <div className={styles.detailLabel}>Status</div>
+                  <div className={styles.detailValue}>
+                    <span className={detailBadge.status === 'Open' ? styles.statusOpen : styles.statusResolved}>
+                      {detailBadge.status}
+                    </span>
+                  </div>
+
+                  <div className={styles.detailLabel}>Created</div>
+                  <div className={styles.detailValue}>{formatShortDateTime(detailBadge.createdAt)}</div>
+
+                  <div className={styles.detailLabel}>Initiated By</div>
+                  <div className={styles.detailValue}>{detailBadge.initiatedByName || '—'}</div>
+
+                  {detailBadge.notes && (
+                    <>
+                      <div className={styles.detailLabel}>Notes</div>
+                      <div className={styles.detailValue}>{detailBadge.notes}</div>
+                    </>
+                  )}
+
+                  {detailBadge.resolvedByName && (
+                    <>
+                      <div className={styles.detailLabel}>Resolved By</div>
+                      <div className={styles.detailValue}>{detailBadge.resolvedByName}</div>
+                    </>
+                  )}
+
+                  {detailBadge.resolvedNotes && (
+                    <>
+                      <div className={styles.detailLabel}>Resolution Notes</div>
+                      <div className={styles.detailValue}>{detailBadge.resolvedNotes}</div>
+                    </>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="primary" onClick={() => setDetailBadge(null)}>Close</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   );
 }

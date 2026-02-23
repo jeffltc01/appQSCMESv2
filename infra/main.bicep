@@ -1,7 +1,8 @@
 targetScope = 'resourceGroup'
 
-@description('Environment name: test or prod')
+@description('Environment name: dev, test, or prod')
 @allowed([
+  'dev'
   'test'
   'prod'
 ])

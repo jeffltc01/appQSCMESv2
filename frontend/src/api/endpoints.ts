@@ -125,6 +125,9 @@ import type {
   HydroLogEntry,
   RtXrayLogEntry,
   SpotXrayLogResponse,
+  SpotXrayLaneQueues,
+  SpotXrayIncrementSummary,
+  SpotXrayIncrementDetail,
   SupervisorDashboardMetrics,
   SupervisorRecord,
   PerformanceTableResponse,
@@ -561,4 +564,42 @@ export const capacityTargetApi = {
     api.put<CapacityTarget[]>('/capacity-targets/bulk', req),
   getTankSizes: (plantId: string) =>
     api.get<number[]>(`/capacity-targets/tank-sizes?plantId=${encodeURIComponent(plantId)}`),
+};
+
+export const spotXrayApi = {
+  getLaneQueues: (siteCode: string) =>
+    api.get<SpotXrayLaneQueues>(`/spot-xray/lanes?siteCode=${encodeURIComponent(siteCode)}`),
+  createIncrements: (req: {
+    workCenterId: string;
+    productionLineId: string;
+    operatorId: string;
+    siteCode: string;
+    laneSelections: { laneName: string; selectedPositions: number[] }[];
+  }) =>
+    api.post<{ increments: SpotXrayIncrementSummary[] }>('/spot-xray/increments', req),
+  getIncrement: (id: string) =>
+    api.get<SpotXrayIncrementDetail>(`/spot-xray/increments/${id}`),
+  getRecentIncrements: (siteCode: string) =>
+    api.get<SpotXrayIncrementSummary[]>(`/spot-xray/increments/recent?siteCode=${encodeURIComponent(siteCode)}`),
+  saveResults: (id: string, req: {
+    inspectTankId?: string;
+    isDraft: boolean;
+    operatorId: string;
+    seams: {
+      seamNumber: number;
+      shotNo?: string;
+      result?: string;
+      trace1ShotNo?: string;
+      trace1TankId?: string;
+      trace1Result?: string;
+      trace2ShotNo?: string;
+      trace2TankId?: string;
+      trace2Result?: string;
+      finalShotNo?: string;
+      finalResult?: string;
+    }[];
+  }) =>
+    api.put<SpotXrayIncrementDetail>(`/spot-xray/increments/${id}`, req),
+  getNextShotNumber: (plantId: string) =>
+    api.post<{ shotNumber: number }>('/spot-xray/shot-number', { plantId }),
 };

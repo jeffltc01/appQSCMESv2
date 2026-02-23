@@ -498,6 +498,7 @@ export interface ManufacturingEvent {
   completedBy: string;
   assetName?: string;
   inspectionResult?: string;
+  annotations: LogAnnotationBadge[];
 }
 
 export interface SerialNumberLookup {
@@ -507,6 +508,8 @@ export interface SerialNumberLookup {
 
 export interface SellableTankStatus {
   serialNumber: string;
+  alphaCode: string | null;
+  shellSerials: string[];
   productNumber: string;
   tankSize: number;
   rtXrayResult: string | null;
@@ -552,8 +555,16 @@ export interface AIReviewRecord {
 // ---- Log Viewer types ----
 
 export interface LogAnnotationBadge {
+  id: string;
   abbreviation: string;
   color: string;
+  typeName: string;
+  status: string;
+  notes?: string;
+  initiatedByName: string;
+  resolvedByName?: string;
+  resolvedNotes?: string;
+  createdAt: string;
 }
 
 export interface RollsLogEntry {
@@ -603,6 +614,84 @@ export interface RtXrayLogEntry {
   result?: string;
   defects?: string;
   annotations: LogAnnotationBadge[];
+}
+
+// ---- Spot X-ray Operator types ----
+
+export interface SpotXrayQueueTank {
+  position: number;
+  assemblySerialNumberId: string;
+  alphaCode: string;
+  shellSerials: string[];
+  tankSize: number;
+  weldType: string;
+  welderNames: string[];
+  welderIds: string[];
+  sizeChanged: boolean;
+  welderChanged: boolean;
+}
+
+export interface SpotXrayLane {
+  laneName: string;
+  draftCount: number;
+  tanks: SpotXrayQueueTank[];
+}
+
+export interface SpotXrayLaneQueues {
+  lanes: SpotXrayLane[];
+}
+
+export interface SpotXrayIncrementSummary {
+  id: string;
+  incrementNo: string;
+  laneNo: string;
+  tankSize?: number;
+  overallStatus: string;
+  isDraft: boolean;
+}
+
+export interface SpotXrayIncrementTank {
+  serialNumberId: string;
+  alphaCode: string;
+  shellSerials: string[];
+  position: number;
+}
+
+export interface SpotXraySeam {
+  seamNumber: number;
+  welderName?: string;
+  welderId?: string;
+  shotNo?: string;
+  shotDateTime?: string;
+  result?: string;
+  trace1ShotNo?: string;
+  trace1DateTime?: string;
+  trace1TankId?: string;
+  trace1TankAlpha?: string;
+  trace1Result?: string;
+  trace2ShotNo?: string;
+  trace2DateTime?: string;
+  trace2TankId?: string;
+  trace2TankAlpha?: string;
+  trace2Result?: string;
+  finalShotNo?: string;
+  finalDateTime?: string;
+  finalResult?: string;
+}
+
+export interface SpotXrayIncrementDetail {
+  id: string;
+  incrementNo: string;
+  overallStatus: string;
+  laneNo: string;
+  isDraft: boolean;
+  tankSize?: number;
+  seamCount: number;
+  inspectTankId?: string;
+  inspectTankAlpha?: string;
+  tanks: SpotXrayIncrementTank[];
+  seams: SpotXraySeam[];
+  createdDateTime?: string;
 }
 
 export interface SpotXrayShotCount {

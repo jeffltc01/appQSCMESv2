@@ -1,4 +1,4 @@
-@description('Environment name (test or prod)')
+@description('Environment name (dev, test, or prod)')
 param environmentName string
 
 @description('Azure region for the resources')
@@ -12,6 +12,11 @@ param keyVaultName string
 
 var appServicePlanName = 'mes-${environmentName}-plan'
 var webAppName = 'mes-${environmentName}-app'
+var aspnetEnvMap = {
+  dev: 'Dev'
+  test: 'Test'
+  prod: 'Production'
+}
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: appServicePlanName
@@ -38,6 +43,10 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
       alwaysOn: skuName != 'F1'
       healthCheckPath: '/healthz'
       appSettings: [
+        {
+          name: 'ASPNETCORE_ENVIRONMENT'
+          value: aspnetEnvMap[environmentName]
+        }
         {
           name: 'ConnectionStrings__DefaultConnection'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=ConnectionStrings--DefaultConnection)'

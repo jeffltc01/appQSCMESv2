@@ -61,4 +61,5 @@ public class ManufacturingEventDto
     public string CompletedBy { get; set; } = string.Empty;
     public string? AssetName { get; set; }
     public string? InspectionResult { get; set; }
+    public List<LogAnnotationBadgeDto> Annotations { get; set; } = new();
 }

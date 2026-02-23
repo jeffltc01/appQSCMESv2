@@ -86,6 +86,7 @@ export function OperatorLayout() {
 
   const dataEntryType = cache?.cachedDataEntryType ?? '';
   const helpArticle = useCurrentHelpArticle(dataEntryType);
+  const hideHistory = dataEntryType === 'Spot';
   const weldersSatisfied = welders.length >= numberOfWelders;
   const showWelderGate = numberOfWelders > 0 && !weldersSatisfied;
 
@@ -387,20 +388,25 @@ export function OperatorLayout() {
 
         <main
           className={styles.content}
-          style={{ pointerEvents: externalInput ? 'none' : 'auto' }}
+          style={{
+            pointerEvents: externalInput ? 'none' : 'auto',
+            ...(hideHistory ? { flex: 1, maxWidth: '100%' } : {}),
+          }}
         >
           <Routes>
             <Route index element={<WorkCenterRouter {...wcProps} />} />
           </Routes>
         </main>
 
-        <aside className={styles.rightPanel}>
-          {isQueueScreen ? (
-            <QueueHistory transactions={queueTransactions} />
-          ) : (
-            <WCHistory data={historyData} logType={dataEntryTypeToLogType(dataEntryType)} operatorId={user?.id} onAnnotationCreated={refreshHistory} />
-          )}
-        </aside>
+        {!hideHistory && (
+          <aside className={styles.rightPanel}>
+            {isQueueScreen ? (
+              <QueueHistory transactions={queueTransactions} />
+            ) : (
+              <WCHistory data={historyData} logType={dataEntryTypeToLogType(dataEntryType)} operatorId={user?.id} onAnnotationCreated={refreshHistory} />
+            )}
+          </aside>
+        )}
       </div>
 
       <BottomBar

@@ -171,8 +171,67 @@
   font-style: italic;
 }
 
+.flagBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.flagBtn:hover {
+  opacity: 0.7;
+}
+
 .annotModalRow {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.detailSurface {
+  max-width: 420px;
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.detailLabel {
+  font-weight: 600;
+  color: #495057;
+  white-space: nowrap;
+}
+
+.detailValue {
+  color: #212529;
+  word-break: break-word;
+}
+
+.detailTypeDot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.statusOpen {
+  color: #e67700;
+  font-weight: 600;
+}
+
+.statusResolved {
+  color: #2b8a3e;
+  font-weight: 600;
 }

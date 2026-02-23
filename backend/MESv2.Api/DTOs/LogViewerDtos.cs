@@ -2,8 +2,16 @@ namespace MESv2.Api.DTOs;
 
 public class LogAnnotationBadgeDto
 {
+    public Guid Id { get; set; }
     public string Abbreviation { get; set; } = string.Empty;
     public string Color { get; set; } = "#212529";
+    public string TypeName { get; set; } = string.Empty;
+    public string Status { get; set; } = "Open";
+    public string? Notes { get; set; }
+    public string InitiatedByName { get; set; } = string.Empty;
+    public string? ResolvedByName { get; set; }
+    public string? ResolvedNotes { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class RollsLogEntryDto

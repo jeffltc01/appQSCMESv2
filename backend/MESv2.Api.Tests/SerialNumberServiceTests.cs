@@ -412,6 +412,41 @@ public class SerialNumberServiceTests
     }
 
     [Fact]
+    public async Task GetLookup_EventsIncludeAnnotationBadges()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var h = SeedFullHierarchy(db);
+
+        var noteTypeId = Guid.Parse("a1000001-0000-0000-0000-000000000001");
+        db.Annotations.Add(new Annotation
+        {
+            Id = Guid.NewGuid(),
+            ProductionRecordId = h.ShellPr.Id,
+            SerialNumberId = h.Shell1Sn.Id,
+            AnnotationTypeId = noteTypeId,
+            InitiatedByUserId = TestHelpers.TestUserId,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SELL-001");
+
+        Assert.NotNull(result);
+        var assemblyNode = result.TreeNodes[0].Children[0];
+        var shellNode = assemblyNode.Children.First(c => c.NodeType == "shell" && c.Serial == "SH-001");
+        Assert.Single(shellNode.Events);
+        Assert.Single(shellNode.Events[0].Annotations);
+        var badge = shellNode.Events[0].Annotations[0];
+        Assert.Equal("Note", badge.TypeName);
+        Assert.Equal("N", badge.Abbreviation);
+        Assert.Equal("#cc00ff", badge.Color);
+
+        Assert.Single(result.TreeNodes[0].Events);
+        Assert.Empty(result.TreeNodes[0].Events[0].Annotations);
+    }
+
+    [Fact]
     public async Task GetLookup_EnrichedNodeFields_ArePopulated()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

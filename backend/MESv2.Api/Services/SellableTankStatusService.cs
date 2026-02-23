@@ -52,9 +52,23 @@ public class SellableTankStatusService : ISellableTankStatusService
                 && t.FromSerialNumberId != null)
             .ToListAsync(cancellationToken);
 
+        var allShellIds = shellLogs.Select(t => t.FromSerialNumberId!.Value).Distinct().ToList();
+
+        var assemblySerials = await _db.SerialNumbers
+            .Where(s => assemblyIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Serial })
+            .ToListAsync(cancellationToken);
+        var assemblySerialMap = assemblySerials.ToDictionary(a => a.Id, a => a.Serial);
+
+        var shellSerials = await _db.SerialNumbers
+            .Where(s => allShellIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.Serial })
+            .ToListAsync(cancellationToken);
+        var shellSerialMap = shellSerials.ToDictionary(s => s.Id, s => s.Serial);
+
         var allRelatedSnIds = new HashSet<Guid>(sellableIds);
         allRelatedSnIds.UnionWith(assemblyIds);
-        allRelatedSnIds.UnionWith(shellLogs.Select(t => t.FromSerialNumberId!.Value));
+        allRelatedSnIds.UnionWith(allShellIds);
 
         var gateCheckCpIds = await _db.ControlPlans
             .Where(cp => cp.IsGateCheck && cp.IsEnabled && cp.IsActive)
@@ -66,6 +80,31 @@ public class SellableTankStatusService : ISellableTankStatusService
             .Where(i => allRelatedSnIds.Contains(i.SerialNumberId)
                 && gateCheckCpIds.Contains(i.ControlPlanId))
             .ToListAsync(cancellationToken);
+
+        // Spot X-ray: query increments directly for assemblies
+        var spotIncrementTanks = assemblyIds.Count > 0
+            ? await _db.SpotXrayIncrementTanks
+                .Include(t => t.SpotXrayIncrement)
+                .Where(t => assemblyIds.Contains(t.SerialNumberId)
+                         && !t.SpotXrayIncrement.IsDraft)
+                .ToListAsync(cancellationToken)
+            : new List<Models.SpotXrayIncrementTank>();
+
+        var spotResultByAssembly = new Dictionary<Guid, string>();
+        foreach (var sit in spotIncrementTanks)
+        {
+            var inc = sit.SpotXrayIncrement;
+            string tankResult;
+            if (inc.OverallStatus == "Reject")
+                tankResult = "Reject";
+            else if (inc.OverallStatus == "Accept-Scrap" && sit.SerialNumberId == inc.InspectTankId)
+                tankResult = "Reject";
+            else if (inc.OverallStatus == "Accept" || inc.OverallStatus == "Accept-Scrap")
+                tankResult = "Accept";
+            else
+                continue;
+            spotResultByAssembly.TryAdd(sit.SerialNumberId, tankResult);
+        }
 
         var result = new List<SellableTankStatusDto>();
 
@@ -90,9 +129,25 @@ public class SellableTankStatusService : ISellableTankStatusService
                 ClassifyGateResult(charName, insp.ResultText, ref rtXray, ref spotXray, ref hydro);
             }
 
+            if (assemblyId.HasValue && spotResultByAssembly.TryGetValue(assemblyId.Value, out var spotRes))
+                spotXray ??= spotRes;
+
+            string? alphaCode = null;
+            var shellSerialList = new List<string>();
+            if (assemblyId.HasValue)
+            {
+                assemblySerialMap.TryGetValue(assemblyId.Value, out alphaCode);
+                shellSerialList = shellIds
+                    .Select(sid => shellSerialMap.GetValueOrDefault(sid, ""))
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+            }
+
             result.Add(new SellableTankStatusDto
             {
                 SerialNumber = sellable.Serial,
+                AlphaCode = alphaCode,
+                ShellSerials = shellSerialList,
                 ProductNumber = sellable.Product?.ProductNumber ?? "",
                 TankSize = sellable.Product?.TankSize ?? 0,
                 RtXrayResult = rtXray,

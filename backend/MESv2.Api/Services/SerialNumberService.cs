@@ -361,6 +361,40 @@ public class SerialNumberService : ISerialNumberService
         var prodRecordIdsWithInspection = new HashSet<Guid>(
             inspRecords.Select(i => i.ProductionRecordId));
 
+        var allProdRecordIds = prodRecords.Select(r => r.Id)
+            .Union(inspRecords.Select(i => i.ProductionRecordId))
+            .Distinct().ToList();
+
+        var annotationsByProdId = new Dictionary<Guid, List<LogAnnotationBadgeDto>>();
+        if (allProdRecordIds.Count > 0)
+        {
+            var annotations = await _db.Annotations
+                .Include(a => a.AnnotationType)
+                .Include(a => a.InitiatedByUser)
+                .Include(a => a.ResolvedByUser)
+                .Where(a => a.ProductionRecordId.HasValue && allProdRecordIds.Contains(a.ProductionRecordId.Value))
+                .ToListAsync(ct);
+
+            annotationsByProdId = annotations
+                .GroupBy(a => a.ProductionRecordId!.Value)
+                .ToDictionary(g => g.Key, g => g
+                    .OrderByDescending(a => a.AnnotationType.RequiresResolution)
+                    .ThenByDescending(a => a.CreatedAt)
+                    .Select(a => new LogAnnotationBadgeDto
+                    {
+                        Id = a.Id,
+                        Abbreviation = a.AnnotationType.Abbreviation ?? a.AnnotationType.Name[..1],
+                        Color = a.AnnotationType.DisplayColor ?? "#212529",
+                        TypeName = a.AnnotationType.Name,
+                        Status = a.Status.ToString(),
+                        Notes = a.Notes,
+                        InitiatedByName = a.InitiatedByUser?.DisplayName ?? "",
+                        ResolvedByName = a.ResolvedByUser?.DisplayName,
+                        ResolvedNotes = a.ResolvedNotes,
+                        CreatedAt = a.CreatedAt
+                    }).ToList());
+        }
+
         var prodBySnId = prodRecords.GroupBy(r => r.SerialNumberId)
             .ToDictionary(g => g.Key, g => g.ToList());
         var inspBySnId = inspRecords.GroupBy(i => i.SerialNumberId)
@@ -384,7 +418,8 @@ public class SerialNumberService : ISerialNumberService
                         Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
                         CompletedBy = r.Operator?.DisplayName ?? "",
                         AssetName = r.Asset?.Name,
-                        InspectionResult = null
+                        InspectionResult = null,
+                        Annotations = annotationsByProdId.GetValueOrDefault(r.Id) ?? new()
                     }));
             }
 
@@ -404,7 +439,8 @@ public class SerialNumberService : ISerialNumberService
                     Type = i.ControlPlan?.Characteristic?.Name ?? i.WorkCenter?.WorkCenterType?.Name ?? "Inspection",
                     CompletedBy = i.Operator?.DisplayName ?? "",
                     AssetName = assetLookup.GetValueOrDefault(i.ProductionRecordId),
-                    InspectionResult = i.ResultText
+                    InspectionResult = i.ResultText,
+                    Annotations = annotationsByProdId.GetValueOrDefault(i.ProductionRecordId) ?? new()
                 }));
             }
 

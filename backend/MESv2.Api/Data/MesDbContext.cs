@@ -39,6 +39,8 @@ public class MesDbContext : DbContext
     public DbSet<RoundSeamSetup> RoundSeamSetups => Set<RoundSeamSetup>();
     public DbSet<ActiveSession> ActiveSessions => Set<ActiveSession>();
     public DbSet<SpotXrayIncrement> SpotXrayIncrements => Set<SpotXrayIncrement>();
+    public DbSet<SpotXrayIncrementTank> SpotXrayIncrementTanks => Set<SpotXrayIncrementTank>();
+    public DbSet<XrayShotCounter> XrayShotCounters => Set<XrayShotCounter>();
     public DbSet<SiteSchedule> SiteSchedules => Set<SiteSchedule>();
     public DbSet<WorkCenterProductionLine> WorkCenterProductionLines => Set<WorkCenterProductionLine>();
     public DbSet<VendorPlant> VendorPlants => Set<VendorPlant>();
@@ -460,6 +462,7 @@ public class MesDbContext : DbContext
             .HasForeignKey(t => t.ProductionRecordId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // ----- SpotXrayIncrement -----
         modelBuilder.Entity<SpotXrayIncrement>()
             .HasOne(s => s.ProductionRecord)
             .WithMany()
@@ -471,6 +474,30 @@ public class MesDbContext : DbContext
             .HasForeignKey(s => s.InspectTankId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Welder1).WithMany().HasForeignKey(s => s.Welder1Id).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Welder2).WithMany().HasForeignKey(s => s.Welder2Id).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Welder3).WithMany().HasForeignKey(s => s.Welder3Id).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Welder4).WithMany().HasForeignKey(s => s.Welder4Id).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam1Trace1Tank).WithMany().HasForeignKey(s => s.Seam1Trace1TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam1Trace2Tank).WithMany().HasForeignKey(s => s.Seam1Trace2TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam2Trace1Tank).WithMany().HasForeignKey(s => s.Seam2Trace1TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam2Trace2Tank).WithMany().HasForeignKey(s => s.Seam2Trace2TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam3Trace1Tank).WithMany().HasForeignKey(s => s.Seam3Trace1TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam3Trace2Tank).WithMany().HasForeignKey(s => s.Seam3Trace2TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam4Trace1Tank).WithMany().HasForeignKey(s => s.Seam4Trace1TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
+            .HasOne(s => s.Seam4Trace2Tank).WithMany().HasForeignKey(s => s.Seam4Trace2TankId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SpotXrayIncrement>()
             .HasOne(s => s.CreatedByUser)
             .WithMany()
             .HasForeignKey(s => s.CreatedByUserId)
@@ -479,6 +506,25 @@ public class MesDbContext : DbContext
             .HasOne(s => s.ModifiedByUser)
             .WithMany()
             .HasForeignKey(s => s.ModifiedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ----- SpotXrayIncrementTank -----
+        modelBuilder.Entity<SpotXrayIncrementTank>()
+            .HasOne(t => t.SpotXrayIncrement)
+            .WithMany(i => i.IncrementTanks)
+            .HasForeignKey(t => t.SpotXrayIncrementId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SpotXrayIncrementTank>()
+            .HasOne(t => t.SerialNumber)
+            .WithMany()
+            .HasForeignKey(t => t.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ----- XrayShotCounter -----
+        modelBuilder.Entity<XrayShotCounter>()
+            .HasOne(c => c.Plant)
+            .WithMany()
+            .HasForeignKey(c => c.PlantId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<SiteSchedule>()
@@ -569,6 +615,11 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<SerialNumber>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.ManufacturingLogId);
         modelBuilder.Entity<SpotXrayIncrement>().HasIndex(s => s.InspectTankId);
+        modelBuilder.Entity<SpotXrayIncrementTank>().HasIndex(t => t.SpotXrayIncrementId);
+        modelBuilder.Entity<SpotXrayIncrementTank>().HasIndex(t => t.SerialNumberId);
+        modelBuilder.Entity<XrayShotCounter>()
+            .HasIndex(c => new { c.PlantId, c.CounterDate })
+            .IsUnique();
         modelBuilder.Entity<SiteSchedule>().HasIndex(s => s.PlantId);
         modelBuilder.Entity<WorkCenterProductionLine>()
             .HasIndex(wcpl => new { wcpl.WorkCenterId, wcpl.ProductionLineId })

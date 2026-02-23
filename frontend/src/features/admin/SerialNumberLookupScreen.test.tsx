@@ -59,6 +59,18 @@ const mockLookupResult = {
           completedBy: 'Jane Smith',
           assetName: undefined,
           inspectionResult: 'Acceptable',
+          annotations: [
+            {
+              id: 'annot-1',
+              abbreviation: 'N',
+              color: '#cc00ff',
+              typeName: 'Note',
+              status: 'Open',
+              notes: 'Test annotation',
+              initiatedByName: 'Admin User',
+              createdAt: '2026-02-14T11:00:00Z',
+            },
+          ],
         },
       ],
       children: [
@@ -82,6 +94,7 @@ const mockLookupResult = {
               completedBy: 'Bob Fitter',
               assetName: undefined,
               inspectionResult: undefined,
+              annotations: [],
             },
             {
               serialNumberId: 'assy-1',
@@ -92,6 +105,7 @@ const mockLookupResult = {
               completedBy: 'Xray Tech',
               assetName: undefined,
               inspectionResult: 'Rejected',
+              annotations: [],
             },
           ],
           children: [
@@ -114,6 +128,7 @@ const mockLookupResult = {
                   completedBy: 'John Doe',
                   assetName: 'Welder A',
                   inspectionResult: undefined,
+                  annotations: [],
                 },
               ],
             },
@@ -396,6 +411,34 @@ describe('SerialNumberLookupScreen', () => {
     await waitFor(() => {
       expect(screen.getByTestId('gate-child-1')).toBeInTheDocument();
     });
+  });
+
+  it('shows colored annotation flags that are clickable for details', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('events-panel')).toBeInTheDocument();
+    });
+
+    const panel = screen.getByTestId('events-panel');
+    const flagButtons = panel.querySelectorAll('button[title*="click to view details"]');
+    expect(flagButtons.length).toBe(1);
+    expect(flagButtons[0].getAttribute('title')).toContain('Note');
+
+    await user.click(flagButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Annotation Details')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Note')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Test annotation')).toBeInTheDocument();
+    expect(screen.getByText('Admin User')).toBeInTheDocument();
   });
 
   it('does not show gate icon on non-gate-check nodes like heads', async () => {

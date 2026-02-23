@@ -1,12 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
+  Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  DialogActions,
   Input,
   Label,
   Select,
   Spinner,
 } from '@fluentui/react-components';
-import { FlagFilled, FlagRegular } from '@fluentui/react-icons';
+import { DismissRegular, FlagFilled, FlagRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { logViewerApi, siteApi, adminAnnotationTypeApi } from '../../api/endpoints.ts';
@@ -49,9 +56,11 @@ function ResultCell({ result }: { result?: string }) {
 function AnnotationBadges({
   badges,
   onAdd,
+  onViewDetail,
 }: {
   badges: LogAnnotationBadge[];
   onAdd: () => void;
+  onViewDetail: (badge: LogAnnotationBadge) => void;
 }) {
   return (
     <div className={styles.annotCell}>
@@ -65,13 +74,19 @@ function AnnotationBadges({
       </button>
       {badges.length > 0
         ? badges.map((b, i) => (
-            <FlagFilled
+            <button
               key={i}
-              fontSize={18}
-              className={styles.flagActive}
-              style={{ color: b.color }}
-              title={b.abbreviation}
-            />
+              className={styles.flagBtn}
+              onClick={() => onViewDetail(b)}
+              title={`${b.typeName} — click to view details`}
+              type="button"
+            >
+              <FlagFilled
+                fontSize={18}
+                className={styles.flagActive}
+                style={{ color: b.color }}
+              />
+            </button>
           ))
         : <FlagRegular fontSize={18} className={styles.flagInactive} />}
     </div>
@@ -105,6 +120,8 @@ export function ProductionLogsScreen() {
   const [annotNotes, setAnnotNotes] = useState('');
   const [annotSaving, setAnnotSaving] = useState(false);
   const [annotError, setAnnotError] = useState('');
+
+  const [detailBadge, setDetailBadge] = useState<LogAnnotationBadge | null>(null);
 
   useEffect(() => {
     siteApi.getSites().then(setSites).catch(() => {});
@@ -189,6 +206,10 @@ export function ProductionLogsScreen() {
     } finally {
       setAnnotSaving(false);
     }
+  };
+
+  const openDetail = (badge: LogAnnotationBadge) => {
+    setDetailBadge(badge);
   };
 
   const operatorCreatableTypes = annotationTypes.filter((t) => t.operatorCanCreate);
@@ -283,19 +304,19 @@ export function ProductionLogsScreen() {
           <div className={styles.countLabel}>Showing {entries.length} records</div>
           <div className={styles.tableContainer}>
             {logType === 'rolls' && (
-              <RollsTable entries={entries as RollsLogEntry[]} onAddAnnot={openAnnotModal} />
+              <RollsTable entries={entries as RollsLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
             )}
             {logType === 'fitup' && (
-              <FitupTable entries={entries as FitupLogEntry[]} onAddAnnot={openAnnotModal} />
+              <FitupTable entries={entries as FitupLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
             )}
             {logType === 'hydro' && (
-              <HydroTable entries={entries as HydroLogEntry[]} onAddAnnot={openAnnotModal} />
+              <HydroTable entries={entries as HydroLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
             )}
             {logType === 'rt-xray' && (
-              <RtXrayTable entries={entries as RtXrayLogEntry[]} onAddAnnot={openAnnotModal} />
+              <RtXrayTable entries={entries as RtXrayLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
             )}
             {logType === 'spot-xray' && (
-              <SpotXrayTable entries={entries as SpotXrayLogEntry[]} onAddAnnot={openAnnotModal} />
+              <SpotXrayTable entries={entries as SpotXrayLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
             )}
           </div>
         </>
@@ -329,6 +350,73 @@ export function ProductionLogsScreen() {
           />
         </div>
       </AdminModal>
+
+      <Dialog open={detailBadge !== null} onOpenChange={(_, data) => { if (!data.open) setDetailBadge(null); }}>
+        <DialogSurface className={styles.detailSurface}>
+          <DialogBody>
+            <DialogTitle
+              action={
+                <Button
+                  appearance="subtle"
+                  aria-label="close"
+                  icon={<DismissRegular />}
+                  onClick={() => setDetailBadge(null)}
+                />
+              }
+            >
+              Annotation Details
+            </DialogTitle>
+            <DialogContent>
+              {detailBadge && (
+                <div className={styles.detailGrid}>
+                  <div className={styles.detailLabel}>Type</div>
+                  <div className={styles.detailValue}>
+                    <span className={styles.detailTypeDot} style={{ background: detailBadge.color }} />
+                    {detailBadge.typeName}
+                  </div>
+
+                  <div className={styles.detailLabel}>Status</div>
+                  <div className={styles.detailValue}>
+                    <span className={detailBadge.status === 'Open' ? styles.statusOpen : styles.statusResolved}>
+                      {detailBadge.status}
+                    </span>
+                  </div>
+
+                  <div className={styles.detailLabel}>Created</div>
+                  <div className={styles.detailValue}>{formatShortDateTime(detailBadge.createdAt)}</div>
+
+                  <div className={styles.detailLabel}>Initiated By</div>
+                  <div className={styles.detailValue}>{detailBadge.initiatedByName || '—'}</div>
+
+                  {detailBadge.notes && (
+                    <>
+                      <div className={styles.detailLabel}>Notes</div>
+                      <div className={styles.detailValue}>{detailBadge.notes}</div>
+                    </>
+                  )}
+
+                  {detailBadge.resolvedByName && (
+                    <>
+                      <div className={styles.detailLabel}>Resolved By</div>
+                      <div className={styles.detailValue}>{detailBadge.resolvedByName}</div>
+                    </>
+                  )}
+
+                  {detailBadge.resolvedNotes && (
+                    <>
+                      <div className={styles.detailLabel}>Resolution Notes</div>
+                      <div className={styles.detailValue}>{detailBadge.resolvedNotes}</div>
+                    </>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="primary" onClick={() => setDetailBadge(null)}>Close</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </AdminLayout>
   );
 }
@@ -336,9 +424,11 @@ export function ProductionLogsScreen() {
 function RollsTable({
   entries,
   onAddAnnot,
+  onViewDetail,
 }: {
   entries: RollsLogEntry[];
   onAddAnnot: (id: string) => void;
+  onViewDetail: (badge: LogAnnotationBadge) => void;
 }) {
   return (
     <table className={styles.table}>
@@ -363,7 +453,7 @@ function RollsTable({
             <td>{e.tankSize ?? ''}</td>
             <td>{e.welders.join(', ')}</td>
             <td>
-              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} />
+              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} onViewDetail={onViewDetail} />
             </td>
           </tr>
         ))}
@@ -375,9 +465,11 @@ function RollsTable({
 function FitupTable({
   entries,
   onAddAnnot,
+  onViewDetail,
 }: {
   entries: FitupLogEntry[];
   onAddAnnot: (id: string) => void;
+  onViewDetail: (badge: LogAnnotationBadge) => void;
 }) {
   return (
     <table className={styles.table}>
@@ -408,7 +500,7 @@ function FitupTable({
             <td>{e.tankSize ?? ''}</td>
             <td>{e.welders.join(', ')}</td>
             <td>
-              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} />
+              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} onViewDetail={onViewDetail} />
             </td>
           </tr>
         ))}
@@ -420,9 +512,11 @@ function FitupTable({
 function HydroTable({
   entries,
   onAddAnnot,
+  onViewDetail,
 }: {
   entries: HydroLogEntry[];
   onAddAnnot: (id: string) => void;
+  onViewDetail: (badge: LogAnnotationBadge) => void;
 }) {
   return (
     <table className={styles.table}>
@@ -451,7 +545,7 @@ function HydroTable({
             <td><ResultCell result={e.result} /></td>
             <td>{e.defectCount}</td>
             <td>
-              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} />
+              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} onViewDetail={onViewDetail} />
             </td>
           </tr>
         ))}
@@ -463,9 +557,11 @@ function HydroTable({
 function RtXrayTable({
   entries,
   onAddAnnot,
+  onViewDetail,
 }: {
   entries: RtXrayLogEntry[];
   onAddAnnot: (id: string) => void;
+  onViewDetail: (badge: LogAnnotationBadge) => void;
 }) {
   return (
     <table className={styles.table}>
@@ -490,7 +586,7 @@ function RtXrayTable({
             <td><ResultCell result={e.result} /></td>
             <td>{e.defects ?? ''}</td>
             <td>
-              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} />
+              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} onViewDetail={onViewDetail} />
             </td>
           </tr>
         ))}
@@ -502,9 +598,11 @@ function RtXrayTable({
 function SpotXrayTable({
   entries,
   onAddAnnot,
+  onViewDetail,
 }: {
   entries: SpotXrayLogEntry[];
   onAddAnnot: (id: string) => void;
+  onViewDetail: (badge: LogAnnotationBadge) => void;
 }) {
   return (
     <table className={styles.table}>
@@ -533,7 +631,7 @@ function SpotXrayTable({
               {e.shots ?? ''}
             </td>
             <td>
-              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} />
+              <AnnotationBadges badges={e.annotations} onAdd={() => onAddAnnot(e.id)} onViewDetail={onViewDetail} />
             </td>
           </tr>
         ))}

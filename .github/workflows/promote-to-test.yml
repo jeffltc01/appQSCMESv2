@@ -1,0 +1,200 @@
+name: Promote to Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm promoting to Test (copies Prod DB, deploys code)'
+        required: true
+        type: string
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  NODE_VERSION: "20"
+  BACKEND_PATH: backend/MESv2.Api
+  FRONTEND_PATH: frontend
+  PROD_RESOURCE_GROUP: rg-mes-prod
+  PROD_SQL_SERVER: mes-prod-sql
+  PROD_DB_NAME: MES-Prod
+  TEST_RESOURCE_GROUP: rg-mes-test
+  TEST_SQL_SERVER: mes-test-sql
+  TEST_DB_NAME: MES-Test
+  STORAGE_ACCOUNT: mesbacpacs
+  STORAGE_CONTAINER: bacpacs
+
+jobs:
+  copy-prod-db:
+    name: Copy Prod DB to Test
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    environment: test
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get storage account key
+        id: storage-key
+        run: |
+          KEY=$(az storage account keys list \
+            --resource-group ${{ env.PROD_RESOURCE_GROUP }} \
+            --account-name ${{ env.STORAGE_ACCOUNT }} \
+            --query '[0].value' -o tsv)
+          echo "::add-mask::$KEY"
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Export production database to BACPAC
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BACPAC_NAME="mes-prod-${TIMESTAMP}.bacpac"
+          echo "BACPAC_NAME=$BACPAC_NAME" >> "$GITHUB_ENV"
+
+          az sql db export \
+            --resource-group ${{ env.PROD_RESOURCE_GROUP }} \
+            --server ${{ env.PROD_SQL_SERVER }} \
+            --name ${{ env.PROD_DB_NAME }} \
+            --admin-user ${{ secrets.SQL_ADMIN_USER }} \
+            --admin-password ${{ secrets.SQL_ADMIN_PASSWORD }} \
+            --storage-key-type StorageAccessKey \
+            --storage-key ${{ steps.storage-key.outputs.key }} \
+            --storage-uri "https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.STORAGE_CONTAINER }}/${BACPAC_NAME}"
+
+          echo "Exported to ${BACPAC_NAME}"
+
+      - name: Delete existing test database
+        run: |
+          az sql db delete \
+            --resource-group ${{ env.TEST_RESOURCE_GROUP }} \
+            --server ${{ env.TEST_SQL_SERVER }} \
+            --name ${{ env.TEST_DB_NAME }} \
+            --yes || echo "Test database did not exist, continuing..."
+
+      - name: Import BACPAC into test server
+        run: |
+          az sql db import \
+            --resource-group ${{ env.TEST_RESOURCE_GROUP }} \
+            --server ${{ env.TEST_SQL_SERVER }} \
+            --name ${{ env.TEST_DB_NAME }} \
+            --admin-user ${{ secrets.SQL_ADMIN_USER }} \
+            --admin-password ${{ secrets.SQL_ADMIN_PASSWORD }} \
+            --storage-key-type StorageAccessKey \
+            --storage-key ${{ steps.storage-key.outputs.key }} \
+            --storage-uri "https://${{ env.STORAGE_ACCOUNT }}.blob.core.windows.net/${{ env.STORAGE_CONTAINER }}/${{ env.BACPAC_NAME }}"
+
+          echo "Import complete. Test database now has production data."
+
+  build-and-test:
+    name: Build & E2E Test
+    needs: [copy-prod-db]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
+
+      - name: Build backend
+        run: dotnet publish ${{ env.BACKEND_PATH }} -c Release -o ./publish/backend
+
+      - name: Build frontend
+        working-directory: ${{ env.FRONTEND_PATH }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run backend tests
+        run: dotnet test backend/MESv2.Api.Tests --configuration Release --verbosity normal
+
+      - name: Run frontend tests
+        working-directory: ${{ env.FRONTEND_PATH }}
+        run: npm test
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend
+          path: ./publish/backend
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: ${{ env.FRONTEND_PATH }}/dist
+
+  deploy-test:
+    name: Deploy to Test
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend
+          path: ./backend
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: ./frontend
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.BACKEND_APP_NAME }}
+          package: ./backend
+
+      - name: Deploy frontend to Azure Static Web Apps
+        uses: azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          action: upload
+          app_location: ./frontend
+          skip_app_build: true
+
+      - name: Summary
+        run: |
+          echo "## Promotion to Test Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Prod DB copied to Test** — EF migrations will run on app startup" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend deployed** to \`${{ vars.BACKEND_APP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend deployed** to Test Static Web App" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Verify the Test environment before promoting to Production." >> $GITHUB_STEP_SUMMARY
