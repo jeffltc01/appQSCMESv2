@@ -11,6 +11,9 @@ param environmentName string
 @description('Azure region for all resources')
 param location string = resourceGroup().location
 
+@description('Azure region for Static Web App (SWA is not available in all regions)')
+param swaLocation string = 'eastus2'
+
 @description('SQL Server administrator login')
 param sqlAdminUser string
 
@@ -53,7 +56,7 @@ module swa 'modules/staticWebApp.bicep' = {
   name: 'swa-${environmentName}'
   params: {
     environmentName: environmentName
-    location: location
+    location: swaLocation
   }
 }
 
