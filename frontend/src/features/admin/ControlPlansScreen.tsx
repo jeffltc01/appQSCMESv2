@@ -235,7 +235,7 @@ export function ControlPlansScreen() {
               onOptionSelect={(_, d) => setWcplId(d.optionValue ?? '')}
             >
               {filteredWcpls.map(w => (
-                <Option key={w.id} value={w.id}>{w.displayName} ({w.plantName})</Option>
+                <Option key={w.id} value={w.id} text={`${w.displayName} (${w.plantName})`}>{w.displayName} ({w.plantName})</Option>
               ))}
             </Dropdown>
           </>

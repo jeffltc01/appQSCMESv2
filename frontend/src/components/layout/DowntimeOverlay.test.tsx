@@ -11,9 +11,9 @@ vi.mock('../../api/endpoints', () => ({
 }));
 
 const mockReasons: DowntimeReason[] = [
-  { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, sortOrder: 0 },
-  { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Tooling', isActive: true, sortOrder: 1 },
-  { id: 'r3', downtimeReasonCategoryId: 'cat2', categoryName: 'Personnel', name: 'Break', isActive: true, sortOrder: 0 },
+  { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, countsAsDowntime: true, sortOrder: 0 },
+  { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Tooling', isActive: true, countsAsDowntime: true, sortOrder: 1 },
+  { id: 'r3', downtimeReasonCategoryId: 'cat2', categoryName: 'Personnel', name: 'Break', isActive: true, countsAsDowntime: true, sortOrder: 0 },
 ];
 
 function renderOverlay(overrides = {}) {

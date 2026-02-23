@@ -62,7 +62,7 @@ describe('RollsScreen', () => {
 
   it('displays material queue items', async () => {
     vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([
-      { id: 'q1', position: 1, status: 'queued', productDescription: 'PL .218NOM X 83.00', shellSize: '120', heatNumber: 'H1', coilNumber: 'C1', quantity: 15, createdAt: '' },
+      { id: 'q1', position: 1, status: 'queued', productDescription: 'PL .218NOM X 83.00', shellSize: '120', heatNumber: 'H1', coilNumber: 'C1', quantity: 15, quantityCompleted: 0, createdAt: '' },
     ]);
 
     renderRolls();

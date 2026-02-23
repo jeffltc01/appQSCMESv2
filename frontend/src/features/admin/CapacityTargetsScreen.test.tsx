@@ -50,6 +50,7 @@ const mockGearData = [
     plantId: 'plant-1',
     plantName: 'Cleveland',
     plantCode: '000',
+    nextTankAlphaCode: 'AAA-001',
     gears: [
       { id: 'gear-1', name: 'Gear 1', level: 1, plantId: 'plant-1' },
       { id: 'gear-2', name: 'Gear 2', level: 2, plantId: 'plant-1' },

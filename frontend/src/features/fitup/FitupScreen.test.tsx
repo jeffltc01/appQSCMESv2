@@ -340,7 +340,6 @@ describe('FitupScreen', () => {
       heatNumber: 'HEAT01',
       coilNumber: 'COIL01',
       productDescription: 'Head Material',
-      cardId: '03',
     });
     vi.mocked(assemblyApi.create).mockResolvedValue({
       id: 'asm1',

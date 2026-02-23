@@ -50,8 +50,8 @@ const mockCategories = [
     isActive: true,
     sortOrder: 0,
     reasons: [
-      { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Mechanical', name: 'Bearing Failure', isActive: true, sortOrder: 0 },
-      { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Mechanical', name: 'Belt Snap', isActive: true, sortOrder: 1 },
+      { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Mechanical', name: 'Bearing Failure', isActive: true, countsAsDowntime: true, sortOrder: 0 },
+      { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Mechanical', name: 'Belt Snap', isActive: true, countsAsDowntime: true, sortOrder: 1 },
     ],
   },
   {
@@ -61,7 +61,7 @@ const mockCategories = [
     isActive: true,
     sortOrder: 1,
     reasons: [
-      { id: 'r3', downtimeReasonCategoryId: 'cat2', categoryName: 'Electrical', name: 'Power Outage', isActive: true, sortOrder: 0 },
+      { id: 'r3', downtimeReasonCategoryId: 'cat2', categoryName: 'Electrical', name: 'Power Outage', isActive: true, countsAsDowntime: true, sortOrder: 0 },
     ],
   },
 ];

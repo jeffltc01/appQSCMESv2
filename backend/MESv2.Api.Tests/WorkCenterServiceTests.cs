@@ -97,8 +97,9 @@ public class WorkCenterServiceTests
     public async Task AdvanceQueue_CompletesActiveAndActivatesNext_WhenNextQueued()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "active", 1,
+        var (_, activeItem) = SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "active", 1,
             "250 gal", 250, "HA", "CA", 3);
+        activeItem.QuantityCompleted = 3;
         SeedQueueItemWithSN(db, TestHelpers.wcRollsId, "queued", 2,
             "320 gal", 320, "HB", "CB", 7);
         await db.SaveChangesAsync();

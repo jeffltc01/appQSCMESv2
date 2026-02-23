@@ -36,6 +36,7 @@ const mockPlantGear = [
     plantCode: 'PLT1',
     currentPlantGearId: 'g1',
     currentGearLevel: 1,
+    nextTankAlphaCode: 'AAA-001',
     gears: [
       { id: 'g1', name: 'Gear 1', level: 1, plantId: 'p1' },
     ],

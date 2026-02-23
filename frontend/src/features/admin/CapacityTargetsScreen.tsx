@@ -21,7 +21,6 @@ import type {
   CapacityTarget,
   Plant,
   PlantWithGear,
-  WorkCenterProductionLine,
 } from '../../types/domain.ts';
 import type { BulkCapacityTargetItem } from '../../types/api.ts';
 import styles from './CapacityTargetsScreen.module.css';

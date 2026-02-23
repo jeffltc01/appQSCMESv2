@@ -46,12 +46,14 @@ const mockDefectLocations = [
 const mockCharacteristics = [
   {
     id: 'c1',
+    code: 'LS',
     name: 'Long Seam',
     specHigh: 10,
     specLow: 1,
     specTarget: 5,
     productTypeName: 'Shell',
     workCenterIds: ['wc1'],
+    isActive: true,
   },
 ];
 

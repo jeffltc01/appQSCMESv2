@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { HelpDialog } from './HelpDialog';
@@ -11,8 +11,6 @@ vi.mock('react-markdown', () => ({
 vi.mock('remark-gfm', () => ({
   default: () => {},
 }));
-
-const mockArticleContent = '# Test Article\n\nThis is test help content.';
 
 vi.mock('/src/help/articles/*.md?raw', () => ({}));
 

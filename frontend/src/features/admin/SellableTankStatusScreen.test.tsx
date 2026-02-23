@@ -71,6 +71,8 @@ describe('SellableTankStatusScreen', () => {
     vi.mocked(sellableTankStatusApi.getStatus).mockResolvedValue([
       {
         serialNumber: 'SELL-001',
+        alphaCode: 'ABC-001',
+        shellSerials: ['SH-001'],
         productNumber: '120 AG',
         tankSize: 120,
         rtXrayResult: 'Accept',
@@ -95,6 +97,8 @@ describe('SellableTankStatusScreen', () => {
     vi.mocked(sellableTankStatusApi.getStatus).mockResolvedValue([
       {
         serialNumber: 'SELL-001',
+        alphaCode: 'ABC-001',
+        shellSerials: ['SH-001'],
         productNumber: '120 AG',
         tankSize: 120,
         rtXrayResult: 'Accept',

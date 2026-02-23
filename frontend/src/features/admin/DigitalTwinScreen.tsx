@@ -123,7 +123,7 @@ export function DigitalTwinScreen() {
             style={{ minWidth: 160 }}
           >
             {plants.map((p) => (
-              <Option key={p.id} value={p.id}>
+              <Option key={p.id} value={p.id} text={`${p.name} (${p.code})`}>
                 {p.name} ({p.code})
               </Option>
             ))}

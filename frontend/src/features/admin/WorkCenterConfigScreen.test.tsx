@@ -96,8 +96,8 @@ const mockReasonCategories = [
     isActive: true,
     sortOrder: 0,
     reasons: [
-      { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, sortOrder: 0 },
-      { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Maintenance', isActive: true, sortOrder: 1 },
+      { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, countsAsDowntime: true, sortOrder: 0 },
+      { id: 'r2', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Maintenance', isActive: true, countsAsDowntime: true, sortOrder: 1 },
     ],
   },
 ];
@@ -106,7 +106,7 @@ const mockDowntimeConfig = {
   downtimeTrackingEnabled: true,
   downtimeThresholdMinutes: 5,
   applicableReasons: [
-    { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, sortOrder: 0 },
+    { id: 'r1', downtimeReasonCategoryId: 'cat1', categoryName: 'Equipment', name: 'Breakdown', isActive: true, countsAsDowntime: true, sortOrder: 0 },
   ],
 };
 
