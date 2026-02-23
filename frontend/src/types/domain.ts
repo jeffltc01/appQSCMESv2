@@ -960,3 +960,79 @@ export interface AuditLogPage {
   page: number;
   pageSize: number;
 }
+
+// ---- Frontend Telemetry ----
+export interface FrontendTelemetryEntry {
+  id: number;
+  occurredAtUtc: string;
+  receivedAtUtc: string;
+  category: string;
+  source: string;
+  severity: string;
+  isReactRuntimeOverlayCandidate: boolean;
+  message: string;
+  stack?: string;
+  route?: string;
+  screen?: string;
+  metadataJson?: string;
+  sessionId?: string;
+  correlationId?: string;
+  apiPath?: string;
+  httpMethod?: string;
+  httpStatus?: number;
+  userId?: string;
+  userDisplayName?: string;
+  workCenterId?: string;
+  workCenterName?: string;
+  productionLineId?: string;
+  productionLineName?: string;
+  plantId?: string;
+  plantName?: string;
+}
+
+export interface FrontendTelemetryPage {
+  items: FrontendTelemetryEntry[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface FrontendTelemetryFilterOptions {
+  categories: string[];
+  sources: string[];
+  severities: string[];
+}
+
+export interface FrontendTelemetryCount {
+  rowCount: number;
+  warningThreshold: number;
+  isWarning: boolean;
+}
+
+export interface FrontendTelemetryArchiveResult {
+  deletedRows: number;
+  remainingRows: number;
+}
+
+// ---- Natural Language Query ----
+export interface NaturalLanguageQueryDataPoint {
+  label: string;
+  value: string;
+  unit?: string;
+}
+
+export interface NaturalLanguageQueryTrace {
+  intent: string;
+  usedModel: boolean;
+  usedCache: boolean;
+  durationMs: number;
+}
+
+export interface NaturalLanguageQueryResponse {
+  answerText: string;
+  scopeUsed: string;
+  confidence: number;
+  dataPoints: NaturalLanguageQueryDataPoint[];
+  followUps: string[];
+  trace: NaturalLanguageQueryTrace;
+}

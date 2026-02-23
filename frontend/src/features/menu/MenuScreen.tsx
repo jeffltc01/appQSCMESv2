@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@fluentui/react-components';
 import {
@@ -37,6 +38,7 @@ import {
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { HelpButton } from '../../help/components/HelpButton.tsx';
 import { getArticleBySlug } from '../../help/helpRegistry.ts';
+import { frontendTelemetryApi } from '../../api/endpoints.ts';
 import styles from './MenuScreen.module.css';
 
 interface MenuTile {
@@ -103,6 +105,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
       { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
       { label: 'Audit Log', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/audit-log', implemented: true },
+      { label: 'Frontend Telemetry', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/frontend-telemetry', implemented: true },
     ],
   },
   {
@@ -121,8 +124,19 @@ const MENU_GROUPS: MenuGroup[] = [
 export function MenuScreen() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [telemetryWarning, setTelemetryWarning] = useState(false);
 
   const roleTier = user?.roleTier ?? 99;
+
+  useEffect(() => {
+    if (roleTier > 3) {
+      setTelemetryWarning(false);
+      return;
+    }
+    frontendTelemetryApi.getCount(250000)
+      .then((result) => setTelemetryWarning(result.isWarning))
+      .catch(() => setTelemetryWarning(false));
+  }, [roleTier]);
 
   const handleTileClick = (tile: MenuTile) => {
     if (tile.implemented) {
@@ -186,6 +200,9 @@ export function MenuScreen() {
                       </span>
                       <span className={styles.tileLabel}>{tile.label}</span>
                       {!tile.implemented && <span className={styles.tileBadge}>Coming Soon</span>}
+                      {tile.label === 'Frontend Telemetry' && telemetryWarning && (
+                        <span className={styles.tileWarnBadge}>Archive Needed</span>
+                      )}
                     </button>
                   ))}
                 </div>

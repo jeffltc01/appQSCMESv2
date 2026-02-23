@@ -1,0 +1,110 @@
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.filterField input {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.reactOnlyToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  font-size: 13px;
+}
+
+.goButton {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #2b3b84;
+  background: #2b3b84;
+  color: #fff;
+  cursor: pointer;
+}
+
+.warningBanner {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.archiveBtn {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid #dc3545;
+  background: #dc3545;
+  color: #fff;
+  cursor: pointer;
+}
+
+.loadingState {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.emptyState {
+  padding: 16px;
+  border: 1px solid #e9ecef;
+  background: #fff;
+}
+
+.tableWrapper {
+  overflow: auto;
+  border: 1px solid #dee2e6;
+  background: #fff;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #e9ecef;
+  text-align: left;
+  padding: 8px;
+  font-size: 12px;
+  vertical-align: top;
+}
+
+.table th {
+  background: #f8f9fa;
+  font-weight: 700;
+}
+
+.messageCell {
+  max-width: 420px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pagination {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

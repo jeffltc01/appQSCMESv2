@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { MenuScreen } from './MenuScreen';
+import { frontendTelemetryApi } from '../../api/endpoints';
 
 vi.mock('../../api/endpoints');
 vi.mock('../../help/helpRegistry', () => ({ getArticleBySlug: vi.fn() }));
@@ -49,6 +50,11 @@ function authValue(overrides: Partial<typeof baseUser> = {}) {
 describe('MenuScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(frontendTelemetryApi.getCount).mockResolvedValue({
+      rowCount: 0,
+      warningThreshold: 250000,
+      isWarning: false,
+    });
   });
 
   it('admin (roleTier 1) sees all tiles including Work Center Config and User Maintenance', () => {
@@ -113,5 +119,18 @@ describe('MenuScreen', () => {
     renderScreen();
 
     expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
+  });
+
+  it('shows archive warning badge for frontend telemetry tile', async () => {
+    vi.mocked(frontendTelemetryApi.getCount).mockResolvedValue({
+      rowCount: 300000,
+      warningThreshold: 250000,
+      isWarning: true,
+    });
+    mockUseAuth.mockReturnValue(authValue({ roleTier: 1 }));
+
+    renderScreen();
+
+    expect(await screen.findByText('Archive Needed')).toBeInTheDocument();
   });
 });

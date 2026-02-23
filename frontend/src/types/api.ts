@@ -529,6 +529,20 @@ export interface AIReviewResultDto {
   annotationsCreated: number;
 }
 
+// ---- Natural Language Query ----
+export interface NaturalLanguageQueryContextRequest {
+  plantId?: string;
+  workCenterId?: string;
+  operatorId?: string;
+  date?: string;
+  view?: string;
+}
+
+export interface NaturalLanguageQueryRequest {
+  question: string;
+  context?: NaturalLanguageQueryContextRequest;
+}
+
 // ---- Log Viewer ----
 export interface CreateLogAnnotationRequest {
   productionRecordId: string;
@@ -654,4 +668,32 @@ export interface CoverageSummary {
   generatedAt: string;
   backend: CoverageLayerSummary;
   frontend: CoverageLayerSummary;
+}
+
+// ---- Frontend Telemetry ----
+export interface FrontendTelemetryIngestRequest {
+  occurredAtUtc?: string;
+  category: string;
+  source: string;
+  severity: string;
+  isReactRuntimeOverlayCandidate: boolean;
+  message: string;
+  stack?: string;
+  route?: string;
+  screen?: string;
+  metadataJson?: string;
+  sessionId?: string;
+  correlationId?: string;
+  apiPath?: string;
+  httpMethod?: string;
+  httpStatus?: number;
+  userId?: string;
+  workCenterId?: string;
+  productionLineId?: string;
+  plantId?: string;
+  fingerprint?: string;
+}
+
+export interface FrontendTelemetryArchiveRequest {
+  keepRows: number;
 }

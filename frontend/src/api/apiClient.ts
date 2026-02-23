@@ -5,6 +5,15 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
 let authToken: string | null = null;
 let roleTierHeader: string | null = null;
 let siteIdHeader: string | null = null;
+type ApiErrorObserverPayload = {
+  method: string;
+  path: string;
+  status?: number;
+  message: string;
+  code?: string;
+  networkError?: boolean;
+};
+let apiErrorObserver: ((payload: ApiErrorObserverPayload) => void) | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -16,6 +25,32 @@ export function setRoleTier(tier: number | null) {
 
 export function setSiteId(siteId: string | null) {
   siteIdHeader = siteId ?? null;
+}
+
+export function getAuthToken() {
+  return authToken;
+}
+
+export function getApiBaseUrl() {
+  return BASE_URL;
+}
+
+export function buildAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  if (roleTierHeader) {
+    headers['X-User-Role-Tier'] = roleTierHeader;
+  }
+  if (siteIdHeader) {
+    headers['X-User-Site-Id'] = siteIdHeader;
+  }
+  return headers;
+}
+
+export function setApiErrorObserver(observer: ((payload: ApiErrorObserverPayload) => void) | null) {
+  apiErrorObserver = observer;
 }
 
 async function request<T>(
@@ -36,11 +71,22 @@ async function request<T>(
     headers['X-User-Site-Id'] = siteIdHeader;
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    apiErrorObserver?.({
+      method,
+      path,
+      message: 'Network error',
+      networkError: true,
+    });
+    throw { message: 'Network error' } as ApiError;
+  }
 
   if (!response.ok) {
     let error: ApiError;
@@ -55,6 +101,13 @@ async function request<T>(
     } catch {
       error = { message: `Request failed with status ${response.status}` };
     }
+    apiErrorObserver?.({
+      method,
+      path,
+      status: response.status,
+      message: error.message,
+      code: error.code,
+    });
     throw error;
   }
 
@@ -71,6 +124,12 @@ async function requestText(path: string): Promise<string> {
   const response = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers });
 
   if (!response.ok) {
+    apiErrorObserver?.({
+      method: 'GET',
+      path,
+      status: response.status,
+      message: `Request failed with status ${response.status}`,
+    });
     throw { message: `Request failed with status ${response.status}` } as ApiError;
   }
 

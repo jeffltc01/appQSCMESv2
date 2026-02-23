@@ -51,3 +51,74 @@ public class PrintLogConfiguration : IEntityTypeConfiguration<PrintLog>
         builder.HasIndex(pl => pl.SerialNumberId);
     }
 }
+
+public class FrontendTelemetryEventConfiguration : IEntityTypeConfiguration<FrontendTelemetryEvent>
+{
+    public void Configure(EntityTypeBuilder<FrontendTelemetryEvent> builder)
+    {
+        builder.Property(e => e.Id)
+            .UseIdentityColumn();
+
+        builder.Property(e => e.Category)
+            .HasMaxLength(64);
+
+        builder.Property(e => e.Source)
+            .HasMaxLength(64);
+
+        builder.Property(e => e.Severity)
+            .HasMaxLength(32);
+
+        builder.Property(e => e.Route)
+            .HasMaxLength(256);
+
+        builder.Property(e => e.Screen)
+            .HasMaxLength(128);
+
+        builder.Property(e => e.Message)
+            .HasMaxLength(2048);
+
+        builder.Property(e => e.Stack)
+            .HasMaxLength(8000);
+
+        builder.Property(e => e.MetadataJson)
+            .HasMaxLength(8000);
+
+        builder.Property(e => e.SessionId)
+            .HasMaxLength(128);
+
+        builder.Property(e => e.CorrelationId)
+            .HasMaxLength(128);
+
+        builder.Property(e => e.ApiPath)
+            .HasMaxLength(256);
+
+        builder.Property(e => e.HttpMethod)
+            .HasMaxLength(16);
+
+        builder.HasOne(e => e.User)
+            .WithMany()
+            .HasForeignKey(e => e.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(e => e.WorkCenter)
+            .WithMany()
+            .HasForeignKey(e => e.WorkCenterId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(e => e.ProductionLine)
+            .WithMany()
+            .HasForeignKey(e => e.ProductionLineId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(e => e.Plant)
+            .WithMany()
+            .HasForeignKey(e => e.PlantId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(e => e.OccurredAtUtc);
+        builder.HasIndex(e => e.Category);
+        builder.HasIndex(e => e.Source);
+        builder.HasIndex(e => e.UserId);
+        builder.HasIndex(e => e.WorkCenterId);
+    }
+}

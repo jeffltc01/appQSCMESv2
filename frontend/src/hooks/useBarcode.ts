@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { parseBarcode, type ParsedBarcode } from '../types/barcode.ts';
+import { reportException, reportTelemetry } from '../telemetry/telemetryClient.ts';
 
 interface UseBarcodeOptions {
   enabled: boolean;
@@ -16,6 +17,7 @@ export function useBarcode({ enabled, onScan }: UseBarcodeOptions) {
 
   const [focusLost, setFocusLost] = useState(false);
   const lostSinceRef = useRef<number | null>(null);
+  const focusLossLoggedRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) {
@@ -42,10 +44,23 @@ export function useBarcode({ enabled, onScan }: UseBarcodeOptions) {
       const stillLost = document.activeElement !== input;
       if (stillLost) {
         if (lostSinceRef.current == null) lostSinceRef.current = Date.now();
-        if (Date.now() - lostSinceRef.current >= GRACE_MS) setFocusLost(true);
+        if (Date.now() - lostSinceRef.current >= GRACE_MS) {
+          setFocusLost(true);
+          if (!focusLossLoggedRef.current) {
+            focusLossLoggedRef.current = true;
+            reportTelemetry({
+              category: 'scanner_error',
+              source: 'barcode_focus_lost',
+              severity: 'warning',
+              isReactRuntimeOverlayCandidate: false,
+              message: 'Scanner input focus was lost',
+            });
+          }
+        }
       } else {
         lostSinceRef.current = null;
         setFocusLost(false);
+        focusLossLoggedRef.current = false;
       }
     };
 
@@ -72,8 +87,19 @@ export function useBarcode({ enabled, onScan }: UseBarcodeOptions) {
           inputRef.current.value = '';
         }
         if (raw.trim()) {
-          const parsed = parseBarcode(raw);
-          onScanRef.current(parsed, raw);
+          try {
+            const parsed = parseBarcode(raw);
+            onScanRef.current(parsed, raw);
+          } catch (error) {
+            reportException(error, {
+              category: 'scanner_error',
+              source: 'barcode_scan_handler',
+              severity: 'error',
+              isReactRuntimeOverlayCandidate: false,
+              message: 'Scanner parse/handler failed',
+              metadataJson: JSON.stringify({ raw }),
+            });
+          }
         }
       }
     },

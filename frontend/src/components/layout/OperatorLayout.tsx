@@ -18,6 +18,7 @@ import { QueueHistory } from './QueueHistory.tsx';
 import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { DowntimeOverlay } from './DowntimeOverlay.tsx';
 import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
+import { reportException } from '../../telemetry/telemetryClient.ts';
 import styles from './OperatorLayout.module.css';
 
 const namedLazy = <T extends Record<string, React.ComponentType<any>>>(
@@ -283,10 +284,21 @@ export function OperatorLayout() {
 
   const handleScan = useCallback(
     (bc: ParsedBarcode | null, raw: string) => {
-      if (barcodeHandlerRef.current) {
-        barcodeHandlerRef.current(bc, raw);
-      } else if (!bc) {
-        showScanResult({ type: 'error', message: 'Unknown barcode' });
+      try {
+        if (barcodeHandlerRef.current) {
+          barcodeHandlerRef.current(bc, raw);
+        } else if (!bc) {
+          showScanResult({ type: 'error', message: 'Unknown barcode' });
+        }
+      } catch (error) {
+        reportException(error, {
+          category: 'scanner_error',
+          source: 'operator_layout_scan_dispatch',
+          severity: 'error',
+          isReactRuntimeOverlayCandidate: false,
+          message: 'Unhandled scanner dispatch exception',
+          metadataJson: JSON.stringify({ raw }),
+        });
       }
     },
     [showScanResult],

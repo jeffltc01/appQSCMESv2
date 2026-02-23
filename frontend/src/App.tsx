@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext.tsx';
 import { LoginScreen } from './components/login/LoginScreen.tsx';
@@ -5,6 +6,7 @@ import { TabletSetupScreen } from './components/tabletSetup/TabletSetupScreen.ts
 import { OperatorLayout } from './components/layout/OperatorLayout.tsx';
 import { MenuScreen } from './features/menu/MenuScreen.tsx';
 import { AdminRoutes } from './features/admin/AdminRoutes.tsx';
+import { reportTelemetry } from './telemetry/telemetryClient.ts';
 
 export function App() {
   const { isAuthenticated, user } = useAuth();
@@ -35,6 +37,17 @@ export function App() {
 }
 
 function DefaultRoute({ roleTier }: { roleTier: number }) {
+  useEffect(() => {
+    reportTelemetry({
+      category: 'navigation_issue',
+      source: 'default_route_fallback',
+      severity: 'warning',
+      isReactRuntimeOverlayCandidate: false,
+      message: 'Fallback route redirect executed',
+      metadataJson: JSON.stringify({ roleTier }),
+    });
+  }, [roleTier]);
+
   if (roleTier < 6) {
     return <Navigate to="/menu" replace />;
   }

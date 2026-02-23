@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Spinner } from '@fluentui/react-components';
+import { reportTelemetry } from '../../telemetry/telemetryClient.ts';
 
 const named = <T extends Record<string, React.ComponentType>>(
   loader: () => Promise<T>,
@@ -36,7 +37,21 @@ const DigitalTwinScreen = named(() => import('./DigitalTwinScreen.tsx'), 'Digita
 const ShiftScheduleScreen = named(() => import('./ShiftScheduleScreen.tsx'), 'ShiftScheduleScreen');
 const CapacityTargetsScreen = named(() => import('./CapacityTargetsScreen.tsx'), 'CapacityTargetsScreen');
 const AuditLogScreen = named(() => import('./AuditLogScreen.tsx'), 'AuditLogScreen');
+const FrontendTelemetryScreen = named(() => import('./FrontendTelemetryScreen.tsx'), 'FrontendTelemetryScreen');
 const TestCoverageScreen = named(() => import('./TestCoverageScreen.tsx'), 'TestCoverageScreen');
+
+function AdminFallbackRoute() {
+  useEffect(() => {
+    reportTelemetry({
+      category: 'navigation_issue',
+      source: 'admin_route_fallback',
+      severity: 'warning',
+      isReactRuntimeOverlayCandidate: false,
+      message: 'Unknown admin route redirected to /menu',
+    });
+  }, []);
+  return <Navigate to="/menu" replace />;
+}
 
 export function AdminRoutes() {
   return (
@@ -71,8 +86,9 @@ export function AdminRoutes() {
         <Route path="shift-schedule" element={<ShiftScheduleScreen />} />
         <Route path="capacity-targets" element={<CapacityTargetsScreen />} />
         <Route path="audit-log" element={<AuditLogScreen />} />
+        <Route path="frontend-telemetry" element={<FrontendTelemetryScreen />} />
         <Route path="test-coverage" element={<TestCoverageScreen />} />
-        <Route path="*" element={<Navigate to="/menu" replace />} />
+        <Route path="*" element={<AdminFallbackRoute />} />
       </Routes>
     </Suspense>
   );

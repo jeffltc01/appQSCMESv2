@@ -55,6 +55,7 @@ builder.Services.AddScoped<IRealTimeXrayService, RealTimeXrayService>();
 builder.Services.AddScoped<ISpotXrayService, SpotXrayService>();
 builder.Services.AddScoped<IAnnotationService, AnnotationService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IFrontendTelemetryService, FrontendTelemetryService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminWorkCenterService, AdminWorkCenterService>();
 builder.Services.AddScoped<INaturalLanguageQueryService, NaturalLanguageQueryService>();

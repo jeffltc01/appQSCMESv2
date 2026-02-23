@@ -55,6 +55,7 @@ public class MesDbContext : DbContext
     public DbSet<ShiftSchedule> ShiftSchedules => Set<ShiftSchedule>();
     public DbSet<WorkCenterCapacityTarget> WorkCenterCapacityTargets => Set<WorkCenterCapacityTarget>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<FrontendTelemetryEvent> FrontendTelemetryEvents => Set<FrontendTelemetryEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -76,6 +76,9 @@ import type {
   CreateDowntimeEventRequest,
   UpdateDowntimeEventRequest,
   BulkUpsertCapacityTargetsRequest,
+  NaturalLanguageQueryRequest,
+  FrontendTelemetryIngestRequest,
+  FrontendTelemetryArchiveRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -143,6 +146,11 @@ import type {
   CapacityTarget,
   CreateCapacityTargetRequest,
   AuditLogPage,
+  NaturalLanguageQueryResponse,
+  FrontendTelemetryPage,
+  FrontendTelemetryFilterOptions,
+  FrontendTelemetryCount,
+  FrontendTelemetryArchiveResult,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -460,6 +468,11 @@ export const aiReviewApi = {
     api.post<AIReviewResultDto>('/ai-review', req),
 };
 
+export const nlqApi = {
+  ask: (req: NaturalLanguageQueryRequest) =>
+    api.post<NaturalLanguageQueryResponse>('/nlq/ask', req),
+};
+
 export const limbleApi = {
   getStatuses: () => api.get<LimbleStatus[]>('/limble/statuses'),
   getMyRequests: (empNo: string) =>
@@ -647,4 +660,40 @@ export const auditLogApi = {
   },
   getEntityNames: () =>
     api.get<string[]>('/audit-logs/entity-names'),
+};
+
+export const frontendTelemetryApi = {
+  ingest: (req: FrontendTelemetryIngestRequest) =>
+    api.post<void>('/frontend-telemetry', req),
+  getEvents: (params: {
+    category?: string;
+    source?: string;
+    severity?: string;
+    userId?: string;
+    workCenterId?: string;
+    from?: string;
+    to?: string;
+    reactRuntimeOnly?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set('category', params.category);
+    if (params.source) qs.set('source', params.source);
+    if (params.severity) qs.set('severity', params.severity);
+    if (params.userId) qs.set('userId', params.userId);
+    if (params.workCenterId) qs.set('workCenterId', params.workCenterId);
+    if (params.from) qs.set('from', params.from);
+    if (params.to) qs.set('to', params.to);
+    if (params.reactRuntimeOnly) qs.set('reactRuntimeOnly', 'true');
+    if (params.page) qs.set('page', String(params.page));
+    if (params.pageSize) qs.set('pageSize', String(params.pageSize));
+    return api.get<FrontendTelemetryPage>(`/frontend-telemetry?${qs.toString()}`);
+  },
+  getFilters: () =>
+    api.get<FrontendTelemetryFilterOptions>('/frontend-telemetry/filters'),
+  getCount: (warningThreshold = 250000) =>
+    api.get<FrontendTelemetryCount>(`/frontend-telemetry/count?warningThreshold=${warningThreshold}`),
+  archiveOldest: (req: FrontendTelemetryArchiveRequest) =>
+    api.post<FrontendTelemetryArchiveResult>('/frontend-telemetry/archive', req),
 };

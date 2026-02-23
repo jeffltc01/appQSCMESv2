@@ -176,6 +176,19 @@
   letter-spacing: 0.5px;
 }
 
+.tileWarnBadge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #dc3545;
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* ── Tablet ── */
 
 @media (max-width: 1024px) {
