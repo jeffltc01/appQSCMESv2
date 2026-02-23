@@ -87,7 +87,7 @@ describe('SellableTankStatusScreen', () => {
     await user.click(screen.getByRole('button', { name: /Search/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('SELL-001')).toBeInTheDocument();
+      expect(screen.getByText('ABC-001 (SH-001)')).toBeInTheDocument();
     });
     expect(screen.getByText('120 AG')).toBeInTheDocument();
     expect(screen.getByTestId('gate-legend')).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('SellableTankStatusScreen', () => {
       expect(screen.getByTestId('serial-link-SELL-001')).toBeInTheDocument();
     });
     const link = screen.getByTestId('serial-link-SELL-001');
-    expect(link).toHaveTextContent('SELL-001');
+    expect(link).toHaveTextContent('ABC-001 (SH-001)');
   });
 
   it('shows error on API failure', async () => {

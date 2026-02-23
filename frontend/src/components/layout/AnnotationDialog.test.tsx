@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { AnnotationDialog } from './AnnotationDialog';
 
 vi.mock('../../api/endpoints', () => ({
@@ -29,6 +30,14 @@ const defaultProps = {
   onCreated: vi.fn(),
 };
 
+function renderDialog(overrides = {}) {
+  return render(
+    <FluentProvider theme={webLightTheme}>
+      <AnnotationDialog {...defaultProps} {...overrides} />
+    </FluentProvider>,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(adminAnnotationTypeApi.getAll).mockResolvedValue(MOCK_TYPES);
@@ -37,7 +46,7 @@ beforeEach(() => {
 
 describe('AnnotationDialog', () => {
   it('shows dialog title and record identifier', async () => {
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     expect(screen.getByRole('heading', { name: 'Create Annotation' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText(/SH-TEST-001/)).toBeInTheDocument();
@@ -45,16 +54,16 @@ describe('AnnotationDialog', () => {
   });
 
   it('loads operator-allowed and canned-message-referenced annotation types', async () => {
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => {
       expect(adminAnnotationTypeApi.getAll).toHaveBeenCalled();
+      const dropdown = screen.getByRole('combobox');
+      expect(dropdown).toHaveTextContent('Correction Needed');
     });
-    const dropdown = screen.getByRole('combobox');
-    expect(dropdown).toHaveTextContent('Correction Needed');
   });
 
   it('defaults to Correction Needed type', async () => {
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => {
       const dropdown = screen.getByRole('combobox');
       expect(dropdown).toHaveTextContent('Correction Needed');
@@ -62,7 +71,7 @@ describe('AnnotationDialog', () => {
   });
 
   it('renders canned message buttons', async () => {
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => {
       expect(screen.getByText('Data entry error')).toBeInTheDocument();
       expect(screen.getByText('Defective material identified')).toBeInTheDocument();
@@ -73,7 +82,7 @@ describe('AnnotationDialog', () => {
 
   it('sets notes to canned message on click', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Wrong Shell or Tank scanned'));
     await user.click(screen.getByText('Wrong Shell or Tank scanned'));
 
@@ -83,7 +92,7 @@ describe('AnnotationDialog', () => {
 
   it('replaces notes when current notes are a canned message', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Data entry error'));
 
     await user.click(screen.getByText('Data entry error'));
@@ -96,7 +105,7 @@ describe('AnnotationDialog', () => {
 
   it('appends canned message when notes contain custom text', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Data entry error'));
 
     const textarea = screen.getByPlaceholderText(/type a message/i);
@@ -109,7 +118,7 @@ describe('AnnotationDialog', () => {
 
   it('switches type to Correction Needed when "Data entry error" is clicked', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Defective material identified'));
 
     await user.click(screen.getByText('Defective material identified'));
@@ -121,7 +130,7 @@ describe('AnnotationDialog', () => {
 
   it('switches type to Correction Needed when "Wrong Shell or Tank scanned" is clicked', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('See me for note'));
 
     await user.click(screen.getByText('See me for note'));
@@ -133,7 +142,7 @@ describe('AnnotationDialog', () => {
 
   it('switches type to Defect when "Defective material identified" is clicked', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Defective material identified'));
     await user.click(screen.getByText('Defective material identified'));
 
@@ -143,7 +152,7 @@ describe('AnnotationDialog', () => {
 
   it('switches type to Note when "See me for note" is clicked', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('See me for note'));
     await user.click(screen.getByText('See me for note'));
 
@@ -153,7 +162,7 @@ describe('AnnotationDialog', () => {
 
   it('shows error when submitting without notes', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByRole('button', { name: 'Create Annotation' }));
     await user.click(screen.getByRole('button', { name: 'Create Annotation' }));
     expect(screen.getByText('Enter or select a message.')).toBeInTheDocument();
@@ -161,7 +170,7 @@ describe('AnnotationDialog', () => {
 
   it('submits annotation and calls onCreated', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Data entry error'));
 
     await user.click(screen.getByText('Data entry error'));
@@ -182,7 +191,7 @@ describe('AnnotationDialog', () => {
   it('shows error when API call fails', async () => {
     vi.mocked(logViewerApi.createAnnotation).mockRejectedValue({ message: 'Production record not found.' });
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Data entry error'));
 
     await user.click(screen.getByText('Data entry error'));
@@ -195,7 +204,7 @@ describe('AnnotationDialog', () => {
 
   it('calls onClose when Cancel is clicked', async () => {
     const user = userEvent.setup();
-    render(<AnnotationDialog {...defaultProps} />);
+    renderDialog();
     await waitFor(() => screen.getByText('Cancel'));
     await user.click(screen.getByText('Cancel'));
     expect(defaultProps.onClose).toHaveBeenCalled();
