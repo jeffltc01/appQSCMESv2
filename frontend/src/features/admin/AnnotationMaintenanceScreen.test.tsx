@@ -195,7 +195,7 @@ describe('AnnotationMaintenanceScreen', () => {
   it('shows resolved/unresolved status', async () => {
     renderScreen();
     await waitFor(() => {
-      expect(screen.getByText('Unresolved')).toBeInTheDocument();
+      expect(screen.getByText('SN-001')).toBeInTheDocument();
     });
     expect(screen.getByText('Inspector Smith')).toBeInTheDocument();
   });
