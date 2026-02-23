@@ -22,96 +22,10 @@ public class SpotXrayService : ISpotXrayService
 
     public async Task<SpotXrayLaneQueuesDto> GetLaneQueuesAsync(string siteCode, CancellationToken ct = default)
     {
-        var plant = await _db.Plants.FirstOrDefaultAsync(p => p.Code == siteCode, ct)
-            ?? throw new InvalidOperationException($"Plant {siteCode} not found");
+        var fetchResult = await FetchLaneQueueData(siteCode, ct);
+        if (fetchResult == null) return new SpotXrayLaneQueuesDto();
 
-        var rsType = await _db.WorkCenterTypes.FirstOrDefaultAsync(t => t.Name == "Round Seam", ct);
-        if (rsType == null) return new SpotXrayLaneQueuesDto();
-
-        var plantLineIds = await _db.ProductionLines
-            .Where(pl => pl.PlantId == plant.Id)
-            .Select(pl => pl.Id)
-            .ToListAsync(ct);
-
-        // All RS production records for this site with lane and welder data
-        var rsRecords = await _db.ProductionRecords
-            .Include(r => r.Asset)
-            .Include(r => r.WelderLogs).ThenInclude(w => w.User)
-            .Include(r => r.WelderLogs).ThenInclude(w => w.Characteristic)
-            .Include(r => r.SerialNumber).ThenInclude(s => s!.Product)
-            .Where(r => r.WorkCenter.WorkCenterTypeId == rsType.Id
-                     && plantLineIds.Contains(r.ProductionLineId))
-            .OrderBy(r => r.Timestamp)
-            .ToListAsync(ct);
-
-        if (rsRecords.Count == 0) return new SpotXrayLaneQueuesDto();
-
-        // Build shell → assembly map via traceability
-        var shellSnIds = rsRecords.Select(r => (Guid?)r.SerialNumberId).Distinct().ToList();
-        var shellToAssembly = await _db.TraceabilityLogs
-            .Where(t => shellSnIds.Contains(t.FromSerialNumberId)
-                     && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
-                     && t.ToSerialNumberId.HasValue)
-            .Select(t => new { FromId = t.FromSerialNumberId!.Value, AssemblyId = t.ToSerialNumberId!.Value })
-            .ToListAsync(ct);
-
-        var assemblyIds = shellToAssembly.Select(x => x.AssemblyId).Distinct().ToList();
-        var assemblies = await _db.SerialNumbers
-            .Include(s => s.Product)
-            .Where(s => assemblyIds.Contains(s.Id))
-            .ToDictionaryAsync(s => s.Id, ct);
-
-        // Get all shell serials per assembly
-        var assemblyIdNullables = assemblyIds.Select(id => (Guid?)id).ToList();
-        var assemblyShells = await _db.TraceabilityLogs
-            .Where(t => assemblyIdNullables.Contains(t.ToSerialNumberId)
-                     && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
-                     && t.FromSerialNumberId.HasValue)
-            .Join(_db.SerialNumbers, t => t.FromSerialNumberId!.Value, s => s.Id,
-                  (t, s) => new { AssemblyId = t.ToSerialNumberId!.Value, ShellSerial = s.Serial })
-            .ToListAsync(ct);
-
-        var shellsByAssembly = assemblyShells
-            .GroupBy(x => x.AssemblyId)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.ShellSerial).OrderBy(s => s).ToList());
-
-        // Exclude assemblies already in an increment
-        var usedAssemblyIds = await _db.SpotXrayIncrementTanks
-            .Select(t => t.SerialNumberId)
-            .ToListAsync(ct);
-        var usedSet = usedAssemblyIds.ToHashSet();
-
-        var shellToAssemblyMap = shellToAssembly.ToDictionary(x => x.FromId, x => x.AssemblyId);
-
-        // Group RS records by assembly (pick first shell's RS record per assembly)
-        var assemblyRsRecords = new Dictionary<Guid, ProductionRecord>();
-        foreach (var r in rsRecords)
-        {
-            if (shellToAssemblyMap.TryGetValue(r.SerialNumberId, out var asmId))
-            {
-                assemblyRsRecords.TryAdd(asmId, r);
-            }
-        }
-
-        // Build per-lane queues
-        var laneGroups = new Dictionary<string, List<(ProductionRecord Record, SerialNumber Assembly)>>();
-        foreach (var (asmId, rec) in assemblyRsRecords)
-        {
-            if (usedSet.Contains(asmId)) continue;
-            if (!assemblies.TryGetValue(asmId, out var asm)) continue;
-
-            var lane = rec.Asset?.LaneName ?? "Default";
-            if (!laneGroups.ContainsKey(lane))
-                laneGroups[lane] = new List<(ProductionRecord Record, SerialNumber Assembly)>();
-            laneGroups[lane].Add((rec, asm));
-        }
-
-        // Draft counts per lane
-        var draftCounts = await _db.SpotXrayIncrements
-            .Where(i => i.IsDraft && i.ProductionRecord.ProductionLine.PlantId == plant.Id)
-            .GroupBy(i => i.LaneNo)
-            .Select(g => new { Lane = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(x => x.Lane, x => x.Count, ct);
+        var (laneGroups, shellsByAssembly, draftCounts) = fetchResult.Value;
 
         var result = new SpotXrayLaneQueuesDto();
         foreach (var (laneName, items) in laneGroups.OrderBy(kv => kv.Key))
@@ -131,20 +45,9 @@ public class SpotXrayService : ISpotXrayService
                 var welderNames = welderLogs.Select(w => w.User?.DisplayName ?? "Unknown").ToList();
                 var welderIds = welderLogs.Select(w => w.UserId).ToList();
 
-                bool sizeChanged = false;
-                bool welderChanged = false;
-                if (i > 0)
-                {
-                    var prev = sorted[i - 1];
-                    var prevSize = prev.Assembly.Product?.TankSize ?? 0;
-                    sizeChanged = tankSize != prevSize;
-
-                    var prevWelderIds = prev.Record.WelderLogs
-                        .OrderBy(w => w.Characteristic?.Name ?? "")
-                        .Select(w => w.UserId)
-                        .ToList();
-                    welderChanged = !welderIds.SequenceEqual(prevWelderIds);
-                }
+                var (sizeChanged, welderChanged) = i > 0
+                    ? DetectChanges(tankSize, welderIds, sorted[i - 1])
+                    : (false, false);
 
                 var shells = shellsByAssembly.GetValueOrDefault(asm.Id) ?? new List<string>();
 
@@ -173,6 +76,113 @@ public class SpotXrayService : ISpotXrayService
         }
 
         return result;
+    }
+
+    private async Task<(
+        Dictionary<string, List<(ProductionRecord Record, SerialNumber Assembly)>> LaneGroups,
+        Dictionary<Guid, List<string>> ShellsByAssembly,
+        Dictionary<string, int> DraftCounts
+    )?> FetchLaneQueueData(string siteCode, CancellationToken ct)
+    {
+        var plant = await _db.Plants.FirstOrDefaultAsync(p => p.Code == siteCode, ct)
+            ?? throw new InvalidOperationException($"Plant {siteCode} not found");
+
+        var rsType = await _db.WorkCenterTypes.FirstOrDefaultAsync(t => t.Name == "Round Seam", ct);
+        if (rsType == null) return null;
+
+        var plantLineIds = await _db.ProductionLines
+            .Where(pl => pl.PlantId == plant.Id)
+            .Select(pl => pl.Id)
+            .ToListAsync(ct);
+
+        var rsRecords = await _db.ProductionRecords
+            .Include(r => r.Asset)
+            .Include(r => r.WelderLogs).ThenInclude(w => w.User)
+            .Include(r => r.WelderLogs).ThenInclude(w => w.Characteristic)
+            .Include(r => r.SerialNumber).ThenInclude(s => s!.Product)
+            .Where(r => r.WorkCenter.WorkCenterTypeId == rsType.Id
+                     && plantLineIds.Contains(r.ProductionLineId))
+            .OrderBy(r => r.Timestamp)
+            .ToListAsync(ct);
+
+        if (rsRecords.Count == 0) return null;
+
+        var shellSnIds = rsRecords.Select(r => (Guid?)r.SerialNumberId).Distinct().ToList();
+        var shellToAssembly = await _db.TraceabilityLogs
+            .Where(t => shellSnIds.Contains(t.FromSerialNumberId)
+                     && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                     && t.ToSerialNumberId.HasValue)
+            .Select(t => new { FromId = t.FromSerialNumberId!.Value, AssemblyId = t.ToSerialNumberId!.Value })
+            .ToListAsync(ct);
+
+        var assemblyIds = shellToAssembly.Select(x => x.AssemblyId).Distinct().ToList();
+        var assemblies = await _db.SerialNumbers
+            .Include(s => s.Product)
+            .Where(s => assemblyIds.Contains(s.Id))
+            .ToDictionaryAsync(s => s.Id, ct);
+
+        var assemblyIdNullables = assemblyIds.Select(id => (Guid?)id).ToList();
+        var assemblyShells = await _db.TraceabilityLogs
+            .Where(t => assemblyIdNullables.Contains(t.ToSerialNumberId)
+                     && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                     && t.FromSerialNumberId.HasValue)
+            .Join(_db.SerialNumbers, t => t.FromSerialNumberId!.Value, s => s.Id,
+                  (t, s) => new { AssemblyId = t.ToSerialNumberId!.Value, ShellSerial = s.Serial })
+            .ToListAsync(ct);
+
+        var shellsByAssembly = assemblyShells
+            .GroupBy(x => x.AssemblyId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.ShellSerial).OrderBy(s => s).ToList());
+
+        var usedAssemblyIds = await _db.SpotXrayIncrementTanks
+            .Select(t => t.SerialNumberId)
+            .ToListAsync(ct);
+        var usedSet = usedAssemblyIds.ToHashSet();
+
+        var shellToAssemblyMap = shellToAssembly.ToDictionary(x => x.FromId, x => x.AssemblyId);
+
+        var assemblyRsRecords = new Dictionary<Guid, ProductionRecord>();
+        foreach (var r in rsRecords)
+        {
+            if (shellToAssemblyMap.TryGetValue(r.SerialNumberId, out var asmId))
+                assemblyRsRecords.TryAdd(asmId, r);
+        }
+
+        var laneGroups = new Dictionary<string, List<(ProductionRecord Record, SerialNumber Assembly)>>();
+        foreach (var (asmId, rec) in assemblyRsRecords)
+        {
+            if (usedSet.Contains(asmId)) continue;
+            if (!assemblies.TryGetValue(asmId, out var asm)) continue;
+
+            var lane = rec.Asset?.LaneName ?? "Default";
+            if (!laneGroups.ContainsKey(lane))
+                laneGroups[lane] = new List<(ProductionRecord Record, SerialNumber Assembly)>();
+            laneGroups[lane].Add((rec, asm));
+        }
+
+        var draftCounts = await _db.SpotXrayIncrements
+            .Where(i => i.IsDraft && i.ProductionRecord.ProductionLine.PlantId == plant.Id)
+            .GroupBy(i => i.LaneNo)
+            .Select(g => new { Lane = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Lane, x => x.Count, ct);
+
+        return (laneGroups, shellsByAssembly, draftCounts);
+    }
+
+    private static (bool SizeChanged, bool WelderChanged) DetectChanges(
+        int currentTankSize, List<Guid> currentWelderIds,
+        (ProductionRecord Record, SerialNumber Assembly) previous)
+    {
+        var prevSize = previous.Assembly.Product?.TankSize ?? 0;
+        var sizeChanged = currentTankSize != prevSize;
+
+        var prevWelderIds = previous.Record.WelderLogs
+            .OrderBy(w => w.Characteristic?.Name ?? "")
+            .Select(w => w.UserId)
+            .ToList();
+        var welderChanged = !currentWelderIds.SequenceEqual(prevWelderIds);
+
+        return (sizeChanged, welderChanged);
     }
 
     public async Task<CreateSpotXrayIncrementsResponse> CreateIncrementsAsync(
@@ -564,134 +574,110 @@ public class SpotXrayService : ISpotXrayService
         };
     }
 
+    private static readonly Action<SpotXrayIncrement, SaveSpotXraySeamDto, DateTime>[] SeamAppliers =
+    [
+        (inc, s, now) =>
+        {
+            inc.Seam1ShotNo = s.ShotNo;   if (!string.IsNullOrEmpty(s.ShotNo)) inc.Seam1ShotDateTime = now;
+            inc.Seam1Result = s.Result;
+            inc.Seam1Trace1ShotNo = s.Trace1ShotNo; if (!string.IsNullOrEmpty(s.Trace1ShotNo)) inc.Seam1Trace1DateTime = now;
+            inc.Seam1Trace1TankId = s.Trace1TankId;  inc.Seam1Trace1Result = s.Trace1Result;
+            inc.Seam1Trace2ShotNo = s.Trace2ShotNo; if (!string.IsNullOrEmpty(s.Trace2ShotNo)) inc.Seam1Trace2DateTime = now;
+            inc.Seam1Trace2TankId = s.Trace2TankId;  inc.Seam1Trace2Result = s.Trace2Result;
+            inc.Seam1FinalShotNo = s.FinalShotNo;   if (!string.IsNullOrEmpty(s.FinalShotNo)) inc.Seam1FinalDateTime = now;
+            inc.Seam1FinalResult = s.FinalResult;
+        },
+        (inc, s, now) =>
+        {
+            inc.Seam2ShotNo = s.ShotNo;   if (!string.IsNullOrEmpty(s.ShotNo)) inc.Seam2ShotDateTime = now;
+            inc.Seam2Result = s.Result;
+            inc.Seam2Trace1ShotNo = s.Trace1ShotNo; if (!string.IsNullOrEmpty(s.Trace1ShotNo)) inc.Seam2Trace1DateTime = now;
+            inc.Seam2Trace1TankId = s.Trace1TankId;  inc.Seam2Trace1Result = s.Trace1Result;
+            inc.Seam2Trace2ShotNo = s.Trace2ShotNo; if (!string.IsNullOrEmpty(s.Trace2ShotNo)) inc.Seam2Trace2DateTime = now;
+            inc.Seam2Trace2TankId = s.Trace2TankId;  inc.Seam2Trace2Result = s.Trace2Result;
+            inc.Seam2FinalShotNo = s.FinalShotNo;   if (!string.IsNullOrEmpty(s.FinalShotNo)) inc.Seam2FinalDateTime = now;
+            inc.Seam2FinalResult = s.FinalResult;
+        },
+        (inc, s, now) =>
+        {
+            inc.Seam3ShotNo = s.ShotNo;   if (!string.IsNullOrEmpty(s.ShotNo)) inc.Seam3ShotDateTime = now;
+            inc.Seam3Result = s.Result;
+            inc.Seam3Trace1ShotNo = s.Trace1ShotNo; if (!string.IsNullOrEmpty(s.Trace1ShotNo)) inc.Seam3Trace1DateTime = now;
+            inc.Seam3Trace1TankId = s.Trace1TankId;  inc.Seam3Trace1Result = s.Trace1Result;
+            inc.Seam3Trace2ShotNo = s.Trace2ShotNo; if (!string.IsNullOrEmpty(s.Trace2ShotNo)) inc.Seam3Trace2DateTime = now;
+            inc.Seam3Trace2TankId = s.Trace2TankId;  inc.Seam3Trace2Result = s.Trace2Result;
+            inc.Seam3FinalShotNo = s.FinalShotNo;   if (!string.IsNullOrEmpty(s.FinalShotNo)) inc.Seam3FinalDateTime = now;
+            inc.Seam3FinalResult = s.FinalResult;
+        },
+        (inc, s, now) =>
+        {
+            inc.Seam4ShotNo = s.ShotNo;   if (!string.IsNullOrEmpty(s.ShotNo)) inc.Seam4ShotDateTime = now;
+            inc.Seam4Result = s.Result;
+            inc.Seam4Trace1ShotNo = s.Trace1ShotNo; if (!string.IsNullOrEmpty(s.Trace1ShotNo)) inc.Seam4Trace1DateTime = now;
+            inc.Seam4Trace1TankId = s.Trace1TankId;  inc.Seam4Trace1Result = s.Trace1Result;
+            inc.Seam4Trace2ShotNo = s.Trace2ShotNo; if (!string.IsNullOrEmpty(s.Trace2ShotNo)) inc.Seam4Trace2DateTime = now;
+            inc.Seam4Trace2TankId = s.Trace2TankId;  inc.Seam4Trace2Result = s.Trace2Result;
+            inc.Seam4FinalShotNo = s.FinalShotNo;   if (!string.IsNullOrEmpty(s.FinalShotNo)) inc.Seam4FinalDateTime = now;
+            inc.Seam4FinalResult = s.FinalResult;
+        },
+    ];
+
     private static void ApplySeamData(SpotXrayIncrement inc, SaveSpotXraySeamDto seam)
     {
-        var now = DateTime.UtcNow;
-        switch (seam.SeamNumber)
-        {
-            case 1:
-                inc.Seam1ShotNo = seam.ShotNo;
-                if (!string.IsNullOrEmpty(seam.ShotNo)) inc.Seam1ShotDateTime = now;
-                inc.Seam1Result = seam.Result;
-                inc.Seam1Trace1ShotNo = seam.Trace1ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace1ShotNo)) inc.Seam1Trace1DateTime = now;
-                inc.Seam1Trace1TankId = seam.Trace1TankId;
-                inc.Seam1Trace1Result = seam.Trace1Result;
-                inc.Seam1Trace2ShotNo = seam.Trace2ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace2ShotNo)) inc.Seam1Trace2DateTime = now;
-                inc.Seam1Trace2TankId = seam.Trace2TankId;
-                inc.Seam1Trace2Result = seam.Trace2Result;
-                inc.Seam1FinalShotNo = seam.FinalShotNo;
-                if (!string.IsNullOrEmpty(seam.FinalShotNo)) inc.Seam1FinalDateTime = now;
-                inc.Seam1FinalResult = seam.FinalResult;
-                break;
-            case 2:
-                inc.Seam2ShotNo = seam.ShotNo;
-                if (!string.IsNullOrEmpty(seam.ShotNo)) inc.Seam2ShotDateTime = now;
-                inc.Seam2Result = seam.Result;
-                inc.Seam2Trace1ShotNo = seam.Trace1ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace1ShotNo)) inc.Seam2Trace1DateTime = now;
-                inc.Seam2Trace1TankId = seam.Trace1TankId;
-                inc.Seam2Trace1Result = seam.Trace1Result;
-                inc.Seam2Trace2ShotNo = seam.Trace2ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace2ShotNo)) inc.Seam2Trace2DateTime = now;
-                inc.Seam2Trace2TankId = seam.Trace2TankId;
-                inc.Seam2Trace2Result = seam.Trace2Result;
-                inc.Seam2FinalShotNo = seam.FinalShotNo;
-                if (!string.IsNullOrEmpty(seam.FinalShotNo)) inc.Seam2FinalDateTime = now;
-                inc.Seam2FinalResult = seam.FinalResult;
-                break;
-            case 3:
-                inc.Seam3ShotNo = seam.ShotNo;
-                if (!string.IsNullOrEmpty(seam.ShotNo)) inc.Seam3ShotDateTime = now;
-                inc.Seam3Result = seam.Result;
-                inc.Seam3Trace1ShotNo = seam.Trace1ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace1ShotNo)) inc.Seam3Trace1DateTime = now;
-                inc.Seam3Trace1TankId = seam.Trace1TankId;
-                inc.Seam3Trace1Result = seam.Trace1Result;
-                inc.Seam3Trace2ShotNo = seam.Trace2ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace2ShotNo)) inc.Seam3Trace2DateTime = now;
-                inc.Seam3Trace2TankId = seam.Trace2TankId;
-                inc.Seam3Trace2Result = seam.Trace2Result;
-                inc.Seam3FinalShotNo = seam.FinalShotNo;
-                if (!string.IsNullOrEmpty(seam.FinalShotNo)) inc.Seam3FinalDateTime = now;
-                inc.Seam3FinalResult = seam.FinalResult;
-                break;
-            case 4:
-                inc.Seam4ShotNo = seam.ShotNo;
-                if (!string.IsNullOrEmpty(seam.ShotNo)) inc.Seam4ShotDateTime = now;
-                inc.Seam4Result = seam.Result;
-                inc.Seam4Trace1ShotNo = seam.Trace1ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace1ShotNo)) inc.Seam4Trace1DateTime = now;
-                inc.Seam4Trace1TankId = seam.Trace1TankId;
-                inc.Seam4Trace1Result = seam.Trace1Result;
-                inc.Seam4Trace2ShotNo = seam.Trace2ShotNo;
-                if (!string.IsNullOrEmpty(seam.Trace2ShotNo)) inc.Seam4Trace2DateTime = now;
-                inc.Seam4Trace2TankId = seam.Trace2TankId;
-                inc.Seam4Trace2Result = seam.Trace2Result;
-                inc.Seam4FinalShotNo = seam.FinalShotNo;
-                if (!string.IsNullOrEmpty(seam.FinalShotNo)) inc.Seam4FinalDateTime = now;
-                inc.Seam4FinalResult = seam.FinalResult;
-                break;
-        }
+        var idx = seam.SeamNumber - 1;
+        if (idx >= 0 && idx < SeamAppliers.Length)
+            SeamAppliers[idx](inc, seam, DateTime.UtcNow);
     }
+
+    private static readonly Func<SpotXrayIncrement, SpotXraySeamDto>[] SeamBuilders =
+    [
+        inc => new SpotXraySeamDto
+        {
+            SeamNumber = 1, WelderName = inc.Welder1?.DisplayName, WelderId = inc.Welder1Id,
+            ShotNo = inc.Seam1ShotNo, ShotDateTime = inc.Seam1ShotDateTime, Result = inc.Seam1Result,
+            Trace1ShotNo = inc.Seam1Trace1ShotNo, Trace1DateTime = inc.Seam1Trace1DateTime,
+            Trace1TankId = inc.Seam1Trace1TankId, Trace1TankAlpha = inc.Seam1Trace1Tank?.Serial, Trace1Result = inc.Seam1Trace1Result,
+            Trace2ShotNo = inc.Seam1Trace2ShotNo, Trace2DateTime = inc.Seam1Trace2DateTime,
+            Trace2TankId = inc.Seam1Trace2TankId, Trace2TankAlpha = inc.Seam1Trace2Tank?.Serial, Trace2Result = inc.Seam1Trace2Result,
+            FinalShotNo = inc.Seam1FinalShotNo, FinalDateTime = inc.Seam1FinalDateTime, FinalResult = inc.Seam1FinalResult
+        },
+        inc => new SpotXraySeamDto
+        {
+            SeamNumber = 2, WelderName = inc.Welder2?.DisplayName, WelderId = inc.Welder2Id,
+            ShotNo = inc.Seam2ShotNo, ShotDateTime = inc.Seam2ShotDateTime, Result = inc.Seam2Result,
+            Trace1ShotNo = inc.Seam2Trace1ShotNo, Trace1DateTime = inc.Seam2Trace1DateTime,
+            Trace1TankId = inc.Seam2Trace1TankId, Trace1TankAlpha = inc.Seam2Trace1Tank?.Serial, Trace1Result = inc.Seam2Trace1Result,
+            Trace2ShotNo = inc.Seam2Trace2ShotNo, Trace2DateTime = inc.Seam2Trace2DateTime,
+            Trace2TankId = inc.Seam2Trace2TankId, Trace2TankAlpha = inc.Seam2Trace2Tank?.Serial, Trace2Result = inc.Seam2Trace2Result,
+            FinalShotNo = inc.Seam2FinalShotNo, FinalDateTime = inc.Seam2FinalDateTime, FinalResult = inc.Seam2FinalResult
+        },
+        inc => new SpotXraySeamDto
+        {
+            SeamNumber = 3, WelderName = inc.Welder3?.DisplayName, WelderId = inc.Welder3Id,
+            ShotNo = inc.Seam3ShotNo, ShotDateTime = inc.Seam3ShotDateTime, Result = inc.Seam3Result,
+            Trace1ShotNo = inc.Seam3Trace1ShotNo, Trace1DateTime = inc.Seam3Trace1DateTime,
+            Trace1TankId = inc.Seam3Trace1TankId, Trace1TankAlpha = inc.Seam3Trace1Tank?.Serial, Trace1Result = inc.Seam3Trace1Result,
+            Trace2ShotNo = inc.Seam3Trace2ShotNo, Trace2DateTime = inc.Seam3Trace2DateTime,
+            Trace2TankId = inc.Seam3Trace2TankId, Trace2TankAlpha = inc.Seam3Trace2Tank?.Serial, Trace2Result = inc.Seam3Trace2Result,
+            FinalShotNo = inc.Seam3FinalShotNo, FinalDateTime = inc.Seam3FinalDateTime, FinalResult = inc.Seam3FinalResult
+        },
+        inc => new SpotXraySeamDto
+        {
+            SeamNumber = 4, WelderName = inc.Welder4?.DisplayName, WelderId = inc.Welder4Id,
+            ShotNo = inc.Seam4ShotNo, ShotDateTime = inc.Seam4ShotDateTime, Result = inc.Seam4Result,
+            Trace1ShotNo = inc.Seam4Trace1ShotNo, Trace1DateTime = inc.Seam4Trace1DateTime,
+            Trace1TankId = inc.Seam4Trace1TankId, Trace1TankAlpha = inc.Seam4Trace1Tank?.Serial, Trace1Result = inc.Seam4Trace1Result,
+            Trace2ShotNo = inc.Seam4Trace2ShotNo, Trace2DateTime = inc.Seam4Trace2DateTime,
+            Trace2TankId = inc.Seam4Trace2TankId, Trace2TankAlpha = inc.Seam4Trace2Tank?.Serial, Trace2Result = inc.Seam4Trace2Result,
+            FinalShotNo = inc.Seam4FinalShotNo, FinalDateTime = inc.Seam4FinalDateTime, FinalResult = inc.Seam4FinalResult
+        },
+    ];
 
     private static SpotXraySeamDto BuildSeamDto(SpotXrayIncrement inc, int seamNumber)
     {
-        return seamNumber switch
-        {
-            1 => new SpotXraySeamDto
-            {
-                SeamNumber = 1,
-                WelderName = inc.Welder1?.DisplayName, WelderId = inc.Welder1Id,
-                ShotNo = inc.Seam1ShotNo, ShotDateTime = inc.Seam1ShotDateTime, Result = inc.Seam1Result,
-                Trace1ShotNo = inc.Seam1Trace1ShotNo, Trace1DateTime = inc.Seam1Trace1DateTime,
-                Trace1TankId = inc.Seam1Trace1TankId, Trace1TankAlpha = inc.Seam1Trace1Tank?.Serial,
-                Trace1Result = inc.Seam1Trace1Result,
-                Trace2ShotNo = inc.Seam1Trace2ShotNo, Trace2DateTime = inc.Seam1Trace2DateTime,
-                Trace2TankId = inc.Seam1Trace2TankId, Trace2TankAlpha = inc.Seam1Trace2Tank?.Serial,
-                Trace2Result = inc.Seam1Trace2Result,
-                FinalShotNo = inc.Seam1FinalShotNo, FinalDateTime = inc.Seam1FinalDateTime, FinalResult = inc.Seam1FinalResult
-            },
-            2 => new SpotXraySeamDto
-            {
-                SeamNumber = 2,
-                WelderName = inc.Welder2?.DisplayName, WelderId = inc.Welder2Id,
-                ShotNo = inc.Seam2ShotNo, ShotDateTime = inc.Seam2ShotDateTime, Result = inc.Seam2Result,
-                Trace1ShotNo = inc.Seam2Trace1ShotNo, Trace1DateTime = inc.Seam2Trace1DateTime,
-                Trace1TankId = inc.Seam2Trace1TankId, Trace1TankAlpha = inc.Seam2Trace1Tank?.Serial,
-                Trace1Result = inc.Seam2Trace1Result,
-                Trace2ShotNo = inc.Seam2Trace2ShotNo, Trace2DateTime = inc.Seam2Trace2DateTime,
-                Trace2TankId = inc.Seam2Trace2TankId, Trace2TankAlpha = inc.Seam2Trace2Tank?.Serial,
-                Trace2Result = inc.Seam2Trace2Result,
-                FinalShotNo = inc.Seam2FinalShotNo, FinalDateTime = inc.Seam2FinalDateTime, FinalResult = inc.Seam2FinalResult
-            },
-            3 => new SpotXraySeamDto
-            {
-                SeamNumber = 3,
-                WelderName = inc.Welder3?.DisplayName, WelderId = inc.Welder3Id,
-                ShotNo = inc.Seam3ShotNo, ShotDateTime = inc.Seam3ShotDateTime, Result = inc.Seam3Result,
-                Trace1ShotNo = inc.Seam3Trace1ShotNo, Trace1DateTime = inc.Seam3Trace1DateTime,
-                Trace1TankId = inc.Seam3Trace1TankId, Trace1TankAlpha = inc.Seam3Trace1Tank?.Serial,
-                Trace1Result = inc.Seam3Trace1Result,
-                Trace2ShotNo = inc.Seam3Trace2ShotNo, Trace2DateTime = inc.Seam3Trace2DateTime,
-                Trace2TankId = inc.Seam3Trace2TankId, Trace2TankAlpha = inc.Seam3Trace2Tank?.Serial,
-                Trace2Result = inc.Seam3Trace2Result,
-                FinalShotNo = inc.Seam3FinalShotNo, FinalDateTime = inc.Seam3FinalDateTime, FinalResult = inc.Seam3FinalResult
-            },
-            _ => new SpotXraySeamDto
-            {
-                SeamNumber = 4,
-                WelderName = inc.Welder4?.DisplayName, WelderId = inc.Welder4Id,
-                ShotNo = inc.Seam4ShotNo, ShotDateTime = inc.Seam4ShotDateTime, Result = inc.Seam4Result,
-                Trace1ShotNo = inc.Seam4Trace1ShotNo, Trace1DateTime = inc.Seam4Trace1DateTime,
-                Trace1TankId = inc.Seam4Trace1TankId, Trace1TankAlpha = inc.Seam4Trace1Tank?.Serial,
-                Trace1Result = inc.Seam4Trace1Result,
-                Trace2ShotNo = inc.Seam4Trace2ShotNo, Trace2DateTime = inc.Seam4Trace2DateTime,
-                Trace2TankId = inc.Seam4Trace2TankId, Trace2TankAlpha = inc.Seam4Trace2Tank?.Serial,
-                Trace2Result = inc.Seam4Trace2Result,
-                FinalShotNo = inc.Seam4FinalShotNo, FinalDateTime = inc.Seam4FinalDateTime, FinalResult = inc.Seam4FinalResult
-            }
-        };
+        var idx = seamNumber - 1;
+        return (idx >= 0 && idx < SeamBuilders.Length)
+            ? SeamBuilders[idx](inc)
+            : new SpotXraySeamDto { SeamNumber = seamNumber };
     }
 }

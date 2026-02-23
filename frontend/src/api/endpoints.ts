@@ -1,5 +1,6 @@
 import { api } from './apiClient.ts';
 import type {
+  CoverageSummary,
   LoginConfigResponse,
   LoginRequest,
   LoginResponse,
@@ -73,6 +74,7 @@ import type {
   UpdateDowntimeConfigRequest,
   SetDowntimeReasonsRequest,
   CreateDowntimeEventRequest,
+  UpdateDowntimeEventRequest,
   BulkUpsertCapacityTargetsRequest,
 } from '../types/api.ts';
 import type {
@@ -140,6 +142,7 @@ import type {
   CreateShiftScheduleRequest,
   CapacityTarget,
   CreateCapacityTargetRequest,
+  AuditLogPage,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -529,8 +532,18 @@ export const downtimeConfigApi = {
 };
 
 export const downtimeEventApi = {
+  getAll: (workCenterId: string, from?: string, to?: string) => {
+    const params = new URLSearchParams({ workCenterId });
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    return api.get<DowntimeEvent[]>(`/downtime-events?${params.toString()}`);
+  },
   create: (req: CreateDowntimeEventRequest) =>
     api.post<DowntimeEvent>('/downtime-events', req),
+  update: (id: string, req: UpdateDowntimeEventRequest) =>
+    api.put<DowntimeEvent>(`/downtime-events/${id}`, req),
+  delete: (id: string) =>
+    api.delete<void>(`/downtime-events/${id}`),
 };
 
 export const digitalTwinApi = {
@@ -602,4 +615,36 @@ export const spotXrayApi = {
     api.put<SpotXrayIncrementDetail>(`/spot-xray/increments/${id}`, req),
   getNextShotNumber: (plantId: string) =>
     api.post<{ shotNumber: number }>('/spot-xray/shot-number', { plantId }),
+};
+
+export const coverageApi = {
+  getSummary: () => api.get<CoverageSummary>('/coverage/summary'),
+  getReportHtml: (layer: 'frontend' | 'backend') =>
+    api.getText(`/coverage/${layer}/index.html`),
+};
+
+export const auditLogApi = {
+  getLogs: (params: {
+    entityName?: string;
+    entityId?: string;
+    action?: string;
+    userId?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.entityName) qs.set('entityName', params.entityName);
+    if (params.entityId) qs.set('entityId', params.entityId);
+    if (params.action) qs.set('action', params.action);
+    if (params.userId) qs.set('userId', params.userId);
+    if (params.from) qs.set('from', params.from);
+    if (params.to) qs.set('to', params.to);
+    if (params.page) qs.set('page', String(params.page));
+    if (params.pageSize) qs.set('pageSize', String(params.pageSize));
+    return api.get<AuditLogPage>(`/audit-logs?${qs.toString()}`);
+  },
+  getEntityNames: () =>
+    api.get<string[]>('/audit-logs/entity-names'),
 };

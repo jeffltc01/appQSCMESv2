@@ -582,3 +582,177 @@
   color: var(--qs-gray);
   font-size: 14px;
 }
+
+/* ============================================================
+   Tablet (landscape 10-11" Samsung ~1280 CSS px)
+   ============================================================ */
+
+@media (max-width: 1366px) {
+  .container {
+    gap: 12px;
+    padding-bottom: 12px;
+  }
+
+  .pipelineSection {
+    padding: 16px 12px 12px;
+  }
+
+  .pipelineWrapper {
+    min-width: 760px;
+  }
+
+  .stationBox {
+    width: 72px;
+    padding: 6px 4px 6px;
+  }
+
+  .stationName {
+    font-size: 9px;
+    min-height: 22px;
+  }
+
+  .wipBadge {
+    font-size: 9px;
+    padding: 2px 8px;
+    margin-top: 4px;
+  }
+
+  .stationArrow {
+    padding: 0;
+    margin-top: 30px;
+  }
+
+  .arrowLine {
+    width: 8px;
+  }
+
+  .arrowDots {
+    gap: 2px;
+    padding: 0 2px;
+  }
+
+  .arrowDot {
+    width: 4px;
+    height: 4px;
+  }
+
+  .arrowHead {
+    border-top-width: 5px;
+    border-bottom-width: 5px;
+    border-left-width: 7px;
+  }
+
+  .materialFeedContainer {
+    margin-top: 2px;
+  }
+
+  .materialFeedPlaceholder {
+    height: 58px;
+  }
+
+  .materialFeed {
+    padding: 4px 6px;
+    min-width: 72px;
+  }
+
+  .materialFeedName {
+    font-size: 8px;
+  }
+
+  .materialFeedCount {
+    font-size: 9px;
+    margin-top: 1px;
+  }
+
+  .materialFeedIcon {
+    font-size: 11px;
+    margin-bottom: 0;
+  }
+
+  .feedArrowHead {
+    border-left-width: 5px;
+    border-right-width: 5px;
+    border-bottom-width: 6px;
+  }
+
+  .feedArrowShaft {
+    height: 8px;
+  }
+
+  .stationStatusDots {
+    margin-bottom: 2px;
+  }
+
+  .bottleneckLabel {
+    top: -28px;
+    font-size: 10px;
+  }
+
+  .kpiRow {
+    gap: 12px;
+  }
+
+  .kpiHeader {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .kpiBody {
+    padding: 12px 12px;
+  }
+
+  .kpiValue {
+    font-size: 28px;
+  }
+
+  .kpiSuffix {
+    font-size: 14px;
+  }
+
+  .kpiSubtext {
+    margin-top: 4px;
+    font-size: 12px;
+  }
+
+  .efficiencyBar {
+    height: 10px;
+    margin-top: 10px;
+  }
+
+  .bottomRow {
+    gap: 12px;
+  }
+
+  .panelHeader {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .stationTable {
+    font-size: 12px;
+  }
+
+  .stationTable thead th {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+
+  .stationTable tbody td {
+    padding: 5px 10px;
+  }
+
+  .unitTrackerGrid {
+    min-width: 500px;
+    font-size: 10px;
+  }
+
+  .utHeaderCell {
+    padding: 6px 4px;
+    font-size: 9px;
+  }
+
+  .utCell {
+    padding: 4px 4px;
+    min-height: 32px;
+  }
+}

@@ -149,4 +149,14 @@ describe('UserMaintenanceScreen', () => {
       expect(screen.queryByText('Jane Smith')).not.toBeInTheDocument();
     });
   });
+
+  it('renders gracefully when getAll API fails', async () => {
+    vi.mocked(adminUserApi.getAll).mockRejectedValue(new Error('Network error'));
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('User Maintenance')).toBeInTheDocument();
+  });
 });

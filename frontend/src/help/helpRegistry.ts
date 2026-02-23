@@ -57,6 +57,7 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'digital-twin', title: 'Digital Twin', category: 'admin', routeMatch: '/menu/digital-twin' },
   { slug: 'shift-schedule', title: 'Shift Schedule', category: 'admin', routeMatch: '/menu/shift-schedule' },
   { slug: 'capacity-targets', title: 'Capacity Targets', category: 'admin', routeMatch: '/menu/capacity-targets' },
+  { slug: 'audit-log', title: 'Audit Log', category: 'admin', routeMatch: '/menu/audit-log' },
 ];
 
 export const categoryLabels: Record<HelpArticle['category'], string> = {

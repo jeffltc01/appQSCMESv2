@@ -279,19 +279,29 @@ public class DigitalTwinService : IDigitalTwinService
         // --- Material feeds ---
         var materialFeeds = new List<MaterialFeedDto>();
 
-        // Material queue work centers aren't in our ProductionSequence, so fetch them separately.
-        // Items are stored under the production WC (MaterialQueueForWCId), not the queue WC itself.
-        var queueWcIds = await _db.WorkCenters
+        // Only include queue WCs whose target production WC belongs to this production line.
+        var lineWcIds = await _db.WorkCenterProductionLines
+            .Where(wcpl => wcpl.ProductionLineId == productionLineId)
+            .Select(wcpl => wcpl.WorkCenterId)
+            .ToListAsync(cancellationToken);
+        var lineWcSet = lineWcIds.ToHashSet();
+
+        var allQueueWcs = await _db.WorkCenters
             .Where(w => w.DataEntryType == "MatQueue-Material" || w.DataEntryType == "MatQueue-Fitup")
             .Select(w => new { w.Id, w.DataEntryType, w.MaterialQueueForWCId })
             .ToListAsync(cancellationToken);
+
+        var queueWcIds = allQueueWcs
+            .Where(q => lineWcSet.Contains(q.MaterialQueueForWCId ?? q.Id))
+            .ToList();
 
         foreach (var qwc in queueWcIds)
         {
             var countWcId = qwc.MaterialQueueForWCId ?? qwc.Id;
             var count = await _db.MaterialQueueItems
                 .CountAsync(m => m.WorkCenterId == countWcId
-                                 && (m.Status == "queued" || m.Status == "active"),
+                                 && (m.Status == "queued" || m.Status == "active")
+                                 && m.ProductionLineId == productionLineId,
                     cancellationToken);
 
             var isRollsMaterial = qwc.DataEntryType == "MatQueue-Material";

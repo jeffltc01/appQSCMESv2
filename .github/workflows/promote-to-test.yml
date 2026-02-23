@@ -114,12 +114,73 @@ jobs:
           npm ci
           npm run build
 
-      - name: Run backend tests
-        run: dotnet test backend/MESv2.Api.Tests --configuration Release --verbosity normal
+      - name: Run backend tests with coverage
+        run: |
+          dotnet test backend/MESv2.Api.Tests \
+            --configuration Release \
+            --verbosity normal \
+            --settings backend/MESv2.Api.Tests/coverage.runsettings \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
 
-      - name: Run frontend tests
+      - name: Generate backend HTML coverage report
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:./TestResults/**/coverage.cobertura.xml \
+            -targetdir:./coverage-reports/backend \
+            -reporttypes:HtmlInline
+
+      - name: Run frontend tests with coverage
         working-directory: ${{ env.FRONTEND_PATH }}
-        run: npm test
+        run: |
+          npm ci
+          npm run test:coverage
+
+      - name: Assemble coverage reports
+        run: |
+          cp -r ${{ env.FRONTEND_PATH }}/coverage ./coverage-reports/frontend
+
+          BACKEND_COB="$(find ./TestResults -name 'coverage.cobertura.xml' | head -1)"
+          FRONTEND_COB="${{ env.FRONTEND_PATH }}/coverage/cobertura-coverage.xml"
+
+          python3 - "$BACKEND_COB" "$FRONTEND_COB" <<'PYEOF'
+          import xml.etree.ElementTree as ET, json, sys, datetime
+
+          def parse_cobertura(path):
+              try:
+                  tree = ET.parse(path)
+                  root = tree.getroot()
+                  return {
+                      "lineRate": round(float(root.get("line-rate", 0)) * 100, 1),
+                      "branchRate": round(float(root.get("branch-rate", 0)) * 100, 1),
+                      "linesValid": int(root.get("lines-valid", 0)),
+                      "linesCovered": int(root.get("lines-covered", 0)),
+                      "branchesValid": int(root.get("branches-valid", 0)),
+                      "branchesCovered": int(root.get("branches-covered", 0)),
+                  }
+              except Exception as e:
+                  return {"error": str(e)}
+
+          summary = {
+              "generatedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "backend": parse_cobertura(sys.argv[1]),
+              "frontend": parse_cobertura(sys.argv[2]),
+          }
+          with open("./coverage-reports/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+          PYEOF
+
+      - name: Upload coverage to Azure Blob Storage
+        if: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING != '' }}
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --source ./coverage-reports \
+              --destination coverage-reports \
+              --connection-string "${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}" \
+              --overwrite true
 
       - name: Install Playwright
         working-directory: e2e

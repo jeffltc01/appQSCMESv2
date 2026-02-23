@@ -14,7 +14,8 @@ public class AdminUsersControllerTests
     {
         db = TestHelpers.CreateInMemoryContext();
         var mockAuth = new Mock<IAuthService>();
-        var controller = new UsersController(mockAuth.Object, db);
+        var userService = new UserService(db);
+        var controller = new UsersController(mockAuth.Object, userService);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()

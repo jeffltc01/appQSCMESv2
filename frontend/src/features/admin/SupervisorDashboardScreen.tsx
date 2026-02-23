@@ -8,8 +8,9 @@ import {
   Label,
   Checkbox,
 } from '@fluentui/react-components';
-import { NoteRegular } from '@fluentui/react-icons';
+import { NoteRegular, TimerRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
+import { LogDowntimeDialog } from '../../components/dialogs/LogDowntimeDialog.tsx';
 import { workCenterApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type {
@@ -54,6 +55,7 @@ export function SupervisorDashboardScreen() {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
+  const [showDowntimeDialog, setShowDowntimeDialog] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -203,6 +205,16 @@ export function SupervisorDashboardScreen() {
           </div>
         )}
 
+        {selectedWcId && (
+          <Button
+            appearance="outline"
+            icon={<TimerRegular />}
+            onClick={() => setShowDowntimeDialog(true)}
+            style={{ borderRadius: 0 }}
+          >
+            Log Downtime
+          </Button>
+        )}
         {selectedWcId && <span className={styles.refreshNote}>Auto-refreshes every 30s</span>}
       </div>
 
@@ -570,6 +582,12 @@ export function SupervisorDashboardScreen() {
           )}
         </>
       )}
+      <LogDowntimeDialog
+        open={showDowntimeDialog}
+        onClose={() => setShowDowntimeDialog(false)}
+        onSaved={loadData}
+        preselectedWorkCenterId={selectedWcId || undefined}
+      />
     </AdminLayout>
   );
 }

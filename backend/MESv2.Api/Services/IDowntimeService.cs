@@ -22,5 +22,8 @@ public interface IDowntimeService
     Task<bool> SetDowntimeReasonsAsync(Guid wcId, Guid productionLineId, List<Guid> reasonIds, CancellationToken cancellationToken = default);
 
     // Downtime Events
+    Task<IReadOnlyList<DowntimeEventDto>> GetDowntimeEventsAsync(Guid workCenterId, DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
     Task<DowntimeEventDto> CreateDowntimeEventAsync(CreateDowntimeEventDto dto, Guid initiatedByUserId, CancellationToken cancellationToken = default);
+    Task<DowntimeEventDto?> UpdateDowntimeEventAsync(Guid id, UpdateDowntimeEventDto dto, CancellationToken cancellationToken = default);
+    Task<bool> DeleteDowntimeEventAsync(Guid id, CancellationToken cancellationToken = default);
 }

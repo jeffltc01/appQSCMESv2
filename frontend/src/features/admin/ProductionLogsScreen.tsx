@@ -113,6 +113,8 @@ export function ProductionLogsScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 100;
 
   const [annotModalOpen, setAnnotModalOpen] = useState(false);
   const [annotRecordId, setAnnotRecordId] = useState('');
@@ -134,6 +136,7 @@ export function ProductionLogsScreen() {
     setError('');
     setHasSearched(true);
     setShotCounts([]);
+    setPage(1);
 
     try {
       switch (logType) {
@@ -301,24 +304,46 @@ export function ProductionLogsScreen() {
         <div className={styles.emptyState}>No records found for the selected criteria.</div>
       ) : (
         <>
-          <div className={styles.countLabel}>Showing {entries.length} records</div>
-          <div className={styles.tableContainer}>
-            {logType === 'rolls' && (
-              <RollsTable entries={entries as RollsLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
-            )}
-            {logType === 'fitup' && (
-              <FitupTable entries={entries as FitupLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
-            )}
-            {logType === 'hydro' && (
-              <HydroTable entries={entries as HydroLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
-            )}
-            {logType === 'rt-xray' && (
-              <RtXrayTable entries={entries as RtXrayLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
-            )}
-            {logType === 'spot-xray' && (
-              <SpotXrayTable entries={entries as SpotXrayLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
-            )}
-          </div>
+          {(() => {
+            const totalPages = Math.ceil(entries.length / PAGE_SIZE);
+            const start = (page - 1) * PAGE_SIZE;
+            const pageEntries = entries.slice(start, start + PAGE_SIZE);
+            return (
+              <>
+                <div className={styles.countLabel}>
+                  Showing {start + 1}–{Math.min(start + PAGE_SIZE, entries.length)} of {entries.length} records
+                </div>
+                <div className={styles.tableContainer}>
+                  {logType === 'rolls' && (
+                    <RollsTable entries={pageEntries as RollsLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
+                  )}
+                  {logType === 'fitup' && (
+                    <FitupTable entries={pageEntries as FitupLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
+                  )}
+                  {logType === 'hydro' && (
+                    <HydroTable entries={pageEntries as HydroLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
+                  )}
+                  {logType === 'rt-xray' && (
+                    <RtXrayTable entries={pageEntries as RtXrayLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
+                  )}
+                  {logType === 'spot-xray' && (
+                    <SpotXrayTable entries={pageEntries as SpotXrayLogEntry[]} onAddAnnot={openAnnotModal} onViewDetail={openDetail} />
+                  )}
+                </div>
+                {totalPages > 1 && (
+                  <div className={styles.pagination}>
+                    <Button size="small" appearance="subtle" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                      Previous
+                    </Button>
+                    <span className={styles.pageInfo}>Page {page} of {totalPages}</span>
+                    <Button size="small" appearance="subtle" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                      Next
+                    </Button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
 

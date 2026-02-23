@@ -358,4 +358,180 @@ public class LogViewerServiceTests
 
         Assert.Empty(result);
     }
+
+    #region GetShotData Direct Tests
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void GetShotData_ReturnsCorrectSeam(int seamNumber)
+    {
+        var inc = new SpotXrayIncrement
+        {
+            Id = Guid.NewGuid(),
+            ManufacturingLogId = Guid.NewGuid(),
+            Seam1ShotNo = "S1", Seam1ShotDateTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            Seam2ShotNo = "S2", Seam2ShotDateTime = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc),
+            Seam3ShotNo = "S3", Seam3ShotDateTime = new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc),
+            Seam4ShotNo = "S4", Seam4ShotDateTime = new DateTime(2026, 1, 4, 0, 0, 0, DateTimeKind.Utc),
+        };
+
+        var (shotNo, shotDate) = LogViewerService.GetShotData(inc, seamNumber);
+
+        Assert.Equal($"S{seamNumber}", shotNo);
+        Assert.Equal(new DateTime(2026, 1, seamNumber, 0, 0, 0, DateTimeKind.Utc), shotDate);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    [InlineData(-1)]
+    public void GetShotData_OutOfRange_ReturnsNulls(int seamNumber)
+    {
+        var inc = new SpotXrayIncrement
+        {
+            Id = Guid.NewGuid(),
+            ManufacturingLogId = Guid.NewGuid(),
+            Seam1ShotNo = "S1",
+        };
+
+        var (shotNo, shotDate) = LogViewerService.GetShotData(inc, seamNumber);
+
+        Assert.Null(shotNo);
+        Assert.Null(shotDate);
+    }
+
+    #endregion
+
+    #region ResolveDateKey Direct Tests
+
+    [Fact]
+    public void ResolveDateKey_ShotDatePresent_UsesIt()
+    {
+        var shotDate = new DateTime(2026, 3, 15, 18, 0, 0, DateTimeKind.Utc);
+        var result = LogViewerService.ResolveDateKey(shotDate, null, TimeZoneInfo.Utc);
+
+        Assert.Equal("03/15/2026", result);
+    }
+
+    [Fact]
+    public void ResolveDateKey_ShotDateNull_FallsBackToCreatedDate()
+    {
+        var created = new DateTime(2026, 6, 20, 12, 0, 0, DateTimeKind.Utc);
+        var result = LogViewerService.ResolveDateKey(null, created, TimeZoneInfo.Utc);
+
+        Assert.Equal("06/20/2026", result);
+    }
+
+    [Fact]
+    public void ResolveDateKey_BothNull_ReturnsNull()
+    {
+        var result = LogViewerService.ResolveDateKey(null, null, TimeZoneInfo.Utc);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ResolveDateKey_AppliesTimezone()
+    {
+        var utcMidnight = new DateTime(2026, 7, 4, 3, 0, 0, DateTimeKind.Utc);
+        var eastern = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+
+        var result = LogViewerService.ResolveDateKey(utcMidnight, null, eastern);
+
+        Assert.Equal("07/03/2026", result);
+    }
+
+    #endregion
+
+    #region ComputeShotCounts Direct Tests
+
+    [Fact]
+    public void ComputeShotCounts_EmptyList_ReturnsEmpty()
+    {
+        var result = LogViewerService.ComputeShotCounts(
+            new List<SpotXrayIncrement>(), TimeZoneInfo.Utc);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void ComputeShotCounts_MultipleSeamsOnSameDate_Aggregates()
+    {
+        var inc = new SpotXrayIncrement
+        {
+            Id = Guid.NewGuid(),
+            ManufacturingLogId = Guid.NewGuid(),
+            Seam1ShotNo = "1", Seam1ShotDateTime = new DateTime(2026, 1, 10, 8, 0, 0, DateTimeKind.Utc),
+            Seam2ShotNo = "2", Seam2ShotDateTime = new DateTime(2026, 1, 10, 9, 0, 0, DateTimeKind.Utc),
+            Seam3ShotNo = "3", Seam3ShotDateTime = new DateTime(2026, 1, 10, 10, 0, 0, DateTimeKind.Utc),
+        };
+
+        var result = LogViewerService.ComputeShotCounts(
+            new List<SpotXrayIncrement> { inc }, TimeZoneInfo.Utc);
+
+        Assert.Single(result);
+        Assert.Equal("01/10/2026", result[0].Date);
+        Assert.Equal(3, result[0].Count);
+    }
+
+    [Fact]
+    public void ComputeShotCounts_EmptyShotNo_IsSkipped()
+    {
+        var inc = new SpotXrayIncrement
+        {
+            Id = Guid.NewGuid(),
+            ManufacturingLogId = Guid.NewGuid(),
+            Seam1ShotNo = "1", Seam1ShotDateTime = new DateTime(2026, 1, 10, 8, 0, 0, DateTimeKind.Utc),
+            Seam2ShotNo = null,
+            Seam3ShotNo = "",
+        };
+
+        var result = LogViewerService.ComputeShotCounts(
+            new List<SpotXrayIncrement> { inc }, TimeZoneInfo.Utc);
+
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Count);
+    }
+
+    [Fact]
+    public void ComputeShotCounts_NoDates_FallsBackToCreatedDateTime()
+    {
+        var inc = new SpotXrayIncrement
+        {
+            Id = Guid.NewGuid(),
+            ManufacturingLogId = Guid.NewGuid(),
+            Seam1ShotNo = "1",
+            Seam1ShotDateTime = null,
+            CreatedDateTime = new DateTime(2026, 2, 5, 12, 0, 0, DateTimeKind.Utc),
+        };
+
+        var result = LogViewerService.ComputeShotCounts(
+            new List<SpotXrayIncrement> { inc }, TimeZoneInfo.Utc);
+
+        Assert.Single(result);
+        Assert.Equal("02/05/2026", result[0].Date);
+    }
+
+    [Fact]
+    public void ComputeShotCounts_NoDatesAtAll_SkipsShot()
+    {
+        var inc = new SpotXrayIncrement
+        {
+            Id = Guid.NewGuid(),
+            ManufacturingLogId = Guid.NewGuid(),
+            Seam1ShotNo = "1",
+            Seam1ShotDateTime = null,
+            CreatedDateTime = null,
+        };
+
+        var result = LogViewerService.ComputeShotCounts(
+            new List<SpotXrayIncrement> { inc }, TimeZoneInfo.Utc);
+
+        Assert.Empty(result);
+    }
+
+    #endregion
 }

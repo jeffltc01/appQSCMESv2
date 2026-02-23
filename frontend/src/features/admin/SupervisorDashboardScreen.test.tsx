@@ -20,6 +20,10 @@ vi.mock('../../api/endpoints', () => ({
     submitAnnotation: vi.fn().mockResolvedValue({ annotationsCreated: 0 }),
   },
   siteApi: { getSites: vi.fn().mockResolvedValue([]) },
+  adminWorkCenterApi: { getProductionLineConfigs: vi.fn().mockResolvedValue([]) },
+  downtimeReasonCategoryApi: { getAll: vi.fn().mockResolvedValue([]) },
+  adminUserApi: { getAll: vi.fn().mockResolvedValue([]) },
+  downtimeEventApi: { create: vi.fn().mockResolvedValue({}) },
 }));
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -435,6 +439,25 @@ describe('SupervisorDashboardScreen', () => {
     expect(screen.getByText('97.3%')).toBeInTheDocument();
   });
 
+  it('shows Log Downtime button when work center is selected', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /log downtime/i })).toBeInTheDocument();
+    });
+  });
+
+  it('does not show Log Downtime button before work center selection', () => {
+    renderScreen();
+    expect(screen.queryByRole('button', { name: /log downtime/i })).not.toBeInTheDocument();
+  });
+
   it('does not call getPerformanceTable when in annotate mode', async () => {
     vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
@@ -456,5 +479,38 @@ describe('SupervisorDashboardScreen', () => {
     });
 
     expect(supervisorDashboardApi.getPerformanceTable).not.toHaveBeenCalled();
+  });
+
+  it('shows error state when getMetrics API fails', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockRejectedValue(new Error('Network error'));
+    vi.mocked(supervisorDashboardApi.getRecords).mockRejectedValue(new Error('Network error'));
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockRejectedValue(new Error('Network error'));
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows loading spinner while fetching metrics', async () => {
+    let resolveMetrics!: (v: SupervisorDashboardMetrics | null) => void;
+    vi.mocked(supervisorDashboardApi.getMetrics).mockImplementation(
+      () => new Promise((r) => { resolveMetrics = r; }),
+    );
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    expect(screen.getByText('Loading dashboard...')).toBeInTheDocument();
+    resolveMetrics(mockMetrics);
+    await waitFor(() =>
+      expect(screen.queryByText('Loading dashboard...')).not.toBeInTheDocument(),
+    );
   });
 });

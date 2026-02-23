@@ -177,7 +177,7 @@ describe('ProductionLogsScreen', () => {
     renderScreen(['/menu/production-logs?logType=rolls']);
 
     await waitFor(() => {
-      expect(screen.getByText('Showing 1 records')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 1.* of 1 records/)).toBeInTheDocument();
     });
   });
 

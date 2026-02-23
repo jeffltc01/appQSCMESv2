@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { setAuthToken, setRoleTier, setSiteId } from '../api/apiClient.ts';
 
 const SESSION_KEY = 'mes_auth';
@@ -69,12 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(SESSION_KEY);
   }, []);
 
-  const value: AuthContextValue = {
+  const value: AuthContextValue = useMemo(() => ({
     ...state,
     login,
     logout,
     isAuthenticated: state.token !== null,
-  };
+  }), [state, login, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

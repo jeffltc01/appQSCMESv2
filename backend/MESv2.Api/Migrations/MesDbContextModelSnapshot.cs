@@ -190,6 +190,45 @@ namespace MESv2.Api.Migrations
                     b.ToTable("Assets");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.AuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Changes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangedAtUtc");
+
+                    b.HasIndex("ChangedByUserId");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.BarcodeCard", b =>
                 {
                     b.Property<Guid>("Id")
@@ -738,6 +777,9 @@ namespace MESv2.Api.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("ProductionLineId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
@@ -760,6 +802,8 @@ namespace MESv2.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OperatorId");
+
+                    b.HasIndex("ProductionLineId");
 
                     b.HasIndex("SerialNumberId");
 
@@ -2080,6 +2124,16 @@ namespace MESv2.Api.Migrations
                     b.Navigation("WorkCenter");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.AuditLog", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.User", "ChangedByUser")
+                        .WithMany()
+                        .HasForeignKey("ChangedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ChangedByUser");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.ChangeLog", b =>
                 {
                     b.HasOne("MESv2.Api.Models.User", "ChangeByUser")
@@ -2347,6 +2401,11 @@ namespace MESv2.Api.Migrations
                         .HasForeignKey("OperatorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("MESv2.Api.Models.ProductionLine", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MESv2.Api.Models.SerialNumber", "SerialNumber")
                         .WithMany()
                         .HasForeignKey("SerialNumberId")
@@ -2359,6 +2418,8 @@ namespace MESv2.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Operator");
+
+                    b.Navigation("ProductionLine");
 
                     b.Navigation("SerialNumber");
 

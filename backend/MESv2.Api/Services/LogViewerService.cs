@@ -433,6 +433,35 @@ public class LogViewerService : ILogViewerService
             .ToList();
     }
 
+    private static readonly Func<Models.SpotXrayIncrement, (string? shotNo, DateTime? shotDate)>[] ShotAccessors =
+    {
+        inc => (inc.Seam1ShotNo, inc.Seam1ShotDateTime),
+        inc => (inc.Seam2ShotNo, inc.Seam2ShotDateTime),
+        inc => (inc.Seam3ShotNo, inc.Seam3ShotDateTime),
+        inc => (inc.Seam4ShotNo, inc.Seam4ShotDateTime),
+    };
+
+    internal static (string? shotNo, DateTime? shotDate) GetShotData(
+        Models.SpotXrayIncrement inc, int seamNumber)
+    {
+        var idx = seamNumber - 1;
+        return (idx >= 0 && idx < ShotAccessors.Length)
+            ? ShotAccessors[idx](inc)
+            : (null, null);
+    }
+
+    internal static string? ResolveDateKey(
+        DateTime? shotDate, DateTime? createdDate, TimeZoneInfo tz)
+    {
+        DateTime? source = shotDate ?? createdDate;
+        if (!source.HasValue) return null;
+
+        var utc = source.Value.Kind == DateTimeKind.Utc
+            ? source.Value
+            : DateTime.SpecifyKind(source.Value, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, tz).ToString("MM/dd/yyyy");
+    }
+
     private static string BuildShotSummary(List<Models.SpotXrayIncrement> increments)
     {
         if (increments.Count == 0) return "";
@@ -442,23 +471,7 @@ public class LogViewerService : ILogViewerService
         {
             for (int seam = 1; seam <= 4; seam++)
             {
-                var shotNo = seam switch
-                {
-                    1 => inc.Seam1ShotNo,
-                    2 => inc.Seam2ShotNo,
-                    3 => inc.Seam3ShotNo,
-                    4 => inc.Seam4ShotNo,
-                    _ => null
-                };
-                var shotDate = seam switch
-                {
-                    1 => inc.Seam1ShotDateTime,
-                    2 => inc.Seam2ShotDateTime,
-                    3 => inc.Seam3ShotDateTime,
-                    4 => inc.Seam4ShotDateTime,
-                    _ => (DateTime?)null
-                };
-
+                var (shotNo, shotDate) = GetShotData(inc, seam);
                 if (!string.IsNullOrEmpty(shotNo))
                 {
                     var dateStr = shotDate.HasValue ? $" ({shotDate.Value:o})" : "";
@@ -470,7 +483,7 @@ public class LogViewerService : ILogViewerService
         return string.Join(", ", seamParts);
     }
 
-    private static List<SpotXrayShotCountDto> ComputeShotCounts(
+    internal static List<SpotXrayShotCountDto> ComputeShotCounts(
         List<Models.SpotXrayIncrement> allIncrements, TimeZoneInfo tz)
     {
         var shotsByDate = new Dictionary<string, int>();
@@ -479,44 +492,11 @@ public class LogViewerService : ILogViewerService
         {
             for (int seam = 1; seam <= 4; seam++)
             {
-                var shotDate = seam switch
-                {
-                    1 => inc.Seam1ShotDateTime,
-                    2 => inc.Seam2ShotDateTime,
-                    3 => inc.Seam3ShotDateTime,
-                    4 => inc.Seam4ShotDateTime,
-                    _ => (DateTime?)null
-                };
-                var shotNo = seam switch
-                {
-                    1 => inc.Seam1ShotNo,
-                    2 => inc.Seam2ShotNo,
-                    3 => inc.Seam3ShotNo,
-                    4 => inc.Seam4ShotNo,
-                    _ => null
-                };
-
+                var (shotNo, shotDate) = GetShotData(inc, seam);
                 if (string.IsNullOrEmpty(shotNo)) continue;
 
-                string dateKey;
-                if (shotDate.HasValue)
-                {
-                    var shotDt = shotDate.Value;
-                    var local = TimeZoneInfo.ConvertTimeFromUtc(shotDt.Kind == DateTimeKind.Utc ? shotDt : DateTime.SpecifyKind(shotDt, DateTimeKind.Utc), tz);
-                    dateKey = local.ToString("MM/dd/yyyy");
-                }
-                else if (inc.CreatedDateTime.HasValue)
-                {
-                    var local = TimeZoneInfo.ConvertTimeFromUtc(
-                        inc.CreatedDateTime.Value.Kind == DateTimeKind.Utc
-                            ? inc.CreatedDateTime.Value
-                            : DateTime.SpecifyKind(inc.CreatedDateTime.Value, DateTimeKind.Utc), tz);
-                    dateKey = local.ToString("MM/dd/yyyy");
-                }
-                else
-                {
-                    continue;
-                }
+                var dateKey = ResolveDateKey(shotDate, inc.CreatedDateTime, tz);
+                if (dateKey == null) continue;
 
                 shotsByDate.TryGetValue(dateKey, out var count);
                 shotsByDate[dateKey] = count + 1;

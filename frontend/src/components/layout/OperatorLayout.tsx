@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { Button, Input, Label } from '@fluentui/react-components';
+import { Button, Input, Label, Spinner } from '@fluentui/react-components';
 import { DismissRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { getTabletCache } from '../../hooks/useLocalStorage.ts';
@@ -18,19 +18,25 @@ import { QueueHistory } from './QueueHistory.tsx';
 import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { DowntimeOverlay } from './DowntimeOverlay.tsx';
 import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
-import { RollsScreen } from '../../features/rolls/RollsScreen.tsx';
-import { RollsMaterialScreen } from '../../features/rollsMaterial/RollsMaterialScreen.tsx';
-import { LongSeamScreen } from '../../features/longSeam/LongSeamScreen.tsx';
-import { LongSeamInspScreen } from '../../features/longSeamInsp/LongSeamInspScreen.tsx';
-import { FitupScreen } from '../../features/fitup/FitupScreen.tsx';
-import { FitupQueueScreen } from '../../features/fitupQueue/FitupQueueScreen.tsx';
-import { RoundSeamScreen } from '../../features/roundSeam/RoundSeamScreen.tsx';
-import { RoundSeamInspScreen } from '../../features/roundSeamInsp/RoundSeamInspScreen.tsx';
-import { RtXrayQueueScreen } from '../../features/rtXrayQueue/RtXrayQueueScreen.tsx';
-import { SpotXrayScreen } from '../../features/spotXray/SpotXrayScreen.tsx';
-import { NameplateScreen } from '../../features/nameplate/NameplateScreen.tsx';
-import { HydroScreen } from '../../features/hydro/HydroScreen.tsx';
 import styles from './OperatorLayout.module.css';
+
+const namedLazy = <T extends Record<string, React.ComponentType<any>>>(
+  loader: () => Promise<T>,
+  name: keyof T,
+) => lazy(() => loader().then((m) => ({ default: m[name] as React.ComponentType<any> })));
+
+const RollsScreen = namedLazy(() => import('../../features/rolls/RollsScreen.tsx'), 'RollsScreen');
+const RollsMaterialScreen = namedLazy(() => import('../../features/rollsMaterial/RollsMaterialScreen.tsx'), 'RollsMaterialScreen');
+const LongSeamScreen = namedLazy(() => import('../../features/longSeam/LongSeamScreen.tsx'), 'LongSeamScreen');
+const LongSeamInspScreen = namedLazy(() => import('../../features/longSeamInsp/LongSeamInspScreen.tsx'), 'LongSeamInspScreen');
+const FitupScreen = namedLazy(() => import('../../features/fitup/FitupScreen.tsx'), 'FitupScreen');
+const FitupQueueScreen = namedLazy(() => import('../../features/fitupQueue/FitupQueueScreen.tsx'), 'FitupQueueScreen');
+const RoundSeamScreen = namedLazy(() => import('../../features/roundSeam/RoundSeamScreen.tsx'), 'RoundSeamScreen');
+const RoundSeamInspScreen = namedLazy(() => import('../../features/roundSeamInsp/RoundSeamInspScreen.tsx'), 'RoundSeamInspScreen');
+const RtXrayQueueScreen = namedLazy(() => import('../../features/rtXrayQueue/RtXrayQueueScreen.tsx'), 'RtXrayQueueScreen');
+const SpotXrayScreen = namedLazy(() => import('../../features/spotXray/SpotXrayScreen.tsx'), 'SpotXrayScreen');
+const NameplateScreen = namedLazy(() => import('../../features/nameplate/NameplateScreen.tsx'), 'NameplateScreen');
+const HydroScreen = namedLazy(() => import('../../features/hydro/HydroScreen.tsx'), 'HydroScreen');
 
 const DATA_ENTRY_TO_LOG_TYPE: Record<string, string> = {
   Rolls: 'rolls',
@@ -46,7 +52,7 @@ function dataEntryTypeToLogType(dataEntryType: string): string | undefined {
 
 export function OperatorLayout() {
   const { user, logout } = useAuth();
-  const cache = getTabletCache();
+  const [cache] = useState(getTabletCache);
 
   const sessionData = useMemo(() => {
     if (!cache?.cachedWorkCenterId || !cache.cachedProductionLineId || !user?.defaultSiteId) return undefined;
@@ -102,40 +108,6 @@ export function OperatorLayout() {
     } catch { /* keep stale */ }
   }, [queueTxnWCId, user?.defaultSiteId]);
 
-  useEffect(() => {
-    if (user) {
-      setWelders([{
-        userId: user.id,
-        displayName: user.displayName,
-        employeeNumber: user.employeeNumber,
-      }]);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!cache?.cachedWorkCenterId) return;
-    if (isQueueScreen) {
-      loadQueueTransactions();
-    } else {
-      loadHistory();
-    }
-  }, [cache?.cachedWorkCenterId, isQueueScreen]);
-
-  useEffect(() => {
-    if (!cache?.cachedWorkCenterId) return;
-    loadNumberOfWelders();
-  }, [cache?.cachedWorkCenterId]);
-
-  useEffect(() => {
-    if (!user?.defaultSiteId) return;
-    adminPlantGearApi.getAll()
-      .then((plants) => {
-        const mine = plants.find((p) => p.plantId === user.defaultSiteId);
-        setCurrentGearLevel(mine?.currentGearLevel ?? null);
-      })
-      .catch(() => { /* keep null */ });
-  }, [user?.defaultSiteId]);
-
   const loadHistory = useCallback(async () => {
     if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;
     try {
@@ -185,6 +157,40 @@ export function OperatorLayout() {
       setWelderCountLoaded(true);
     }
   }, [cache?.cachedWorkCenterId, cache?.cachedWorkCenterName, cache?.cachedProductionLineId]);
+
+  useEffect(() => {
+    if (user) {
+      setWelders([{
+        userId: user.id,
+        displayName: user.displayName,
+        employeeNumber: user.employeeNumber,
+      }]);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!cache?.cachedWorkCenterId) return;
+    if (isQueueScreen) {
+      loadQueueTransactions();
+    } else {
+      loadHistory();
+    }
+  }, [cache?.cachedWorkCenterId, isQueueScreen, loadQueueTransactions, loadHistory]);
+
+  useEffect(() => {
+    if (!cache?.cachedWorkCenterId) return;
+    loadNumberOfWelders();
+  }, [cache?.cachedWorkCenterId, loadNumberOfWelders]);
+
+  useEffect(() => {
+    if (!user?.defaultSiteId) return;
+    adminPlantGearApi.getAll()
+      .then((plants) => {
+        const mine = plants.find((p) => p.plantId === user.defaultSiteId);
+        setCurrentGearLevel(mine?.currentGearLevel ?? null);
+      })
+      .catch(() => { /* keep null */ });
+  }, [user?.defaultSiteId]);
 
   // ---- Downtime tracking ----
 
@@ -286,10 +292,15 @@ export function OperatorLayout() {
     [showScanResult],
   );
 
-  const { inputRef, handleKeyDown } = useBarcode({
+  const { inputRef, handleKeyDown, focusLost } = useBarcode({
     enabled: externalInput && !showDowntimeOverlay,
     onScan: handleScan,
   });
+
+  const handleFocusRestore = useCallback(() => {
+    inputRef.current?.focus();
+    window.focus();
+  }, [inputRef]);
 
   const registerBarcodeHandler = useCallback(
     (handler: (bc: ParsedBarcode | null, raw: string) => void) => {
@@ -370,6 +381,17 @@ export function OperatorLayout() {
 
   return (
     <div className={styles.shell}>
+      {externalInput && focusLost && (
+        <div
+          className={styles.focusLostBanner}
+          onClick={handleFocusRestore}
+          role="alert"
+        >
+          <span className={styles.focusLostIcon}>&#9888;</span>
+          Scanner inactive &mdash; tap here to restore
+        </div>
+      )}
+
       <TopBar
         workCenterName={cache?.cachedWorkCenterDisplayName || cache?.cachedWorkCenterName || ''}
         workCenterId={cache?.cachedWorkCenterId ?? ''}
@@ -393,9 +415,11 @@ export function OperatorLayout() {
             ...(hideHistory ? { flex: 1, maxWidth: '100%' } : {}),
           }}
         >
-          <Routes>
-            <Route index element={<WorkCenterRouter {...wcProps} />} />
-          </Routes>
+          <Suspense fallback={<Spinner size="medium" style={{ padding: 40 }} />}>
+            <Routes>
+              <Route index element={<WorkCenterRouter {...wcProps} />} />
+            </Routes>
+          </Suspense>
         </main>
 
         {!hideHistory && (
@@ -414,6 +438,7 @@ export function OperatorLayout() {
         externalInput={externalInput}
         onToggleExternalInput={() => setExternalInput((v) => !v)}
         showToggle={supportsExternalInput}
+        scannerReady={externalInput && !focusLost}
       />
 
       {externalInput && !showDowntimeOverlay && (

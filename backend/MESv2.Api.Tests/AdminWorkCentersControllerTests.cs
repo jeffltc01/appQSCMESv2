@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MESv2.Api.Controllers;
 using MESv2.Api.DTOs;
-using Moq;
 using MESv2.Api.Services;
+using Moq;
 
 namespace MESv2.Api.Tests;
 
@@ -13,11 +13,12 @@ public class AdminWorkCentersControllerTests
     private WorkCentersController CreateController(out Data.MesDbContext db)
     {
         db = TestHelpers.CreateInMemoryContext();
+        var adminService = new AdminWorkCenterService(db);
         var mockService = new Mock<IWorkCenterService>();
         var mockXrayService = new Mock<IXrayQueueService>();
         var mockDowntimeService = new Mock<IDowntimeService>();
         var mockLogger = new Mock<ILogger<WorkCentersController>>();
-        return new WorkCentersController(mockService.Object, mockXrayService.Object, mockDowntimeService.Object, db, mockLogger.Object);
+        return new WorkCentersController(mockService.Object, mockXrayService.Object, mockDowntimeService.Object, adminService, mockLogger.Object);
     }
 
     [Fact]

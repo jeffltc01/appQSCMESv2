@@ -14,8 +14,10 @@ public class MaterialQueueItem
     public Guid? OperatorId { get; set; }
     public string? QueueType { get; set; }
     public Guid? SerialNumberId { get; set; }
+    public Guid? ProductionLineId { get; set; }
 
     public WorkCenter WorkCenter { get; set; } = null!;
     public SerialNumber? SerialNumber { get; set; }
     public User? Operator { get; set; }
+    public ProductionLine? ProductionLine { get; set; }
 }

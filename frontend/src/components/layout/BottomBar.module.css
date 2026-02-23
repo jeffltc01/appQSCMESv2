@@ -71,3 +71,20 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+.scannerDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background-color 0.3s ease;
+}
+
+.scannerReady {
+  background-color: #28a745;
+}
+
+.scannerLost {
+  background-color: #dc3545;
+  animation: pulse 1.2s ease-in-out infinite;
+}

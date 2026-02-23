@@ -63,4 +63,24 @@ describe('BottomBar', () => {
     await user.click(toggle);
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
+
+  it('shows green scanner dot when externalInput is on and scannerReady is true', () => {
+    renderBottomBar({ externalInput: true, scannerReady: true });
+    const dot = document.querySelector('[title="Scanner ready"]');
+    expect(dot).toBeInTheDocument();
+  });
+
+  it('shows red scanner dot when externalInput is on and scannerReady is false', () => {
+    renderBottomBar({ externalInput: true, scannerReady: false });
+    const dot = document.querySelector('[title="Scanner inactive"]');
+    expect(dot).toBeInTheDocument();
+  });
+
+  it('does not show scanner dot when externalInput is off', () => {
+    renderBottomBar({ externalInput: false, scannerReady: false });
+    const readyDot = document.querySelector('[title="Scanner ready"]');
+    const lostDot = document.querySelector('[title="Scanner inactive"]');
+    expect(readyDot).not.toBeInTheDocument();
+    expect(lostDot).not.toBeInTheDocument();
+  });
 });

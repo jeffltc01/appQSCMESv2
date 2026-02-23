@@ -292,4 +292,244 @@ public class SpotXrayServiceTests
 
         Assert.Equal("Accept-Scrap", saved.OverallStatus);
     }
+
+    [Fact]
+    public async Task SaveResults_AllSeamsEmpty_SetsPendingStatus()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-701", "ALPHA-701", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-702", "ALPHA-702", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var saved = await svc.SaveResultsAsync(created.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1 },
+                new() { SeamNumber = 2 }
+            }
+        });
+
+        Assert.Equal("Pending", saved.OverallStatus);
+    }
+
+    [Fact]
+    public async Task SaveResults_RejectWithEmptyTrace1_SetsRejectStatus()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-801", "ALPHA-801", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-802", "ALPHA-802", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var saved = await svc.SaveResultsAsync(created.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1, ShotNo = "1", Result = "Reject" },
+                new() { SeamNumber = 2, ShotNo = "2", Result = "Accept" }
+            }
+        });
+
+        Assert.Equal("Reject", saved.OverallStatus);
+    }
+
+    [Fact]
+    public async Task SaveResults_Trace1AcceptTrace2Empty_SetsPendingStatus()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-901", "ALPHA-901", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-902", "ALPHA-902", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var saved = await svc.SaveResultsAsync(created.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1, ShotNo = "1", Result = "Reject", Trace1ShotNo = "2", Trace1Result = "Accept" },
+                new() { SeamNumber = 2, ShotNo = "3", Result = "Accept" }
+            }
+        });
+
+        Assert.Equal("Pending", saved.OverallStatus);
+    }
+
+    [Fact]
+    public async Task SaveResults_Trace2Reject_SetsRejectStatus()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-A01", "ALPHA-A01", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-A02", "ALPHA-A02", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var saved = await svc.SaveResultsAsync(created.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1, ShotNo = "1", Result = "Reject", Trace1ShotNo = "2", Trace1Result = "Accept", Trace2ShotNo = "3", Trace2Result = "Reject" },
+                new() { SeamNumber = 2, ShotNo = "4", Result = "Accept" }
+            }
+        });
+
+        Assert.Equal("Reject", saved.OverallStatus);
+    }
+
+    [Fact]
+    public async Task SaveResults_FinalEmpty_SetsPendingStatus()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-B01", "ALPHA-B01", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-B02", "ALPHA-B02", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var saved = await svc.SaveResultsAsync(created.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1, ShotNo = "1", Result = "Reject", Trace1ShotNo = "2", Trace1Result = "Accept", Trace2ShotNo = "3", Trace2Result = "Accept" },
+                new() { SeamNumber = 2, ShotNo = "4", Result = "Accept" }
+            }
+        });
+
+        Assert.Equal("Pending", saved.OverallStatus);
+    }
+
+    [Fact]
+    public async Task SaveResults_FinalAccept_SetsAcceptStatus()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-C01", "ALPHA-C01", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-C02", "ALPHA-C02", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var saved = await svc.SaveResultsAsync(created.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1, ShotNo = "1", Result = "Reject", Trace1ShotNo = "2", Trace1Result = "Accept", Trace2ShotNo = "3", Trace2Result = "Accept", FinalShotNo = "4", FinalResult = "Accept" },
+                new() { SeamNumber = 2, ShotNo = "5", Result = "Accept" }
+            }
+        });
+
+        Assert.Equal("Accept", saved.OverallStatus);
+    }
+
+    [Fact]
+    public async Task GetLaneQueues_NoRoundSeamRecords_ReturnsEmpty()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var result = await svc.GetLaneQueuesAsync("000");
+
+        Assert.Empty(result.Lanes);
+    }
+
+    [Fact]
+    public async Task GetRecentIncrements_ReturnsCreatedIncrements()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        await SeedTankAtRoundSeam(db, "SH-D01", "ALPHA-D01", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-D02", "ALPHA-D02", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var recent = await svc.GetRecentIncrementsAsync("000");
+
+        Assert.Single(recent);
+        Assert.True(recent[0].IsDraft);
+    }
 }

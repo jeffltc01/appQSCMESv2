@@ -13,9 +13,14 @@ builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-builder.Services.AddDbContext<MesDbContext>(options =>
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<AuditInterceptor>();
+
+builder.Services.AddDbContext<MesDbContext>((sp, options) =>
 {
     options.UseSqlServer(connectionString);
+    options.AddInterceptors(sp.GetRequiredService<AuditInterceptor>());
 });
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -48,6 +53,26 @@ builder.Services.AddScoped<IDowntimeService, DowntimeService>();
 builder.Services.AddScoped<IOeeService, OeeService>();
 builder.Services.AddScoped<IRealTimeXrayService, RealTimeXrayService>();
 builder.Services.AddScoped<ISpotXrayService, SpotXrayService>();
+builder.Services.AddScoped<IAnnotationService, AnnotationService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAdminWorkCenterService, AdminWorkCenterService>();
+builder.Services.AddScoped<INaturalLanguageQueryService, NaturalLanguageQueryService>();
+builder.Services.AddScoped<INlqToolExecutor, NaturalLanguageQueryToolExecutor>();
+
+builder.Services.Configure<NaturalLanguageQueryOptions>(builder.Configuration.GetSection("NaturalLanguageQuery"));
+builder.Services.AddHttpClient<HttpPrivateLlmClient>();
+builder.Services.AddScoped<MockPrivateLlmClient>();
+builder.Services.AddScoped<INlqModelClient>(sp =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<NaturalLanguageQueryOptions>>().Value;
+    return string.Equals(options.Provider, "http", StringComparison.OrdinalIgnoreCase)
+        ? sp.GetRequiredService<HttpPrivateLlmClient>()
+        : sp.GetRequiredService<MockPrivateLlmClient>();
+});
+
+builder.Services.Configure<CoverageReportOptions>(builder.Configuration.GetSection("CoverageReports"));
+builder.Services.AddSingleton<ICoverageReportService, CoverageReportService>();
 
 // --- JWT configuration ---
 string jwtKey;

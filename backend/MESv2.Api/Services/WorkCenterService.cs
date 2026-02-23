@@ -75,95 +75,90 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         if (recentProdRecords.Count > 0)
+            return await GetProductionHistoryItems(wcId, dayCount, recentProdRecords, tz, cancellationToken);
+
+        return await GetInspectionHistoryItems(wcId, startOfDay, endOfDay, limit, tz, cancellationToken);
+    }
+
+    private async Task<WCHistoryDto> GetProductionHistoryItems(
+        Guid wcId, int dayCount, List<ProductionRecord> recentProdRecords,
+        TimeZoneInfo tz, CancellationToken cancellationToken)
+    {
+        var recordIds = recentProdRecords.Select(r => r.Id).ToList();
+        var annotationColors = await GetAnnotationColorsByRecordAsync(recordIds, cancellationToken);
+
+        var wcDataEntryType = await _db.WorkCenters
+            .Where(w => w.Id == wcId)
+            .Select(w => w.DataEntryType)
+            .FirstOrDefaultAsync(cancellationToken);
+        var isFitup = string.Equals(wcDataEntryType, "Fitup", StringComparison.OrdinalIgnoreCase);
+
+        var shellsByAssembly = new Dictionary<Guid, List<string>>();
+        if (isFitup)
         {
-            var recordIds = recentProdRecords.Select(r => r.Id).ToList();
-            var annotationColors = await GetAnnotationColorsByRecordAsync(recordIds, cancellationToken);
+            var assemblySnIds = recentProdRecords
+                .Select(r => r.SerialNumberId)
+                .ToList();
 
-            var wcDataEntryType = await _db.WorkCenters
-                .Where(w => w.Id == wcId)
-                .Select(w => w.DataEntryType)
-                .FirstOrDefaultAsync(cancellationToken);
-            var isFitup = string.Equals(wcDataEntryType, "Fitup", StringComparison.OrdinalIgnoreCase);
+            var shellLogs = await _db.TraceabilityLogs
+                .Include(t => t.FromSerialNumber)
+                .Where(t => t.ToSerialNumberId.HasValue
+                    && assemblySnIds.Contains(t.ToSerialNumberId.Value)
+                    && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
+                .ToListAsync(cancellationToken);
 
-            var shellsByAssembly = new Dictionary<Guid, List<string>>();
-            if (isFitup)
+            foreach (var log in shellLogs)
             {
-                var assemblySnIds = recentProdRecords
-                    .Select(r => r.SerialNumberId)
-                    .ToList();
-
-                var shellLogs = await _db.TraceabilityLogs
-                    .Include(t => t.FromSerialNumber)
-                    .Where(t => t.ToSerialNumberId.HasValue
-                        && assemblySnIds.Contains(t.ToSerialNumberId.Value)
-                        && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
-                    .ToListAsync(cancellationToken);
-
-                foreach (var log in shellLogs)
-                {
-                    if (log.ToSerialNumberId == null) continue;
-                    if (!shellsByAssembly.ContainsKey(log.ToSerialNumberId.Value))
-                        shellsByAssembly[log.ToSerialNumberId.Value] = new List<string>();
-                    if (log.FromSerialNumber?.Serial != null)
-                        shellsByAssembly[log.ToSerialNumberId.Value].Add(log.FromSerialNumber.Serial);
-                }
+                if (log.ToSerialNumberId == null) continue;
+                if (!shellsByAssembly.ContainsKey(log.ToSerialNumberId.Value))
+                    shellsByAssembly[log.ToSerialNumberId.Value] = new List<string>();
+                if (log.FromSerialNumber?.Serial != null)
+                    shellsByAssembly[log.ToSerialNumberId.Value].Add(log.FromSerialNumber.Serial);
             }
-
-            var assemblyByShell = new Dictionary<Guid, string>();
-            if (!isFitup)
-            {
-                var shellSnIds = recentProdRecords
-                    .Select(r => r.SerialNumberId)
-                    .Distinct()
-                    .ToList();
-
-                var assemblyLogs = await _db.TraceabilityLogs
-                    .Include(t => t.ToSerialNumber)
-                    .Where(t => t.FromSerialNumberId.HasValue
-                        && shellSnIds.Contains(t.FromSerialNumberId.Value)
-                        && t.ToSerialNumberId.HasValue
-                        && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
-                    .ToListAsync(cancellationToken);
-
-                foreach (var log in assemblyLogs)
-                {
-                    if (log.FromSerialNumberId.HasValue && log.ToSerialNumber?.Serial != null)
-                        assemblyByShell.TryAdd(log.FromSerialNumberId.Value, log.ToSerialNumber.Serial);
-                }
-            }
-
-            var recentRecords = recentProdRecords.Select(r =>
-            {
-                var alphaOrSerial = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
-                var serialOrIdentifier = alphaOrSerial;
-                if (isFitup
-                    && shellsByAssembly.TryGetValue(r.SerialNumberId, out var shells)
-                    && shells.Count > 0)
-                {
-                    serialOrIdentifier = $"{alphaOrSerial} ({string.Join(", ", shells)})";
-                }
-                else if (!isFitup
-                    && assemblyByShell.TryGetValue(r.SerialNumberId, out var alphaCode))
-                {
-                    serialOrIdentifier = $"{alphaCode} ({alphaOrSerial})";
-                }
-                var tankSize = r.SerialNumber?.Product?.TankSize;
-                annotationColors.TryGetValue(r.Id, out var color);
-                return new WCHistoryEntryDto
-                {
-                    Id = r.Id,
-                    ProductionRecordId = r.Id,
-                    Timestamp = ToLocal(r.Timestamp, tz),
-                    SerialOrIdentifier = serialOrIdentifier,
-                    TankSize = tankSize,
-                    HasAnnotation = color != null,
-                    AnnotationColor = color
-                };
-            }).ToList();
-
-            return new WCHistoryDto { DayCount = dayCount, RecentRecords = recentRecords };
         }
 
+        var assemblyByShell = isFitup
+            ? new Dictionary<Guid, string>()
+            : await ResolveAssemblyByShellAsync(
+                recentProdRecords.Select(r => r.SerialNumberId).Distinct().ToList(),
+                cancellationToken);
+
+        var recentRecords = recentProdRecords.Select(r =>
+        {
+            var alphaOrSerial = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
+            var serialOrIdentifier = alphaOrSerial;
+            if (isFitup
+                && shellsByAssembly.TryGetValue(r.SerialNumberId, out var shells)
+                && shells.Count > 0)
+            {
+                serialOrIdentifier = $"{alphaOrSerial} ({string.Join(", ", shells)})";
+            }
+            else if (!isFitup
+                && assemblyByShell.TryGetValue(r.SerialNumberId, out var alphaCode))
+            {
+                serialOrIdentifier = $"{alphaCode} ({alphaOrSerial})";
+            }
+            var tankSize = r.SerialNumber?.Product?.TankSize;
+            annotationColors.TryGetValue(r.Id, out var color);
+            return new WCHistoryEntryDto
+            {
+                Id = r.Id,
+                ProductionRecordId = r.Id,
+                Timestamp = ToLocal(r.Timestamp, tz),
+                SerialOrIdentifier = serialOrIdentifier,
+                TankSize = tankSize,
+                HasAnnotation = color != null,
+                AnnotationColor = color
+            };
+        }).ToList();
+
+        return new WCHistoryDto { DayCount = dayCount, RecentRecords = recentRecords };
+    }
+
+    private async Task<WCHistoryDto> GetInspectionHistoryItems(
+        Guid wcId, DateTime startOfDay, DateTime endOfDay, int limit,
+        TimeZoneInfo tz, CancellationToken cancellationToken)
+    {
         var inspDayCount = await _db.InspectionRecords
             .Where(i => i.WorkCenterId == wcId && i.Timestamp >= startOfDay && i.Timestamp < endOfDay)
             .CountAsync(cancellationToken);
@@ -179,30 +174,14 @@ public class WorkCenterService : IWorkCenterService
         var prodRecordIds = inspRecords.Select(i => i.ProductionRecordId).Distinct().ToList();
         var inspAnnotationColors = await GetAnnotationColorsByRecordAsync(prodRecordIds, cancellationToken);
 
-        var inspShellSnIds = inspRecords
-            .Select(i => i.SerialNumberId)
-            .Distinct()
-            .ToList();
-
-        var inspAssemblyLogs = await _db.TraceabilityLogs
-            .Include(t => t.ToSerialNumber)
-            .Where(t => t.FromSerialNumberId.HasValue
-                && inspShellSnIds.Contains(t.FromSerialNumberId.Value)
-                && t.ToSerialNumberId.HasValue
-                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
-            .ToListAsync(cancellationToken);
-
-        var inspAssemblyByShell = new Dictionary<Guid, string>();
-        foreach (var log in inspAssemblyLogs)
-        {
-            if (log.FromSerialNumberId.HasValue && log.ToSerialNumber?.Serial != null)
-                inspAssemblyByShell.TryAdd(log.FromSerialNumberId.Value, log.ToSerialNumber.Serial);
-        }
+        var assemblyByShell = await ResolveAssemblyByShellAsync(
+            inspRecords.Select(i => i.SerialNumberId).Distinct().ToList(),
+            cancellationToken);
 
         var inspEntries = inspRecords.Select(i =>
         {
             var shellSerial = i.SerialNumber?.Serial ?? i.Id.ToString("N")[..8];
-            var serialOrIdentifier = inspAssemblyByShell.TryGetValue(i.SerialNumberId, out var alphaCode)
+            var serialOrIdentifier = assemblyByShell.TryGetValue(i.SerialNumberId, out var alphaCode)
                 ? $"{alphaCode} ({shellSerial})"
                 : shellSerial;
             var tankSize = i.SerialNumber?.Product?.TankSize;
@@ -220,6 +199,26 @@ public class WorkCenterService : IWorkCenterService
         }).ToList();
 
         return new WCHistoryDto { DayCount = inspDayCount, RecentRecords = inspEntries };
+    }
+
+    private async Task<Dictionary<Guid, string>> ResolveAssemblyByShellAsync(
+        List<Guid> shellSnIds, CancellationToken cancellationToken)
+    {
+        var assemblyLogs = await _db.TraceabilityLogs
+            .Include(t => t.ToSerialNumber)
+            .Where(t => t.FromSerialNumberId.HasValue
+                && shellSnIds.Contains(t.FromSerialNumberId.Value)
+                && t.ToSerialNumberId.HasValue
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"))
+            .ToListAsync(cancellationToken);
+
+        var result = new Dictionary<Guid, string>();
+        foreach (var log in assemblyLogs)
+        {
+            if (log.FromSerialNumberId.HasValue && log.ToSerialNumber?.Serial != null)
+                result.TryAdd(log.FromSerialNumberId.Value, log.ToSerialNumber.Serial);
+        }
+        return result;
     }
 
     public async Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default)
@@ -468,7 +467,8 @@ public class WorkCenterService : IWorkCenterService
             Quantity = dto.Quantity,
             QueueType = "rolls",
             CreatedAt = DateTime.UtcNow,
-            SerialNumberId = serial.Id
+            SerialNumberId = serial.Id,
+            ProductionLineId = dto.ProductionLineId
         };
 
         _db.MaterialQueueItems.Add(item);
@@ -593,7 +593,8 @@ public class WorkCenterService : IWorkCenterService
             CardColor = card?.Color,
             QueueType = "fitup",
             CreatedAt = DateTime.UtcNow,
-            SerialNumberId = serial.Id
+            SerialNumberId = serial.Id,
+            ProductionLineId = dto.ProductionLineId
         };
 
         _db.MaterialQueueItems.Add(item);

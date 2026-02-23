@@ -247,7 +247,7 @@ public class SerialNumberService : ISerialNumberService
         return assemblyNode;
     }
 
-    private static string NormalizeRelationship(string? relationship, string? tankLocation)
+    internal static string NormalizeRelationship(string? relationship, string? tankLocation)
     {
         return relationship switch
         {
@@ -326,38 +326,13 @@ public class SerialNumberService : ISerialNumberService
 
     private async Task AttachEventsToNodes(List<TraceabilityNodeDto> nodes, CancellationToken ct)
     {
-        var allNodeIds = new List<(TraceabilityNodeDto node, Guid? snId)>();
-        void Collect(List<TraceabilityNodeDto> list)
-        {
-            foreach (var n in list)
-            {
-                Guid.TryParse(n.Id, out var parsed);
-                allNodeIds.Add((n, parsed != Guid.Empty ? parsed : null));
-                if (n.Children.Count > 0) Collect(n.Children);
-            }
-        }
-        Collect(nodes);
+        var allNodeIds = CollectNodeIds(nodes);
 
         var guidIds = allNodeIds.Where(x => x.snId.HasValue).Select(x => x.snId!.Value).ToList();
         if (guidIds.Count == 0) return;
 
-        var prodRecords = await _db.ProductionRecords
-            .Include(r => r.WorkCenter).ThenInclude(w => w.WorkCenterType)
-            .Include(r => r.Operator)
-            .Include(r => r.Asset)
-            .Include(r => r.SerialNumber)
-            .Where(r => guidIds.Contains(r.SerialNumberId))
-            .OrderByDescending(r => r.Timestamp)
-            .ToListAsync(ct);
-
-        var inspRecords = await _db.InspectionRecords
-            .Include(i => i.WorkCenter).ThenInclude(w => w.WorkCenterType)
-            .Include(i => i.Operator)
-            .Include(i => i.ControlPlan).ThenInclude(cp => cp!.Characteristic)
-            .Include(i => i.SerialNumber)
-            .Where(i => guidIds.Contains(i.SerialNumberId))
-            .OrderByDescending(i => i.Timestamp)
-            .ToListAsync(ct);
+        var prodRecords = await LoadProductionRecords(guidIds, ct);
+        var inspRecords = await LoadInspectionRecords(guidIds, ct);
 
         var prodRecordIdsWithInspection = new HashSet<Guid>(
             inspRecords.Select(i => i.ProductionRecordId));
@@ -366,35 +341,7 @@ public class SerialNumberService : ISerialNumberService
             .Union(inspRecords.Select(i => i.ProductionRecordId))
             .Distinct().ToList();
 
-        var annotationsByProdId = new Dictionary<Guid, List<LogAnnotationBadgeDto>>();
-        if (allProdRecordIds.Count > 0)
-        {
-            var annotations = await _db.Annotations
-                .Include(a => a.AnnotationType)
-                .Include(a => a.InitiatedByUser)
-                .Include(a => a.ResolvedByUser)
-                .Where(a => a.ProductionRecordId.HasValue && allProdRecordIds.Contains(a.ProductionRecordId.Value))
-                .ToListAsync(ct);
-
-            annotationsByProdId = annotations
-                .GroupBy(a => a.ProductionRecordId!.Value)
-                .ToDictionary(g => g.Key, g => g
-                    .OrderByDescending(a => a.AnnotationType.RequiresResolution)
-                    .ThenByDescending(a => a.CreatedAt)
-                    .Select(a => new LogAnnotationBadgeDto
-                    {
-                        Id = a.Id,
-                        Abbreviation = a.AnnotationType.Abbreviation ?? a.AnnotationType.Name[..1],
-                        Color = a.AnnotationType.DisplayColor ?? "#212529",
-                        TypeName = a.AnnotationType.Name,
-                        Status = a.Status.ToString(),
-                        Notes = a.Notes,
-                        InitiatedByName = a.InitiatedByUser?.DisplayName ?? "",
-                        ResolvedByName = a.ResolvedByUser?.DisplayName,
-                        ResolvedNotes = a.ResolvedNotes,
-                        CreatedAt = a.CreatedAt
-                    }).ToList());
-        }
+        var annotationsByProdId = await LoadAnnotationBadges(allProdRecordIds, ct);
 
         var prodBySnId = prodRecords.GroupBy(r => r.SerialNumberId)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -406,48 +353,137 @@ public class SerialNumberService : ISerialNumberService
             if (!snId.HasValue) continue;
             var events = new List<ManufacturingEventDto>();
 
-            if (prodBySnId.TryGetValue(snId.Value, out var prods))
-            {
-                events.AddRange(prods
-                    .Where(r => !prodRecordIdsWithInspection.Contains(r.Id))
-                    .Select(r => new ManufacturingEventDto
-                    {
-                        SerialNumberId = r.SerialNumberId.ToString(),
-                        SerialNumberSerial = r.SerialNumber?.Serial ?? "",
-                        Timestamp = r.Timestamp,
-                        WorkCenterName = r.WorkCenter?.Name ?? "",
-                        Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
-                        CompletedBy = r.Operator?.DisplayName ?? "",
-                        AssetName = r.Asset?.Name,
-                        InspectionResult = null,
-                        Annotations = annotationsByProdId.GetValueOrDefault(r.Id) ?? new()
-                    }));
-            }
+            prodBySnId.TryGetValue(snId.Value, out var prods);
+            if (prods != null)
+                events.AddRange(MapProductionEvents(prods, prodRecordIdsWithInspection, annotationsByProdId));
 
             if (inspBySnId.TryGetValue(snId.Value, out var insps))
-            {
-                var inspProdIds = new HashSet<Guid>(insps.Select(i => i.ProductionRecordId));
-                var assetLookup = prods != null
-                    ? prods.Where(r => inspProdIds.Contains(r.Id)).ToDictionary(r => r.Id, r => r.Asset?.Name)
-                    : new Dictionary<Guid, string?>();
-
-                events.AddRange(insps.Select(i => new ManufacturingEventDto
-                {
-                    SerialNumberId = i.SerialNumberId.ToString(),
-                    SerialNumberSerial = i.SerialNumber?.Serial ?? "",
-                    Timestamp = i.Timestamp,
-                    WorkCenterName = i.WorkCenter?.Name ?? "",
-                    Type = i.ControlPlan?.Characteristic?.Name ?? i.WorkCenter?.WorkCenterType?.Name ?? "Inspection",
-                    CompletedBy = i.Operator?.DisplayName ?? "",
-                    AssetName = assetLookup.GetValueOrDefault(i.ProductionRecordId),
-                    InspectionResult = i.ResultText,
-                    Annotations = annotationsByProdId.GetValueOrDefault(i.ProductionRecordId) ?? new()
-                }));
-            }
+                events.AddRange(MapInspectionEvents(insps, prods, annotationsByProdId));
 
             events.Sort((a, b) => b.Timestamp.CompareTo(a.Timestamp));
             node.Events = events;
         }
+    }
+
+    private static List<(TraceabilityNodeDto node, Guid? snId)> CollectNodeIds(
+        List<TraceabilityNodeDto> nodes)
+    {
+        var result = new List<(TraceabilityNodeDto node, Guid? snId)>();
+        void Collect(List<TraceabilityNodeDto> list)
+        {
+            foreach (var n in list)
+            {
+                Guid.TryParse(n.Id, out var parsed);
+                result.Add((n, parsed != Guid.Empty ? parsed : null));
+                if (n.Children.Count > 0) Collect(n.Children);
+            }
+        }
+        Collect(nodes);
+        return result;
+    }
+
+    private async Task<List<ProductionRecord>> LoadProductionRecords(
+        List<Guid> snIds, CancellationToken ct)
+    {
+        return await _db.ProductionRecords
+            .Include(r => r.WorkCenter).ThenInclude(w => w.WorkCenterType)
+            .Include(r => r.Operator)
+            .Include(r => r.Asset)
+            .Include(r => r.SerialNumber)
+            .Where(r => snIds.Contains(r.SerialNumberId))
+            .OrderByDescending(r => r.Timestamp)
+            .ToListAsync(ct);
+    }
+
+    private async Task<List<InspectionRecord>> LoadInspectionRecords(
+        List<Guid> snIds, CancellationToken ct)
+    {
+        return await _db.InspectionRecords
+            .Include(i => i.WorkCenter).ThenInclude(w => w.WorkCenterType)
+            .Include(i => i.Operator)
+            .Include(i => i.ControlPlan).ThenInclude(cp => cp!.Characteristic)
+            .Include(i => i.SerialNumber)
+            .Where(i => snIds.Contains(i.SerialNumberId))
+            .OrderByDescending(i => i.Timestamp)
+            .ToListAsync(ct);
+    }
+
+    private async Task<Dictionary<Guid, List<LogAnnotationBadgeDto>>> LoadAnnotationBadges(
+        List<Guid> prodRecordIds, CancellationToken ct)
+    {
+        if (prodRecordIds.Count == 0)
+            return new Dictionary<Guid, List<LogAnnotationBadgeDto>>();
+
+        var annotations = await _db.Annotations
+            .Include(a => a.AnnotationType)
+            .Include(a => a.InitiatedByUser)
+            .Include(a => a.ResolvedByUser)
+            .Where(a => a.ProductionRecordId.HasValue && prodRecordIds.Contains(a.ProductionRecordId.Value))
+            .ToListAsync(ct);
+
+        return annotations
+            .GroupBy(a => a.ProductionRecordId!.Value)
+            .ToDictionary(g => g.Key, g => g
+                .OrderByDescending(a => a.AnnotationType.RequiresResolution)
+                .ThenByDescending(a => a.CreatedAt)
+                .Select(a => new LogAnnotationBadgeDto
+                {
+                    Id = a.Id,
+                    Abbreviation = a.AnnotationType.Abbreviation ?? a.AnnotationType.Name[..1],
+                    Color = a.AnnotationType.DisplayColor ?? "#212529",
+                    TypeName = a.AnnotationType.Name,
+                    Status = a.Status.ToString(),
+                    Notes = a.Notes,
+                    InitiatedByName = a.InitiatedByUser?.DisplayName ?? "",
+                    ResolvedByName = a.ResolvedByUser?.DisplayName,
+                    ResolvedNotes = a.ResolvedNotes,
+                    CreatedAt = a.CreatedAt
+                }).ToList());
+    }
+
+    private static IEnumerable<ManufacturingEventDto> MapProductionEvents(
+        List<ProductionRecord> prods,
+        HashSet<Guid> prodRecordIdsWithInspection,
+        Dictionary<Guid, List<LogAnnotationBadgeDto>> annotationsByProdId)
+    {
+        return prods
+            .Where(r => !prodRecordIdsWithInspection.Contains(r.Id))
+            .Select(r => new ManufacturingEventDto
+            {
+                SerialNumberId = r.SerialNumberId.ToString(),
+                SerialNumberSerial = r.SerialNumber?.Serial ?? "",
+                Timestamp = r.Timestamp,
+                WorkCenterName = r.WorkCenter?.Name ?? "",
+                Type = r.WorkCenter?.WorkCenterType?.Name ?? "Manufacturing",
+                CompletedBy = r.Operator?.DisplayName ?? "",
+                AssetName = r.Asset?.Name,
+                InspectionResult = null,
+                Annotations = annotationsByProdId.GetValueOrDefault(r.Id) ?? new()
+            });
+    }
+
+    private static IEnumerable<ManufacturingEventDto> MapInspectionEvents(
+        List<InspectionRecord> insps,
+        List<ProductionRecord>? prods,
+        Dictionary<Guid, List<LogAnnotationBadgeDto>> annotationsByProdId)
+    {
+        var inspProdIds = new HashSet<Guid>(insps.Select(i => i.ProductionRecordId));
+        var assetLookup = prods != null
+            ? prods.Where(r => inspProdIds.Contains(r.Id)).ToDictionary(r => r.Id, r => r.Asset?.Name)
+            : new Dictionary<Guid, string?>();
+
+        return insps.Select(i => new ManufacturingEventDto
+        {
+            SerialNumberId = i.SerialNumberId.ToString(),
+            SerialNumberSerial = i.SerialNumber?.Serial ?? "",
+            Timestamp = i.Timestamp,
+            WorkCenterName = i.WorkCenter?.Name ?? "",
+            Type = i.ControlPlan?.Characteristic?.Name ?? i.WorkCenter?.WorkCenterType?.Name ?? "Inspection",
+            CompletedBy = i.Operator?.DisplayName ?? "",
+            AssetName = assetLookup.GetValueOrDefault(i.ProductionRecordId),
+            InspectionResult = i.ResultText,
+            Annotations = annotationsByProdId.GetValueOrDefault(i.ProductionRecordId) ?? new()
+        });
     }
 
     private async Task AttachCountsToNodes(List<TraceabilityNodeDto> nodes, CancellationToken ct)

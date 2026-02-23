@@ -9,6 +9,7 @@ public class CreateMaterialQueueItemDto
     public string CoilNumber { get; set; } = string.Empty;
     public string? LotNumber { get; set; }
     public int Quantity { get; set; }
+    public Guid? ProductionLineId { get; set; }
 }
 
 public class UpdateMaterialQueueItemDto
@@ -30,6 +31,7 @@ public class CreateFitupQueueItemDto
     public string? HeatNumber { get; set; }
     public string? CoilSlabNumber { get; set; }
     public string CardCode { get; set; } = string.Empty;
+    public Guid? ProductionLineId { get; set; }
 }
 
 public class UpdateFitupQueueItemDto

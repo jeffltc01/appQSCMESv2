@@ -30,6 +30,9 @@ import {
   BranchRegular,
   CalendarRegular,
   GaugeRegular,
+  HistoryRegular,
+  TimerRegular,
+  ShieldTaskRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { HelpButton } from '../../help/components/HelpButton.tsx';
@@ -85,6 +88,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
       { label: 'Serial Number Lookup', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/serial-lookup', implemented: true },
       { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },
+      { label: 'Downtime Log', icon: <TimerRegular />, minRoleTier: 5, route: '/menu/downtime-events', implemented: true },
       { label: 'Shift Schedule', icon: <CalendarRegular />, minRoleTier: 3, route: '/menu/shift-schedule', implemented: true },
       { label: 'Capacity Targets', icon: <GaugeRegular />, minRoleTier: 3, route: '/menu/capacity-targets', implemented: true },
     ],
@@ -98,6 +102,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
       { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
       { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
+      { label: 'Audit Log', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/audit-log', implemented: true },
     ],
   },
   {
@@ -108,6 +113,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Report Issue', icon: <BugRegular />, minRoleTier: 5, route: '/menu/report-issue', implemented: true },
       { label: 'Issue Approvals', icon: <ClipboardTaskListLtrRegular />, minRoleTier: 3, route: '/menu/issue-approvals', implemented: true },
       { label: 'Operator View', icon: <DesktopRegular />, minRoleTier: 5, route: '/tablet-setup', implemented: true },
+      { label: 'Test Coverage', icon: <ShieldTaskRegular />, minRoleTier: 1, route: '/menu/test-coverage', implemented: true },
     ],
   },
 ];

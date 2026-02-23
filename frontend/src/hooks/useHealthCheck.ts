@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { usePageVisible } from './usePageVisible.ts';
 
 export type HealthStatus = 'online' | 'offline' | 'checking';
 
@@ -8,8 +9,11 @@ const FAILURES_BEFORE_OFFLINE = 2;
 export function useHealthCheck(): HealthStatus {
   const [status, setStatus] = useState<HealthStatus>('checking');
   const consecutiveFailures = useRef(0);
+  const visible = usePageVisible();
 
   useEffect(() => {
+    if (!visible) return;
+
     let cancelled = false;
 
     async function check() {
@@ -43,7 +47,7 @@ export function useHealthCheck(): HealthStatus {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [visible]);
 
   return status;
 }

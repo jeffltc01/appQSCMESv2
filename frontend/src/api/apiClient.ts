@@ -62,9 +62,25 @@ async function request<T>(
   return response.json();
 }
 
+async function requestText(path: string): Promise<string> {
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers });
+
+  if (!response.ok) {
+    throw { message: `Request failed with status ${response.status}` } as ApiError;
+  }
+
+  return response.text();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  getText: (path: string) => requestText(path),
 };

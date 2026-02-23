@@ -54,7 +54,7 @@ Tile-based navigation grid for supervisory and administrative functions. Visible
 | AI Review | 5.5 | AI-assisted quality review of inspection data |
 | Who's On the Floor | 5.0 | See which operators and welders are currently signed in |
 | Log Viewer | All roles | Browse production and inspection log records |
-| Change Logs | 3.0 | *Coming Soon* — Audit trail of data changes |
+| Audit Log | 3.0 | Audit trail of all data changes — who changed what, when |
 
 ### People & Administration (dark red — `#aa121f`)
 

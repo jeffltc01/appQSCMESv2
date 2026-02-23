@@ -23,7 +23,7 @@ const emptyForm: FormData = {
 };
 
 export function RollsMaterialScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, materialQueueForWCId } = props;
+  const { workCenterId, showScanResult, materialQueueForWCId, productionLineId } = props;
   const { user } = useAuth();
   const targetWCId = materialQueueForWCId ?? workCenterId;
 
@@ -108,6 +108,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
           coilNumber: form.coilNumber,
           lotNumber: form.lotNumber || undefined,
           quantity: parseInt(form.quantity, 10),
+          productionLineId: productionLineId || undefined,
         });
         showScanResult({ type: 'success', message: 'Material added to queue' });
       }

@@ -99,4 +99,14 @@ describe('ProductMaintenanceScreen', () => {
     renderScreen();
     expect(screen.getByText('Product Maintenance')).toBeInTheDocument();
   });
+
+  it('renders gracefully when getAll API fails', async () => {
+    vi.mocked(adminProductApi.getAll).mockRejectedValue(new Error('Network error'));
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Product Maintenance')).toBeInTheDocument();
+  });
 });

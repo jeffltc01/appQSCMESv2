@@ -481,4 +481,29 @@ public class SerialNumberServiceTests
             Assert.False(string.IsNullOrEmpty(head.HeatNumber));
         }
     }
+
+    #region NormalizeRelationship Direct Tests
+
+    [Theory]
+    [InlineData("ShellToAssembly", null, "shell")]
+    [InlineData("shell", null, "shell")]
+    [InlineData("HeadToAssembly", "Head 1", "leftHead")]
+    [InlineData("HeadToAssembly", "Head 2", "rightHead")]
+    [InlineData("HeadToAssembly", "Unknown", "leftHead")]
+    [InlineData("HeadToAssembly", null, "leftHead")]
+    [InlineData("leftHead", null, "leftHead")]
+    [InlineData("rightHead", null, "rightHead")]
+    [InlineData("plate", null, "plate")]
+    [InlineData("NameplateToAssembly", null, "nameplate")]
+    [InlineData("Nameplate", null, "nameplate")]
+    [InlineData("SomeOtherRelationship", null, "SomeOtherRelationship")]
+    [InlineData(null, null, "component")]
+    public void NormalizeRelationship_ReturnsExpectedNodeType(
+        string? relationship, string? tankLocation, string expected)
+    {
+        var result = SerialNumberService.NormalizeRelationship(relationship, tankLocation);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
 }

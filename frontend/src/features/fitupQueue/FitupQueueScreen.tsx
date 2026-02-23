@@ -24,7 +24,7 @@ const emptyForm: FormData = {
 };
 
 export function FitupQueueScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, registerBarcodeHandler, materialQueueForWCId } = props;
+  const { workCenterId, showScanResult, registerBarcodeHandler, materialQueueForWCId, productionLineId } = props;
   const { user } = useAuth();
   const targetWCId = materialQueueForWCId ?? workCenterId;
 
@@ -112,6 +112,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
           heatNumber: form.heatNumber || undefined,
           coilSlabNumber: form.coilSlabNumber || undefined,
           cardCode: form.cardCode,
+          productionLineId: productionLineId || undefined,
         });
         showScanResult({ type: 'success', message: 'Head material added to queue' });
       }

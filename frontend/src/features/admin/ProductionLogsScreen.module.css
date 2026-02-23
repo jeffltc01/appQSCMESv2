@@ -235,3 +235,17 @@
   color: #2b8a3e;
   font-weight: 600;
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.pageInfo {
+  font-size: 13px;
+  color: #495057;
+  font-weight: 500;
+}

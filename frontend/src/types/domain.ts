@@ -866,6 +866,8 @@ export interface DowntimeConfig {
 export interface DowntimeEvent {
   id: string;
   workCenterProductionLineId: string;
+  workCenterName: string;
+  productionLineName: string;
   operatorUserId: string;
   operatorName: string;
   downtimeReasonId?: string;
@@ -937,4 +939,24 @@ export interface CreateCapacityTargetRequest {
   tankSize: number | null;
   plantGearId: string;
   targetUnitsPerHour: number;
+}
+
+// ── Audit Log ──
+
+export interface AuditLogEntry {
+  id: number;
+  action: string;
+  entityName: string;
+  entityId: string;
+  changes: string | null;
+  changedByUserName: string;
+  changedByUserId: string;
+  changedAtUtc: string;
+}
+
+export interface AuditLogPage {
+  items: AuditLogEntry[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }

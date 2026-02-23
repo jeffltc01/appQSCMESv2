@@ -178,4 +178,30 @@ describe('DigitalTwinScreen', () => {
       expect(screen.getByText(/\+3 vs yesterday/)).toBeInTheDocument();
     });
   });
+
+  it('renders gracefully when getSnapshot API fails', async () => {
+    vi.mocked(digitalTwinApi.getSnapshot).mockRejectedValue(new Error('Network error'));
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading production line data...')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Digital Twin')).toBeInTheDocument();
+  });
+
+  it('shows loading spinner during snapshot fetch', async () => {
+    let resolveSnapshot!: (v: DigitalTwinSnapshot | null) => void;
+    vi.mocked(digitalTwinApi.getSnapshot).mockImplementation(
+      () => new Promise((r) => { resolveSnapshot = r; }),
+    );
+    renderScreen();
+
+    await waitFor(() =>
+      expect(screen.getByText('Loading production line data...')).toBeInTheDocument(),
+    );
+    resolveSnapshot(mockSnapshot);
+    await waitFor(() =>
+      expect(screen.queryByText('Loading production line data...')).not.toBeInTheDocument(),
+    );
+  });
 });

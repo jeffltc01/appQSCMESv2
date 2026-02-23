@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MESv2.Api.Data;
 using MESv2.Api.DTOs;
 using MESv2.Api.Services;
 
@@ -13,15 +11,15 @@ public class WorkCentersController : ControllerBase
     private readonly IWorkCenterService _workCenterService;
     private readonly IXrayQueueService _xrayQueueService;
     private readonly IDowntimeService _downtimeService;
-    private readonly MesDbContext _db;
+    private readonly IAdminWorkCenterService _adminService;
     private readonly ILogger<WorkCentersController> _logger;
 
-    public WorkCentersController(IWorkCenterService workCenterService, IXrayQueueService xrayQueueService, IDowntimeService downtimeService, MesDbContext db, ILogger<WorkCentersController> logger)
+    public WorkCentersController(IWorkCenterService workCenterService, IXrayQueueService xrayQueueService, IDowntimeService downtimeService, IAdminWorkCenterService adminService, ILogger<WorkCentersController> logger)
     {
         _workCenterService = workCenterService;
         _xrayQueueService = xrayQueueService;
         _downtimeService = downtimeService;
-        _db = db;
+        _adminService = adminService;
         _logger = logger;
     }
 
@@ -205,203 +203,56 @@ public class WorkCentersController : ControllerBase
     [HttpGet("admin")]
     public async Task<ActionResult<IEnumerable<AdminWorkCenterDto>>> GetAllAdmin(CancellationToken cancellationToken)
     {
-        var list = await _db.WorkCenters
-            .Include(w => w.WorkCenterType)
-            .OrderBy(w => w.Name)
-            .Select(w => new AdminWorkCenterDto
-            {
-                Id = w.Id,
-                Name = w.Name,
-                WorkCenterTypeName = w.WorkCenterType.Name,
-                NumberOfWelders = w.NumberOfWelders,
-                DataEntryType = w.DataEntryType,
-                MaterialQueueForWCId = w.MaterialQueueForWCId,
-                MaterialQueueForWCName = w.MaterialQueueForWC != null ? w.MaterialQueueForWC.Name : null
-            })
-            .ToListAsync(cancellationToken);
+        var list = await _adminService.GetAllAdminAsync(cancellationToken);
         return Ok(list);
     }
 
     [HttpGet("admin/grouped")]
     public async Task<ActionResult<IEnumerable<AdminWorkCenterGroupDto>>> GetAllGrouped(CancellationToken cancellationToken)
     {
-        var wcs = await _db.WorkCenters
-            .Include(w => w.WorkCenterType)
-            .Include(w => w.MaterialQueueForWC)
-            .Include(w => w.WorkCenterProductionLines)
-                .ThenInclude(wpl => wpl.ProductionLine)
-                .ThenInclude(pl => pl.Plant)
-            .OrderBy(w => w.Name)
-            .ToListAsync(cancellationToken);
-
-        var groups = wcs
-            .Select(w =>
-            {
-                var plants = w.WorkCenterProductionLines
-                    .Select(wpl => wpl.ProductionLine.Plant)
-                    .DistinctBy(p => p.Id)
-                    .ToList();
-
-                var siteConfigs = plants.Count > 0
-                    ? plants.Select(plant => new WorkCenterSiteConfigDto
-                    {
-                        WorkCenterId = w.Id,
-                        SiteName = plant.Name,
-                        NumberOfWelders = w.NumberOfWelders,
-                        MaterialQueueForWCId = w.MaterialQueueForWCId,
-                        MaterialQueueForWCName = w.MaterialQueueForWC?.Name,
-                    }).ToList()
-                    : new List<WorkCenterSiteConfigDto>
-                    {
-                        new()
-                        {
-                            WorkCenterId = w.Id,
-                            SiteName = w.Name,
-                            NumberOfWelders = w.NumberOfWelders,
-                            MaterialQueueForWCId = w.MaterialQueueForWCId,
-                            MaterialQueueForWCName = w.MaterialQueueForWC?.Name,
-                        }
-                    };
-
-                return new AdminWorkCenterGroupDto
-                {
-                    GroupId = w.Id,
-                    BaseName = w.Name,
-                    WorkCenterTypeName = w.WorkCenterType.Name,
-                    DataEntryType = w.DataEntryType,
-                    SiteConfigs = siteConfigs
-                };
-            })
-            .OrderBy(g => g.BaseName)
-            .ToList();
-
+        var groups = await _adminService.GetAllGroupedAsync(cancellationToken);
         return Ok(groups);
     }
 
     [HttpGet("admin/types")]
     public async Task<ActionResult<IEnumerable<WorkCenterTypeDto>>> GetWorkCenterTypes(CancellationToken cancellationToken)
     {
-        var types = await _db.WorkCenterTypes
-            .OrderBy(t => t.Name)
-            .Select(t => new WorkCenterTypeDto { Id = t.Id, Name = t.Name })
-            .ToListAsync(cancellationToken);
+        var types = await _adminService.GetWorkCenterTypesAsync(cancellationToken);
         return Ok(types);
     }
 
     [HttpPost("admin")]
     public async Task<ActionResult<AdminWorkCenterGroupDto>> CreateWorkCenter([FromBody] CreateWorkCenterDto dto, CancellationToken cancellationToken)
     {
-        var wcType = await _db.WorkCenterTypes.FindAsync(new object[] { dto.WorkCenterTypeId }, cancellationToken);
-        if (wcType == null) return BadRequest(new { message = "Work center type not found." });
-
-        var duplicate = await _db.WorkCenters.AnyAsync(w => w.Name == dto.Name, cancellationToken);
-        if (duplicate) return Conflict(new { message = "A work center with this name already exists." });
-
-        var wc = new Models.WorkCenter
+        try
         {
-            Id = Guid.NewGuid(),
-            Name = dto.Name,
-            WorkCenterTypeId = dto.WorkCenterTypeId,
-            DataEntryType = dto.DataEntryType,
-            MaterialQueueForWCId = dto.MaterialQueueForWCId,
-        };
-
-        _db.WorkCenters.Add(wc);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        string? mqName = null;
-        if (wc.MaterialQueueForWCId.HasValue)
-            mqName = (await _db.WorkCenters.FindAsync(new object[] { wc.MaterialQueueForWCId.Value }, cancellationToken))?.Name;
-
-        return Ok(new AdminWorkCenterGroupDto
+            var created = await _adminService.CreateWorkCenterAsync(dto, cancellationToken);
+            return Ok(created);
+        }
+        catch (ArgumentException ex)
         {
-            GroupId = wc.Id,
-            BaseName = wc.Name,
-            WorkCenterTypeName = wcType.Name,
-            DataEntryType = wc.DataEntryType,
-            SiteConfigs = new List<WorkCenterSiteConfigDto>
-            {
-                new()
-                {
-                    WorkCenterId = wc.Id,
-                    SiteName = wc.Name,
-                    NumberOfWelders = 0,
-                    MaterialQueueForWCId = wc.MaterialQueueForWCId,
-                    MaterialQueueForWCName = mqName,
-                }
-            }
-        });
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpPut("admin/group/{groupId:guid}")]
     public async Task<ActionResult<AdminWorkCenterGroupDto>> UpdateGroup(Guid groupId, [FromBody] UpdateWorkCenterGroupDto dto, CancellationToken cancellationToken)
     {
-        var wc = await _db.WorkCenters
-            .Include(w => w.WorkCenterType)
-            .FirstOrDefaultAsync(w => w.Id == groupId, cancellationToken);
-
-        if (wc == null) return NotFound();
-
-        wc.Name = dto.BaseName;
-        wc.DataEntryType = dto.DataEntryType;
-        wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
-
-        await _db.SaveChangesAsync(cancellationToken);
-
-        string? mqName = null;
-        if (wc.MaterialQueueForWCId.HasValue)
-        {
-            mqName = (await _db.WorkCenters.FindAsync(new object[] { wc.MaterialQueueForWCId.Value }, cancellationToken))?.Name;
-        }
-
-        return Ok(new AdminWorkCenterGroupDto
-        {
-            GroupId = groupId,
-            BaseName = wc.Name,
-            WorkCenterTypeName = wc.WorkCenterType.Name,
-            DataEntryType = wc.DataEntryType,
-            SiteConfigs = new List<WorkCenterSiteConfigDto>
-            {
-                new()
-                {
-                    WorkCenterId = wc.Id,
-                    SiteName = wc.Name,
-                    NumberOfWelders = wc.NumberOfWelders,
-                    MaterialQueueForWCId = wc.MaterialQueueForWCId,
-                    MaterialQueueForWCName = mqName,
-                }
-            }
-        });
+        var result = await _adminService.UpdateGroupAsync(groupId, dto, cancellationToken);
+        if (result == null) return NotFound();
+        return Ok(result);
     }
 
     [HttpPut("{id:guid}/config")]
     public async Task<ActionResult<AdminWorkCenterDto>> UpdateConfig(Guid id, [FromBody] UpdateWorkCenterConfigDto dto, CancellationToken cancellationToken)
     {
-        var wc = await _db.WorkCenters
-            .Include(w => w.WorkCenterType)
-            .FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
-        if (wc == null) return NotFound();
-
-        wc.NumberOfWelders = dto.NumberOfWelders;
-        wc.DataEntryType = dto.DataEntryType;
-        wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
-        await _db.SaveChangesAsync(cancellationToken);
-
-        string? mqName = null;
-        if (wc.MaterialQueueForWCId.HasValue)
-        {
-            mqName = (await _db.WorkCenters.FindAsync(new object[] { wc.MaterialQueueForWCId.Value }, cancellationToken))?.Name;
-        }
-
-        return Ok(new AdminWorkCenterDto
-        {
-            Id = wc.Id, Name = wc.Name,
-            WorkCenterTypeName = wc.WorkCenterType.Name,
-            NumberOfWelders = wc.NumberOfWelders,
-            DataEntryType = wc.DataEntryType,
-            MaterialQueueForWCId = wc.MaterialQueueForWCId,
-            MaterialQueueForWCName = mqName
-        });
+        var result = await _adminService.UpdateConfigAsync(id, dto, cancellationToken);
+        if (result == null) return NotFound();
+        return Ok(result);
     }
 
     // ---- Work Center Production Line endpoints ----
@@ -409,124 +260,53 @@ public class WorkCentersController : ControllerBase
     [HttpGet("{wcId:guid}/production-lines")]
     public async Task<ActionResult<IEnumerable<AdminWorkCenterProductionLineDto>>> GetProductionLineConfigs(Guid wcId, CancellationToken cancellationToken)
     {
-        var list = await _db.WorkCenterProductionLines
-            .Include(wcpl => wcpl.ProductionLine).ThenInclude(pl => pl.Plant)
-            .Where(wcpl => wcpl.WorkCenterId == wcId)
-            .OrderBy(wcpl => wcpl.ProductionLine.Name)
-            .Select(wcpl => new AdminWorkCenterProductionLineDto
-            {
-                Id = wcpl.Id,
-                WorkCenterId = wcpl.WorkCenterId,
-                ProductionLineId = wcpl.ProductionLineId,
-                ProductionLineName = wcpl.ProductionLine.Name,
-                PlantName = wcpl.ProductionLine.Plant.Name,
-                DisplayName = wcpl.DisplayName,
-                NumberOfWelders = wcpl.NumberOfWelders,
-                DowntimeTrackingEnabled = wcpl.DowntimeTrackingEnabled,
-                DowntimeThresholdMinutes = wcpl.DowntimeThresholdMinutes,
-            })
-            .ToListAsync(cancellationToken);
+        var list = await _adminService.GetProductionLineConfigsAsync(wcId, cancellationToken);
         return Ok(list);
     }
 
     [HttpGet("{wcId:guid}/production-lines/{plId:guid}")]
     public async Task<ActionResult<WorkCenterProductionLineDto>> GetProductionLineConfig(Guid wcId, Guid plId, CancellationToken cancellationToken)
     {
-        var wcpl = await _db.WorkCenterProductionLines
-            .Include(x => x.ProductionLine)
-            .FirstOrDefaultAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == plId, cancellationToken);
-
-        if (wcpl == null) return NotFound();
-
-        return Ok(new WorkCenterProductionLineDto
-        {
-            Id = wcpl.Id,
-            WorkCenterId = wcpl.WorkCenterId,
-            ProductionLineId = wcpl.ProductionLineId,
-            ProductionLineName = wcpl.ProductionLine.Name,
-            DisplayName = wcpl.DisplayName,
-            NumberOfWelders = wcpl.NumberOfWelders,
-        });
+        var result = await _adminService.GetProductionLineConfigAsync(wcId, plId, cancellationToken);
+        if (result == null) return NotFound();
+        return Ok(result);
     }
 
     [HttpPost("{wcId:guid}/production-lines")]
     public async Task<ActionResult<AdminWorkCenterProductionLineDto>> CreateProductionLineConfig(Guid wcId, [FromBody] CreateWorkCenterProductionLineDto dto, CancellationToken cancellationToken)
     {
-        var wc = await _db.WorkCenters.FindAsync(new object[] { wcId }, cancellationToken);
-        if (wc == null) return NotFound();
-
-        var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
-        if (pl == null) return BadRequest(new { message = "Production line not found." });
-
-        var exists = await _db.WorkCenterProductionLines
-            .AnyAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == dto.ProductionLineId, cancellationToken);
-        if (exists) return Conflict(new { message = "Configuration already exists for this work center and production line." });
-
-        var entity = new MESv2.Api.Models.WorkCenterProductionLine
+        try
         {
-            Id = Guid.NewGuid(),
-            WorkCenterId = wcId,
-            ProductionLineId = dto.ProductionLineId,
-            DisplayName = dto.DisplayName,
-            NumberOfWelders = dto.NumberOfWelders,
-        };
-
-        _db.WorkCenterProductionLines.Add(entity);
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return Ok(new AdminWorkCenterProductionLineDto
+            var created = await _adminService.CreateProductionLineConfigAsync(wcId, dto, cancellationToken);
+            return Ok(created);
+        }
+        catch (KeyNotFoundException)
         {
-            Id = entity.Id,
-            WorkCenterId = entity.WorkCenterId,
-            ProductionLineId = entity.ProductionLineId,
-            ProductionLineName = pl.Name,
-            PlantName = pl.Plant.Name,
-            DisplayName = entity.DisplayName,
-            NumberOfWelders = entity.NumberOfWelders,
-            DowntimeTrackingEnabled = entity.DowntimeTrackingEnabled,
-            DowntimeThresholdMinutes = entity.DowntimeThresholdMinutes,
-        });
+            return NotFound();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{wcId:guid}/production-lines/{plId:guid}")]
     public async Task<ActionResult<AdminWorkCenterProductionLineDto>> UpdateProductionLineConfig(Guid wcId, Guid plId, [FromBody] UpdateWorkCenterProductionLineDto dto, CancellationToken cancellationToken)
     {
-        var wcpl = await _db.WorkCenterProductionLines
-            .Include(x => x.ProductionLine).ThenInclude(pl => pl.Plant)
-            .FirstOrDefaultAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == plId, cancellationToken);
-
-        if (wcpl == null) return NotFound();
-
-        wcpl.DisplayName = dto.DisplayName;
-        wcpl.NumberOfWelders = dto.NumberOfWelders;
-        wcpl.DowntimeTrackingEnabled = dto.DowntimeTrackingEnabled;
-        wcpl.DowntimeThresholdMinutes = dto.DowntimeThresholdMinutes;
-        await _db.SaveChangesAsync(cancellationToken);
-
-        return Ok(new AdminWorkCenterProductionLineDto
-        {
-            Id = wcpl.Id,
-            WorkCenterId = wcpl.WorkCenterId,
-            ProductionLineId = wcpl.ProductionLineId,
-            ProductionLineName = wcpl.ProductionLine.Name,
-            PlantName = wcpl.ProductionLine.Plant.Name,
-            DisplayName = wcpl.DisplayName,
-            NumberOfWelders = wcpl.NumberOfWelders,
-            DowntimeTrackingEnabled = wcpl.DowntimeTrackingEnabled,
-            DowntimeThresholdMinutes = wcpl.DowntimeThresholdMinutes,
-        });
+        var result = await _adminService.UpdateProductionLineConfigAsync(wcId, plId, dto, cancellationToken);
+        if (result == null) return NotFound();
+        return Ok(result);
     }
 
     [HttpDelete("{wcId:guid}/production-lines/{plId:guid}")]
     public async Task<ActionResult> DeleteProductionLineConfig(Guid wcId, Guid plId, CancellationToken cancellationToken)
     {
-        var wcpl = await _db.WorkCenterProductionLines
-            .FirstOrDefaultAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == plId, cancellationToken);
-
-        if (wcpl == null) return NotFound();
-
-        _db.WorkCenterProductionLines.Remove(wcpl);
-        await _db.SaveChangesAsync(cancellationToken);
+        var deleted = await _adminService.DeleteProductionLineConfigAsync(wcId, plId, cancellationToken);
+        if (!deleted) return NotFound();
         return NoContent();
     }
 

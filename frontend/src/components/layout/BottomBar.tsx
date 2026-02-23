@@ -9,6 +9,7 @@ interface BottomBarProps {
   externalInput: boolean;
   onToggleExternalInput: () => void;
   showToggle?: boolean;
+  scannerReady?: boolean;
 }
 
 const statusConfig: Record<HealthStatus, { className: string; label: string }> = {
@@ -17,7 +18,7 @@ const statusConfig: Record<HealthStatus, { className: string; label: string }> =
   checking: { className: styles.dotChecking, label: 'Checking…' },
 };
 
-export function BottomBar({ plantCode, externalInput, onToggleExternalInput, showToggle = true }: BottomBarProps) {
+export function BottomBar({ plantCode, externalInput, onToggleExternalInput, showToggle = true, scannerReady }: BottomBarProps) {
   const clock = useClock();
   const health = useHealthCheck();
   const { className: dotClass, label: statusLabel } = statusConfig[health];
@@ -43,6 +44,12 @@ export function BottomBar({ plantCode, externalInput, onToggleExternalInput, sho
               },
             }}
           />
+          {externalInput && (
+            <span
+              className={`${styles.scannerDot} ${scannerReady ? styles.scannerReady : styles.scannerLost}`}
+              title={scannerReady ? 'Scanner ready' : 'Scanner inactive'}
+            />
+          )}
         </div>
       )}
 

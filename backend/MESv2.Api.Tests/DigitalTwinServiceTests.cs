@@ -264,6 +264,7 @@ public class DigitalTwinServiceTests
             QueueType = "rolls",
             SerialNumberId = sn1.Id,
             CreatedAt = DateTime.UtcNow,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
         });
         db.MaterialQueueItems.Add(new MaterialQueueItem
         {
@@ -275,6 +276,7 @@ public class DigitalTwinServiceTests
             QueueType = "fitup",
             SerialNumberId = sn2.Id,
             CreatedAt = DateTime.UtcNow,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
         });
         await db.SaveChangesAsync();
 
@@ -288,6 +290,36 @@ public class DigitalTwinServiceTests
         Assert.Contains("1 lots", rollsFeed.QueueLabel);
         Assert.Equal(1, fitupFeed.ItemCount);
         Assert.Contains("1 lots", fitupFeed.QueueLabel);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_MaterialFeeds_ExcludesItemsFromOtherProductionLine()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var sn1 = new SerialNumber { Id = Guid.NewGuid(), Serial = "PLATE-OTHER" };
+        db.SerialNumbers.Add(sn1);
+
+        db.MaterialQueueItems.Add(new MaterialQueueItem
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterId = TestHelpers.wcRollsId,
+            Position = 1,
+            Status = "queued",
+            Quantity = 3,
+            QueueType = "rolls",
+            SerialNumberId = sn1.Id,
+            CreatedAt = DateTime.UtcNow,
+            ProductionLineId = TestHelpers.ProductionLine1Plt2Id,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var rollsFeed = result.MaterialFeeds.First(f => f.FeedsIntoStation == "Rolls");
+        Assert.Equal(0, rollsFeed.ItemCount);
     }
 
     [Fact]

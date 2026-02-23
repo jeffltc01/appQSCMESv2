@@ -10,6 +10,16 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(`v${pkg.version.split('.').slice(0, 2).join('.')}.${buildNumber}`),
   },
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-fluent': ['@fluentui/react-components', '@fluentui/react-icons'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     host: '0.0.0.0',
@@ -31,5 +41,18 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test-setup.ts',
     css: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary', 'cobertura', 'html'],
+      reportsDirectory: './coverage',
+      reportOnFailure: true,
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/test-setup.ts',
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/vite-env.d.ts',
+      ],
+    },
   },
 });

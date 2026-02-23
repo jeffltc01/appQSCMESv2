@@ -78,17 +78,45 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             WeekCount = weekRecords.Count,
         };
 
-        // ---- Hourly counts (local time) ----
-        var hourlyGroups = dayRecords
-            .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.Timestamp, tz).Hour)
+        var dayTimestamps = dayRecords.Select(r => r.Timestamp).ToList();
+        var weekTimestamps = weekRecords.Select(r => r.Timestamp).ToList();
+
+        ComputeHourlyCounts(dto, dayTimestamps, tz);
+        ComputeWeeklyCounts(dto, weekTimestamps, weekStart, tz);
+
+        dto.DayAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(dayTimestamps);
+        dto.WeekAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(weekTimestamps);
+        dto.DayQtyPerHour = ComputeQtyPerHour(dayTimestamps, startOfDay, endOfDay);
+        dto.WeekQtyPerHour = ComputeQtyPerHour(weekTimestamps, startOfWeek, endOfWeek);
+
+        await ComputeFpyAndDefects(dto, wcId, plantId, dataEntryType, startOfDay, endOfDay, startOfWeek, endOfWeek, operatorId, cancellationToken);
+        dto.Operators = await BuildOperatorSummary(wcId, plantId, startOfWeek, endOfWeek, cancellationToken);
+        await ComputeOeeMetrics(dto, wcId, plantId, date, cancellationToken);
+
+        return dto;
+    }
+
+    private static void ComputeHourlyCounts(
+        SupervisorDashboardMetricsDto dto,
+        List<DateTime> dayTimestamps,
+        TimeZoneInfo tz)
+    {
+        var hourlyGroups = dayTimestamps
+            .GroupBy(t => TimeZoneInfo.ConvertTimeFromUtc(t, tz).Hour)
             .ToDictionary(g => g.Key, g => g.Count());
 
         for (var h = 0; h < 24; h++)
             dto.HourlyCounts.Add(new HourlyCountDto { Hour = h, Count = hourlyGroups.GetValueOrDefault(h) });
+    }
 
-        // ---- Weekly daily counts ----
-        var dailyGroups = weekRecords
-            .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.Timestamp, tz).Date)
+    private static void ComputeWeeklyCounts(
+        SupervisorDashboardMetricsDto dto,
+        List<DateTime> weekTimestamps,
+        DateTime weekStart,
+        TimeZoneInfo tz)
+    {
+        var dailyGroups = weekTimestamps
+            .GroupBy(t => TimeZoneInfo.ConvertTimeFromUtc(t, tz).Date)
             .ToDictionary(g => g.Key, g => g.Count());
 
         for (var d = 0; d < 7; d++)
@@ -100,39 +128,40 @@ public class SupervisorDashboardService : ISupervisorDashboardService
                 Count = dailyGroups.GetValueOrDefault(day),
             });
         }
+    }
 
-        // ---- Avg time between scans ----
-        dto.DayAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(dayRecords.Select(r => r.Timestamp).ToList());
-        dto.WeekAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(weekRecords.Select(r => r.Timestamp).ToList());
-
-        // ---- Qty per hour ----
-        dto.DayQtyPerHour = ComputeQtyPerHour(dayRecords.Select(r => r.Timestamp).ToList(), startOfDay, endOfDay);
-        dto.WeekQtyPerHour = ComputeQtyPerHour(weekRecords.Select(r => r.Timestamp).ToList(), startOfWeek, endOfWeek);
-
-        // ---- FPY & defect count ----
+    private async Task ComputeFpyAndDefects(
+        SupervisorDashboardMetricsDto dto,
+        Guid wcId, Guid plantId, string? dataEntryType,
+        DateTime startOfDay, DateTime endOfDay,
+        DateTime startOfWeek, DateTime endOfWeek,
+        Guid? operatorId, CancellationToken cancellationToken)
+    {
         var charIds = GetApplicableCharacteristicIds(dataEntryType);
         dto.SupportsFirstPassYield = charIds is not null;
-        if (charIds is not null)
-        {
-            var (dayFpy, dayDefects) = await ComputeFpyAsync(
-                wcId, plantId, startOfDay, endOfDay, charIds, operatorId, cancellationToken);
-            var (weekFpy, weekDefects) = await ComputeFpyAsync(
-                wcId, plantId, startOfWeek, endOfWeek, charIds, operatorId, cancellationToken);
+        if (charIds is null) return;
 
-            dto.DayFPY = dayFpy;
-            dto.WeekFPY = weekFpy;
-            dto.DayDefects = dayDefects;
-            dto.WeekDefects = weekDefects;
-        }
+        var (dayFpy, dayDefects) = await ComputeFpyAsync(
+            wcId, plantId, startOfDay, endOfDay, charIds, operatorId, cancellationToken);
+        var (weekFpy, weekDefects) = await ComputeFpyAsync(
+            wcId, plantId, startOfWeek, endOfWeek, charIds, operatorId, cancellationToken);
 
-        // ---- Operators for the week (unfiltered) ----
-        var weekOperatorRecords = _db.ProductionRecords
+        dto.DayFPY = dayFpy;
+        dto.WeekFPY = weekFpy;
+        dto.DayDefects = dayDefects;
+        dto.WeekDefects = weekDefects;
+    }
+
+    private async Task<List<OperatorSummaryDto>> BuildOperatorSummary(
+        Guid wcId, Guid plantId,
+        DateTime startOfWeek, DateTime endOfWeek,
+        CancellationToken cancellationToken)
+    {
+        return await _db.ProductionRecords
             .Where(r => r.WorkCenterId == wcId
                         && r.ProductionLine.PlantId == plantId
                         && r.Timestamp >= startOfWeek
-                        && r.Timestamp < endOfWeek);
-
-        dto.Operators = await weekOperatorRecords
+                        && r.Timestamp < endOfWeek)
             .GroupBy(r => new { r.OperatorId, r.Operator.DisplayName })
             .Select(g => new OperatorSummaryDto
             {
@@ -142,8 +171,13 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             })
             .OrderByDescending(o => o.RecordCount)
             .ToListAsync(cancellationToken);
+    }
 
-        // ---- OEE (unfiltered by operator) ----
+    private async Task ComputeOeeMetrics(
+        SupervisorDashboardMetricsDto dto,
+        Guid wcId, Guid plantId, string date,
+        CancellationToken cancellationToken)
+    {
         try
         {
             var oee = await _oeeService.CalculateOeeAsync(wcId, plantId, date, cancellationToken);
@@ -153,7 +187,6 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             dto.OeeDowntimeMinutes = oee.DowntimeMinutes;
             dto.OeeRunTimeMinutes = oee.RunTimeMinutes;
 
-            // Use FPY as the Quality component when available
             if (dto.DayFPY.HasValue)
             {
                 dto.OeeQuality = dto.DayFPY;
@@ -171,8 +204,6 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         {
             _logger.LogWarning(ex, "OEE calculation failed for WC {WcId}", wcId);
         }
-
-        return dto;
     }
 
     public async Task<IReadOnlyList<SupervisorRecordDto>> GetRecordsAsync(
@@ -377,15 +408,25 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
         var flooredTarget = targetUph.HasValue ? Math.Floor(targetUph.Value) : (decimal?)null;
 
+        var fpyPeriods = new List<(int key, DateTime utcStart, DateTime utcEnd)>();
+        if (charIds is not null)
+        {
+            foreach (var h in activeHours)
+            {
+                var hStart = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h), tz);
+                var hEnd = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h + 1), tz);
+                fpyPeriods.Add((h, hStart, hEnd));
+            }
+        }
+        var fpyByHour = charIds is not null
+            ? await BatchComputeFpyAsync(wcId, plantId, fpyPeriods, charIds, operatorId, ct)
+            : new Dictionary<int, (decimal? fpy, int defectCount)>();
+
         var rows = new List<PerformanceTableRowDto>();
         foreach (var h in activeHours)
         {
             var actual = hourlyActual.GetValueOrDefault(h);
-            var hourStart = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h), tz);
-            var hourEnd = TimeZoneInfo.ConvertTimeToUtc(localDate.AddHours(h + 1), tz);
-            decimal? fpy = charIds is not null
-                ? (await ComputeFpyAsync(wcId, plantId, hourStart, hourEnd, charIds, operatorId, ct)).fpy
-                : null;
+            decimal? fpy = charIds is not null ? fpyByHour.GetValueOrDefault(h).fpy : null;
 
             rows.Add(new PerformanceTableRowDto
             {
@@ -458,6 +499,30 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.Timestamp, tz).Date)
             .ToDictionary(g => g.Key, g => g.Count());
 
+        var allDowntimeEvents = wcplIds.Count > 0
+            ? await _db.DowntimeEvents
+                .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
+                            && e.StartedAt < endOfWeek && e.EndedAt > startOfWeek
+                            && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
+                .Select(e => new { e.StartedAt, e.EndedAt, e.DurationMinutes })
+                .ToListAsync(ct)
+            : new();
+
+        var fpyPeriods = new List<(int key, DateTime utcStart, DateTime utcEnd)>();
+        if (charIds is not null)
+        {
+            for (var d = 0; d < 7; d++)
+            {
+                var day = weekStart.AddDays(d);
+                fpyPeriods.Add((d,
+                    TimeZoneInfo.ConvertTimeToUtc(day, tz),
+                    TimeZoneInfo.ConvertTimeToUtc(day.AddDays(1), tz)));
+            }
+        }
+        var fpyByDay = charIds is not null
+            ? await BatchComputeFpyAsync(wcId, plantId, fpyPeriods, charIds, operatorId, ct)
+            : new Dictionary<int, (decimal? fpy, int defectCount)>();
+
         var rows = new List<PerformanceTableRowDto>();
         var dayNames = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
 
@@ -473,17 +538,11 @@ public class SupervisorDashboardService : ISupervisorDashboardService
                 ? Math.Floor(targetUph.Value * (plannedMinutes / 60m))
                 : (decimal?)null;
 
-            var downtimeMin = wcplIds.Count > 0
-                ? await _db.DowntimeEvents
-                    .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
-                                && e.StartedAt < dayEnd && e.EndedAt > dayStart
-                                && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
-                    .SumAsync(e => e.DurationMinutes, ct)
-                : 0m;
+            var downtimeMin = allDowntimeEvents
+                .Where(e => e.StartedAt < dayEnd && e.EndedAt > dayStart)
+                .Sum(e => e.DurationMinutes);
 
-            decimal? fpy = charIds is not null
-                ? (await ComputeFpyAsync(wcId, plantId, dayStart, dayEnd, charIds, operatorId, ct)).fpy
-                : null;
+            decimal? fpy = charIds is not null ? fpyByDay.GetValueOrDefault(d).fpy : null;
 
             rows.Add(new PerformanceTableRowDto
             {
@@ -534,6 +593,29 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             weeks[isoWeek].Add(d);
         }
 
+        var allDowntimeEvents = wcplIds.Count > 0
+            ? await _db.DowntimeEvents
+                .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
+                            && e.StartedAt < utcMonthEnd && e.EndedAt > utcMonthStart
+                            && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
+                .Select(e => new { e.StartedAt, e.EndedAt, e.DurationMinutes })
+                .ToListAsync(ct)
+            : new();
+
+        var fpyPeriods = new List<(int key, DateTime utcStart, DateTime utcEnd)>();
+        if (charIds is not null)
+        {
+            foreach (var (wn, wDays) in weeks)
+            {
+                fpyPeriods.Add((wn,
+                    TimeZoneInfo.ConvertTimeToUtc(wDays.Min(), tz),
+                    TimeZoneInfo.ConvertTimeToUtc(wDays.Max().AddDays(1), tz)));
+            }
+        }
+        var fpyByWeek = charIds is not null
+            ? await BatchComputeFpyAsync(wcId, plantId, fpyPeriods, charIds, operatorId, ct)
+            : new Dictionary<int, (decimal? fpy, int defectCount)>();
+
         var rows = new List<PerformanceTableRowDto>();
         foreach (var (weekNum, days) in weeks)
         {
@@ -558,17 +640,11 @@ public class SupervisorDashboardService : ISupervisorDashboardService
                 weekPlanned = Math.Floor(sum);
             }
 
-            var downtimeMin = wcplIds.Count > 0
-                ? await _db.DowntimeEvents
-                    .Where(e => wcplIds.Contains(e.WorkCenterProductionLineId)
-                                && e.StartedAt < utcEnd && e.EndedAt > utcStart
-                                && (e.DowntimeReasonId == null || e.DowntimeReason!.CountsAsDowntime))
-                    .SumAsync(e => e.DurationMinutes, ct)
-                : 0m;
+            var downtimeMin = allDowntimeEvents
+                .Where(e => e.StartedAt < utcEnd && e.EndedAt > utcStart)
+                .Sum(e => e.DurationMinutes);
 
-            decimal? fpy = charIds is not null
-                ? (await ComputeFpyAsync(wcId, plantId, utcStart, utcEnd, charIds, operatorId, ct)).fpy
-                : null;
+            decimal? fpy = charIds is not null ? fpyByWeek.GetValueOrDefault(weekNum).fpy : null;
 
             rows.Add(new PerformanceTableRowDto
             {
@@ -714,6 +790,108 @@ public class SupervisorDashboardService : ISupervisorDashboardService
 
         var fpy = Math.Round((decimal)(opportunities - defectCount) / opportunities * 100, 1);
         return (fpy, totalDefects);
+    }
+
+    private async Task<Dictionary<TKey, (decimal? fpy, int defectCount)>> BatchComputeFpyAsync<TKey>(
+        Guid wcId, Guid plantId,
+        List<(TKey key, DateTime utcStart, DateTime utcEnd)> periods,
+        Guid[] characteristicIds, Guid? operatorId,
+        CancellationToken ct) where TKey : notnull
+    {
+        var result = new Dictionary<TKey, (decimal? fpy, int defectCount)>();
+        if (periods.Count == 0)
+            return result;
+
+        var overallStart = periods.Min(p => p.utcStart);
+        var overallEnd = periods.Max(p => p.utcEnd);
+
+        var allWcRecords = await _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId
+                        && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp >= overallStart
+                        && r.Timestamp < overallEnd)
+            .Select(r => new { r.SerialNumberId, r.Timestamp, r.OperatorId })
+            .ToListAsync(ct);
+
+        if (allWcRecords.Count == 0)
+        {
+            foreach (var (key, _, _) in periods)
+                result[key] = (null, 0);
+            return result;
+        }
+
+        // Earliest timestamp per SN at this WC (no operator filter) for first-pass determination
+        var snEarliestInRange = allWcRecords
+            .GroupBy(r => r.SerialNumberId)
+            .ToDictionary(g => g.Key, g => g.Min(r => r.Timestamp));
+
+        var operatorRecords = operatorId.HasValue
+            ? allWcRecords.Where(r => r.OperatorId == operatorId.Value).ToList()
+            : allWcRecords;
+
+        var allOpSnIds = operatorRecords.Select(r => r.SerialNumberId).Distinct().ToList();
+
+        if (allOpSnIds.Count == 0)
+        {
+            foreach (var (key, _, _) in periods)
+                result[key] = (null, 0);
+            return result;
+        }
+
+        // SNs with records before the batch range (no operator filter)
+        var snsBeforeRange = (await _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId
+                        && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp < overallStart
+                        && allOpSnIds.Contains(r.SerialNumberId))
+            .Select(r => r.SerialNumberId)
+            .Distinct()
+            .ToListAsync(ct))
+            .ToHashSet();
+
+        var potentialFirstPassSnIds = allOpSnIds.Where(sn => !snsBeforeRange.Contains(sn)).ToList();
+
+        var allDefects = potentialFirstPassSnIds.Count > 0
+            ? await _db.DefectLogs
+                .Where(d => potentialFirstPassSnIds.Contains(d.SerialNumberId)
+                            && characteristicIds.Contains(d.CharacteristicId)
+                            && d.Timestamp >= overallStart
+                            && d.Timestamp < overallEnd)
+                .Select(d => new { d.SerialNumberId, d.Timestamp })
+                .ToListAsync(ct)
+            : new();
+
+        foreach (var (key, utcStart, utcEnd) in periods)
+        {
+            var periodSnIds = operatorRecords
+                .Where(r => r.Timestamp >= utcStart && r.Timestamp < utcEnd)
+                .Select(r => r.SerialNumberId)
+                .Distinct()
+                .ToHashSet();
+
+            var trueFirstPassSns = periodSnIds
+                .Where(sn => !snsBeforeRange.Contains(sn) && snEarliestInRange[sn] >= utcStart)
+                .ToHashSet();
+
+            var opportunities = trueFirstPassSns.Count;
+            if (opportunities == 0)
+            {
+                result[key] = (null, 0);
+                continue;
+            }
+
+            var periodDefects = allDefects
+                .Where(d => trueFirstPassSns.Contains(d.SerialNumberId)
+                            && d.Timestamp >= utcStart && d.Timestamp < utcEnd)
+                .ToList();
+
+            var defectSnCount = periodDefects.Select(d => d.SerialNumberId).Distinct().Count();
+            var totalDefects = periodDefects.Count;
+            var fpy = Math.Round((decimal)(opportunities - defectSnCount) / opportunities * 100, 1);
+            result[key] = (fpy, totalDefects);
+        }
+
+        return result;
     }
 
     private static Guid[]? GetApplicableCharacteristicIds(string? dataEntryType)
