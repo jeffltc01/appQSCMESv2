@@ -4,12 +4,17 @@ namespace MESv2.Migration.Mappers;
 
 public static class SiteScheduleMapper
 {
-    public static SiteSchedule? Map(dynamic row)
+    public static SiteSchedule? Map(dynamic row, Dictionary<string, Guid>? plantsByCode = null)
     {
+        Guid plantId = Guid.Empty;
+        string siteCode = (string)(row.SiteCode ?? "");
+        if (plantsByCode != null && !string.IsNullOrEmpty(siteCode))
+            plantsByCode.TryGetValue(siteCode, out plantId);
+
         return new SiteSchedule
         {
             Id = (Guid)row.Id,
-            SiteCode = (string)(row.SiteCode ?? ""),
+            PlantId = plantId,
             Quantity = (decimal)(row.Quantity ?? 0m),
             QuantityComplete = (decimal)(row.QuantityComplete ?? 0m),
             TankSize = (int)(row.TankSize ?? 0),

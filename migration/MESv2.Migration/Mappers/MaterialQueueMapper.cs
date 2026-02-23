@@ -4,34 +4,38 @@ namespace MESv2.Migration.Mappers;
 
 public static class MaterialQueueMapper
 {
-    /// <summary>
-    /// Maps v1 mesWorkCenterMaterialQueue (joined with SerialNumberMaster + Product) to v2 MaterialQueueItem.
-    /// v1 is serial-number-centric; v2 is denormalized with product/vendor/heat/coil fields.
-    /// </summary>
     public static MaterialQueueItem? Map(dynamic row)
     {
+        var d = (IDictionary<string, object>)row;
+
+        int pos = 0;
+        if (d.TryGetValue("QueuePosition", out var qp))
+        {
+            if (qp is decimal dpv) pos = (int)dpv;
+            else if (qp is int ipv) pos = ipv;
+        }
+
+        int qty = 0;
+        if (d.TryGetValue("Quantity", out var qv))
+        {
+            if (qv is decimal dqv) qty = (int)dqv;
+            else if (qv is int iqv) qty = iqv;
+        }
+
         return new MaterialQueueItem
         {
-            Id = (Guid)row.Id,
-            WorkCenterId = (Guid)row.WorkCenterId,
-            Position = (int)(decimal)(row.QueuePosition ?? 0m),
-            Status = MapStatus((string?)row.QueueStatus),
-            ProductDescription = (string?)row.ProductDescription ?? "",
-            ShellSize = ((int?)row.TankSize)?.ToString(),
-            HeatNumber = "",
-            CoilNumber = (string?)row.CoilNumber ?? "",
-            Quantity = (int)(decimal)(row.Quantity ?? 0m),
+            Id = G(d, "Id"),
+            WorkCenterId = G(d, "WorkCenterId"),
+            Position = pos,
+            Status = MapStatus(S(d, "QueueStatus")),
+            Quantity = qty,
+            QuantityCompleted = 0,
             CardId = null,
             CardColor = null,
-            CreatedAt = (DateTime?)row.CreateDateTime ?? DateTime.UtcNow,
-            ProductId = (Guid?)row.ProductId,
-            VendorMillId = (Guid?)row.MillVendorId,
-            VendorProcessorId = (Guid?)row.ProcessorVendorId,
-            VendorHeadId = (Guid?)row.HeadsVendorId,
-            LotNumber = (string?)row.LotNumber,
-            CoilSlabNumber = null,
+            CreatedAt = Dt(d, "CreateDateTime") ?? DateTime.UtcNow,
             OperatorId = null,
-            QueueType = null
+            QueueType = null,
+            SerialNumberId = Gn(d, "SerialNumberMasterId")
         };
     }
 
@@ -45,4 +49,13 @@ public static class MaterialQueueMapper
             _ => "queued"
         };
     }
+
+    private static Guid G(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is Guid g ? g : Guid.Empty;
+    private static Guid? Gn(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is Guid g && g != Guid.Empty ? g : null;
+    private static string? S(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v != null && v is not DBNull ? v.ToString() : null;
+    private static DateTime? Dt(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is DateTime dt ? dt : null;
 }

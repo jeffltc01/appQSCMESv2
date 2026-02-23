@@ -14,6 +14,8 @@ public class MigrationRunner
     private readonly MigrationLogger _log;
     private readonly bool _skipTestRows;
     private const int BatchSize = 2000;
+    private HashSet<Guid> _skipPlantIds = new();
+    private HashSet<string> _skipPlantCodes = new(StringComparer.OrdinalIgnoreCase) { "600" };
 
     public MigrationRunner(V1Reader v1, Func<MesDbContext> dbFactory, MigrationLogger log, bool skipTestRows = true)
     {
@@ -23,10 +25,26 @@ public class MigrationRunner
         _skipTestRows = skipTestRows;
     }
 
+    private async Task BuildPlantFiltersAsync()
+    {
+        using var db = _dbFactory();
+        var plant600 = await db.Plants.FirstOrDefaultAsync(p => p.Code == "600");
+        if (plant600 != null)
+        {
+            _skipPlantIds.Add(plant600.Id);
+            Console.WriteLine($"  Skipping Plant 600 (Id: {plant600.Id})");
+        }
+
+        Console.WriteLine($"  Skipping Plant 600 data for SerialNumbers.");
+    }
+
+
     public async Task RunAsync()
     {
         Console.WriteLine("Starting V1 -> V2 full data migration...");
         var total = Stopwatch.StartNew();
+
+        await BuildPlantFiltersAsync();
 
         // Phase 2: Reference data
         await MigratePlantsFirstPassAsync();
@@ -96,7 +114,15 @@ public class MigrationRunner
 
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try
+                    {
+                        await UpsertBatchAsync(batch);
+                    }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} {v1Table} failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -108,7 +134,17 @@ public class MigrationRunner
         }
 
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try
+            {
+                await UpsertBatchAsync(batch);
+            }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} {v1Table} failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -241,11 +277,13 @@ public class MigrationRunner
 
         foreach (var row in rows)
         {
-            Guid? v1GearId = (Guid?)row.CurrentPlantGearId;
-            if (v1GearId == null || v1GearId == Guid.Empty) continue;
+            var d = (IDictionary<string, object>)row;
+            var gearRaw = d.TryGetValue("CurrentPlantGearId", out var gv) ? gv : null;
+            if (gearRaw is not Guid v1GearId || v1GearId == Guid.Empty) continue;
 
-            var plantId = (Guid)row.Id;
-            var mappedGearId = CombineGuids(v1GearId.Value, plantId);
+            var idRaw = d.TryGetValue("Id", out var iv) ? iv : null;
+            if (idRaw is not Guid plantId) continue;
+            var mappedGearId = CombineGuids(v1GearId, plantId);
             var plant = await db.Plants.FindAsync(plantId);
             if (plant != null)
             {
@@ -300,16 +338,15 @@ public class MigrationRunner
 
         using var db = _dbFactory();
         var wcTypes = await db.WorkCenterTypes.ToDictionaryAsync(t => t.Name, t => t.Id);
-        var plants = await db.Plants.ToDictionaryAsync(p => p.Code, p => p.Id);
-        var lines = await db.ProductionLines.ToListAsync();
+        var allLines = await db.ProductionLines.ToListAsync();
         int migrated = 0;
-        var wcplRecords = new List<WorkCenterProductionLine>();
+        var migratedWcIds = new List<Guid>();
 
         foreach (var row in list)
         {
             try
             {
-                var result = WorkCenterMapper.Map(row, wcTypes, plants, lines);
+                var result = WorkCenterMapper.Map((object)row, wcTypes);
                 if (result == null) { _log.IncrementSkipped(); continue; }
 
                 var entity = result.WorkCenter;
@@ -319,44 +356,48 @@ public class MigrationRunner
                 else
                     db.WorkCenters.Add(entity);
 
-                if (result.ProductionLineId.HasValue)
-                {
-                    wcplRecords.Add(new WorkCenterProductionLine
-                    {
-                        Id = Guid.NewGuid(),
-                        WorkCenterId = entity.Id,
-                        ProductionLineId = result.ProductionLineId.Value,
-                        DisplayName = entity.Name,
-                        NumberOfWelders = entity.NumberOfWelders,
-                    });
-                }
-
+                migratedWcIds.Add(entity.Id);
                 migrated++;
             }
             catch (Exception ex)
             {
-                _log.Warn($"WorkCenter {row.Id}: {ex.Message}");
+                var d = (IDictionary<string, object>)row;
+                var id = d.TryGetValue("Id", out var idv) ? idv : "??";
+                _log.Warn($"WorkCenter {id}: {ex.GetType().Name}: {ex.Message}");
+                if (ex.InnerException != null)
+                    _log.Warn($"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
                 _log.IncrementSkipped();
             }
         }
         await db.SaveChangesAsync();
         _log.IncrementMigrated(migrated);
 
-        // Create WorkCenterProductionLine records
+        // All WorkCenters are global: create a WCPL record for every WC x every ProductionLine
         int wcplMigrated = 0;
-        foreach (var wcpl in wcplRecords)
+        foreach (var wcId in migratedWcIds)
         {
-            var exists = await db.WorkCenterProductionLines
-                .AnyAsync(x => x.WorkCenterId == wcpl.WorkCenterId && x.ProductionLineId == wcpl.ProductionLineId);
-            if (!exists)
+            var wcEntity = await db.WorkCenters.FindAsync(wcId);
+            foreach (var line in allLines)
             {
-                db.WorkCenterProductionLines.Add(wcpl);
-                wcplMigrated++;
+                var exists = await db.WorkCenterProductionLines
+                    .AnyAsync(x => x.WorkCenterId == wcId && x.ProductionLineId == line.Id);
+                if (!exists)
+                {
+                    db.WorkCenterProductionLines.Add(new WorkCenterProductionLine
+                    {
+                        Id = Guid.NewGuid(),
+                        WorkCenterId = wcId,
+                        ProductionLineId = line.Id,
+                        DisplayName = wcEntity?.Name ?? "",
+                        NumberOfWelders = wcEntity?.NumberOfWelders ?? 0,
+                    });
+                    wcplMigrated++;
+                }
             }
         }
         if (wcplMigrated > 0)
             await db.SaveChangesAsync();
-        Console.WriteLine($"  Created {wcplMigrated} WorkCenterProductionLine records.");
+        Console.WriteLine($"  Created {wcplMigrated} WorkCenterProductionLine records (all WCs x all Lines).");
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -373,23 +414,21 @@ public class MigrationRunner
         using var db = _dbFactory();
         var plants = await db.Plants.ToDictionaryAsync(p => p.Code, p => p.Id);
 
-        // Derive PlantId for each work center via WorkCenterProductionLine junction
-        var wcPlantLookup = await db.WorkCenterProductionLines
-            .Include(wcpl => wcpl.ProductionLine)
-            .GroupBy(wcpl => wcpl.WorkCenterId)
-            .Select(g => new { WorkCenterId = g.Key, PlantId = g.First().ProductionLine.PlantId })
-            .ToDictionaryAsync(x => x.WorkCenterId, x => x.PlantId);
+        var allWcs = await db.WorkCenters
+            .Select(w => ValueTuple.Create(w.Id, w.Name))
+            .ToListAsync();
 
-        var wcNames = await db.WorkCenters.ToDictionaryAsync(w => w.Id, w => w.Name);
-        var wcTuples = wcNames.Select(kvp =>
-            (kvp.Key, kvp.Value, wcPlantLookup.GetValueOrDefault(kvp.Key, Guid.Empty))
-        ).ToList();
+        // Plant -> first ProductionLine for that plant
+        var plantToLine = await db.ProductionLines
+            .GroupBy(l => l.PlantId)
+            .Select(g => new { PlantId = g.Key, LineId = g.First().Id })
+            .ToDictionaryAsync(x => x.PlantId, x => x.LineId);
 
         foreach (var row in list)
         {
             try
             {
-                var entity = AssetMapper.Map(row, plants, wcTuples, _log);
+                var entity = AssetMapper.Map((object)row, plants, allWcs, plantToLine, _log);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
                 var existing = await db.Assets.FindAsync(entity.Id);
                 if (existing != null)
@@ -456,7 +495,9 @@ public class MigrationRunner
 
         using var db = _dbFactory();
         var wcplLookup = await db.WorkCenterProductionLines
-            .ToDictionaryAsync(wcpl => wcpl.WorkCenterId, wcpl => wcpl.Id);
+            .GroupBy(wcpl => wcpl.WorkCenterId)
+            .Select(g => new { WorkCenterId = g.Key, WcplId = g.First().Id })
+            .ToDictionaryAsync(x => x.WorkCenterId, x => x.WcplId);
 
         foreach (var row in list)
         {
@@ -498,7 +539,9 @@ public class MigrationRunner
         var count = await _v1.CountAsync("mesSerialNumberMaster", where);
         _log.SetSourceCount(count);
 
-        // Two-pass: first insert with ReplaceBySNId = null, then update self-references
+        using var lookupDb = _dbFactory();
+        var plantsByCode = await lookupDb.Plants.ToDictionaryAsync(p => p.Code, p => p.Id);
+
         var rows = await _v1.ReadTableAsync("mesSerialNumberMaster", where);
         var list = rows.ToList();
         var selfRefs = new List<(Guid Id, Guid ReplaceBySNId)>();
@@ -508,20 +551,38 @@ public class MigrationRunner
         {
             try
             {
-                var entity = SerialNumberMapper.Map(row);
+                // Skip serial numbers from plant 600
+                var dSn = (IDictionary<string, object>)row;
+                var snSc = dSn.TryGetValue("SiteCode", out var snScv) ? snScv : null;
+                bool skipSn = false;
+                if (snSc is Guid snScGuid && _skipPlantIds.Contains(snScGuid)) skipSn = true;
+                else if (snSc is string snScStr && _skipPlantCodes.Contains(snScStr.Trim())) skipSn = true;
+                if (skipSn)
+                {
+                    _log.IncrementSkipped();
+                    continue;
+                }
+
+                var entity = SerialNumberMapper.Map(row, plantsByCode);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
 
-                Guid? replaceId = (Guid?)row.ReplaceBySNId;
-                if (replaceId.HasValue && replaceId.Value != Guid.Empty)
+                var d = dSn;
+                var replaceRaw = d.TryGetValue("ReplaceBySNId", out var rv) ? rv : null;
+                if (replaceRaw is Guid rGuid && rGuid != Guid.Empty)
                 {
-                    selfRefs.Add((entity.Id, replaceId.Value));
+                    selfRefs.Add((entity.Id, rGuid));
                     entity.ReplaceBySNId = null;
                 }
 
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} SerialNumbers failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -532,7 +593,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} SerialNumbers failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         // Second pass: update self-references
         if (selfRefs.Count > 0)
@@ -561,36 +629,110 @@ public class MigrationRunner
         var count = await _v1.CountAsync("mesManufacturingLog", where);
         _log.SetSourceCount(count);
 
-        using var db = _dbFactory();
-        var users = await db.Users.ToDictionaryAsync(u => u.EmployeeNumber, u => u.Id);
+        // Pre-load valid FK targets to avoid FK violations in batches
+        using var lookupDb = _dbFactory();
+        var validSnIds = (await lookupDb.SerialNumbers.Select(s => s.Id).ToListAsync()).ToHashSet();
+        var validWcIds = (await lookupDb.WorkCenters.Select(w => w.Id).ToListAsync()).ToHashSet();
+        var validLineIds = (await lookupDb.ProductionLines.Select(l => l.Id).ToListAsync()).ToHashSet();
+        var validUserIds = (await lookupDb.Users.Select(u => u.Id).ToListAsync()).ToHashSet();
+        Console.WriteLine($"  FK validation: {validSnIds.Count} SNs, {validWcIds.Count} WCs, {validLineIds.Count} Lines, {validUserIds.Count} Users");
 
         var rows = await _v1.ReadTableAsync("mesManufacturingLog", where);
         var batch = new List<ProductionRecord>(BatchSize);
+        int skippedFk = 0;
 
         foreach (var row in rows)
         {
             try
             {
-                var entity = ProductionRecordMapper.Map(row, users, _log);
+                var entity = ProductionRecordMapper.Map((object)row, _log);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
+
+                if (!validSnIds.Contains(entity.SerialNumberId) ||
+                    !validWcIds.Contains(entity.WorkCenterId) ||
+                    !validLineIds.Contains(entity.ProductionLineId))
+                {
+                    skippedFk++;
+                    _log.IncrementSkipped();
+                    continue;
+                }
+                if (!validUserIds.Contains(entity.OperatorId))
+                    entity.OperatorId = validUserIds.First();
+
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try
+                    {
+                        await UpsertBatchAsync(batch);
+                    }
+                    catch
+                    {
+                        _log.Warn($"Batch failed, retrying row-by-row ({batch.Count} records)...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
             catch (Exception ex)
             {
-                _log.Warn($"ManufacturingLog {row.Id}: {ex.Message}");
+                var d2 = (IDictionary<string, object>)row;
+                var rid = d2.TryGetValue("Id", out var rv) ? rv : "??";
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
+                _log.Warn($"ManufacturingLog {rid}: {innerMsg}");
                 _log.IncrementSkipped();
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try
+            {
+                await UpsertBatchAsync(batch);
+            }
+            catch
+            {
+                _log.Warn($"Final batch failed, retrying row-by-row ({batch.Count} records)...");
+                await UpsertRowByRowAsync(batch);
+            }
+            batch.Clear();
+        }
+
+        if (skippedFk > 0)
+            Console.WriteLine($"  Skipped {skippedFk} records with missing FK references (likely plant 600 data).");
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
+    }
+
+    private async Task UpsertRowByRowAsync<TEntity>(List<TEntity> entities) where TEntity : class
+    {
+        int ok = 0, fail = 0;
+        foreach (var entity in entities)
+        {
+            try
+            {
+                using var db = _dbFactory();
+                var entry = db.Entry(entity);
+                var pk = entry.Property("Id").CurrentValue;
+                var existing = await db.Set<TEntity>().FindAsync(pk);
+                if (existing != null)
+                    db.Entry(existing).CurrentValues.SetValues(entity);
+                else
+                    db.Set<TEntity>().Add(entity);
+                await db.SaveChangesAsync();
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                var innerMsg = ex.InnerException?.Message ?? ex.Message;
+                _log.Warn($"Row-by-row fail: {innerMsg}");
+                fail++;
+            }
+        }
+        _log.IncrementMigrated(ok);
+        _log.IncrementSkipped(fail);
+        if (fail > 0)
+            Console.WriteLine($"    Row-by-row: {ok} OK, {fail} failed.");
     }
 
     private async Task MigrateTraceabilityLogsAsync()
@@ -612,7 +754,12 @@ public class MigrationRunner
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} TraceabilityLogs failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -623,7 +770,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} TraceabilityLogs failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -654,12 +808,17 @@ public class MigrationRunner
         {
             try
             {
-                var entity = InspectionRecordMapper.Map(row, snLookup);
+                var entity = InspectionRecordMapper.Map((object)row, snLookup);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} InspectionRecords failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -670,7 +829,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} InspectionRecords failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -693,12 +859,17 @@ public class MigrationRunner
         {
             try
             {
-                var entity = DefectLogMapper.Map(row, snLookup);
+                var entity = DefectLogMapper.Map((object)row, snLookup);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} DefectLogs failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -709,7 +880,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} DefectLogs failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -732,12 +910,17 @@ public class MigrationRunner
         {
             try
             {
-                var entity = AnnotationMapper.Map(row, productionRecordIds, _log);
+                var entity = AnnotationMapper.Map((object)row, productionRecordIds, _log);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} Annotations failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -748,7 +931,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} Annotations failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -783,7 +973,12 @@ public class MigrationRunner
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} MaterialQueueItems failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -794,7 +989,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} MaterialQueueItems failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -818,7 +1020,12 @@ public class MigrationRunner
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} SpotXrayIncrements failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -829,7 +1036,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} SpotXrayIncrements failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
@@ -844,17 +1058,25 @@ public class MigrationRunner
         var list = rows.ToList();
         _log.SetSourceCount(list.Count);
 
+        using var lookupDb = _dbFactory();
+        var plantsByCode = await lookupDb.Plants.ToDictionaryAsync(p => p.Code, p => p.Id);
+
         var batch = new List<SiteSchedule>(BatchSize);
         foreach (var row in list)
         {
             try
             {
-                var entity = SiteScheduleMapper.Map(row);
+                var entity = SiteScheduleMapper.Map(row, plantsByCode);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
-                    await UpsertBatchAsync(batch);
+                    try { await UpsertBatchAsync(batch); }
+                    catch
+                    {
+                        _log.Warn($"Batch of {batch.Count} SiteSchedules failed, retrying row-by-row...");
+                        await UpsertRowByRowAsync(batch);
+                    }
                     batch.Clear();
                 }
             }
@@ -865,7 +1087,14 @@ public class MigrationRunner
             }
         }
         if (batch.Count > 0)
-            await UpsertBatchAsync(batch);
+        {
+            try { await UpsertBatchAsync(batch); }
+            catch
+            {
+                _log.Warn($"Final batch of {batch.Count} SiteSchedules failed, retrying row-by-row...");
+                await UpsertRowByRowAsync(batch);
+            }
+        }
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);

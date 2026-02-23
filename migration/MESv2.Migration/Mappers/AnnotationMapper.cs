@@ -4,41 +4,26 @@ namespace MESv2.Migration.Mappers;
 
 public static class AnnotationMapper
 {
-    /// <summary>
-    /// Maps v1 mesAnnotation (polymorphic RecordType+RecordUID) to v2 Annotation (explicit ProductionRecordId).
-    /// Only rows whose RecordUID maps to an existing ProductionRecord are migrated.
-    /// </summary>
-    public static Annotation? Map(dynamic row, HashSet<Guid> productionRecordIds, MigrationLogger log)
+    public static Annotation? Map(object row, HashSet<Guid> productionRecordIds, MigrationLogger log)
     {
-        string recordType = ((string?)row.RecordType ?? "").Trim();
-        Guid? recordUid = (Guid?)row.RecordUID;
+        var d = (IDictionary<string, object>)row;
 
-        Guid? productionRecordId = null;
+        string recordType = (S(d, "RecordType") ?? "").Trim();
+        var recordUid = Gn(d, "RecordUID");
 
-        if (recordUid.HasValue)
+        if (!recordUid.HasValue)
         {
-            if (recordType.Equals("ManufacturingLog", StringComparison.OrdinalIgnoreCase)
-                && productionRecordIds.Contains(recordUid.Value))
-            {
-                productionRecordId = recordUid.Value;
-            }
-            else if (productionRecordIds.Contains(recordUid.Value))
-            {
-                productionRecordId = recordUid.Value;
-            }
-            else
-            {
-                log.Warn($"Annotation {row.Id}: RecordType='{recordType}' RecordUID='{recordUid}' cannot be resolved to a ProductionRecord. Skipping.");
-                return null;
-            }
-        }
-        else
-        {
-            log.Warn($"Annotation {row.Id}: No RecordUID. Skipping.");
+            log.Warn($"Annotation {G(d, "Id")}: No RecordUID. Skipping.");
             return null;
         }
 
-        string? flagStatus = row.FlagStatus as string;
+        if (!productionRecordIds.Contains(recordUid.Value))
+        {
+            log.Warn($"Annotation {G(d, "Id")}: RecordType='{recordType}' RecordUID='{recordUid}' cannot be resolved to a ProductionRecord. Skipping.");
+            return null;
+        }
+
+        string? flagStatus = S(d, "FlagStatus");
         var status = string.IsNullOrEmpty(flagStatus)
             || flagStatus.Equals("None", StringComparison.OrdinalIgnoreCase)
             || flagStatus.Equals("Resolved", StringComparison.OrdinalIgnoreCase)
@@ -47,15 +32,24 @@ public static class AnnotationMapper
 
         return new Annotation
         {
-            Id = (Guid)row.Id,
-            ProductionRecordId = productionRecordId.Value,
-            AnnotationTypeId = (Guid)row.AnnotationTypeUID,
+            Id = G(d, "Id"),
+            ProductionRecordId = recordUid.Value,
+            AnnotationTypeId = G(d, "AnnotationTypeUID"),
             Status = status,
-            Notes = (string?)row.AnnotationNotes,
-            InitiatedByUserId = (Guid?)row.InitiatedById ?? Guid.Empty,
-            ResolvedByUserId = (Guid?)row.ResolvedByUID,
-            ResolvedNotes = (string?)row.ResolutionNotes,
-            CreatedAt = (DateTime?)row.AnnotationDateTime ?? DateTime.UtcNow
+            Notes = S(d, "AnnotationNotes"),
+            InitiatedByUserId = G(d, "InitiatedById"),
+            ResolvedByUserId = Gn(d, "ResolvedByUID"),
+            ResolvedNotes = S(d, "ResolutionNotes"),
+            CreatedAt = Dt(d, "AnnotationDateTime") ?? DateTime.UtcNow
         };
     }
+
+    private static Guid G(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is Guid g ? g : Guid.Empty;
+    private static Guid? Gn(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is Guid g && g != Guid.Empty ? g : null;
+    private static string? S(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v != null && v is not DBNull ? v.ToString() : null;
+    private static DateTime? Dt(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is DateTime dt ? dt : null;
 }

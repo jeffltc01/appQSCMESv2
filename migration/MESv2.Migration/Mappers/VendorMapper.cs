@@ -22,7 +22,7 @@ public static class VendorMapper
             Id = (Guid)row.Id,
             Name = (string)(row.VendorName ?? ""),
             VendorType = vendorType,
-            SiteCode = (string?)row.SiteCode,
+            PlantIds = (string?)row.SiteCode,
             IsActive = true
         };
     }

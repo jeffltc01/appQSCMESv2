@@ -4,38 +4,64 @@ namespace MESv2.Migration.Mappers;
 
 public static class ProductionRecordMapper
 {
-    public static ProductionRecord? Map(dynamic row, Dictionary<string, Guid> usersByEmpNo, MigrationLogger log)
+    public static ProductionRecord? Map(object row, MigrationLogger log)
     {
-        // CompletedByUserId in v1 is nvarchar(50) holding a GUID as text
-        Guid operatorId = Guid.Empty;
-        string? completedBy = row.CompletedByUserId as string;
+        var d = (IDictionary<string, object>)row;
 
+        var id = GetGuid(d, "Id");
+        var snId = GetGuid(d, "SerialNumberMasterId");
+        var wcId = GetGuid(d, "WorkCenterId");
+        var productionLineId = GetGuid(d, "ProductionLineId");
+
+        Guid operatorId = Guid.Empty;
+        var completedBy = GetString(d, "CompletedByUserId");
         if (!string.IsNullOrEmpty(completedBy) && Guid.TryParse(completedBy, out var parsedGuid))
         {
             operatorId = parsedGuid;
         }
         else
         {
-            Guid? createdByUserId = (Guid?)row.CreatedByUserId;
-            if (createdByUserId.HasValue && createdByUserId.Value != Guid.Empty)
-                operatorId = createdByUserId.Value;
-            else
-                log.Warn($"ManufacturingLog {row.Id}: CompletedByUserId is empty/null and no CreatedByUserId fallback");
+            var createdBy = GetNullableGuid(d, "CreatedByUserId");
+            if (createdBy.HasValue && createdBy.Value != Guid.Empty)
+                operatorId = createdBy.Value;
         }
 
         return new ProductionRecord
         {
-            Id = (Guid)row.Id,
-            SerialNumberId = (Guid)row.SerialNumberMasterId,
-            WorkCenterId = (Guid?)row.WorkCenterId ?? Guid.Empty,
-            AssetId = (Guid?)row.AssetId,
-            ProductionLineId = (Guid?)row.ProductionLineId ?? Guid.Empty,
+            Id = id,
+            SerialNumberId = snId,
+            WorkCenterId = wcId,
+            AssetId = GetNullableGuid(d, "AssetId"),
+            ProductionLineId = productionLineId,
             OperatorId = operatorId,
-            Timestamp = (DateTime?)row.LogDateTime ?? DateTime.UtcNow,
-            ProductInId = (Guid?)row.ProductIdIn,
-            ProductOutId = (Guid?)row.ProductIdOut,
-            PlantGearId = (Guid?)row.PlantGearId,
-            InspectionResult = null
+            Timestamp = GetDateTime(d, "LogDateTime") ?? DateTime.UtcNow,
+            ProductInId = GetNullableGuid(d, "ProductIdIn"),
+            ProductOutId = GetNullableGuid(d, "ProductIdOut"),
+            PlantGearId = null
         };
+    }
+
+    private static Guid GetGuid(IDictionary<string, object> d, string key)
+    {
+        if (d.TryGetValue(key, out var val) && val is Guid g) return g;
+        return Guid.Empty;
+    }
+
+    private static Guid? GetNullableGuid(IDictionary<string, object> d, string key)
+    {
+        if (d.TryGetValue(key, out var val) && val is Guid g && g != Guid.Empty) return g;
+        return null;
+    }
+
+    private static string? GetString(IDictionary<string, object> d, string key)
+    {
+        if (d.TryGetValue(key, out var val) && val != null && val is not DBNull) return val.ToString();
+        return null;
+    }
+
+    private static DateTime? GetDateTime(IDictionary<string, object> d, string key)
+    {
+        if (d.TryGetValue(key, out var val) && val is DateTime dt) return dt;
+        return null;
     }
 }

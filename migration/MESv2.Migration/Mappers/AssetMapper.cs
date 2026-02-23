@@ -4,37 +4,45 @@ namespace MESv2.Migration.Mappers;
 
 public static class AssetMapper
 {
-    /// <summary>
-    /// V1 mesAsset has SiteCode but no WorkCenterId FK. The runner passes a
-    /// name-based lookup of WorkCenters so we can match by asset name convention
-    /// (e.g. "Rolls 1" asset -> "Rolls 1" work center at the same site).
-    /// Falls back to first WC at the same plant if no name match.
-    /// </summary>
-    public static Asset? Map(dynamic row,
+    public static Asset? Map(object row,
         Dictionary<string, Guid> plantsByCode,
-        List<(Guid Id, string Name, Guid PlantId)> workCenters,
+        List<(Guid Id, string Name)> allWorkCenters,
+        Dictionary<Guid, Guid> plantToProductionLine,
         MigrationLogger log)
     {
-        string siteCode = ((string)(row.SiteCode ?? "")).Trim();
-        string assetName = (string)(row.AssetName ?? "");
-        string assetType = ((string)(row.AssetType ?? "")).Trim();
+        var d = (IDictionary<string, object>)row;
+        var siteCodeRaw = d.TryGetValue("SiteCode", out var scv) ? scv : null;
+        Guid plantId = Guid.Empty;
 
-        if (!plantsByCode.TryGetValue(siteCode, out var plantId))
+        if (siteCodeRaw is Guid siteGuid)
         {
-            log.Warn($"Asset {row.Id}: SiteCode '{siteCode}' not found in Plants");
-            return null;
+            plantId = siteGuid;
+            if (!plantsByCode.Values.Contains(plantId))
+            {
+                log.Warn($"Asset {Get(d, "Id")}: SiteCode Guid '{siteGuid}' not found in Plants");
+                return null;
+            }
+        }
+        else
+        {
+            string siteCode = (siteCodeRaw?.ToString() ?? "").Trim();
+            if (!plantsByCode.TryGetValue(siteCode, out plantId))
+            {
+                log.Warn($"Asset {Get(d, "Id")}: SiteCode '{siteCode}' not found in Plants");
+                return null;
+            }
         }
 
-        var siteWCs = workCenters.Where(w => w.PlantId == plantId).ToList();
+        string assetName = Get(d, "AssetName")?.ToString() ?? "";
+        string assetType = (Get(d, "AssetType")?.ToString() ?? "").Trim();
 
-        // Try matching by name: strip " Asset" suffix from asset name, match WC name
         string searchName = assetName.Replace(" Asset", "").Trim();
-        var matched = siteWCs.FirstOrDefault(w =>
+        var matched = allWorkCenters.FirstOrDefault(w =>
             w.Name.Equals(searchName, StringComparison.OrdinalIgnoreCase));
 
         if (matched == default && !string.IsNullOrEmpty(assetType))
         {
-            matched = siteWCs.FirstOrDefault(w =>
+            matched = allWorkCenters.FirstOrDefault(w =>
                 w.Name.Contains(assetType, StringComparison.OrdinalIgnoreCase));
         }
 
@@ -43,23 +51,38 @@ public static class AssetMapper
         {
             workCenterId = matched.Id;
         }
-        else if (siteWCs.Count > 0)
+        else if (allWorkCenters.Count > 0)
         {
-            workCenterId = siteWCs[0].Id;
-            log.Warn($"Asset {row.Id} '{assetName}': no WC name match at site {siteCode}, assigned to '{siteWCs[0].Name}'");
+            workCenterId = allWorkCenters[0].Id;
+            log.Warn($"Asset {Get(d, "Id")} '{assetName}': no WC name match, assigned to '{allWorkCenters[0].Name}'");
         }
         else
         {
-            log.Warn($"Asset {row.Id} '{assetName}': no WorkCenters found for site {siteCode}. Skipping.");
+            log.Warn($"Asset {Get(d, "Id")} '{assetName}': no WorkCenters found. Skipping.");
             return null;
         }
 
+        if (!plantToProductionLine.TryGetValue(plantId, out var productionLineId))
+        {
+            log.Warn($"Asset {Get(d, "Id")} '{assetName}': no ProductionLine for Plant {plantId}. Skipping.");
+            return null;
+        }
+
+        var idRaw = d.TryGetValue("Id", out var idv) ? idv : null;
+
         return new Asset
         {
-            Id = (Guid)row.Id,
+            Id = idRaw is Guid g ? g : Guid.NewGuid(),
             Name = assetName,
             WorkCenterId = workCenterId,
-            LimbleIdentifier = (string?)row.MaintenanceIdentifier
+            ProductionLineId = productionLineId,
+            LimbleIdentifier = Get(d, "MaintenanceIdentifier")?.ToString()
         };
+    }
+
+    private static object? Get(IDictionary<string, object> d, string key)
+    {
+        if (d.TryGetValue(key, out var val) && val is not DBNull) return val;
+        return null;
     }
 }

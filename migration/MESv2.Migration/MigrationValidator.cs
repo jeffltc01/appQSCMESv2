@@ -151,13 +151,13 @@ public class MigrationValidator
                 .Where(r => r.SerialNumberId == sn.Id)
                 .CountAsync();
             var defectCount = await db.DefectLogs
-                .Where(d => d.SerialNumber == sn.Serial)
+                .Where(d => d.SerialNumberId == sn.Id)
                 .CountAsync();
             var traceCount = await db.TraceabilityLogs
                 .Where(t => t.FromSerialNumberId == sn.Id || t.ToSerialNumberId == sn.Id)
                 .CountAsync();
 
-            Console.WriteLine($"  SN '{sn.Serial}' (Site {sn.SiteCode}): {prCount} production records, {defectCount} defects, {traceCount} trace logs");
+            Console.WriteLine($"  SN '{sn.Serial}' (Plant {sn.PlantId}): {prCount} production records, {defectCount} defects, {traceCount} trace logs");
         }
     }
 }

@@ -4,14 +4,19 @@ namespace MESv2.Migration.Mappers;
 
 public static class SerialNumberMapper
 {
-    public static SerialNumber? Map(dynamic row)
+    public static SerialNumber? Map(dynamic row, Dictionary<string, Guid>? plantsByCode = null)
     {
+        Guid plantId = Guid.Empty;
+        string siteCode = (string)(row.SiteCode ?? "");
+        if (plantsByCode != null && !string.IsNullOrEmpty(siteCode))
+            plantsByCode.TryGetValue(siteCode, out plantId);
+
         return new SerialNumber
         {
             Id = (Guid)row.Id,
             Serial = (string)(row.SerialNumber ?? ""),
             ProductId = (Guid?)row.ProductId,
-            SiteCode = (string)(row.SiteCode ?? ""),
+            PlantId = plantId,
             Notes = (string?)row.Notes,
             MillVendorId = (Guid?)row.MillVendorId,
             ProcessorVendorId = (Guid?)row.ProcessorVendorId,

@@ -19,36 +19,41 @@ public static class WorkCenterMapper
         ["DataPlate"] = "DataPlate",
     };
 
-    public static WorkCenterMapResult? Map(dynamic row,
-        Dictionary<string, Guid> workCenterTypes,
-        Dictionary<string, Guid> plants,
-        List<ProductionLine> lines)
+    private static T? Get<T>(IDictionary<string, object> d, string key)
     {
-        string siteCode = ((string)(row.SiteCode ?? "")).Trim();
-        string name = (string)(row.WorkCenterName ?? "");
+        if (!d.TryGetValue(key, out var val) || val is DBNull || val == null) return default;
+        if (val is T t) return t;
+        try { return (T)Convert.ChangeType(val, typeof(T)); } catch { return default; }
+    }
 
-        if (!plants.TryGetValue(siteCode, out var plantId))
-            return null;
+    public static WorkCenterMapResult? Map(object row,
+        Dictionary<string, Guid> workCenterTypes)
+    {
+        var d = (IDictionary<string, object>)row;
 
+        string name = Get<string>(d, "WorkCenterName") ?? "";
         var wcTypeId = InferWorkCenterType(name, workCenterTypes);
-        var line = lines.FirstOrDefault(l => l.PlantId == plantId);
+        string? dataEntryType = ResolveDataEntryType(Get<string>(d, "DataEntryType"), name);
+        int numWelders = Get<int>(d, "NoOfWelders");
 
-        string? dataEntryType = ResolveDataEntryType((string?)row.DataEntryType, name);
+        Guid? matQueueId = null;
+        var mqRaw = d.TryGetValue("MaterialQueueForWCId", out var mqv) ? mqv : null;
+        if (mqRaw is Guid mqGuid && mqGuid != Guid.Empty) matQueueId = mqGuid;
 
         var wc = new WorkCenter
         {
-            Id = (Guid)row.Id,
+            Id = Get<Guid>(d, "Id"),
             Name = name,
             WorkCenterTypeId = wcTypeId,
-            NumberOfWelders = (int)(row.NoOfWelders ?? 0),
+            NumberOfWelders = numWelders,
             DataEntryType = dataEntryType,
-            MaterialQueueForWCId = (Guid?)row.MaterialQueueForWCId
+            MaterialQueueForWCId = matQueueId
         };
 
         return new WorkCenterMapResult
         {
             WorkCenter = wc,
-            ProductionLineId = line?.Id
+            ProductionLineId = null
         };
     }
 
