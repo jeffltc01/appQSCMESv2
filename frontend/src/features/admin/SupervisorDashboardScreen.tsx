@@ -171,7 +171,15 @@ export function SupervisorDashboardScreen() {
   const formatNum = (v: number | null) => (v !== null ? String(v) : '--');
 
   return (
-    <AdminLayout title="Supervisor / Team Lead Dashboard">
+    <AdminLayout
+      title="Supervisor / Team Lead Dashboard"
+      nlqContext={{
+        workCenterId: selectedWcId || undefined,
+        operatorId: selectedOperatorId ?? undefined,
+        date: todayISOString(),
+        view: viewMode,
+      }}
+    >
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarField}>

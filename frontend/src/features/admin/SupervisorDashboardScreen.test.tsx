@@ -496,9 +496,9 @@ describe('SupervisorDashboardScreen', () => {
   });
 
   it('shows loading spinner while fetching metrics', async () => {
-    let resolveMetrics!: (v: SupervisorDashboardMetrics | null) => void;
+    let resolveMetrics!: (v: SupervisorDashboardMetrics | PromiseLike<SupervisorDashboardMetrics>) => void;
     vi.mocked(supervisorDashboardApi.getMetrics).mockImplementation(
-      () => new Promise((r) => { resolveMetrics = r; }),
+      () => new Promise<SupervisorDashboardMetrics>((r) => { resolveMetrics = r; }),
     );
     vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
     vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);

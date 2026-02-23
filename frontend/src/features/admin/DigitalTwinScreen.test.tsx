@@ -190,9 +190,9 @@ describe('DigitalTwinScreen', () => {
   });
 
   it('shows loading spinner during snapshot fetch', async () => {
-    let resolveSnapshot!: (v: DigitalTwinSnapshot | null) => void;
+    let resolveSnapshot!: (v: DigitalTwinSnapshot | PromiseLike<DigitalTwinSnapshot>) => void;
     vi.mocked(digitalTwinApi.getSnapshot).mockImplementation(
-      () => new Promise((r) => { resolveSnapshot = r; }),
+      () => new Promise<DigitalTwinSnapshot>((r) => { resolveSnapshot = r; }),
     );
     renderScreen();
 

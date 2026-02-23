@@ -45,7 +45,8 @@ public class NlqController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            _ = ex;
+            return Forbid();
         }
         catch (ArgumentException ex)
         {

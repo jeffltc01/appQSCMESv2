@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
@@ -222,9 +222,10 @@ describe('WorkCenterConfigScreen', () => {
       expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
     });
 
-    // Buttons: Menu, Add, Help, Logout, WC Edit, PL Add, PL Edit, PL Delete
-    const allButtons = screen.getAllByRole('button');
-    const plEditButton = allButtons[6];
+    const lineLabel = await screen.findByText('Line 1 (Cleveland)');
+    const plRow = lineLabel.closest('div');
+    expect(plRow).not.toBeNull();
+    const plEditButton = within(plRow as HTMLElement).getAllByRole('button')[0];
     await user.click(plEditButton);
 
     await waitFor(() => {

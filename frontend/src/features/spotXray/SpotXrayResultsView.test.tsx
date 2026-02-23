@@ -27,15 +27,15 @@ const mockDetail = {
   isDraft: true,
   tankSize: 500,
   seamCount: 2,
-  inspectTankId: null,
-  inspectTankAlpha: null,
+  inspectTankId: undefined,
+  inspectTankAlpha: undefined,
   tanks: [
     { serialNumberId: 'sn-1', alphaCode: 'ABC-001', shellSerials: ['S1'], position: 1 },
     { serialNumberId: 'sn-2', alphaCode: 'ABC-002', shellSerials: ['S2'], position: 2 },
   ],
   seams: [
-    { seamNumber: 1, welderName: 'Jeff', shotNo: null, result: null },
-    { seamNumber: 2, welderName: 'Jeff', shotNo: null, result: null },
+    { seamNumber: 1, welderName: 'Jeff', shotNo: undefined, result: undefined },
+    { seamNumber: 2, welderName: 'Jeff', shotNo: undefined, result: undefined },
   ],
 };
 
