@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
@@ -70,8 +70,8 @@ describe('IssuesScreen', () => {
     ]);
     const user = userEvent.setup();
     renderScreen();
-    await waitFor(() => expect(screen.getByText('Issues')).toBeInTheDocument());
-    await user.click(screen.getByRole('switch', { name: /needs approval only/i }));
+    const needsApprovalToggle = await screen.findByRole('switch', { name: /needs approval only/i });
+    await user.click(needsApprovalToggle);
     expect(await screen.findByText('Broken scanner')).toBeInTheDocument();
   });
 
@@ -92,8 +92,8 @@ describe('IssuesScreen', () => {
     ]);
     const user = userEvent.setup();
     renderScreen();
-    await waitFor(() => expect(screen.getByText('Issues')).toBeInTheDocument());
-    await user.click(screen.getByRole('switch', { name: /needs approval only/i }));
+    const needsApprovalToggle = await screen.findByRole('switch', { name: /needs approval only/i });
+    await user.click(needsApprovalToggle);
     await user.click(await screen.findByRole('button', { name: /review broken scanner/i }));
     expect(await screen.findByText(/Review: Broken scanner/i)).toBeInTheDocument();
     expect(screen.getByText('Scanner stops after first scan')).toBeInTheDocument();
