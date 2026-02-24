@@ -590,6 +590,94 @@ public class SerialNumberServiceTests
         Assert.Contains(assemblyNode.Children, c => c.NodeType == "shell" && c.Serial == "REV-SH-001");
     }
 
+    [Fact]
+    public async Task GetLookup_IncludesNumericInspectionResultAsAccept()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var h = SeedFullHierarchy(db);
+
+        var charId = Guid.Parse("c1000001-0000-0000-0000-000000000001");
+        var cpId = Guid.NewGuid();
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = cpId,
+            CharacteristicId = charId,
+            WorkCenterProductionLineId = TestHelpers.wcplLongSeamInspId,
+            IsEnabled = true,
+            ResultType = "Pass/Fail",
+            IsGateCheck = true
+        });
+        db.InspectionRecords.Add(new InspectionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = h.Shell1Sn.Id,
+            ProductionRecordId = h.ShellPr.Id,
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            ControlPlanId = cpId,
+            ResultText = null,
+            ResultNumeric = 1m,
+            Timestamp = new DateTime(2026, 2, 15, 9, 0, 0, DateTimeKind.Utc)
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SELL-001");
+
+        Assert.NotNull(result);
+        var shellNode = result.TreeNodes[0].Children[0].Children.First(c => c.NodeType == "shell" && c.Serial == "SH-001");
+        var inspEvent = shellNode.Events.FirstOrDefault(e => e.WorkCenterName.Contains("Inspection", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(inspEvent);
+        Assert.Equal("Accept", inspEvent.InspectionResult);
+    }
+
+    [Fact]
+    public async Task GetLookup_ShellWithNullComponentLinkButTankLocation_AddsPlateChild()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var plateProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "plate" && p.TankSize == 500);
+
+        var shell = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SHELL-MIG-001",
+            ProductId = shellProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        };
+        var plate = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "Heat H-MIG Coil C-MIG",
+            ProductId = plateProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            HeatNumber = "H-MIG",
+            CoilNumber = "C-MIG",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.AddRange(shell, plate);
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = null,
+            ToSerialNumberId = shell.Id,
+            Relationship = "component",
+            TankLocation = "Heat H-MIG Coil C-MIG",
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SHELL-MIG-001");
+
+        Assert.NotNull(result);
+        Assert.Single(result.TreeNodes);
+        var shellNode = result.TreeNodes[0];
+        var plateNode = shellNode.Children.Single(c => c.NodeType == "plate");
+        Assert.Equal("Heat H-MIG Coil C-MIG", plateNode.Serial);
+    }
+
     #region NormalizeRelationship Direct Tests
 
     [Theory]

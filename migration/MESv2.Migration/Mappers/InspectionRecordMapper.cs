@@ -7,6 +7,11 @@ public static class InspectionRecordMapper
     public static InspectionRecord? Map(object row, Dictionary<Guid, string> snLookup)
     {
         var d = (IDictionary<string, object>)row;
+        var resultNumeric = Dec(d, "ResultNumber");
+        var resultText = S(d, "ResultText");
+        if (string.IsNullOrWhiteSpace(resultText) && resultNumeric.HasValue)
+            resultText = resultNumeric.Value > 0 ? "Accept" : "Reject";
+
         var serialNumberId =
             Gn(d, "SerialNumberId")
             ?? Gn(d, "ManufacturingSerialNumberId")
@@ -22,8 +27,8 @@ public static class InspectionRecordMapper
             OperatorId = G(d, "OperatorUserId"),
             Timestamp = Dt(d, "InspectionDate") ?? DateTime.UtcNow,
             ControlPlanId = G(d, "ControlPlanId"),
-            ResultText = S(d, "ResultText"),
-            ResultNumeric = Dec(d, "ResultNumber")
+            ResultText = resultText,
+            ResultNumeric = resultNumeric
         };
     }
 

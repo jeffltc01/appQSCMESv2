@@ -819,6 +819,28 @@ public class MigrationRunner
         using var lookupDb = _dbFactory();
         var validSnIds = (await lookupDb.SerialNumbers.Select(s => s.Id).ToListAsync()).ToHashSet();
         var validPrIds = (await lookupDb.ProductionRecords.Select(p => p.Id).ToListAsync()).ToHashSet();
+        var serialMetadata = await lookupDb.SerialNumbers
+            .Include(s => s.Product!).ThenInclude(p => p.ProductType)
+            .Select(s => new
+            {
+                s.Id,
+                s.Serial,
+                s.CreatedAt,
+                SystemType = s.Product != null && s.Product.ProductType != null
+                    ? s.Product.ProductType.SystemTypeName
+                    : null
+            })
+            .ToListAsync();
+        var serialTypeById = serialMetadata.ToDictionary(
+            x => x.Id,
+            x => NormalizeSystemTypeName(x.SystemType));
+        var latestSerialByText = serialMetadata
+            .Where(x => !string.IsNullOrWhiteSpace(x.Serial))
+            .GroupBy(x => x.Serial!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First().Id,
+                StringComparer.OrdinalIgnoreCase);
 
         var batch = new List<TraceabilityLog>(BatchSize);
         int skippedFk = 0;
@@ -829,6 +851,15 @@ public class MigrationRunner
             {
                 var entity = TraceabilityLogMapper.Map((object)row);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
+
+                if (!entity.FromSerialNumberId.HasValue
+                    && !string.IsNullOrWhiteSpace(entity.TankLocation)
+                    && latestSerialByText.TryGetValue(entity.TankLocation.Trim(), out var resolvedFromId))
+                {
+                    entity.FromSerialNumberId = resolvedFromId;
+                }
+
+                CanonicalizePlateShellTraceability(entity, serialTypeById);
 
                 if (entity.FromSerialNumberId is Guid fromSnId && !validSnIds.Contains(fromSnId))
                 {
@@ -886,6 +917,44 @@ public class MigrationRunner
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);
+    }
+
+    private static void CanonicalizePlateShellTraceability(
+        TraceabilityLog entity,
+        IReadOnlyDictionary<Guid, string?> serialTypeById)
+    {
+        if (!entity.FromSerialNumberId.HasValue || !entity.ToSerialNumberId.HasValue)
+            return;
+
+        var fromId = entity.FromSerialNumberId.Value;
+        var toId = entity.ToSerialNumberId.Value;
+
+        if (!serialTypeById.TryGetValue(fromId, out var fromType) || !serialTypeById.TryGetValue(toId, out var toType))
+            return;
+
+        if (fromType == "shell" && toType == "plate")
+        {
+            entity.FromSerialNumberId = toId;
+            entity.ToSerialNumberId = fromId;
+            fromType = "plate";
+            toType = "shell";
+        }
+
+        if (fromType == "plate" && toType == "shell")
+            entity.Relationship = "plate";
+    }
+
+    private static string? NormalizeSystemTypeName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "assembeled" => "assembled",
+            _ => normalized
+        };
     }
 
     private async Task MigrateInspectionRecordsAsync()
