@@ -5,7 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { MaterialQueueItem, OperatorControlPlan } from '../../types/domain.ts';
 import type { QueueAdvanceResponse } from '../../types/api.ts';
-import { workCenterApi, productionRecordApi, inspectionRecordApi, controlPlanApi } from '../../api/endpoints.ts';
+import { workCenterApi, productionRecordApi, inspectionRecordApi, controlPlanApi, demoShellApi } from '../../api/endpoints.ts';
 import styles from './RollsScreen.module.css';
 
 type ScanState = 'idle' | 'scanLabel1' | 'scanLabel2';
@@ -32,6 +32,7 @@ interface ActiveMaterial {
 export function RollsScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
+    demoModeEnabled,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -164,6 +165,15 @@ export function RollsScreen(props: WorkCenterProps) {
         setLabel1Serial('');
         setLabel1Raw('');
 
+        // In Barcode Demo mode, Rolls auto-advances demo shell to the next serial after each successful save.
+        if (demoModeEnabled) {
+          try {
+            await demoShellApi.advance({ workCenterId });
+          } catch {
+            // Best effort only; do not block normal record-save flow.
+          }
+        }
+
         if (activeMaterial && activeMaterial.materialRemaining - 1 <= 0) {
           setPromptState('advanceQueue');
         }
@@ -174,7 +184,7 @@ export function RollsScreen(props: WorkCenterProps) {
         showScanResult({ type: 'error', message: `Record not saved: ${msg}` });
       }
     },
-    [workCenterId, assetId, productionLineId, operatorId, welders, activeMaterial, controlPlans, inspectionResults, showScanResult, refreshHistory],
+    [workCenterId, assetId, productionLineId, operatorId, welders, demoModeEnabled, activeMaterial, controlPlans, inspectionResults, showScanResult, refreshHistory],
   );
 
   const handleInspectionChoice = useCallback(
@@ -261,6 +271,10 @@ export function RollsScreen(props: WorkCenterProps) {
             showScanResult({ type: 'success', message: 'Label 1 scanned — Scan Label 2' });
             return;
           }
+          if (parsed.labelSuffix === 'L2') {
+            showScanResult({ type: 'error', message: 'Scan Label 1 (/L1) first' });
+            return;
+          }
         }
 
         if (scanState === 'scanLabel2') {
@@ -277,6 +291,7 @@ export function RollsScreen(props: WorkCenterProps) {
               return;
             }
             if (parsed.serialNumber === label1Serial) {
+              showScanResult({ type: 'success', message: 'Label 2 scanned' });
               const isOverflow = (activeMaterial?.materialRemaining ?? 1) <= 0;
               if (controlPlans.length > 0 && (needsInspection || isOverflow)) {
                 setInspectionIndex(0);

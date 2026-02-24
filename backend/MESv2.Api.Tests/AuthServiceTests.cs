@@ -97,6 +97,23 @@ public class AuthServiceTests
         Assert.Equal("EMP001", result.User.EmployeeNumber);
         Assert.Equal("Jeff Thompson", result.User.DisplayName);
         Assert.Equal(TestHelpers.PlantPlt1Id, result.User.DefaultSiteId);
+        Assert.False(result.User.DemoMode);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsDemoMode_WhenEnabledForUser()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.DemoMode = true;
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+        var result = await sut.LoginAsync("EMP001", null, TestHelpers.PlantPlt1Id, false);
+
+        Assert.NotNull(result);
+        Assert.True(result.User.DemoMode);
     }
 
     [Fact]

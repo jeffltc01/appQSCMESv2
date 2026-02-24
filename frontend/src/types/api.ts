@@ -23,6 +23,7 @@ export interface LoginResponse {
     roleName: string;
     defaultSiteId: string;
     isCertifiedWelder: boolean;
+    demoMode?: boolean;
     userType: number;
     plantCode: string;
     plantName: string;
@@ -233,6 +234,7 @@ export interface CreateUserRequest {
   roleName: string;
   defaultSiteId: string;
   isCertifiedWelder: boolean;
+  demoMode?: boolean;
   requirePinForLogin: boolean;
   pin?: string;
   userType: number;
@@ -247,10 +249,24 @@ export interface UpdateUserRequest {
   roleName: string;
   defaultSiteId: string;
   isCertifiedWelder: boolean;
+  demoMode?: boolean;
   requirePinForLogin: boolean;
   pin?: string;
   userType: number;
   isActive: boolean;
+}
+
+export interface DemoShellCurrentResponse {
+  stage: string;
+  hasCurrent: boolean;
+  barcodeRaw?: string;
+  serialNumber?: string;
+  shellNumber?: number;
+  stageQueueCount: number;
+}
+
+export interface DemoShellAdvanceRequest {
+  workCenterId: string;
 }
 
 export interface CreateVendorRequest {

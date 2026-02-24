@@ -104,6 +104,28 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task CreateUser_PersistsDemoModeFlag()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new UserService(db);
+
+        var result = await sut.CreateUserAsync(new CreateUserDto
+        {
+            EmployeeNumber = "DEMO01",
+            FirstName = "Demo",
+            LastName = "User",
+            DisplayName = "Demo User",
+            RoleTier = 1,
+            RoleName = "Administrator",
+            DefaultSiteId = TestHelpers.PlantPlt1Id,
+            DemoMode = true,
+        });
+
+        Assert.True(result.DemoMode);
+        Assert.True(db.Users.Single(u => u.EmployeeNumber == "DEMO01").DemoMode);
+    }
+
+    [Fact]
     public async Task CreateUser_AuthorizedInspector_NormalizesEmpNo()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

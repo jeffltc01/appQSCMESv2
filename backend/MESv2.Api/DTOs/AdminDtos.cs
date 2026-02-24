@@ -51,6 +51,7 @@ public class AdminUserDto
     public Guid DefaultSiteId { get; set; }
     public string DefaultSiteName { get; set; } = string.Empty;
     public bool IsCertifiedWelder { get; set; }
+    public bool DemoMode { get; set; }
     public bool RequirePinForLogin { get; set; }
     public bool HasPin { get; set; }
     public int UserType { get; set; }
@@ -67,6 +68,7 @@ public class CreateUserDto
     public string RoleName { get; set; } = string.Empty;
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
+    public bool DemoMode { get; set; }
     public bool RequirePinForLogin { get; set; }
     public string? Pin { get; set; }
     public int UserType { get; set; }
@@ -82,6 +84,7 @@ public class UpdateUserDto
     public string RoleName { get; set; } = string.Empty;
     public Guid DefaultSiteId { get; set; }
     public bool IsCertifiedWelder { get; set; }
+    public bool DemoMode { get; set; }
     public bool RequirePinForLogin { get; set; }
     public string? Pin { get; set; }
     public int UserType { get; set; }

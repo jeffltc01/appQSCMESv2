@@ -7,7 +7,7 @@ import { getTabletCache } from '../../hooks/useLocalStorage.ts';
 import { useBarcode } from '../../hooks/useBarcode.ts';
 import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import { useInactivityTracker } from '../../hooks/useInactivityTracker.ts';
-import type { ParsedBarcode } from '../../types/barcode.ts';
+import { parseBarcode, type ParsedBarcode } from '../../types/barcode.ts';
 import type { Welder, WCHistoryData, QueueTransaction, DowntimeConfig } from '../../types/domain.ts';
 import { workCenterApi, adminWorkCenterApi, adminPlantGearApi, downtimeConfigApi, downtimeEventApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
@@ -17,6 +17,7 @@ import { WCHistory } from './WCHistory.tsx';
 import { QueueHistory } from './QueueHistory.tsx';
 import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { DowntimeOverlay } from './DowntimeOverlay.tsx';
+import { DemoScanOverlay } from '../scanMenu/DemoScanOverlay.tsx';
 import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
 import { reportException } from '../../telemetry/telemetryClient.ts';
 import styles from './OperatorLayout.module.css';
@@ -86,6 +87,12 @@ export function OperatorLayout() {
 
   const [downtimeConfig, setDowntimeConfig] = useState<DowntimeConfig | null>(null);
   const [showDowntimeOverlay, setShowDowntimeOverlay] = useState(false);
+  const [showDemoScanOverlay, setShowDemoScanOverlay] = useState(false);
+  const [hideDemoScanOverlayTemporarily, setHideDemoScanOverlayTemporarily] = useState(false);
+  const hideDemoScanOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDemoOverlayPulseRef = useRef(false);
+  const previousScanResultRef = useRef<ScanResult | null>(null);
+  const prevExternalInputRef = useRef(false);
   const [downtimeLastActivity, setDowntimeLastActivity] = useState(0);
   const autoLogoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -282,9 +289,25 @@ export function OperatorLayout() {
     }
   }, [isQueueScreen, loadHistory, loadQueueTransactions]);
 
+  const pulseHideDemoOverlay = useCallback(() => {
+    if (!showDemoScanOverlay) return;
+    if (hideDemoScanOverlayTimerRef.current) clearTimeout(hideDemoScanOverlayTimerRef.current);
+    setHideDemoScanOverlayTemporarily(true);
+    hideDemoScanOverlayTimerRef.current = setTimeout(() => {
+      hideDemoScanOverlayTimerRef.current = null;
+      setHideDemoScanOverlayTemporarily(false);
+    }, 2000);
+  }, [showDemoScanOverlay]);
+
+  const requestDemoOverlayPulseAfterScanOverlay = useCallback(() => {
+    if (!showDemoScanOverlay) return;
+    pendingDemoOverlayPulseRef.current = true;
+  }, [showDemoScanOverlay]);
+
   const handleScan = useCallback(
     (bc: ParsedBarcode | null, raw: string) => {
       try {
+        requestDemoOverlayPulseAfterScanOverlay();
         if (barcodeHandlerRef.current) {
           barcodeHandlerRef.current(bc, raw);
         } else if (!bc) {
@@ -301,8 +324,12 @@ export function OperatorLayout() {
         });
       }
     },
-    [showScanResult],
+    [requestDemoOverlayPulseAfterScanOverlay, showScanResult],
   );
+
+  const handleDemoBarcodeClick = useCallback((raw: string) => {
+    handleScan(parseBarcode(raw), raw);
+  }, [handleScan]);
 
   const { inputRef, handleKeyDown, focusLost } = useBarcode({
     enabled: externalInput && !showDowntimeOverlay,
@@ -373,6 +400,41 @@ export function OperatorLayout() {
     dataEntryType === 'DataPlate' ||
     dataEntryType === 'Spot'
   );
+  useEffect(() => {
+    const wasExternalInput = prevExternalInputRef.current;
+    const turnedOn = externalInput && !wasExternalInput;
+
+    if (turnedOn && user?.demoMode) {
+      setHideDemoScanOverlayTemporarily(false);
+      pendingDemoOverlayPulseRef.current = false;
+      setShowDemoScanOverlay(true);
+    }
+    if (!externalInput) {
+      setShowDemoScanOverlay(false);
+      setHideDemoScanOverlayTemporarily(false);
+      pendingDemoOverlayPulseRef.current = false;
+    }
+
+    prevExternalInputRef.current = externalInput;
+  }, [externalInput, user?.demoMode]);
+
+  useEffect(() => {
+    const previous = previousScanResultRef.current;
+    const overlayJustClosed = previous !== null && scanResult === null;
+
+    if (overlayJustClosed && pendingDemoOverlayPulseRef.current) {
+      pendingDemoOverlayPulseRef.current = false;
+      pulseHideDemoOverlay();
+    }
+
+    previousScanResultRef.current = scanResult;
+  }, [scanResult, pulseHideDemoOverlay]);
+
+  useEffect(() => {
+    return () => {
+      if (hideDemoScanOverlayTimerRef.current) clearTimeout(hideDemoScanOverlayTimerRef.current);
+    };
+  }, []);
 
   const wcProps = {
     workCenterId: cache?.cachedWorkCenterId ?? '',
@@ -386,6 +448,7 @@ export function OperatorLayout() {
     externalInput,
     setExternalInput,
     materialQueueForWCId: cache?.cachedMaterialQueueForWCId,
+    demoModeEnabled: !!user?.demoMode,
     showScanResult,
     refreshHistory,
     registerBarcodeHandler,
@@ -418,7 +481,10 @@ export function OperatorLayout() {
       />
 
       <div className={styles.middle}>
-        <LeftPanel externalInput={externalInput} currentGearLevel={currentGearLevel} />
+        <LeftPanel
+          externalInput={externalInput}
+          currentGearLevel={currentGearLevel}
+        />
 
         <main
           className={styles.content}
@@ -472,6 +538,17 @@ export function OperatorLayout() {
           onDismiss={handleDowntimeDismiss}
         />
       )}
+
+      <DemoScanOverlay
+        open={showDemoScanOverlay && !hideDemoScanOverlayTemporarily}
+        workCenterId={cache?.cachedWorkCenterId ?? ''}
+        dataEntryType={dataEntryType}
+        demoModeEnabled={!!user?.demoMode}
+        onClose={() => setShowDemoScanOverlay(false)}
+        onMessage={showScanResult}
+        onBarcodeClick={handleDemoBarcodeClick}
+        onInteraction={requestDemoOverlayPulseAfterScanOverlay}
+      />
 
       {scanResult && (
         <ScanOverlay
@@ -575,6 +652,7 @@ export interface WorkCenterProps {
   externalInput: boolean;
   setExternalInput: (value: boolean) => void;
   materialQueueForWCId?: string;
+  demoModeEnabled?: boolean;
   showScanResult: (result: ScanResult) => void;
   refreshHistory: () => void;
   registerBarcodeHandler: (handler: (bc: ParsedBarcode | null, raw: string) => void) => void;

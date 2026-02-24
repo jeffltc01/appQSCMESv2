@@ -19,6 +19,7 @@ public class User
     public bool IsCertifiedWelder { get; set; }
     public bool RequirePinForLogin { get; set; }
     public string? PinHash { get; set; }
+    public bool DemoMode { get; set; }
     public UserType UserType { get; set; } = UserType.Standard;
     public bool IsActive { get; set; } = true;
 

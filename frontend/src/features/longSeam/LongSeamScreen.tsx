@@ -3,12 +3,13 @@ import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
-import { productionRecordApi } from '../../api/endpoints.ts';
+import { demoShellApi, productionRecordApi } from '../../api/endpoints.ts';
 import styles from './LongSeamScreen.module.css';
 
 export function LongSeamScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
+    demoModeEnabled,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -32,12 +33,20 @@ export function LongSeamScreen(props: WorkCenterProps) {
             : `Shell ${serial} recorded`,
         });
         refreshHistory();
+
+        if (demoModeEnabled) {
+          try {
+            await demoShellApi.advance({ workCenterId });
+          } catch {
+            // Best effort only in demo mode; do not block successful record save.
+          }
+        }
       } catch (err: unknown) {
         const msg = (err as { message?: string })?.message ?? 'Failed to save record. Please try again.';
         showScanResult({ type: 'error', message: msg });
       }
     },
-    [workCenterId, assetId, productionLineId, operatorId, welders, showScanResult, refreshHistory],
+    [workCenterId, assetId, productionLineId, operatorId, welders, demoModeEnabled, showScanResult, refreshHistory],
   );
 
   const handleBarcode = useCallback(

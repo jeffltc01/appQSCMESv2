@@ -79,6 +79,8 @@ import type {
   NaturalLanguageQueryRequest,
   FrontendTelemetryIngestRequest,
   FrontendTelemetryArchiveRequest,
+  DemoShellCurrentResponse,
+  DemoShellAdvanceRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -151,6 +153,7 @@ import type {
   FrontendTelemetryFilterOptions,
   FrontendTelemetryCount,
   FrontendTelemetryArchiveResult,
+  DemoShellCurrent,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -316,6 +319,13 @@ export const barcodeCardApi = {
     const params = plantId ? `?plantId=${encodeURIComponent(plantId)}` : '';
     return api.get<BarcodeCardInfo[]>(`/workcenters/${wcId}/barcode-cards${params}`);
   },
+};
+
+export const demoShellApi = {
+  getCurrent: (workCenterId: string) =>
+    api.get<DemoShellCurrentResponse>(`/demo-shell-flow/current?workCenterId=${encodeURIComponent(workCenterId)}`) as Promise<DemoShellCurrent>,
+  advance: (req: DemoShellAdvanceRequest) =>
+    api.post<DemoShellCurrentResponse>('/demo-shell-flow/advance', req) as Promise<DemoShellCurrent>,
 };
 
 // ---- Admin APIs ----

@@ -49,6 +49,7 @@ export interface User {
   roleName: string;
   defaultSiteId: string;
   isCertifiedWelder: boolean;
+  demoMode?: boolean;
   requirePinForLogin: boolean;
   userType: number;
 }
@@ -288,10 +289,20 @@ export interface AdminUser {
   defaultSiteId: string;
   defaultSiteName: string;
   isCertifiedWelder: boolean;
+  demoMode?: boolean;
   requirePinForLogin: boolean;
   hasPin: boolean;
   userType: number;
   isActive: boolean;
+}
+
+export interface DemoShellCurrent {
+  stage: string;
+  hasCurrent: boolean;
+  barcodeRaw?: string;
+  serialNumber?: string;
+  shellNumber?: number;
+  stageQueueCount: number;
 }
 
 export interface RoleOption {

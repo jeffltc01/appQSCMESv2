@@ -56,6 +56,7 @@ public class MesDbContext : DbContext
     public DbSet<WorkCenterCapacityTarget> WorkCenterCapacityTargets => Set<WorkCenterCapacityTarget>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<FrontendTelemetryEvent> FrontendTelemetryEvents => Set<FrontendTelemetryEvent>();
+    public DbSet<DemoShellFlow> DemoShellFlows => Set<DemoShellFlow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

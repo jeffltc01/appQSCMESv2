@@ -1,0 +1,98 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.panel {
+  width: min(1150px, 94vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #d0d0d0;
+  padding: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.meta {
+  color: #666666;
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.card {
+  position: relative;
+  border: 1px solid #d7d7d7;
+  border-radius: 6px;
+  background: #fafafa;
+  padding: 14px;
+}
+
+.cardTitle {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.barcode {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border: 1px solid #e1e1e1;
+}
+
+.raw {
+  margin-top: 8px;
+  font-family: Consolas, "Courier New", monospace;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.queueInfo {
+  color: #606060;
+  margin-top: 4px;
+}
+
+.empty {
+  color: #868686;
+  font-size: 16px;
+}
+
+.invisibleHitArea {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}

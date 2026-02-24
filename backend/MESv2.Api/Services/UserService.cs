@@ -31,6 +31,7 @@ public class UserService : IUserService
                 DefaultSiteId = u.DefaultSiteId,
                 DefaultSiteName = u.DefaultSite.Name,
                 IsCertifiedWelder = u.IsCertifiedWelder,
+                DemoMode = u.DemoMode,
                 RequirePinForLogin = u.RequirePinForLogin,
                 HasPin = u.PinHash != null,
                 UserType = (int)u.UserType,
@@ -62,6 +63,7 @@ public class UserService : IUserService
             RoleName = dto.RoleName,
             DefaultSiteId = dto.DefaultSiteId,
             IsCertifiedWelder = dto.IsCertifiedWelder,
+            DemoMode = dto.DemoMode,
             RequirePinForLogin = dto.RequirePinForLogin,
             UserType = (UserType)dto.UserType
         };
@@ -101,6 +103,7 @@ public class UserService : IUserService
         user.RoleName = dto.RoleName;
         user.DefaultSiteId = dto.DefaultSiteId;
         user.IsCertifiedWelder = dto.IsCertifiedWelder;
+        user.DemoMode = dto.DemoMode;
         user.RequirePinForLogin = dto.RequirePinForLogin;
         if (!dto.RequirePinForLogin)
             user.PinHash = null;
@@ -147,6 +150,7 @@ public class UserService : IUserService
         DefaultSiteId = user.DefaultSiteId,
         DefaultSiteName = siteName,
         IsCertifiedWelder = user.IsCertifiedWelder,
+        DemoMode = user.DemoMode,
         RequirePinForLogin = user.RequirePinForLogin,
         HasPin = !string.IsNullOrEmpty(user.PinHash),
         UserType = (int)user.UserType,

@@ -11,6 +11,7 @@ export interface AuthUser {
   roleName: string;
   defaultSiteId: string;
   isCertifiedWelder: boolean;
+  demoMode?: boolean;
   userType: number;
   plantCode: string;
   plantName: string;

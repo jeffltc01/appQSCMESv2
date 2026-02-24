@@ -20,6 +20,7 @@ const stripAIPrefix = (empNo: string) => empNo.replace(/^AI/i, '');
 
 export function UserMaintenanceScreen() {
   const { user: authUser } = useAuth();
+  const isAdmin = (authUser?.roleTier ?? 99) <= 1;
   const isSiteScoped = (authUser?.roleTier ?? 99) > 2;
 
   const [items, setItems] = useState<AdminUser[]>([]);
@@ -42,6 +43,7 @@ export function UserMaintenanceScreen() {
   const [roleTier, setRoleTier] = useState(6);
   const [defaultSiteId, setDefaultSiteId] = useState('');
   const [isCertifiedWelder, setIsCertifiedWelder] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const [requirePinForLogin, setRequirePinForLogin] = useState(false);
   const [pin, setPin] = useState('');
   const [userType, setUserType] = useState<number>(UserType.Standard);
@@ -65,7 +67,7 @@ export function UserMaintenanceScreen() {
     setEmployeeNumber(''); setFirstName(''); setLastName(''); setDisplayName('');
     setRoleName('Operator'); setRoleTier(6);
     setDefaultSiteId(isSiteScoped ? (authUser?.defaultSiteId ?? '') : '');
-    setIsCertifiedWelder(false); setRequirePinForLogin(false); setPin('');
+    setIsCertifiedWelder(false); setDemoMode(false); setRequirePinForLogin(false); setPin('');
     setUserType(UserType.Standard); setIsActive(true); setError(''); setModalOpen(true);
   };
 
@@ -75,6 +77,7 @@ export function UserMaintenanceScreen() {
     setEmployeeNumber(rawEmpNo); setFirstName(item.firstName); setLastName(item.lastName);
     setDisplayName(item.displayName); setRoleName(item.roleName); setRoleTier(item.roleTier);
     setDefaultSiteId(item.defaultSiteId); setIsCertifiedWelder(item.isCertifiedWelder);
+    setDemoMode(!!item.demoMode);
     setRequirePinForLogin(item.requirePinForLogin); setPin('');
     setUserType(item.userType); setIsActive(item.isActive); setError(''); setModalOpen(true);
   };
@@ -90,14 +93,14 @@ export function UserMaintenanceScreen() {
       if (editing) {
         const updated = await adminUserApi.update(editing.id, {
           employeeNumber, firstName, lastName, displayName, roleTier, roleName,
-          defaultSiteId, isCertifiedWelder, requirePinForLogin,
+          defaultSiteId, isCertifiedWelder, demoMode, requirePinForLogin,
           pin: pin || undefined, userType, isActive,
         });
         setItems(prev => prev.map(u => u.id === updated.id ? updated : u));
       } else {
         const created = await adminUserApi.create({
           employeeNumber, firstName, lastName, displayName, roleTier, roleName,
-          defaultSiteId, isCertifiedWelder, requirePinForLogin,
+          defaultSiteId, isCertifiedWelder, demoMode, requirePinForLogin,
           pin: pin || undefined, userType,
         });
         setItems(prev => [...prev, created]);
@@ -200,6 +203,9 @@ export function UserMaintenanceScreen() {
                 {item.isCertifiedWelder && (
                   <span className={`${styles.badge} ${styles.badgeBlue}`}>Welder</span>
                 )}
+                {item.demoMode && (
+                  <span className={`${styles.badge} ${styles.badgeBlue}`}>Barcode Demo</span>
+                )}
                 {item.userType === UserType.AuthorizedInspector && (
                   <span className={`${styles.badge} ${styles.badgeGreen}`}>AI</span>
                 )}
@@ -261,6 +267,9 @@ export function UserMaintenanceScreen() {
               {visibleSites.map(s => <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>{s.name} ({s.code})</Option>)}
             </Dropdown>
             <Checkbox label="Certified Welder" checked={isCertifiedWelder} onChange={(_, d) => setIsCertifiedWelder(!!d.checked)} />
+            {isAdmin && (
+              <Checkbox label="Barcode Demo" checked={demoMode} onChange={(_, d) => setDemoMode(!!d.checked)} />
+            )}
             <Checkbox label="Require PIN for Login" checked={requirePinForLogin} onChange={handleRequirePinChange} />
             {requirePinForLogin && (
               <>

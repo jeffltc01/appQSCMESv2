@@ -71,6 +71,7 @@ public class AuthService : IAuthService
             RoleName = user.RoleName,
             DefaultSiteId = user.DefaultSiteId,
             IsCertifiedWelder = user.IsCertifiedWelder,
+            DemoMode = user.DemoMode,
             UserType = (int)user.UserType,
             PlantCode = user.DefaultSite?.Code ?? string.Empty,
             PlantName = user.DefaultSite?.Name ?? string.Empty,

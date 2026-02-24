@@ -14,6 +14,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(u => u.EmployeeNumber).IsUnique();
+        builder.Property(u => u.DemoMode).HasDefaultValue(false);
     }
 }
 

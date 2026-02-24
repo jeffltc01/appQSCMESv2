@@ -4,7 +4,7 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel, parseFullDefect } from '../../types/barcode.ts';
 import type { DefectCode, DefectLocation, Characteristic, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
-import { serialNumberApi, workCenterApi, inspectionRecordApi, controlPlanApi } from '../../api/endpoints.ts';
+import { serialNumberApi, workCenterApi, inspectionRecordApi, controlPlanApi, demoShellApi } from '../../api/endpoints.ts';
 import styles from './LongSeamInspScreen.module.css';
 
 type ScreenState = 'WaitingForShell' | 'AwaitingDefects';
@@ -19,6 +19,7 @@ interface PendingDefect {
 export function LongSeamInspScreen(props: WorkCenterProps) {
   const {
     workCenterId, productionLineId, operatorId,
+    demoModeEnabled,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -148,6 +149,15 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
           : 'Inspection saved — clean pass',
       });
       refreshHistory();
+
+      if (demoModeEnabled) {
+        try {
+          await demoShellApi.advance({ workCenterId });
+        } catch {
+          // Best effort only in demo mode; do not block successful inspection save.
+        }
+      }
+
       setScreenState('WaitingForShell');
       setSerialNumber('');
       setTankSize(null);
@@ -157,7 +167,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Failed to save inspection record. Please try again.' });
     }
-  }, [serialNumber, workCenterId, operatorId, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
+  }, [serialNumber, workCenterId, operatorId, demoModeEnabled, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
