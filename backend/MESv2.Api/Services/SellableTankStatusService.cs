@@ -108,6 +108,7 @@ public class SellableTankStatusService : ISellableTankStatusService
 
         var inspections = await _db.InspectionRecords
             .Include(i => i.ControlPlan).ThenInclude(cp => cp.Characteristic)
+            .Include(i => i.WorkCenter)
             .Where(i => allRelatedSnIds.Contains(i.SerialNumberId)
                 && gateCheckCpIds.Contains(i.ControlPlanId))
             .ToListAsync(cancellationToken);
@@ -155,7 +156,8 @@ public class SellableTankStatusService : ISellableTankStatusService
             foreach (var insp in inspections.Where(i => treeSnIds.Contains(i.SerialNumberId)))
             {
                 var charName = insp.ControlPlan.Characteristic?.Name?.ToLower() ?? "";
-                ClassifyGateResult(charName, insp.ResultText, ref rtXray, ref spotXray, ref hydro);
+                var workCenterName = insp.WorkCenter?.Name?.ToLower();
+                ClassifyGateResult(charName, workCenterName, insp.ResultText, insp.ResultNumeric, ref rtXray, ref spotXray, ref hydro);
             }
 
             if (hasAssembly && spotResultByAssembly.TryGetValue(assemblyId, out var spotRes))
@@ -212,16 +214,33 @@ public class SellableTankStatusService : ISellableTankStatusService
         return null;
     }
 
-    private static void ClassifyGateResult(string charName, string? resultText,
+    private static void ClassifyGateResult(string charName, string? workCenterName, string? resultText, decimal? resultNumeric,
         ref string? rtXray, ref string? spotXray, ref string? hydro)
     {
-        if (string.IsNullOrEmpty(charName) || string.IsNullOrEmpty(resultText)) return;
-        if (charName.Contains("rt") || charName.Contains("real") || (charName.Contains("x-ray") && !charName.Contains("spot")))
-            rtXray ??= resultText;
-        else if (charName.Contains("spot"))
-            spotXray ??= resultText;
-        else if (charName.Contains("hydro"))
-            hydro ??= resultText;
+        var effectiveResult = resultText;
+        if (string.IsNullOrWhiteSpace(effectiveResult) && resultNumeric.HasValue)
+            effectiveResult = resultNumeric.Value > 0 ? "Accept" : "Reject";
+        if (string.IsNullOrWhiteSpace(effectiveResult))
+            return;
+
+        var isSpot = charName.Contains("spot")
+            || (!string.IsNullOrWhiteSpace(workCenterName) && workCenterName.Contains("spot"));
+        var isHydro = charName.Contains("hydro")
+            || (!string.IsNullOrWhiteSpace(workCenterName) && workCenterName.Contains("hydro"));
+        var isRt = charName.Contains("rt")
+            || charName.Contains("real")
+            || (charName.Contains("x-ray") && !charName.Contains("spot"))
+            || (!string.IsNullOrWhiteSpace(workCenterName)
+                && (workCenterName.Contains("real time x-ray")
+                    || workCenterName.Contains("rt x-ray")
+                    || workCenterName.Contains("rt xray")));
+
+        if (isSpot)
+            spotXray ??= effectiveResult;
+        else if (isHydro)
+            hydro ??= effectiveResult;
+        else if (isRt)
+            rtXray ??= effectiveResult;
     }
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(Guid plantId, CancellationToken ct)

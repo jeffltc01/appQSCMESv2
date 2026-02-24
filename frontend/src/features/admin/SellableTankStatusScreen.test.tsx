@@ -67,7 +67,7 @@ describe('SellableTankStatusScreen', () => {
     });
   });
 
-  it('shows tank data with gate check icon widgets', async () => {
+  it('shows tank data with sellable serial as primary identity', async () => {
     vi.mocked(sellableTankStatusApi.getStatus).mockResolvedValue([
       {
         serialNumber: 'SELL-001',
@@ -87,13 +87,14 @@ describe('SellableTankStatusScreen', () => {
     await user.click(screen.getByRole('button', { name: /Search/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('ABC-001 (SH-001)')).toBeInTheDocument();
+      expect(screen.getByText('SELL-001')).toBeInTheDocument();
     });
+    expect(screen.getByText('ABC-001 (SH-001)')).toBeInTheDocument();
     expect(screen.getByText('120 AG')).toBeInTheDocument();
     expect(screen.getByTestId('gate-legend')).toBeInTheDocument();
   });
 
-  it('serial number is a clickable link to serial-lookup', async () => {
+  it('serial link uses sellable serial for lookup routing', async () => {
     vi.mocked(sellableTankStatusApi.getStatus).mockResolvedValue([
       {
         serialNumber: 'SELL-001',
@@ -116,7 +117,8 @@ describe('SellableTankStatusScreen', () => {
       expect(screen.getByTestId('serial-link-SELL-001')).toBeInTheDocument();
     });
     const link = screen.getByTestId('serial-link-SELL-001');
-    expect(link).toHaveTextContent('ABC-001 (SH-001)');
+    expect(link).toHaveTextContent('SELL-001');
+    expect(link).not.toHaveTextContent('ABC-001');
   });
 
   it('shows error on API failure', async () => {

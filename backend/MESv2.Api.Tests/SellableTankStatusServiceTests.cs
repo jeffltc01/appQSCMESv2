@@ -37,6 +37,27 @@ public class SellableTankStatusServiceTests
         return db;
     }
 
+    private static Data.MesDbContext CreateDbWithLegacyRtGateCheck()
+    {
+        var db = TestHelpers.CreateInMemoryContext();
+
+        var longSeamCharId = Guid.NewGuid();
+        var legacyRtCpId = Guid.NewGuid();
+
+        db.Characteristics.Add(new Characteristic { Id = longSeamCharId, Code = "100", Name = "Long Seam" });
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = legacyRtCpId,
+            CharacteristicId = longSeamCharId,
+            WorkCenterProductionLineId = TestHelpers.wcplRtXrayQueueId,
+            IsEnabled = true,
+            ResultType = "Pass/Fail",
+            IsGateCheck = true
+        });
+        db.SaveChanges();
+        return db;
+    }
+
     private record TankHierarchy(SerialNumber Sellable, SerialNumber Assembled, SerialNumber Shell);
 
     private static TankHierarchy SeedTank(
@@ -212,6 +233,45 @@ public class SellableTankStatusServiceTests
         Assert.Null(result[0].RtXrayResult);
         Assert.Null(result[0].SpotXrayResult);
         Assert.Null(result[0].HydroResult);
+    }
+
+    [Fact]
+    public async Task GetStatus_UsesNumericResultAndWorkCenterFallbackForLegacyRtData()
+    {
+        await using var db = CreateDbWithLegacyRtGateCheck();
+        var targetDate = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+        var tank = SeedTank(db, "TANK-LEGACY-RT", 120, targetDate, TestHelpers.PlantPlt1Id);
+
+        var legacyRtCpId = db.ControlPlans.Single().Id;
+        var prId = Guid.NewGuid();
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = prId,
+            SerialNumberId = tank.Shell.Id,
+            WorkCenterId = TestHelpers.wcRtXrayQueueId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = targetDate.AddHours(-2)
+        });
+        db.InspectionRecords.Add(new InspectionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = tank.Shell.Id,
+            ProductionRecordId = prId,
+            WorkCenterId = TestHelpers.wcRtXrayQueueId,
+            OperatorId = TestHelpers.TestUserId,
+            ControlPlanId = legacyRtCpId,
+            ResultText = null,
+            ResultNumeric = 1m,
+            Timestamp = targetDate.AddHours(-2)
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SellableTankStatusService(db);
+        var result = await sut.GetStatusAsync(TestHelpers.PlantPlt1Id, new DateOnly(2026, 2, 20));
+
+        Assert.Single(result);
+        Assert.Equal("Accept", result[0].RtXrayResult);
     }
 
     [Fact]

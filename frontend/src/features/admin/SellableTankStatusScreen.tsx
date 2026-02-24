@@ -163,19 +163,20 @@ export function SellableTankStatusScreen() {
             </thead>
             <tbody>
               {data.map((row) => {
-                const displaySerial = row.alphaCode && row.shellSerials.length > 0
+                const secondaryTraceText = row.alphaCode && row.shellSerials.length > 0
                   ? `${row.alphaCode} (${row.shellSerials.join(', ')})`
-                  : row.alphaCode ?? row.serialNumber;
+                  : null;
                 return (
                 <tr key={row.serialNumber}>
                   <td>
                     <button
                       className={styles.serialLink}
-                      onClick={() => navigate(`/menu/serial-lookup?serial=${encodeURIComponent(row.alphaCode ?? row.serialNumber)}&from=sellable-status`)}
+                      onClick={() => navigate(`/menu/serial-lookup?serial=${encodeURIComponent(row.serialNumber)}&from=sellable-status`)}
                       data-testid={`serial-link-${row.serialNumber}`}
                     >
-                      {displaySerial}
+                      {row.serialNumber}
                     </button>
+                    {secondaryTraceText && <div>{secondaryTraceText}</div>}
                   </td>
                   <td>{row.productNumber}</td>
                   <td>{row.tankSize}</td>
