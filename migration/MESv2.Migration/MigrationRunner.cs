@@ -834,16 +834,10 @@ public class MigrationRunner
         var serialTypeById = serialMetadata.ToDictionary(
             x => x.Id,
             x => NormalizeSystemTypeName(x.SystemType));
-        var latestSerialByText = serialMetadata
-            .Where(x => !string.IsNullOrWhiteSpace(x.Serial))
-            .GroupBy(x => x.Serial!.Trim(), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First().Id,
-                StringComparer.OrdinalIgnoreCase);
 
         var batch = new List<TraceabilityLog>(BatchSize);
         int skippedFk = 0;
+        int skippedMissingComponentGuid = 0;
         int nulledProductionRecordFk = 0;
         foreach (var row in list)
         {
@@ -852,11 +846,12 @@ public class MigrationRunner
                 var entity = TraceabilityLogMapper.Map((object)row);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
 
-                if (!entity.FromSerialNumberId.HasValue
-                    && !string.IsNullOrWhiteSpace(entity.TankLocation)
-                    && latestSerialByText.TryGetValue(entity.TankLocation.Trim(), out var resolvedFromId))
+                if (!entity.FromSerialNumberId.HasValue)
                 {
-                    entity.FromSerialNumberId = resolvedFromId;
+                    skippedMissingComponentGuid++;
+                    _log.Warn($"TraceLog {entity.Id}: missing component GUID (SerialNumberComponentId). Row skipped.");
+                    _log.IncrementSkipped();
+                    continue;
                 }
 
                 CanonicalizePlateShellTraceability(entity, serialTypeById);
@@ -912,6 +907,8 @@ public class MigrationRunner
 
         if (skippedFk > 0)
             Console.WriteLine($"  Skipped {skippedFk} trace rows with missing SerialNumber FK(s).");
+        if (skippedMissingComponentGuid > 0)
+            Console.WriteLine($"  Skipped {skippedMissingComponentGuid} trace rows with missing component GUID.");
         if (nulledProductionRecordFk > 0)
             Console.WriteLine($"  Cleared ProductionRecordId on {nulledProductionRecordFk} trace rows with missing ProductionRecord FK.");
 

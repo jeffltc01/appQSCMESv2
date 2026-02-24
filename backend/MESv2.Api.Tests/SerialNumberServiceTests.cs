@@ -632,7 +632,7 @@ public class SerialNumberServiceTests
     }
 
     [Fact]
-    public async Task GetLookup_ShellWithNullComponentLinkButTankLocation_AddsPlateChild()
+    public async Task GetLookup_ShellWithNullComponentLinkButTankLocation_DoesNotInferByText()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
@@ -674,8 +674,64 @@ public class SerialNumberServiceTests
         Assert.NotNull(result);
         Assert.Single(result.TreeNodes);
         var shellNode = result.TreeNodes[0];
-        var plateNode = shellNode.Children.Single(c => c.NodeType == "plate");
-        Assert.Equal("Heat H-MIG Coil C-MIG", plateNode.Serial);
+        Assert.DoesNotContain(shellNode.Children, c => c.NodeType == "plate");
+    }
+
+    [Fact]
+    public async Task GetLookup_ComponentLinkToAssembly_IsNotShownAsPlateChild()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var sellableProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 500);
+        var plateProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "plate" && p.TankSize == 500);
+
+        var shell = new SerialNumber { Id = Guid.NewGuid(), Serial = "SH-NJ", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var assembly = new SerialNumber { Id = Guid.NewGuid(), Serial = "NJ", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var sellable = new SerialNumber { Id = Guid.NewGuid(), Serial = "SELL-NJ", ProductId = sellableProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var plate = new SerialNumber { Id = Guid.NewGuid(), Serial = "Heat HJ Coil CJ", ProductId = plateProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        db.SerialNumbers.AddRange(shell, assembly, sellable, plate);
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = shell.Id,
+                ToSerialNumberId = assembly.Id,
+                Relationship = "component",
+                TankLocation = "Shell 2",
+                Timestamp = DateTime.UtcNow
+            },
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = plate.Id,
+                ToSerialNumberId = shell.Id,
+                Relationship = "component",
+                TankLocation = "Shell 2",
+                Timestamp = DateTime.UtcNow
+            },
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = assembly.Id,
+                ToSerialNumberId = sellable.Id,
+                Relationship = "hydro-marriage",
+                Timestamp = DateTime.UtcNow
+            }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SELL-NJ");
+
+        Assert.NotNull(result);
+        var assemblyNode = result.TreeNodes[0].Children.Single(c => c.NodeType == "assembled");
+        var shellNode = assemblyNode.Children.Single(c => c.NodeType == "shell" && c.Serial == "SH-NJ");
+
+        var plateChildren = shellNode.Children.Where(c => c.NodeType == "plate").ToList();
+        Assert.Single(plateChildren);
+        Assert.Equal("Heat HJ Coil CJ", plateChildren[0].Serial);
+        Assert.DoesNotContain(shellNode.Children, c => c.Serial == "NJ" && c.NodeType == "plate");
     }
 
     #region NormalizeRelationship Direct Tests

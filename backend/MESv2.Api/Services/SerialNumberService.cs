@@ -452,35 +452,16 @@ public class SerialNumberService : ISerialNumberService
         foreach (var log in plateLogs)
         {
             var plateSnId = plateLogsUseReversedDirection ? log.ToSerialNumberId : log.FromSerialNumberId;
-            SerialNumber? plateSn = null;
-            if (plateSnId.HasValue)
-            {
-                plateSn = await LoadFullSn(plateSnId.Value, ct);
-            }
-            else if (!string.IsNullOrWhiteSpace(log.TankLocation))
-            {
-                plateSn = await _db.SerialNumbers
-                    .Include(s => s.Product!).ThenInclude(p => p.ProductType)
-                    .FirstOrDefaultAsync(s => s.Serial == log.TankLocation!, ct);
-            }
+            if (!plateSnId.HasValue)
+                continue;
 
+            var plateSn = await LoadFullSn(plateSnId.Value, ct);
             var isPlate = NormalizeSystemType(plateSn?.Product?.ProductType?.SystemTypeName) == "plate";
-            if (plateSn != null && (log.Relationship == "plate" || log.Relationship == "component" || isPlate))
+            if (plateSn != null && (log.Relationship == "plate" || isPlate))
             {
                 allSnIds.Add(plateSn.Id);
                 var plateNode = BuildNodeDto(plateSn, "plate");
                 shellNode.Children.Add(plateNode);
-            }
-            else if (!plateSnId.HasValue && !string.IsNullOrWhiteSpace(log.TankLocation))
-            {
-                // Preserve traceability visibility for legacy rows that only carry textual material linkage.
-                shellNode.Children.Add(new TraceabilityNodeDto
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    Serial = log.TankLocation,
-                    Label = $"{log.TankLocation} (Plate)",
-                    NodeType = "plate"
-                });
             }
         }
     }
