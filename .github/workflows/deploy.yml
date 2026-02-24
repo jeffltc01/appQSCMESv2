@@ -30,7 +30,6 @@ jobs:
   build-release:
     name: Build release artifacts
     needs: [validate-deploy-inputs]
-    environment: dev
     uses: ./.github/workflows/build-test-package.yml
     with:
       release_ref: ${{ github.sha }}
