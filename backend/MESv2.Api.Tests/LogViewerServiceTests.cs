@@ -15,6 +15,13 @@ public class LogViewerServiceTests
     private static readonly Guid ProductTypeId = Guid.Parse("a3333333-3333-3333-3333-333333333333");
     private static readonly Guid AnnotTypeNoteId = Guid.Parse("a1000001-0000-0000-0000-000000000001");
     private static readonly Guid AnnotTypeCorrectionId = Guid.Parse("a1000005-0000-0000-0000-000000000005");
+    private static readonly DateTime StableTimestampUtc = new(2026, 1, 15, 18, 0, 0, DateTimeKind.Utc);
+
+    private static string PlantLocalDate(DateTime utc)
+    {
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago");
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, tz).ToString("yyyy-MM-dd");
+    }
 
     private static ProductionRecord SeedProductionRecord(
         MesDbContext db, Guid wcId, string serial = "SN001",
@@ -95,7 +102,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-001", 500, resultText: "Pass", resultType: "PassFail");
+        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-001", 500, timestamp: StableTimestampUtc, resultText: "Pass", resultType: "PassFail");
         db.WelderLogs.Add(new WelderLog
         {
             Id = Guid.NewGuid(),
@@ -104,7 +111,7 @@ public class LogViewerServiceTests
         });
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetRollsLogAsync(
             TestHelpers.PlantPlt1Id, today, today);
 
@@ -124,7 +131,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-DUP", 500);
+        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SHELL-DUP", 500, timestamp: StableTimestampUtc);
         db.WelderLogs.Add(new WelderLog
         {
             Id = Guid.NewGuid(), ProductionRecordId = r.Id, UserId = TestHelpers.TestUserId
@@ -135,7 +142,7 @@ public class LogViewerServiceTests
         });
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetRollsLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         var entry = result.First(e => e.ShellCode == "SHELL-DUP");
@@ -148,7 +155,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SN-ANNOT");
+        var r = SeedProductionRecord(db, TestHelpers.wcRollsId, "SN-ANNOT", timestamp: StableTimestampUtc);
         db.Annotations.Add(new Annotation
         {
             Id = Guid.NewGuid(),
@@ -160,7 +167,7 @@ public class LogViewerServiceTests
         });
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetRollsLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         Assert.NotEmpty(result);
@@ -174,7 +181,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcFitupId, "OX", 500);
+        var r = SeedProductionRecord(db, TestHelpers.wcFitupId, "OX", 500, timestamp: StableTimestampUtc);
 
         var headSn = new SerialNumber
         {
@@ -205,7 +212,7 @@ public class LogViewerServiceTests
         );
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetFitupLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         Assert.NotEmpty(result);
@@ -222,10 +229,10 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "HYDRO-01", 500, resultText: "Accept", resultType: "AcceptReject");
+        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "HYDRO-01", 500, timestamp: StableTimestampUtc, resultText: "Accept", resultType: "AcceptReject");
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetHydroLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         Assert.NotEmpty(result);
@@ -241,7 +248,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "W00100001", 500);
+        var r = SeedProductionRecord(db, TestHelpers.wcHydroId, "W00100001", 500, timestamp: StableTimestampUtc);
 
         var assemblySn = new SerialNumber
         {
@@ -270,7 +277,7 @@ public class LogViewerServiceTests
         });
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetHydroLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         Assert.NotEmpty(result);
@@ -285,10 +292,10 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        SeedProductionRecord(db, TestHelpers.wcRtXrayQueueId, "014540", 1000, resultText: "Accept", resultType: "AcceptReject");
+        SeedProductionRecord(db, TestHelpers.wcRtXrayQueueId, "014540", 1000, timestamp: StableTimestampUtc, resultText: "Accept", resultType: "AcceptReject");
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetRtXrayLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         Assert.NotEmpty(result);
@@ -302,7 +309,7 @@ public class LogViewerServiceTests
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = new LogViewerService(db);
 
-        var r = SeedProductionRecord(db, TestHelpers.wcSpotXrayId, "SPOT-01", 500);
+        var r = SeedProductionRecord(db, TestHelpers.wcSpotXrayId, "SPOT-01", 500, timestamp: StableTimestampUtc);
         db.SpotXrayIncrements.Add(new SpotXrayIncrement
         {
             Id = Guid.NewGuid(),
@@ -320,7 +327,7 @@ public class LogViewerServiceTests
         });
         await db.SaveChangesAsync();
 
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var today = PlantLocalDate(StableTimestampUtc);
         var result = await sut.GetSpotXrayLogAsync(TestHelpers.PlantPlt1Id, today, today);
 
         Assert.NotEmpty(result.Entries);
