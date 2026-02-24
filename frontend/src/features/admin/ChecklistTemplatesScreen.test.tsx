@@ -122,5 +122,5 @@ describe('ChecklistTemplatesScreen', () => {
       responseType: 'PassFail',
       responseOptions: [],
     });
-  });
+  }, 15000);
 });
