@@ -213,4 +213,81 @@ public class SellableTankStatusServiceTests
         Assert.Null(result[0].SpotXrayResult);
         Assert.Null(result[0].HydroResult);
     }
+
+    [Fact]
+    public async Task GetStatus_MigratedTraceabilityVariants_StillMapsAssemblyShellsAndGateChecks()
+    {
+        await using var db = CreateDbWithGateChecks();
+        var targetDate = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+
+        var shell = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SH-MIG-001",
+            ProductId = ShellProductId,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = targetDate.AddHours(-6)
+        };
+        var assembled = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "AS-MIG-001",
+            ProductId = AssembledProductId,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = targetDate.AddHours(-3)
+        };
+        var sellable = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "TANK-MIG-001",
+            ProductId = SellableProductId,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = targetDate
+        };
+
+        // Simulate migrated/cased product type data.
+        assembled.Product = db.Products.First(p => p.Id == AssembledProductId);
+        assembled.Product.ProductType!.SystemTypeName = "Assembeled";
+        sellable.Product = db.Products.First(p => p.Id == SellableProductId);
+        sellable.Product.ProductType!.SystemTypeName = "Sellable";
+
+        db.SerialNumbers.AddRange(shell, assembled, sellable);
+
+        // Reversed + component-style links seen in migrated data.
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = assembled.Id,
+                ToSerialNumberId = shell.Id,
+                Relationship = "component",
+                TankLocation = "Shell 1",
+                Timestamp = targetDate.AddHours(-5)
+            },
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = sellable.Id,
+                ToSerialNumberId = assembled.Id,
+                Relationship = "component",
+                Timestamp = targetDate
+            }
+        );
+
+        SeedInspection(db, shell.Id, RtXrayCpId, TestHelpers.wcRtXrayQueueId, "Accept", targetDate.AddHours(-4));
+        SeedInspection(db, assembled.Id, SpotXrayCpId, TestHelpers.wcSpotXrayId, "Accept", targetDate.AddHours(-2));
+        SeedInspection(db, sellable.Id, HydroCpId, TestHelpers.wcHydroId, "Accept", targetDate.AddHours(1));
+
+        await db.SaveChangesAsync();
+
+        var sut = new SellableTankStatusService(db);
+        var result = await sut.GetStatusAsync(TestHelpers.PlantPlt1Id, new DateOnly(2026, 2, 20));
+
+        var row = Assert.Single(result, r => r.SerialNumber == "TANK-MIG-001");
+        Assert.Equal("AS-MIG-001", row.AlphaCode);
+        Assert.Contains("SH-MIG-001", row.ShellSerials);
+        Assert.Equal("Accept", row.RtXrayResult);
+        Assert.Equal("Accept", row.SpotXrayResult);
+        Assert.Equal("Accept", row.HydroResult);
+    }
 }

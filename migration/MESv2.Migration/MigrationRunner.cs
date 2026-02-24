@@ -894,9 +894,9 @@ public class MigrationRunner
         _log.BeginTable("mesManufacturingInspectionsLog");
         var where = _skipTestRows ? "IsTest = 0" : null;
 
-        // Join with ManufacturingLog to get WorkCenterId and operator
+        // Join with ManufacturingLog to get WorkCenterId, operator, and fallback SerialNumber
         var sql = $@"
-            SELECT i.*, m.WorkCenterId, m.CreatedByUserId AS OperatorUserId
+            SELECT i.*, m.WorkCenterId, m.CreatedByUserId AS OperatorUserId, m.SerialNumberMasterId AS ManufacturingSerialNumberId
             FROM [dbo].[mesManufacturingInspectionsLog] i
             INNER JOIN [dbo].[mesManufacturingLog] m ON i.ManufacturingLogId = m.Id
             {(where != null ? $"WHERE i.{where}" : "")}";
@@ -907,14 +907,34 @@ public class MigrationRunner
 
         using var db = _dbFactory();
         var snLookup = await db.SerialNumbers.ToDictionaryAsync(s => s.Id, s => s.Serial);
+        var validSnIds = snLookup.Keys.ToHashSet();
+        var validPrIds = (await db.ProductionRecords.Select(p => p.Id).ToListAsync()).ToHashSet();
+        var validWcIds = (await db.WorkCenters.Select(w => w.Id).ToListAsync()).ToHashSet();
+        var validCpIds = (await db.ControlPlans.Select(cp => cp.Id).ToListAsync()).ToHashSet();
+        var validUserIds = (await db.Users.Select(u => u.Id).ToListAsync()).ToHashSet();
 
         var batch = new List<InspectionRecord>(BatchSize);
+        int skippedFk = 0;
         foreach (var row in list)
         {
             try
             {
                 var entity = InspectionRecordMapper.Map((object)row, snLookup);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
+
+                if (!validSnIds.Contains(entity.SerialNumberId)
+                    || !validPrIds.Contains(entity.ProductionRecordId)
+                    || !validWcIds.Contains(entity.WorkCenterId)
+                    || !validCpIds.Contains(entity.ControlPlanId))
+                {
+                    skippedFk++;
+                    _log.IncrementSkipped();
+                    continue;
+                }
+
+                if (!validUserIds.Contains(entity.OperatorId))
+                    entity.OperatorId = validUserIds.First();
+
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
@@ -942,6 +962,9 @@ public class MigrationRunner
                 await UpsertRowByRowAsync(batch);
             }
         }
+
+        if (skippedFk > 0)
+            Console.WriteLine($"  Skipped {skippedFk} inspection rows with missing FK references.");
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);

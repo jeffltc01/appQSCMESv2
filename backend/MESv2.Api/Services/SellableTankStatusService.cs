@@ -21,15 +21,16 @@ public class SellableTankStatusService : ISellableTankStatusService
         var startUtc = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
         var endUtc = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
 
-        var sellableTypeName = "sellable";
         var sellableSnList = await _db.SerialNumbers
             .Include(s => s.Product).ThenInclude(p => p!.ProductType)
             .Where(s => s.PlantId == siteId
                 && s.Product != null
                 && s.Product.ProductType != null
-                && s.Product.ProductType.SystemTypeName == sellableTypeName
                 && s.CreatedAt >= startUtc && s.CreatedAt < endUtc)
             .ToListAsync(cancellationToken);
+        sellableSnList = sellableSnList
+            .Where(s => NormalizeSystemType(s.Product?.ProductType?.SystemTypeName) == "sellable")
+            .ToList();
 
         if (sellableSnList.Count == 0)
             return Array.Empty<SellableTankStatusDto>();
@@ -37,22 +38,52 @@ public class SellableTankStatusService : ISellableTankStatusService
         var sellableIds = sellableSnList.Select(s => s.Id).ToList();
 
         var marriageLogs = await _db.TraceabilityLogs
-            .Where(t => sellableIds.Contains(t.ToSerialNumberId!.Value)
-                && t.Relationship == "hydro-marriage"
-                && t.FromSerialNumberId != null)
+            .Where(t =>
+                (t.Relationship == "hydro-marriage"
+                    || t.Relationship == "component"
+                    || t.Relationship == "NameplateToAssembly")
+                && ((t.ToSerialNumberId.HasValue && sellableIds.Contains(t.ToSerialNumberId.Value))
+                    || (t.FromSerialNumberId.HasValue && sellableIds.Contains(t.FromSerialNumberId.Value))))
             .ToListAsync(cancellationToken);
 
-        var assemblyIds = marriageLogs
-            .Select(t => t.FromSerialNumberId!.Value)
+        var sellableToAssembly = sellableIds
+            .Select(sellableId =>
+            {
+                var assemblyId = marriageLogs
+                    .OrderByDescending(t => t.Timestamp)
+                    .Select(t => ResolveLinkedId(t, sellableId))
+                    .FirstOrDefault(id => id.HasValue);
+                return new { SellableId = sellableId, AssemblyId = assemblyId };
+            })
+            .Where(x => x.AssemblyId.HasValue)
+            .ToDictionary(x => x.SellableId, x => x.AssemblyId!.Value);
+
+        var assemblyIds = sellableToAssembly.Values
             .Distinct().ToList();
 
         var shellLogs = await _db.TraceabilityLogs
-            .Where(t => assemblyIds.Contains(t.ToSerialNumberId!.Value)
-                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
-                && t.FromSerialNumberId != null)
+            .Where(t =>
+                ((t.ToSerialNumberId.HasValue && assemblyIds.Contains(t.ToSerialNumberId.Value))
+                    || (t.FromSerialNumberId.HasValue && assemblyIds.Contains(t.FromSerialNumberId.Value)))
+                && (t.Relationship == "shell"
+                    || t.Relationship == "ShellToAssembly"
+                    || (t.Relationship == "component"
+                        && t.TankLocation != null
+                        && EF.Functions.Like(t.TankLocation, "Shell%"))))
             .ToListAsync(cancellationToken);
 
-        var allShellIds = shellLogs.Select(t => t.FromSerialNumberId!.Value).Distinct().ToList();
+        var assemblyToShells = assemblyIds.ToDictionary(
+            assemblyId => assemblyId,
+            assemblyId => shellLogs
+                .Select(t => ResolveLinkedId(t, assemblyId))
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToHashSet());
+
+        var allShellIds = assemblyToShells.Values
+            .SelectMany(x => x)
+            .Distinct()
+            .ToList();
 
         var assemblySerials = await _db.SerialNumbers
             .Where(s => assemblyIds.Contains(s.Id))
@@ -110,15 +141,13 @@ public class SellableTankStatusService : ISellableTankStatusService
 
         foreach (var sellable in sellableSnList)
         {
-            var marriage = marriageLogs.FirstOrDefault(t => t.ToSerialNumberId == sellable.Id);
-            var assemblyId = marriage?.FromSerialNumberId;
-
-            var shellIds = assemblyId.HasValue
-                ? shellLogs.Where(t => t.ToSerialNumberId == assemblyId.Value).Select(t => t.FromSerialNumberId!.Value).ToHashSet()
+            var hasAssembly = sellableToAssembly.TryGetValue(sellable.Id, out var assemblyId);
+            var shellIds = hasAssembly
+                ? assemblyToShells.GetValueOrDefault(assemblyId, new HashSet<Guid>())
                 : new HashSet<Guid>();
 
             var treeSnIds = new HashSet<Guid> { sellable.Id };
-            if (assemblyId.HasValue) treeSnIds.Add(assemblyId.Value);
+            if (hasAssembly) treeSnIds.Add(assemblyId);
             treeSnIds.UnionWith(shellIds);
 
             string? rtXray = null, spotXray = null, hydro = null;
@@ -129,14 +158,14 @@ public class SellableTankStatusService : ISellableTankStatusService
                 ClassifyGateResult(charName, insp.ResultText, ref rtXray, ref spotXray, ref hydro);
             }
 
-            if (assemblyId.HasValue && spotResultByAssembly.TryGetValue(assemblyId.Value, out var spotRes))
+            if (hasAssembly && spotResultByAssembly.TryGetValue(assemblyId, out var spotRes))
                 spotXray ??= spotRes;
 
             string? alphaCode = null;
             var shellSerialList = new List<string>();
-            if (assemblyId.HasValue)
+            if (hasAssembly)
             {
-                assemblySerialMap.TryGetValue(assemblyId.Value, out alphaCode);
+                assemblySerialMap.TryGetValue(assemblyId, out alphaCode);
                 shellSerialList = shellIds
                     .Select(sid => shellSerialMap.GetValueOrDefault(sid, ""))
                     .Where(s => !string.IsNullOrEmpty(s))
@@ -157,6 +186,30 @@ public class SellableTankStatusService : ISellableTankStatusService
         }
 
         return result;
+    }
+
+    private static string? NormalizeSystemType(string? systemTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(systemTypeName))
+            return null;
+
+        var normalized = systemTypeName.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "assembeled" => "assembled",
+            _ => normalized
+        };
+    }
+
+    private static Guid? ResolveLinkedId(Models.TraceabilityLog log, Guid anchorSerialId)
+    {
+        if (log.ToSerialNumberId == anchorSerialId && log.FromSerialNumberId.HasValue)
+            return log.FromSerialNumberId.Value;
+
+        if (log.FromSerialNumberId == anchorSerialId && log.ToSerialNumberId.HasValue)
+            return log.ToSerialNumberId.Value;
+
+        return null;
     }
 
     private static void ClassifyGateResult(string charName, string? resultText,

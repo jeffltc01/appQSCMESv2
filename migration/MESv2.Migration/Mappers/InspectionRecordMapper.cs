@@ -7,11 +7,16 @@ public static class InspectionRecordMapper
     public static InspectionRecord? Map(object row, Dictionary<Guid, string> snLookup)
     {
         var d = (IDictionary<string, object>)row;
+        var serialNumberId =
+            Gn(d, "SerialNumberId")
+            ?? Gn(d, "ManufacturingSerialNumberId")
+            ?? Gn(d, "SerialNumberMasterId")
+            ?? Guid.Empty;
 
         return new InspectionRecord
         {
             Id = G(d, "Id"),
-            SerialNumberId = G(d, "SerialNumberId"),
+            SerialNumberId = serialNumberId,
             ProductionRecordId = G(d, "ManufacturingLogId"),
             WorkCenterId = G(d, "WorkCenterId"),
             OperatorId = G(d, "OperatorUserId"),
@@ -24,6 +29,8 @@ public static class InspectionRecordMapper
 
     private static Guid G(IDictionary<string, object> d, string k) =>
         d.TryGetValue(k, out var v) && v is Guid g ? g : Guid.Empty;
+    private static Guid? Gn(IDictionary<string, object> d, string k) =>
+        d.TryGetValue(k, out var v) && v is Guid g && g != Guid.Empty ? g : null;
     private static string? S(IDictionary<string, object> d, string k) =>
         d.TryGetValue(k, out var v) && v != null && v is not DBNull ? v.ToString() : null;
     private static DateTime? Dt(IDictionary<string, object> d, string k) =>
