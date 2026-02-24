@@ -4,164 +4,68 @@ on:
   push:
     branches: [main]
 
-env:
-  DOTNET_VERSION: "9.0.x"
-  NODE_VERSION: "20"
-  BACKEND_PATH: backend/MESv2.Api
-  FRONTEND_PATH: frontend
-
 jobs:
-  build-backend:
-    name: Build Backend
+  validate-deploy-inputs:
+    name: Validate dev deploy inputs
     runs-on: ubuntu-latest
+    environment: dev
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Restore & Build
-        run: dotnet publish ${{ env.BACKEND_PATH }} -c Release -o ./publish/backend
-
-      - name: Upload backend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend
-          path: ./publish/backend
-
-  build-frontend:
-    name: Build Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
-
-      - name: Install & Build
-        working-directory: ${{ env.FRONTEND_PATH }}
+      - name: Validate required variables and secrets
+        shell: bash
         env:
-          VITE_API_URL: ${{ vars.BACKEND_URL }}
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+          SMOKE_EMP_NO: ${{ vars.SMOKE_EMP_NO }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+          SWA_DEPLOYMENT_TOKEN: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
         run: |
-          npm ci
-          npm run build
+          set -euo pipefail
+          for name in BACKEND_URL FRONTEND_URL BACKEND_APP_NAME SMOKE_EMP_NO AZURE_CREDENTIALS SWA_DEPLOYMENT_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required value: ${name}" >&2
+              exit 1
+            fi
+          done
 
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend
-          path: ${{ env.FRONTEND_PATH }}/dist
-
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Run backend tests with coverage
-        run: |
-          dotnet test backend/MESv2.Api.Tests \
-            --configuration Release \
-            --verbosity normal \
-            --settings backend/MESv2.Api.Tests/coverage.runsettings \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./TestResults
-
-      - name: Generate backend HTML coverage report
-        run: |
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          reportgenerator \
-            -reports:./TestResults/**/coverage.cobertura.xml \
-            -targetdir:./coverage-reports/backend \
-            -reporttypes:HtmlInline
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
-
-      - name: Run frontend tests with coverage
-        working-directory: ${{ env.FRONTEND_PATH }}
-        run: |
-          npm ci
-          npm run test:coverage
-
-      - name: Assemble coverage reports
-        run: |
-          cp -r ${{ env.FRONTEND_PATH }}/coverage ./coverage-reports/frontend
-
-          BACKEND_COB="$(find ./TestResults -name 'coverage.cobertura.xml' | head -1)"
-          FRONTEND_COB="${{ env.FRONTEND_PATH }}/coverage/cobertura-coverage.xml"
-
-          python3 - "$BACKEND_COB" "$FRONTEND_COB" <<'PYEOF'
-          import xml.etree.ElementTree as ET, json, sys, datetime
-
-          def parse_cobertura(path):
-              try:
-                  tree = ET.parse(path)
-                  root = tree.getroot()
-                  return {
-                      "lineRate": round(float(root.get("line-rate", 0)) * 100, 1),
-                      "branchRate": round(float(root.get("branch-rate", 0)) * 100, 1),
-                      "linesValid": int(root.get("lines-valid", 0)),
-                      "linesCovered": int(root.get("lines-covered", 0)),
-                      "branchesValid": int(root.get("branches-valid", 0)),
-                      "branchesCovered": int(root.get("branches-covered", 0)),
-                  }
-              except Exception as e:
-                  return {"error": str(e)}
-
-          summary = {
-              "generatedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-              "backend": parse_cobertura(sys.argv[1]),
-              "frontend": parse_cobertura(sys.argv[2]),
-          }
-          with open("./coverage-reports/summary.json", "w") as f:
-              json.dump(summary, f, indent=2)
-          PYEOF
-
-      - name: Upload coverage to Azure Blob Storage
-        if: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING != '' }}
-        uses: azure/CLI@v2
-        with:
-          inlineScript: |
-            az storage blob upload-batch \
-              --source ./coverage-reports \
-              --destination coverage-reports \
-              --connection-string "${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}" \
-              --overwrite true
+  build-release:
+    name: Build release artifacts
+    needs: [validate-deploy-inputs]
+    uses: ./.github/workflows/build-test-package.yml
+    with:
+      release_ref: ${{ github.sha }}
+      backend_url: ${{ vars.BACKEND_URL }}
+      run_e2e: false
+      coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
+    secrets: inherit
 
   deploy-dev:
     name: Deploy to Dev
-    needs: [build-backend, build-frontend, test]
+    needs: [build-release]
     runs-on: ubuntu-latest
     environment: dev
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
 
     steps:
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend
+          name: ${{ needs.build-release.outputs.backend_artifact_name }}
           path: ./backend
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: frontend
+          name: ${{ needs.build-release.outputs.frontend_artifact_name }}
           path: ./frontend
+
+      - name: Download release manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-release.outputs.manifest_artifact_name }}
+          path: ./release
 
       - name: Azure Login
         uses: azure/login@v2
@@ -181,3 +85,31 @@ jobs:
           action: upload
           app_location: ./frontend
           skip_app_build: true
+
+      - name: Release summary
+        run: |
+          echo "## Dev deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release SHA: \`${{ needs.build-release.outputs.release_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backend artifact: \`${{ needs.build-release.outputs.backend_artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend artifact: \`${{ needs.build-release.outputs.frontend_artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat ./release/manifest.json >> "$GITHUB_STEP_SUMMARY"
+
+  post-deploy-smoke:
+    name: Post-deploy smoke checks
+    needs: [deploy-dev]
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run smoke checks
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          SMOKE_EMP_NO: ${{ vars.SMOKE_EMP_NO }}
+          SMOKE_EMP_PIN: ${{ secrets.SMOKE_EMP_PIN }}
+        run: bash .github/scripts/post-deploy-smoke.sh

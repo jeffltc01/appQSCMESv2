@@ -23,7 +23,6 @@ import {
   CheckmarkCircleRegular,
   PrintRegular,
   BugRegular,
-  ClipboardTaskListLtrRegular,
   ShieldCheckmarkRegular,
   TableRegular,
   DataBarVerticalRegular,
@@ -38,7 +37,7 @@ import {
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { HelpButton } from '../../help/components/HelpButton.tsx';
 import { getArticleBySlug } from '../../help/helpRegistry.ts';
-import { frontendTelemetryApi } from '../../api/endpoints.ts';
+import { adminAnnotationApi, frontendTelemetryApi, issueRequestApi } from '../../api/endpoints.ts';
 import styles from './MenuScreen.module.css';
 
 interface MenuTile {
@@ -58,15 +57,15 @@ interface MenuGroup {
 
 const MENU_GROUPS: MenuGroup[] = [
   {
-    label: 'Master Data',
-    accentColor: '#2b3b84',
+    label: 'Dashboards & Insights',
+    accentColor: '#343a40',
     tiles: [
-      { label: 'Product Maintenance', icon: <BoxRegular />, minRoleTier: 3, route: '/menu/products', implemented: true },
-      { label: 'Vendor Maintenance', icon: <BuildingRetailRegular />, minRoleTier: 3, route: '/menu/vendors', implemented: true },
-      { label: 'Asset Management', icon: <BuildingRegular />, minRoleTier: 3, route: '/menu/assets', implemented: true },
-      { label: 'Plant Gear', icon: <TopSpeedRegular />, minRoleTier: 3, route: '/menu/plant-gear', implemented: true },
-      { label: 'Plant Printers', icon: <PrintRegular />, minRoleTier: 3, route: '/menu/plant-printers', implemented: true },
-      { label: 'Production Lines', icon: <LineHorizontal3Regular />, minRoleTier: 3, route: '/menu/production-lines', implemented: true },
+      { label: 'Supervisor / Team Lead Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
+      { label: 'Digital Twin', icon: <BranchRegular />, minRoleTier: 4, route: '/menu/digital-twin', implemented: true },
+      { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
+      { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
+      { label: 'Serial Number Lookup', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/serial-lookup', implemented: true },
+      { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
     ],
   },
   {
@@ -77,7 +76,8 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Defect Locations', icon: <LocationRegular />, minRoleTier: 3, route: '/menu/defect-locations', implemented: true },
       { label: 'Characteristics', icon: <ClipboardTextLtrRegular />, minRoleTier: 3, route: '/menu/characteristics', implemented: true },
       { label: 'Control Plans', icon: <ListRegular />, minRoleTier: 3, route: '/menu/control-plans', implemented: true },
-      { label: 'Annotation Types', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/annotation-types', implemented: true },
+      { label: 'Kanban Card Mgmt', icon: <TagRegular />, minRoleTier: 5, route: '/menu/kanban-cards', implemented: true },
+      { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
       { label: 'Annotations', icon: <NoteRegular />, minRoleTier: 3, route: '/menu/annotations', implemented: true },
     ],
   },
@@ -85,10 +85,9 @@ const MENU_GROUPS: MenuGroup[] = [
     label: 'Production & Operations',
     accentColor: '#606ca3',
     tiles: [
-      { label: 'Work Center Config', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/workcenters', implemented: true },
-      { label: 'Kanban Card Mgmt', icon: <TagRegular />, minRoleTier: 5, route: '/menu/kanban-cards', implemented: true },
-      { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
-      { label: 'Serial Number Lookup', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/serial-lookup', implemented: true },
+      { label: 'Plant Gear', icon: <TopSpeedRegular />, minRoleTier: 3, route: '/menu/plant-gear', implemented: true },
+      { label: 'Production Line Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/production-line-workcenters', implemented: true },
+      { label: 'Safety / Shift Checklists', icon: <ClipboardTextLtrRegular />, minRoleTier: 4, route: '/menu/checklists', implemented: true },
       { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },
       { label: 'Downtime Log', icon: <TimerRegular />, minRoleTier: 5, route: '/menu/downtime-events', implemented: true },
       { label: 'Shift Schedule', icon: <CalendarRegular />, minRoleTier: 3, route: '/menu/shift-schedule', implemented: true },
@@ -96,25 +95,26 @@ const MENU_GROUPS: MenuGroup[] = [
     ],
   },
   {
-    label: 'Dashboards & Insights',
-    accentColor: '#343a40',
+    label: 'Master Data',
+    accentColor: '#2b3b84',
     tiles: [
-      { label: 'Supervisor / Team Lead Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
-      { label: 'Digital Twin', icon: <BranchRegular />, minRoleTier: 4, route: '/menu/digital-twin', implemented: true },
-      { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
-      { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
-      { label: 'Log Viewer', icon: <TableRegular />, minRoleTier: 7, route: '/menu/production-logs', implemented: true },
-      { label: 'Audit Log', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/audit-log', implemented: true },
-      { label: 'Frontend Telemetry', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/frontend-telemetry', implemented: true },
+      { label: 'Product Maintenance', icon: <BoxRegular />, minRoleTier: 3, route: '/menu/products', implemented: true },
+      { label: 'Vendor Maintenance', icon: <BuildingRetailRegular />, minRoleTier: 3, route: '/menu/vendors', implemented: true },
+      { label: 'Asset Management', icon: <BuildingRegular />, minRoleTier: 3, route: '/menu/assets', implemented: true },
+      { label: 'Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/workcenters', implemented: true },
+      { label: 'Production Lines', icon: <LineHorizontal3Regular />, minRoleTier: 3, route: '/menu/production-lines', implemented: true },
+      { label: 'Annotation Types', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/annotation-types', implemented: true },
     ],
   },
   {
-    label: 'People & Administration',
+    label: 'Administration',
     accentColor: '#aa121f',
     tiles: [
       { label: 'User Maintenance', icon: <PeopleRegular />, minRoleTier: 3, route: '/menu/users', implemented: true },
-      { label: 'Report Issue', icon: <BugRegular />, minRoleTier: 5, route: '/menu/report-issue', implemented: true },
-      { label: 'Issue Approvals', icon: <ClipboardTaskListLtrRegular />, minRoleTier: 3, route: '/menu/issue-approvals', implemented: true },
+      { label: 'Frontend Telemetry', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/frontend-telemetry', implemented: true },
+      { label: 'Audit Log', icon: <HistoryRegular />, minRoleTier: 3, route: '/menu/audit-log', implemented: true },
+      { label: 'Plant Printers', icon: <PrintRegular />, minRoleTier: 3, route: '/menu/plant-printers', implemented: true },
+      { label: 'Issues', icon: <BugRegular />, minRoleTier: 5, route: '/menu/issues', implemented: true },
       { label: 'Operator View', icon: <DesktopRegular />, minRoleTier: 5, route: '/tablet-setup', implemented: true },
       { label: 'Test Coverage', icon: <ShieldTaskRegular />, minRoleTier: 1, route: '/menu/test-coverage', implemented: true },
     ],
@@ -125,8 +125,11 @@ export function MenuScreen() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [telemetryWarning, setTelemetryWarning] = useState(false);
+  const [pendingIssuesCount, setPendingIssuesCount] = useState(0);
+  const [annotationsNeedResponseCount, setAnnotationsNeedResponseCount] = useState(0);
 
   const roleTier = user?.roleTier ?? 99;
+  const isDirectorPlus = roleTier <= 2;
 
   useEffect(() => {
     if (roleTier > 3) {
@@ -137,6 +140,30 @@ export function MenuScreen() {
       .then((result) => setTelemetryWarning(result.isWarning))
       .catch(() => setTelemetryWarning(false));
   }, [roleTier]);
+
+  useEffect(() => {
+    if (roleTier > 3) {
+      setPendingIssuesCount(0);
+      return;
+    }
+    issueRequestApi.getPending()
+      .then((items) => setPendingIssuesCount(items.length))
+      .catch(() => setPendingIssuesCount(0));
+  }, [roleTier]);
+
+  useEffect(() => {
+    if (roleTier > 3) {
+      setAnnotationsNeedResponseCount(0);
+      return;
+    }
+    const siteId = isDirectorPlus ? undefined : user?.defaultSiteId;
+    adminAnnotationApi.getAll(siteId)
+      .then((items) => {
+        const unresolved = items.filter((item) => !item.resolvedByName);
+        setAnnotationsNeedResponseCount(unresolved.length);
+      })
+      .catch(() => setAnnotationsNeedResponseCount(0));
+  }, [isDirectorPlus, roleTier, user?.defaultSiteId]);
 
   const handleTileClick = (tile: MenuTile) => {
     if (tile.implemented) {
@@ -153,7 +180,7 @@ export function MenuScreen() {
     <div className={styles.shell}>
       <header className={styles.topBar}>
         <div className={styles.topBarLeft}>
-          <span className={styles.appTitle}>MES Admin</span>
+          <span className={styles.appTitle}>QSC MES</span>
           <span className={styles.plantCode}>{user?.plantCode ?? ''}</span>
         </div>
         <div className={styles.topBarRight}>
@@ -202,6 +229,24 @@ export function MenuScreen() {
                       {!tile.implemented && <span className={styles.tileBadge}>Coming Soon</span>}
                       {tile.label === 'Frontend Telemetry' && telemetryWarning && (
                         <span className={styles.tileWarnBadge}>Archive Needed</span>
+                      )}
+                      {tile.label === 'Issues' && roleTier <= 3 && pendingIssuesCount > 0 && (
+                        <span
+                          className={styles.tileCountBadge}
+                          aria-label={`Issues pending approval count: ${pendingIssuesCount}`}
+                          title={`Needs Approval: ${pendingIssuesCount}`}
+                        >
+                          {pendingIssuesCount}
+                        </span>
+                      )}
+                      {tile.label === 'Annotations' && roleTier <= 3 && annotationsNeedResponseCount > 0 && (
+                        <span
+                          className={styles.tileCountBadge}
+                          aria-label={`Annotations needing response count: ${annotationsNeedResponseCount}`}
+                          title={`Needs Response: ${annotationsNeedResponseCount}`}
+                        >
+                          {annotationsNeedResponseCount}
+                        </span>
                       )}
                     </button>
                   ))}

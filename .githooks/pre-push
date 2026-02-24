@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+set -e
+
+echo "Running frontend TypeScript validation..."
+
+if [ ! -d "frontend/node_modules" ]; then
+  echo "frontend/node_modules is missing. Run 'cd frontend && npm ci' first." >&2
+  exit 1
+fi
+
+npm --prefix frontend run typecheck
+
+echo "TypeScript validation passed."

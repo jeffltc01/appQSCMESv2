@@ -43,6 +43,8 @@ public class WorkCenterProductionLineDto
     public string ProductionLineName { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
+    public bool EnableWorkCenterChecklist { get; set; }
+    public bool EnableSafetyChecklist { get; set; }
 }
 
 public class AssetDto

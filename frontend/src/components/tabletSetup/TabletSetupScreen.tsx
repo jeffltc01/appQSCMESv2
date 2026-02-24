@@ -177,6 +177,7 @@ export function TabletSetupScreen() {
                 selectedOptions={[selectedWcId]}
                 onOptionSelect={handleWcChange}
                 className={styles.dropdown}
+                listbox={{ className: styles.dropdownListbox }}
                 size="large"
                 placeholder="Select a work center..."
               >
@@ -195,6 +196,7 @@ export function TabletSetupScreen() {
                 selectedOptions={[selectedPlId]}
                 onOptionSelect={handlePlChange}
                 className={styles.dropdown}
+                listbox={{ className: styles.dropdownListbox }}
                 size="large"
                 disabled={productionLines.length <= 1}
               >
@@ -216,6 +218,7 @@ export function TabletSetupScreen() {
                     if (data.optionValue) setSelectedAssetId(data.optionValue);
                   }}
                   className={styles.dropdown}
+                  listbox={{ className: styles.dropdownListbox }}
                   size="large"
                   disabled={!selectedWcId}
                   placeholder="Select an asset..."

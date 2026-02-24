@@ -88,7 +88,16 @@ export function AssetManagementScreen() {
   };
 
   return (
-    <AdminLayout title="Asset Management" onAdd={openAdd} addLabel="Add Asset">
+    <AdminLayout
+      title="Asset Management"
+      onAdd={openAdd}
+      addLabel="Add Asset"
+      nlqContext={{
+        screenKey: 'asset-management',
+        activeFilterTotalCount: filteredItems.length,
+        filterSummary: `siteScoped=${isSiteScoped ? 'true' : 'false'}`,
+      }}
+    >
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (

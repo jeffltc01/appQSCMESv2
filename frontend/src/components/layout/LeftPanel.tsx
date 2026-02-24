@@ -8,6 +8,7 @@ import {
   SettingsRegular,
   SignOutRegular,
   BugRegular,
+  ClipboardTaskListLtrRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { MaintenanceRequestDialog } from '../../features/maintenance/MaintenanceRequestDialog.tsx';
@@ -17,9 +18,18 @@ import styles from './LeftPanel.module.css';
 interface LeftPanelProps {
   externalInput: boolean;
   currentGearLevel?: number | null;
+  kioskMode?: boolean;
+  showChecklistButton?: boolean;
+  onChecklistClick?: () => void;
 }
 
-export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
+export function LeftPanel({
+  externalInput,
+  currentGearLevel,
+  kioskMode = false,
+  showChecklistButton = false,
+  onChecklistClick,
+}: LeftPanelProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [maintDialogOpen, setMaintDialogOpen] = useState(false);
@@ -31,6 +41,7 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
   };
 
   const disabled = externalInput;
+  const navLocked = disabled || kioskMode;
 
   return (
     <nav className={styles.panel} style={{ pointerEvents: disabled ? 'none' : 'auto', opacity: disabled ? 0.5 : 1 }}>
@@ -54,7 +65,7 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           appearance="subtle"
           icon={<TabletRegular fontSize={60} />}
           className={styles.iconBtn}
-          disabled={disabled}
+          disabled={navLocked}
           aria-label="Tablet Setup"
           onClick={() => navigate('/tablet-setup')}
         />
@@ -69,6 +80,19 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           aria-label="Schedule"
         />
       </Tooltip>
+
+      {showChecklistButton && (
+        <Tooltip content="Checklist" relationship="label" positioning="after">
+          <Button
+            appearance="subtle"
+            icon={<ClipboardTaskListLtrRegular fontSize={60} />}
+            className={styles.iconBtn}
+            disabled={disabled}
+            aria-label="Checklist"
+            onClick={onChecklistClick}
+          />
+        </Tooltip>
+      )}
 
       <Tooltip content="Report Issue" relationship="label" positioning="after">
         <Button
@@ -86,7 +110,7 @@ export function LeftPanel({ externalInput, currentGearLevel }: LeftPanelProps) {
           appearance="subtle"
           icon={<SettingsRegular fontSize={60} />}
           className={styles.iconBtn}
-          disabled={disabled}
+          disabled={navLocked}
           aria-label="Settings"
           onClick={() => navigate('/menu')}
         />

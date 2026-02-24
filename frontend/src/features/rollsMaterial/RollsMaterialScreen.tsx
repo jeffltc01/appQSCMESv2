@@ -17,6 +17,8 @@ interface FormData {
   quantity: string;
 }
 
+const MAX_QUEUE_ITEMS = 5;
+
 const emptyForm: FormData = {
   productId: '', vendorMillId: '', vendorProcessorId: '',
   heatNumber: '', coilNumber: '', lotNumber: '', quantity: '',
@@ -35,6 +37,8 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
   const [mills, setMills] = useState<Vendor[]>([]);
   const [processors, setProcessors] = useState<Vendor[]>([]);
   const [selectingField, setSelectingField] = useState<'product' | 'mill' | 'processor' | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const isQueueFull = queue.length >= MAX_QUEUE_ITEMS;
 
   const loadQueue = useCallback(async () => {
     try {
@@ -63,10 +67,14 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
   }, [workCenterId, loadQueue, loadLookups]);
 
   const openAdd = useCallback(() => {
+    if (isQueueFull) {
+      showScanResult({ type: 'error', message: `Queue is full (max ${MAX_QUEUE_ITEMS} items)` });
+      return;
+    }
     setForm(emptyForm);
     setEditingId(null);
     setShowForm(true);
-  }, []);
+  }, [isQueueFull, showScanResult]);
 
   const openEdit = useCallback((item: MaterialQueueItem) => {
     setForm({
@@ -83,6 +91,11 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (!editingId && isQueueFull) {
+      showScanResult({ type: 'error', message: `Queue is full (max ${MAX_QUEUE_ITEMS} items)` });
+      return;
+    }
+
     if (!form.productId || !form.heatNumber || !form.coilNumber || !form.quantity) {
       showScanResult({ type: 'error', message: 'Please fill all required fields' });
       return;
@@ -119,18 +132,21 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
       const msg = (err && typeof err === 'object' && 'message' in err) ? String((err as { message: string }).message) : 'Failed to save queue item';
       showScanResult({ type: 'error', message: msg });
     }
-  }, [form, editingId, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
+  }, [form, editingId, isQueueFull, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
-  const handleDelete = useCallback(async (itemId: string) => {
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDeleteId) return;
     try {
-      await materialQueueApi.deleteItem(targetWCId, itemId);
+      await materialQueueApi.deleteItem(targetWCId, pendingDeleteId);
       showScanResult({ type: 'success', message: 'Item removed from queue' });
       loadQueue();
       props.refreshHistory();
     } catch {
       showScanResult({ type: 'error', message: 'Failed to remove item' });
+    } finally {
+      setPendingDeleteId(null);
     }
-  }, [targetWCId, showScanResult, loadQueue, props.refreshHistory]);
+  }, [pendingDeleteId, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
   const selectedMill = mills.find((m) => m.id === form.vendorMillId);
@@ -146,26 +162,29 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
       <div className={styles.queueHeader}>
         <h3 className={styles.queueTitle}>Material Queue for: Rolls</h3>
         <div className={styles.headerActions}>
-          <Button appearance="primary" size="large" onClick={openAdd}>Add Material to Queue</Button>
+          <Button appearance="primary" size="large" onClick={openAdd} disabled={isQueueFull}>Add Material to Queue</Button>
           <Button appearance="outline" size="large" onClick={loadQueue}>Refresh</Button>
         </div>
       </div>
-      {queue.length === 0 ? (
-        <div className={styles.emptyQueue}>No material in queue</div>
-      ) : (
-        queue.map((item) => (
-          <div key={item.id} className={styles.queueCard}>
-            <div className={styles.queueInfo}>
-              <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
-              <span className={styles.queueMeta}>Qty: {item.quantity}{item.createdAt ? ` | ${formatTimeOnly(item.createdAt)}` : ''}</span>
+      {isQueueFull && <div className={styles.emptyQueue}>Queue is full (max {MAX_QUEUE_ITEMS} items)</div>}
+      <div className={styles.queueListPanel}>
+        {queue.length === 0 ? (
+          <div className={styles.emptyQueue}>No material in queue</div>
+        ) : (
+          queue.map((item) => (
+            <div key={item.id} className={styles.queueCard}>
+              <div className={styles.queueInfo}>
+                <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
+                <span className={styles.queueMeta}>Qty: {item.quantity}{item.createdAt ? ` | ${formatTimeOnly(item.createdAt)}` : ''}</span>
+              </div>
+              <div className={styles.queueActions}>
+                <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => openEdit(item)}>✏️ Edit</Button>
+                <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => setPendingDeleteId(item.id)}>🗑️ Delete</Button>
+              </div>
             </div>
-            <div className={styles.queueActions}>
-              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => openEdit(item)}>✏️ Edit</Button>
-              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => handleDelete(item.id)}>🗑️ Delete</Button>
-            </div>
-          </div>
-        ))
-      )}
+          ))
+        )}
+      </div>
 
       {showForm && (
         <div className={styles.overlay} onClick={() => { if (!selectingField) setShowForm(false); }}>
@@ -210,6 +229,18 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
             <div className={styles.formActions}>
               <Button appearance="secondary" size="large" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button appearance="primary" size="large" onClick={handleSave}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeleteId && (
+        <div className={styles.overlay} onClick={() => setPendingDeleteId(null)}>
+          <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.formTitle}>Remove from queue?</h3>
+            <div className={styles.formActions}>
+              <Button appearance="secondary" size="large" onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+              <Button appearance="primary" size="large" onClick={confirmDelete}>Yes, Remove</Button>
             </div>
           </div>
         </div>

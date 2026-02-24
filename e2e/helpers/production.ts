@@ -1,8 +1,8 @@
 import { type Page, type APIRequestContext, expect } from '@playwright/test';
 import { loginViaAPI, setTabletCache, SEED, TEST_USERS } from './auth';
 
-const FRONTEND = 'http://localhost:5173';
-const BACKEND = 'http://localhost:5001';
+const FRONTEND = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:5001';
 const pl = SEED.productionLines.line1Cleveland;
 
 // ---------------------------------------------------------------------------

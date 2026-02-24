@@ -104,6 +104,12 @@ export function DowntimeEventsScreen() {
       title="Downtime Log"
       onAdd={selectedWcId ? handleAddClick : undefined}
       addLabel="Log Downtime"
+      nlqContext={{
+        screenKey: 'downtime-log',
+        workCenterId: selectedWcId || undefined,
+        activeFilterTotalCount: events.length,
+        filterSummary: `wc=${selectedWcName || selectedWcId || 'none'}, from=${fromDate || 'any'}, to=${toDate || 'any'}`,
+      }}
     >
       <div className={styles.toolbar}>
         <div className={styles.toolbarField}>

@@ -81,6 +81,10 @@ import type {
   FrontendTelemetryArchiveRequest,
   DemoShellCurrentResponse,
   DemoShellAdvanceRequest,
+  UpsertChecklistTemplateRequest,
+  ResolveChecklistTemplateRequest,
+  CreateChecklistEntryRequest,
+  SubmitChecklistResponsesRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -154,6 +158,8 @@ import type {
   FrontendTelemetryCount,
   FrontendTelemetryArchiveResult,
   DemoShellCurrent,
+  ChecklistTemplate,
+  ChecklistEntry,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -227,6 +233,36 @@ export const controlPlanApi = {
     api.get<OperatorControlPlan[]>(
       `/control-plans/by-work-center?workCenterId=${encodeURIComponent(workCenterId)}&productionLineId=${encodeURIComponent(productionLineId)}`
     ),
+};
+
+export const checklistApi = {
+  getTemplates: (siteId?: string, checklistType?: string) => {
+    const params = new URLSearchParams();
+    if (siteId) params.set('siteId', siteId);
+    if (checklistType) params.set('checklistType', checklistType);
+    const qs = params.toString();
+    return api.get<ChecklistTemplate[]>(`/checklists/templates${qs ? `?${qs}` : ''}`);
+  },
+  getTemplate: (templateId: string) =>
+    api.get<ChecklistTemplate>(`/checklists/templates/${templateId}`),
+  upsertTemplate: (request: UpsertChecklistTemplateRequest) =>
+    api.post<ChecklistTemplate>('/checklists/templates', request),
+  resolveTemplate: (request: ResolveChecklistTemplateRequest) =>
+    api.post<ChecklistTemplate>('/checklists/templates/resolve', request),
+  createEntry: (request: CreateChecklistEntryRequest) =>
+    api.post<ChecklistEntry>('/checklists/entries', request),
+  submitResponses: (entryId: string, request: SubmitChecklistResponsesRequest) =>
+    api.put<ChecklistEntry>(`/checklists/entries/${entryId}/responses`, request),
+  completeEntry: (entryId: string) =>
+    api.put<ChecklistEntry>(`/checklists/entries/${entryId}/complete`),
+  getEntryHistory: (siteId: string, workCenterId?: string, checklistType?: string) => {
+    const params = new URLSearchParams({ siteId });
+    if (workCenterId) params.set('workCenterId', workCenterId);
+    if (checklistType) params.set('checklistType', checklistType);
+    return api.get<ChecklistEntry[]>(`/checklists/entries?${params.toString()}`);
+  },
+  getEntry: (entryId: string) =>
+    api.get<ChecklistEntry>(`/checklists/entries/${entryId}`),
 };
 
 export const assemblyApi = {

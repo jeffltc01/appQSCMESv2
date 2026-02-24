@@ -47,3 +47,42 @@
 .spacer {
   flex: 1;
 }
+
+@media (max-width: 1024px) {
+  .panel {
+    width: 62px;
+    min-width: 62px;
+    padding: 6px 0;
+    gap: 4px;
+  }
+
+  .iconBtn {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+  }
+
+  .iconBtn :global(span),
+  .iconBtn :global(span) svg,
+  .iconBtn :global(svg) {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .gearLabel {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .panel {
+    width: 54px;
+    min-width: 54px;
+  }
+
+  .iconBtn {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+  }
+}

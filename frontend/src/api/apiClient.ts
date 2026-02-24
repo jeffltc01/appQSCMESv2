@@ -1,10 +1,33 @@
 import type { ApiError } from '../types/api.ts';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+function normalizeApiBaseUrl(rawBaseUrl?: string): string {
+  const value = rawBaseUrl?.trim();
+  if (!value) {
+    return '/api';
+  }
+
+  // Keep local proxy-style paths exactly as configured.
+  if (value.startsWith('/')) {
+    return value.replace(/\/+$/, '') || '/api';
+  }
+
+  try {
+    const url = new URL(value);
+    const normalizedPath = url.pathname.replace(/\/+$/, '');
+    const pathWithApi = normalizedPath.endsWith('/api') ? normalizedPath : `${normalizedPath}/api`;
+    url.pathname = pathWithApi;
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return value.replace(/\/+$/, '');
+  }
+}
+
+const BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 
 let authToken: string | null = null;
 let roleTierHeader: string | null = null;
 let siteIdHeader: string | null = null;
+let userIdHeader: string | null = null;
 type ApiErrorObserverPayload = {
   method: string;
   path: string;
@@ -27,6 +50,10 @@ export function setSiteId(siteId: string | null) {
   siteIdHeader = siteId ?? null;
 }
 
+export function setUserId(userId: string | null) {
+  userIdHeader = userId ?? null;
+}
+
 export function getAuthToken() {
   return authToken;
 }
@@ -45,6 +72,9 @@ export function buildAuthHeaders(): Record<string, string> {
   }
   if (siteIdHeader) {
     headers['X-User-Site-Id'] = siteIdHeader;
+  }
+  if (userIdHeader) {
+    headers['X-User-Id'] = userIdHeader;
   }
   return headers;
 }
@@ -69,6 +99,9 @@ async function request<T>(
   }
   if (siteIdHeader) {
     headers['X-User-Site-Id'] = siteIdHeader;
+  }
+  if (userIdHeader) {
+    headers['X-User-Id'] = userIdHeader;
   }
 
   let response: Response;

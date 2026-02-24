@@ -7,12 +7,12 @@ on:
         description: 'Type "yes" to confirm promoting to Test (copies Prod DB, deploys code)'
         required: true
         type: string
+      source_run_id:
+        description: "Run ID from 'Build & Deploy to Dev' that produced release artifacts"
+        required: true
+        type: string
 
 env:
-  DOTNET_VERSION: "9.0.x"
-  NODE_VERSION: "20"
-  BACKEND_PATH: backend/MESv2.Api
-  FRONTEND_PATH: frontend
   PROD_RESOURCE_GROUP: rg-qscmes-prod
   PROD_SQL_SERVER: qscmes-prod-sql
   PROD_DB_NAME: QSCMES-Prod
@@ -23,10 +23,36 @@ env:
   STORAGE_CONTAINER: bacpacs
 
 jobs:
+  validate-promotion-inputs:
+    name: Validate test promotion inputs
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    environment: test
+    steps:
+      - name: Validate required variables and secrets
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
+          SMOKE_EMP_NO: ${{ vars.SMOKE_EMP_NO }}
+          SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+          SWA_DEPLOYMENT_TOKEN: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+        run: |
+          set -euo pipefail
+          for name in BACKEND_URL FRONTEND_URL BACKEND_APP_NAME SMOKE_EMP_NO SOURCE_RUN_ID AZURE_CREDENTIALS SWA_DEPLOYMENT_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required value: ${name}" >&2
+              exit 1
+            fi
+          done
+
   copy-prod-db:
     name: Copy Prod DB to Test
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.confirm == 'yes' }}
+    needs: [validate-promotion-inputs]
     environment: test
 
     steps:
@@ -85,150 +111,55 @@ jobs:
 
           echo "Import complete. Test database now has production data."
 
-  build-and-test:
-    name: Build & E2E Test
-    needs: [copy-prod-db]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
-
-      - name: Build backend
-        run: dotnet publish ${{ env.BACKEND_PATH }} -c Release -o ./publish/backend
-
-      - name: Build frontend
-        working-directory: ${{ env.FRONTEND_PATH }}
-        run: |
-          npm ci
-          npm run build
-
-      - name: Run backend tests with coverage
-        run: |
-          dotnet test backend/MESv2.Api.Tests \
-            --configuration Release \
-            --verbosity normal \
-            --settings backend/MESv2.Api.Tests/coverage.runsettings \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./TestResults
-
-      - name: Generate backend HTML coverage report
-        run: |
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          reportgenerator \
-            -reports:./TestResults/**/coverage.cobertura.xml \
-            -targetdir:./coverage-reports/backend \
-            -reporttypes:HtmlInline
-
-      - name: Run frontend tests with coverage
-        working-directory: ${{ env.FRONTEND_PATH }}
-        run: |
-          npm ci
-          npm run test:coverage
-
-      - name: Assemble coverage reports
-        run: |
-          cp -r ${{ env.FRONTEND_PATH }}/coverage ./coverage-reports/frontend
-
-          BACKEND_COB="$(find ./TestResults -name 'coverage.cobertura.xml' | head -1)"
-          FRONTEND_COB="${{ env.FRONTEND_PATH }}/coverage/cobertura-coverage.xml"
-
-          python3 - "$BACKEND_COB" "$FRONTEND_COB" <<'PYEOF'
-          import xml.etree.ElementTree as ET, json, sys, datetime
-
-          def parse_cobertura(path):
-              try:
-                  tree = ET.parse(path)
-                  root = tree.getroot()
-                  return {
-                      "lineRate": round(float(root.get("line-rate", 0)) * 100, 1),
-                      "branchRate": round(float(root.get("branch-rate", 0)) * 100, 1),
-                      "linesValid": int(root.get("lines-valid", 0)),
-                      "linesCovered": int(root.get("lines-covered", 0)),
-                      "branchesValid": int(root.get("branches-valid", 0)),
-                      "branchesCovered": int(root.get("branches-covered", 0)),
-                  }
-              except Exception as e:
-                  return {"error": str(e)}
-
-          summary = {
-              "generatedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-              "backend": parse_cobertura(sys.argv[1]),
-              "frontend": parse_cobertura(sys.argv[2]),
-          }
-          with open("./coverage-reports/summary.json", "w") as f:
-              json.dump(summary, f, indent=2)
-          PYEOF
-
-      - name: Upload coverage to Azure Blob Storage
-        if: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING != '' }}
-        uses: azure/CLI@v2
-        with:
-          inlineScript: |
-            az storage blob upload-batch \
-              --source ./coverage-reports \
-              --destination coverage-reports \
-              --connection-string "${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}" \
-              --overwrite true
-
-      - name: Install Playwright
-        working-directory: e2e
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        working-directory: e2e
-        run: npx playwright test
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: e2e/playwright-report/
-          retention-days: 14
-
-      - name: Upload backend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend
-          path: ./publish/backend
-
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend
-          path: ${{ env.FRONTEND_PATH }}/dist
-
   deploy-test:
     name: Deploy to Test
-    needs: [build-and-test]
+    needs: [copy-prod-db]
     runs-on: ubuntu-latest
     environment: test
+    concurrency:
+      group: deploy-test
+      cancel-in-progress: false
 
     steps:
+      - name: Download release manifest
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.inputs.source_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          pattern: release-manifest-*
+          path: ./release
+          merge-multiple: true
+
+      - name: Read manifest metadata
+        id: manifest
+        shell: bash
+        run: |
+          MANIFEST_FILE="$(ls ./release/*.json | head -1)"
+          RELEASE_SHA="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['releaseSha'])" "$MANIFEST_FILE")"
+          BACKEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['backendArtifact'])" "$MANIFEST_FILE")"
+          FRONTEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['frontendArtifact'])" "$MANIFEST_FILE")"
+
+          echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backend_artifact=${BACKEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "frontend_artifact=${FRONTEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
+
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend
+          run-id: ${{ github.event.inputs.source_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          name: ${{ steps.manifest.outputs.backend_artifact }}
           path: ./backend
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: frontend
+          run-id: ${{ github.event.inputs.source_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          name: ${{ steps.manifest.outputs.frontend_artifact }}
           path: ./frontend
 
       - name: Azure Login
@@ -254,8 +185,28 @@ jobs:
         run: |
           echo "## Promotion to Test Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source run ID**: \`${{ github.event.inputs.source_run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release SHA**: \`${{ steps.manifest.outputs.release_sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Prod DB copied to Test** — EF migrations will run on app startup" >> $GITHUB_STEP_SUMMARY
           echo "- **Backend deployed** to \`${{ vars.BACKEND_APP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend deployed** to Test Static Web App" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Verify the Test environment before promoting to Production." >> $GITHUB_STEP_SUMMARY
+
+  post-deploy-smoke:
+    name: Post-deploy smoke checks
+    needs: [deploy-test]
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run smoke checks
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          SMOKE_EMP_NO: ${{ vars.SMOKE_EMP_NO }}
+          SMOKE_EMP_PIN: ${{ secrets.SMOKE_EMP_PIN }}
+        run: bash .github/scripts/post-deploy-smoke.sh

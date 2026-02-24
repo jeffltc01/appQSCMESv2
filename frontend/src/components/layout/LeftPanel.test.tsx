@@ -74,4 +74,19 @@ describe('LeftPanel', () => {
       expect(screen.getByRole('button', { name: label })).toBeDisabled();
     }
   });
+
+  it('disables Tablet Setup and Settings in kiosk mode', () => {
+    setUser(6);
+    renderLeftPanel({ kioskMode: true });
+    expect(screen.getByRole('button', { name: 'Tablet Setup' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Maintenance Request' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Logout' })).not.toBeDisabled();
+  });
+
+  it('renders checklist button when enabled by config', () => {
+    setUser(6);
+    renderLeftPanel({ showChecklistButton: true });
+    expect(screen.getByRole('button', { name: 'Checklist' })).toBeInTheDocument();
+  });
 });

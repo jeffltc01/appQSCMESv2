@@ -1,11 +1,26 @@
 const LOCALE = 'en-US' as const;
+const WINDOWS_TO_IANA_TZ: Record<string, string> = {
+  UTC: 'UTC',
+  'Eastern Standard Time': 'America/New_York',
+  'Central Standard Time': 'America/Chicago',
+  'Mountain Standard Time': 'America/Denver',
+  'US Mountain Standard Time': 'America/Phoenix',
+  'Pacific Standard Time': 'America/Los_Angeles',
+};
+
+export function normalizeTimeZoneId(tz?: string): string | undefined {
+  if (!tz) return undefined;
+  if (tz.includes('/')) return tz;
+  return WINDOWS_TO_IANA_TZ[tz] ?? tz;
+}
 
 interface TzOption {
   timeZone?: string;
 }
 
 function tzOpts(tz?: string): TzOption {
-  return tz ? { timeZone: tz } : {};
+  const normalized = normalizeTimeZoneId(tz);
+  return normalized ? { timeZone: normalized } : {};
 }
 
 /** Full date + time: "2/22/2026, 3:45:12 PM" */
@@ -42,6 +57,19 @@ export function formatShortDateTime(iso: string, tz?: string): string {
       hour12: true,
     });
     return `${dateStr} ${timeStr}`;
+  } catch {
+    return iso;
+  }
+}
+
+/** Compact date only without year: "2/22" */
+export function formatShortDateOnly(iso: string, tz?: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(LOCALE, {
+      ...tzOpts(tz),
+      month: 'numeric',
+      day: 'numeric',
+    });
   } catch {
     return iso;
   }

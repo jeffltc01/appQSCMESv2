@@ -10,9 +10,13 @@ public class NaturalLanguageQueryContextDto
 {
     public Guid? PlantId { get; set; }
     public Guid? WorkCenterId { get; set; }
+    public Guid? ProductionLineId { get; set; }
     public Guid? OperatorId { get; set; }
     public string? Date { get; set; }
     public string? View { get; set; }
+    public string? ScreenKey { get; set; }
+    public int? ActiveFilterTotalCount { get; set; }
+    public string? FilterSummary { get; set; }
 }
 
 public class NaturalLanguageQueryResponseDto

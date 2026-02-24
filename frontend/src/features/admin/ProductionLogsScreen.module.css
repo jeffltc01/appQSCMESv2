@@ -4,6 +4,11 @@
   gap: 12px;
   margin-bottom: 16px;
   align-items: flex-end;
+  padding: 12px;
+  border: 1px solid #cdbf9f;
+  border-radius: 14px;
+  background: #fffdf6;
+  box-shadow: 0 2px 10px rgba(56, 45, 20, 0.08);
 }
 
 .filterField {
@@ -15,13 +20,23 @@
 .filterField label {
   font-size: 12px;
   font-weight: 600;
-  color: #495057;
+  color: #6c5735;
+  letter-spacing: 0.02em;
+}
+
+.filterField select,
+.filterField input {
+  min-height: 34px;
+  border: 1px solid #cdbf9f;
+  border-radius: 10px;
+  background: #fffdf6;
+  color: #3f3422;
 }
 
 .goButton {
   background: #2b3b84;
   color: #fff;
-  border: none;
+  border: 1px solid #1f2b5e;
   padding: 6px 24px;
   font-size: 14px;
   font-weight: 600;
@@ -29,6 +44,7 @@
   height: 32px;
   display: flex;
   align-items: center;
+  border-radius: 10px;
 }
 
 .goButton:hover {
@@ -46,54 +62,72 @@
   gap: 8px;
   margin-bottom: 12px;
   align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #cdbf9f;
+  border-radius: 12px;
+  background: #fffdf6;
 }
 
 .shotCountsLabel {
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: #6c5735;
   margin-right: 4px;
 }
 
 .shotCountBadge {
   display: inline-block;
-  background: #e9ecef;
-  border: 1px solid #dee2e6;
+  background: #f7f0e3;
+  border: 1px solid #d9ccb0;
+  border-radius: 999px;
   padding: 2px 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #212529;
+  color: #4f4027;
 }
 
 .tableContainer {
-  overflow-x: auto;
-  border: 1px solid #dee2e6;
+  overflow: auto;
+  max-height: min(62vh, 680px);
+  border: 1px solid #cdbf9f;
+  border-radius: 14px;
+  background: #fffdf6;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 10px 24px rgba(56, 45, 20, 0.1);
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  color: #3f3422;
 }
 
 .table th {
-  background: #f8f9fa;
+  background: #f3ead8;
   padding: 10px 12px;
   text-align: left;
   font-weight: 600;
-  color: #495057;
-  border-bottom: 2px solid #dee2e6;
+  color: #4f4027;
+  border-bottom: 2px solid #cdbf9f;
   white-space: nowrap;
+  letter-spacing: 0.02em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .table td {
   padding: 8px 12px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #d9ccb0;
   vertical-align: top;
+  background:
+    linear-gradient(to bottom, transparent calc(100% - 1px), rgba(157, 132, 89, 0.22) calc(100% - 1px));
 }
 
 .table tr:hover {
-  background: #f8f9fa;
+  background: #fff8e6;
 }
 
 .annotCell {
@@ -152,7 +186,7 @@
 
 .countLabel {
   font-size: 13px;
-  color: #868e96;
+  color: #7b6a4c;
   margin-bottom: 8px;
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { HydroScreen } from './HydroScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
@@ -48,12 +48,16 @@ describe('HydroScreen', () => {
 
   it('shows manual input in manual mode', () => {
     renderScreen({ externalInput: false });
-    expect(screen.getByPlaceholderText(/enter serial/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/enter shell serial/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/enter nameplate serial/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /submit/i })).toHaveLength(2);
   });
 
-  it('hides manual input in external mode', () => {
+  it('shows scan-filled cards in external mode', () => {
     renderScreen({ externalInput: true });
-    expect(screen.queryByPlaceholderText(/enter serial/i)).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/awaiting shell scan/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/awaiting nameplate scan/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
   });
 
   it('shows error when shell and nameplate tank sizes do not match', async () => {
@@ -86,5 +90,94 @@ describe('HydroScreen', () => {
     const lastCall = showScanResult.mock.calls[showScanResult.mock.calls.length - 1][0];
     expect(lastCall.type).toBe('error');
     expect(lastCall.message).toContain('Tank size mismatch');
+  });
+
+  it('treats unprefixed shell labels with /L1 as shell scans', async () => {
+    const showScanResult = vi.fn();
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+
+    renderScreen({
+      showScanResult,
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler(null, '021604/L1'); });
+
+    expect(roundSeamApi.getAssemblyByShell).toHaveBeenCalledWith('021604');
+    expect(nameplateApi.getBySerial).not.toHaveBeenCalled();
+    const lastCall = showScanResult.mock.calls[showScanResult.mock.calls.length - 1][0];
+    expect(lastCall.type).toBe('success');
+    expect(lastCall.message).toContain('Assembly');
+  });
+
+  it('shows shell error for unprefixed shell labels when assembly lookup fails', async () => {
+    const showScanResult = vi.fn();
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockRejectedValue(
+      new Error('Shell not found in any assembly'),
+    );
+
+    renderScreen({
+      showScanResult,
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler(null, '021604/L2'); });
+
+    expect(roundSeamApi.getAssemblyByShell).toHaveBeenCalledWith('021604');
+    expect(nameplateApi.getBySerial).not.toHaveBeenCalled();
+    const lastCall = showScanResult.mock.calls[showScanResult.mock.calls.length - 1][0];
+    expect(lastCall.type).toBe('error');
+    expect(lastCall.message).toContain('Shell not found');
+  });
+
+  it('manual shell enter uses shell lookup only', async () => {
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AB',
+      tankSize: 250,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+
+    renderScreen({ externalInput: false });
+
+    const shellInput = screen.getByPlaceholderText(/enter shell serial/i);
+    fireEvent.change(shellInput, { target: { value: 'SC;021604/L1' } });
+    fireEvent.keyDown(shellInput, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(roundSeamApi.getAssemblyByShell).toHaveBeenCalledWith('021604');
+    });
+    expect(nameplateApi.getBySerial).not.toHaveBeenCalled();
+  });
+
+  it('manual nameplate enter uses nameplate lookup only', async () => {
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 250,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({ externalInput: false });
+
+    const nameplateInput = screen.getByPlaceholderText(/enter nameplate serial/i);
+    fireEvent.change(nameplateInput, { target: { value: 'W00100001' } });
+    fireEvent.keyDown(nameplateInput, { key: 'Enter', code: 'Enter' });
+
+    await waitFor(() => {
+      expect(nameplateApi.getBySerial).toHaveBeenCalledWith('W00100001');
+    });
+    expect(roundSeamApi.getAssemblyByShell).not.toHaveBeenCalled();
   });
 });

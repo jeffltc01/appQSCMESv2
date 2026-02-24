@@ -109,4 +109,49 @@ public class XrayQueueServiceTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    public async Task AddAsync_WhenQueueHasFiveItems_Throws()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+
+        for (var i = 1; i <= 5; i++)
+        {
+            var snId = Guid.NewGuid();
+            db.SerialNumbers.Add(new SerialNumber
+            {
+                Id = snId,
+                Serial = $"SH-FULL-{i}",
+                PlantId = TestHelpers.PlantPlt1Id,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.XrayQueueItems.Add(new XrayQueueItem
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterId = TestHelpers.wcRtXrayQueueId,
+                SerialNumberId = snId,
+                OperatorId = TestHelpers.TestUserId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SH-OVER",
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new XrayQueueService(db);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.AddAsync(TestHelpers.wcRtXrayQueueId, new AddXrayQueueItemDto
+            {
+                SerialNumber = "SH-OVER",
+                OperatorId = TestHelpers.TestUserId
+            }));
+
+        Assert.Contains("Queue is full", ex.Message);
+    }
 }

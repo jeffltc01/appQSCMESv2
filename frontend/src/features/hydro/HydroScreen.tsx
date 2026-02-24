@@ -39,7 +39,8 @@ export function HydroScreen(props: WorkCenterProps) {
   const [locations, setLocations] = useState<DefectLocation[]>([]);
   const [controlPlans, setControlPlans] = useState<OperatorControlPlan[]>([]);
   const [inspectionResults, setInspectionResults] = useState<Record<string, string>>({});
-  const [manualInput, setManualInput] = useState('');
+  const [manualShellInput, setManualShellInput] = useState('');
+  const [manualNameplateInput, setManualNameplateInput] = useState('');
 
   useEffect(() => {
     loadLookups();
@@ -121,6 +122,18 @@ export function HydroScreen(props: WorkCenterProps) {
     }
   }, [assemblyAlpha, nameplateSerial, scanShell, scanNameplate]);
 
+  const parseShellScanCandidate = useCallback((value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.toUpperCase().startsWith('SC;')) {
+      return parseShellLabel(trimmed.substring(3)).serialNumber;
+    }
+
+    const parsed = parseShellLabel(trimmed);
+    return parsed.labelSuffix ? parsed.serialNumber : null;
+  }, []);
+
   const handleAccept = useCallback(async () => {
     try {
       await hydroApi.create({
@@ -154,7 +167,8 @@ export function HydroScreen(props: WorkCenterProps) {
     setNameplateTankSize(null);
     setDefects([]);
     setWizard(null);
-    setManualInput('');
+    setManualShellInput('');
+    setManualNameplateInput('');
     setInspectionResults({});
     setExternalInput(true);
   }, [setExternalInput]);
@@ -199,6 +213,12 @@ export function HydroScreen(props: WorkCenterProps) {
       if (state === 'WaitingForScans') {
         if (bc?.prefix === 'SC') { scanShell(parseShellLabel(bc.value).serialNumber); return; }
         if (bc?.prefix === 'NOSHELL' && bc.value === '0') { setShellSerial(''); showScanResult({ type: 'success', message: 'No shell mode' }); return; }
+        const unprefixedShellSerial = !bc ? parseShellScanCandidate(_raw) : null;
+        if (unprefixedShellSerial) {
+          scanShell(unprefixedShellSerial);
+          return;
+        }
+
         const serial = bc ? (bc.value.includes(';') ? bc.value : _raw.replace(/^[^;]*;/, '')) : _raw.trim();
         if (serial) {
           scanAuto(serial);
@@ -207,7 +227,7 @@ export function HydroScreen(props: WorkCenterProps) {
       }
       showScanResult({ type: 'error', message: bc ? 'Invalid barcode in this context' : 'Unknown barcode' });
     },
-    [state, scanShell, scanAuto, showScanResult],
+    [state, parseShellScanCandidate, scanShell, scanAuto, showScanResult],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -217,13 +237,26 @@ export function HydroScreen(props: WorkCenterProps) {
     registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
   }, [registerBarcodeHandler]);
 
-  const handleManualSubmit = useCallback(() => {
-    if (!manualInput.trim()) return;
-    const val = manualInput.trim();
-    if (val.startsWith('SC;')) { scanShell(parseShellLabel(val.substring(3)).serialNumber); }
-    else { scanAuto(val); }
-    setManualInput('');
-  }, [manualInput, scanShell, scanAuto]);
+  const normalizeShellManualValue = useCallback((value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (trimmed.toUpperCase().startsWith('SC;')) return parseShellLabel(trimmed.substring(3)).serialNumber;
+    return parseShellLabel(trimmed).serialNumber;
+  }, []);
+
+  const handleShellManualSubmit = useCallback(() => {
+    const serial = normalizeShellManualValue(manualShellInput);
+    if (!serial) return;
+    scanShell(serial);
+    setManualShellInput('');
+  }, [manualShellInput, normalizeShellManualValue, scanShell]);
+
+  const handleNameplateManualSubmit = useCallback(() => {
+    const serial = manualNameplateInput.trim();
+    if (!serial) return;
+    scanNameplate(serial);
+    setManualNameplateInput('');
+  }, [manualNameplateInput, scanNameplate]);
 
   if (state === 'DefectEntry' && wizard) {
     return (
@@ -339,15 +372,56 @@ export function HydroScreen(props: WorkCenterProps) {
         <span>Shell: {shellSerial ? `✓ ${shellSerial}` : 'Not scanned'}</span>
         <span>Nameplate: {nameplateSerial ? `✓ ${nameplateSerial}` : 'Not scanned'}</span>
       </div>
-      {!props.externalInput && (
-        <div className={styles.manualEntry}>
-          <Label>Enter Shell or Nameplate Serial</Label>
-          <div className={styles.manualRow}>
-            <Input value={manualInput} onChange={(_, d) => setManualInput(d.value)} placeholder="Enter serial..." size="large" className={styles.manualInput} onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }} />
-            <Button appearance="primary" size="large" onClick={handleManualSubmit}>Submit</Button>
+      <div className={styles.manualEntry}>
+        <div className={styles.manualCards}>
+          <div className={styles.manualCard}>
+            <Label>Shell / Tank</Label>
+            <svg viewBox="0 0 120 72" className={styles.manualSvg} aria-hidden="true">
+              <rect x="6" y="16" width="108" height="40" rx="18" fill="#dfe7f6" stroke="#2b3b84" strokeWidth="3" />
+              <line x1="24" y1="56" x2="24" y2="66" stroke="#2b3b84" strokeWidth="3" />
+              <line x1="96" y1="56" x2="96" y2="66" stroke="#2b3b84" strokeWidth="3" />
+            </svg>
+            <div className={styles.manualRow}>
+              <Input
+                value={props.externalInput ? shellSerial : manualShellInput}
+                onChange={(_, d) => setManualShellInput(d.value)}
+                placeholder={props.externalInput ? 'Awaiting shell scan...' : 'Enter shell serial and press Enter...'}
+                size="large"
+                className={styles.manualInput}
+                readOnly={props.externalInput}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !props.externalInput) handleShellManualSubmit(); }}
+              />
+              {!props.externalInput && (
+                <Button appearance="primary" size="large" onClick={handleShellManualSubmit}>Submit</Button>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.manualCard}>
+            <Label>Tank Nameplate</Label>
+            <svg viewBox="0 0 120 72" className={styles.manualSvg} aria-hidden="true">
+              <rect x="18" y="12" width="84" height="48" rx="4" fill="#fff3cd" stroke="#8a6d3b" strokeWidth="3" />
+              <line x1="28" y1="26" x2="92" y2="26" stroke="#8a6d3b" strokeWidth="3" />
+              <line x1="28" y1="36" x2="92" y2="36" stroke="#8a6d3b" strokeWidth="3" />
+              <line x1="28" y1="46" x2="74" y2="46" stroke="#8a6d3b" strokeWidth="3" />
+            </svg>
+            <div className={styles.manualRow}>
+              <Input
+                value={props.externalInput ? nameplateSerial : manualNameplateInput}
+                onChange={(_, d) => setManualNameplateInput(d.value)}
+                placeholder={props.externalInput ? 'Awaiting nameplate scan...' : 'Enter nameplate serial and press Enter...'}
+                size="large"
+                className={styles.manualInput}
+                readOnly={props.externalInput}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !props.externalInput) handleNameplateManualSubmit(); }}
+              />
+              {!props.externalInput && (
+                <Button appearance="primary" size="large" onClick={handleNameplateManualSubmit}>Submit</Button>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

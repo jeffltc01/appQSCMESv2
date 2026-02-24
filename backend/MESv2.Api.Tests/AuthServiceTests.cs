@@ -52,6 +52,25 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task GetLoginConfig_AllowsSiteSelection_ForDirectorTier()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.RoleTier = 2.0m;
+        user.RoleName = "Quality Director";
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var (result, isInactive) = await sut.GetLoginConfigAsync("EMP001");
+
+        Assert.NotNull(result);
+        Assert.False(isInactive);
+        Assert.True(result.AllowSiteSelection);
+    }
+
+    [Fact]
     public async Task GetLoginConfig_ReturnsNull_WhenUserNotFound()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

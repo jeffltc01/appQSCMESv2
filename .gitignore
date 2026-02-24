@@ -8,10 +8,14 @@ frontend/.env.production
 backend/MESv2.Api/appsettings.Development.json
 
 # Build
+.tmp/
 backend/MESv2.Api/bin/
 backend/MESv2.Api/obj/
+backend/MESv2.Api/bin_temp/
+backend/MESv2.Api/obj_test/
 backend/MESv2.Api.Tests/bin/
 backend/MESv2.Api.Tests/obj/
+backend/MESv2.Api.Tests/obj_test/
 migration/MESv2.Migration/bin/
 migration/MESv2.Migration/obj/
 
@@ -36,6 +40,8 @@ frontend/coverage/
 backend/TestResults/
 e2e/playwright-report/
 e2e/test-results/
+e2e/artifacts/**/build/
+e2e/artifacts/**/screenshots/
 
 # E2E
 e2e/node_modules/

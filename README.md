@@ -91,20 +91,25 @@ The application uses three Azure environments plus local development:
 ```
 Local dev ──push to main──> GitHub Actions
                                │
-                    [build + unit tests]
+               [build once + tests + package artifacts]
                                │
                         Auto-deploy to DEV
                                │
-                    Verify on Dev ──OK?──> Trigger "Promote to Test"
+                      [required post-deploy smoke]
+                               │
+     Verify on Dev ──OK?──> Trigger "Promote to Test" with source_run_id
                                                      │
                                           [Copy Prod DB → Test DB]
-                                          [Build + E2E tests]
+                                          [Download immutable release artifacts]
                                           [Deploy code to Test]
+                                          [required post-deploy smoke]
                                                      │
-                                          Teams verify on Test ──OK?──> Trigger "Promote to Prod"
+        Teams verify on Test ──OK?──> Trigger "Promote to Prod" with source_run_id
                                                                                   │
                                                                        [Backup Prod DB]
-                                                                       [Build + deploy code]
+                                                                       [Download immutable release artifacts]
+                                                                       [Deploy code]
+                                                                       [required post-deploy smoke]
                                                                        [EF migrations upgrade schema]
                                                                                   │
                                                                              Live in Prod
@@ -114,9 +119,21 @@ Local dev ──push to main──> GitHub Actions
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `deploy.yml` | Push to `main` | Builds, runs unit tests, deploys to **Dev** |
-| `promote-to-test.yml` | Manual (type "yes") | Copies Prod DB to Test, builds, runs E2E tests, deploys to **Test** |
-| `promote-to-prod.yml` | Manual (type "yes") | Backs up Prod DB, builds, deploys to **Production** |
+| `build-test-package.yml` | Reusable (`workflow_call`) | Builds backend/frontend once, runs tests, publishes immutable artifacts + release manifest |
+| `deploy.yml` | Push to `main` | Validates config, builds release artifacts, deploys to **Dev**, runs required smoke checks |
+| `promote-to-test.yml` | Manual (`confirm=yes`, `source_run_id`) | Copies Prod DB to Test, deploys the exact artifact pair from `source_run_id`, runs required smoke checks |
+| `promote-to-prod.yml` | Manual (`confirm=yes`, `source_run_id`) | Backs up Prod DB, deploys the exact artifact pair from `source_run_id`, runs required smoke checks |
+
+### Promotion Operations (Test/Production)
+
+1. Open the successful `Build & Deploy to Dev` run for the release you want.
+2. Copy its numeric run ID from the URL (this is `source_run_id`).
+3. Trigger `Promote to Test` or `Promote to Production` with:
+   - `confirm`: `yes`
+   - `source_run_id`: `<that dev run id>`
+4. Confirm the run summary shows the expected release SHA and artifact names.
+
+This ensures Test and Production use the same frontend/backend bits that were built together.
 
 ### GitHub Environment Setup
 
@@ -124,6 +141,10 @@ Each environment (`dev`, `test`, `production`) needs these configured in GitHub 
 
 | Setting | `dev` | `test` | `production` |
 |---|---|---|---|
+| `BACKEND_URL` | required | required | required |
+| `FRONTEND_URL` | required | required | required |
+| `SMOKE_EMP_NO` | required | required | required |
+| `SMOKE_EMP_PIN` | optional secret | optional secret | optional secret |
 | `BACKEND_APP_NAME` | `qscmes-dev-app` | `qscmes-test-app` | `qscmes-prod-app` |
 | `SWA_DEPLOYMENT_TOKEN` | *(from Dev SWA)* | *(from Test SWA)* | *(from Prod SWA)* |
 | `AZURE_CREDENTIALS` | *(service principal)* | *(service principal)* | *(service principal)* |
@@ -131,6 +152,26 @@ Each environment (`dev`, `test`, `production`) needs these configured in GitHub 
 | `SQL_ADMIN_PASSWORD` | — | *(for DB copy)* | *(for DB backup)* |
 
 The `test` and `production` environments should have **required reviewers** configured for an approval gate.
+`BACKEND_URL` is required at build time and is injected into `VITE_API_URL`; CI now fails fast if missing.
+
+## Local Git Hook: TypeScript Guard
+
+To fail fast before pushing code to GitHub, this repo includes a versioned pre-push hook at `.githooks/pre-push` that runs frontend TypeScript validation.
+
+One-time setup:
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-push
+```
+
+What it runs:
+
+```bash
+npm --prefix frontend run typecheck
+```
+
+This catches TypeScript compile issues locally before CI.
 
 ## Infrastructure (Azure)
 

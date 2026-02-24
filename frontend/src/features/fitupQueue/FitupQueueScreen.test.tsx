@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { FitupQueueScreen } from './FitupQueueScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
-import { productApi, vendorApi } from '../../api/endpoints';
+import { productApi, vendorApi, workCenterApi, materialQueueApi } from '../../api/endpoints';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
@@ -84,6 +84,101 @@ describe('FitupQueueScreen', () => {
     await waitFor(() => {
       expect(vendorApi.getVendors).toHaveBeenCalledWith('head', undefined);
       expect(productApi.getProducts).toHaveBeenCalledWith('head', undefined);
+    });
+  });
+
+  it('disables add button when queue is full', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce(
+      Array.from({ length: 5 }, (_, i) => ({
+        id: `q-${i}`,
+        position: i + 1,
+        status: 'queued',
+        productDescription: 'HEAD',
+        shellSize: '500',
+        heatNumber: `H${i}`,
+        coilNumber: `C${i}`,
+        lotNumber: undefined,
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: `${i + 1}`,
+        cardColor: 'Blue',
+        createdAt: new Date().toISOString(),
+      })),
+    );
+
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /add material to queue/i })).toBeDisabled();
+    });
+    expect(screen.getByText(/queue is full \(max 5 items\)/i)).toBeInTheDocument();
+  });
+
+  it('shows delete confirmation modal and cancels delete', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'q-1',
+        position: 1,
+        status: 'queued',
+        productDescription: 'HEAD',
+        shellSize: '500',
+        heatNumber: 'H1',
+        coilNumber: 'C1',
+        lotNumber: undefined,
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '01',
+        cardColor: 'Blue',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderScreen();
+
+    const deleteButton = await screen.findByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButton);
+
+    expect(screen.getByText(/remove from queue\?/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(materialQueueApi.deleteFitupItem).not.toHaveBeenCalled();
+  });
+
+  it('deletes when confirmation modal is accepted', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'q-1',
+        position: 1,
+        status: 'queued',
+        productDescription: 'HEAD',
+        shellSize: '500',
+        heatNumber: 'H1',
+        coilNumber: 'C1',
+        lotNumber: undefined,
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '01',
+        cardColor: 'Blue',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderScreen();
+
+    const deleteButton = await screen.findByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButton);
+    fireEvent.click(screen.getByRole('button', { name: /yes, remove/i }));
+
+    await waitFor(() => {
+      expect(materialQueueApi.deleteFitupItem).toHaveBeenCalledWith('wc-fitup-q', 'q-1');
     });
   });
 });

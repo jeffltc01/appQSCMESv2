@@ -167,6 +167,18 @@ export function PlantPrinterScreen() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
         loading={deleting}
+        title="Confirm Delete Printer"
+        confirmLabel="Delete Printer"
+        message={(
+          <p style={{ margin: '0 0 8px' }}>
+            Are you sure you want to delete <strong>{deleteTarget?.printerName ?? ''}</strong>?
+          </p>
+        )}
+        details={(
+          <p style={{ margin: 0, color: '#707070', fontSize: 13 }}>
+            This printer configuration will be permanently removed.
+          </p>
+        )}
       />
     </AdminLayout>
   );

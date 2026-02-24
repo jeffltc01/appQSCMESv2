@@ -87,3 +87,64 @@
   gap: 8px;
   padding: 4px;
 }
+
+@media (max-width: 1024px) {
+  .topBar {
+    height: auto;
+    min-height: 44px;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .wcName {
+    font-size: 14px;
+  }
+
+  .wcDetail {
+    font-size: 11px;
+  }
+
+  .operator {
+    font-size: 13px;
+  }
+
+  .welders {
+    max-width: 280px;
+    gap: 4px;
+  }
+
+  .welderChip {
+    font-size: 12px;
+    padding: 1px 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topBar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+
+  .wcInfo {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .operator {
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    opacity: 0.9;
+  }
+
+  .welders {
+    width: 100%;
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .welderLabel {
+    font-size: 11px;
+  }
+}

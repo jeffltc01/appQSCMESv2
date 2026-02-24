@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { RtXrayQueueScreen } from './RtXrayQueueScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
+import { xrayQueueApi } from '../../api/endpoints';
 
 vi.mock('../../api/endpoints', () => ({
   xrayQueueApi: { getQueue: vi.fn().mockResolvedValue([]), addItem: vi.fn(), removeItem: vi.fn() },
@@ -48,5 +49,52 @@ describe('RtXrayQueueScreen', () => {
   it('shows empty queue message', () => {
     renderScreen();
     expect(screen.getByText(/queue is empty/i)).toBeInTheDocument();
+  });
+
+  it('disables add button when queue is full', async () => {
+    vi.mocked(xrayQueueApi.getQueue).mockResolvedValueOnce(
+      Array.from({ length: 5 }, (_, i) => ({
+        id: `x-${i}`,
+        serialNumber: `SN-${i}`,
+        createdAt: new Date().toISOString(),
+      })),
+    );
+
+    renderScreen({ externalInput: false });
+
+    const addButton = await screen.findByRole('button', { name: /^add$/i });
+    expect(addButton).toBeDisabled();
+    expect(screen.getByText(/queue is full \(max 5 items\)/i)).toBeInTheDocument();
+  });
+
+  it('shows delete confirmation modal and cancels delete', async () => {
+    vi.mocked(xrayQueueApi.getQueue).mockResolvedValueOnce([
+      { id: 'x-1', serialNumber: 'SN-1', createdAt: new Date().toISOString() },
+    ]);
+
+    renderScreen();
+
+    const deleteButton = await screen.findByRole('button', { name: '🗑' });
+    fireEvent.click(deleteButton);
+
+    expect(screen.getByText(/remove from queue\?/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(xrayQueueApi.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('deletes when confirmation modal is accepted', async () => {
+    vi.mocked(xrayQueueApi.getQueue).mockResolvedValueOnce([
+      { id: 'x-1', serialNumber: 'SN-1', createdAt: new Date().toISOString() },
+    ]);
+
+    renderScreen();
+
+    const deleteButton = await screen.findByRole('button', { name: '🗑' });
+    fireEvent.click(deleteButton);
+    fireEvent.click(screen.getByRole('button', { name: /yes, remove/i }));
+
+    await waitFor(() => {
+      expect(xrayQueueApi.removeItem).toHaveBeenCalledWith('wc-xray', 'x-1');
+    });
   });
 });

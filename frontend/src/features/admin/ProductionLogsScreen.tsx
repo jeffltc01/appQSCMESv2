@@ -218,7 +218,14 @@ export function ProductionLogsScreen() {
   const operatorCreatableTypes = annotationTypes.filter((t) => t.operatorCanCreate);
 
   return (
-    <AdminLayout title="Log Viewer">
+    <AdminLayout
+      title="Log Viewer"
+      nlqContext={{
+        screenKey: 'log-viewer',
+        activeFilterTotalCount: entries.length,
+        filterSummary: `logType=${logType || 'none'}, siteId=${siteId || 'none'}, start=${startDate}, end=${endDate}`,
+      }}
+    >
       <div className={styles.filterBar}>
         <div className={styles.filterField}>
           <label>Log Type</label>

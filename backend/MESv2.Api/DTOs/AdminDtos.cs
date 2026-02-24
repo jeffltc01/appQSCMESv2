@@ -252,6 +252,8 @@ public class AdminWorkCenterProductionLineDto
     public int NumberOfWelders { get; set; }
     public bool DowntimeTrackingEnabled { get; set; }
     public int DowntimeThresholdMinutes { get; set; }
+    public bool EnableWorkCenterChecklist { get; set; }
+    public bool EnableSafetyChecklist { get; set; }
 }
 
 public class CreateWorkCenterProductionLineDto
@@ -259,6 +261,8 @@ public class CreateWorkCenterProductionLineDto
     public Guid ProductionLineId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
+    public bool EnableWorkCenterChecklist { get; set; }
+    public bool EnableSafetyChecklist { get; set; }
 }
 
 public class UpdateWorkCenterProductionLineDto
@@ -267,6 +271,8 @@ public class UpdateWorkCenterProductionLineDto
     public int NumberOfWelders { get; set; }
     public bool DowntimeTrackingEnabled { get; set; }
     public int DowntimeThresholdMinutes { get; set; } = 5;
+    public bool EnableWorkCenterChecklist { get; set; }
+    public bool EnableSafetyChecklist { get; set; }
 }
 
 // ---- Characteristics ----

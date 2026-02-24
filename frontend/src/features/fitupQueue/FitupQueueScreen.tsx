@@ -18,6 +18,8 @@ interface FormData {
   cardColor: string;
 }
 
+const MAX_QUEUE_ITEMS = 5;
+
 const emptyForm: FormData = {
   productId: '', vendorHeadId: '', lotNumber: '',
   heatNumber: '', coilSlabNumber: '', cardCode: '', cardColor: '',
@@ -36,6 +38,8 @@ export function FitupQueueScreen(props: WorkCenterProps) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectingField, setSelectingField] = useState<'product' | 'vendor' | null>(null);
   const [selectedVendorType, setSelectedVendorType] = useState<'cmf' | 'compco' | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const isQueueFull = queue.length >= MAX_QUEUE_ITEMS;
 
   const loadQueue = useCallback(async () => {
     try {
@@ -82,13 +86,22 @@ export function FitupQueueScreen(props: WorkCenterProps) {
   }, [registerBarcodeHandler]);
 
   const openAdd = useCallback(() => {
+    if (isQueueFull) {
+      showScanResult({ type: 'error', message: `Queue is full (max ${MAX_QUEUE_ITEMS} items)` });
+      return;
+    }
     setForm(emptyForm);
     setEditingId(null);
     setSelectedVendorType(null);
     setShowForm(true);
-  }, []);
+  }, [isQueueFull, showScanResult]);
 
   const handleSave = useCallback(async () => {
+    if (!editingId && isQueueFull) {
+      showScanResult({ type: 'error', message: `Queue is full (max ${MAX_QUEUE_ITEMS} items)` });
+      return;
+    }
+
     if (!form.productId || !form.vendorHeadId || !form.cardCode) {
       showScanResult({ type: 'error', message: 'Please fill all required fields' });
       return;
@@ -122,16 +135,21 @@ export function FitupQueueScreen(props: WorkCenterProps) {
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save' });
     }
-  }, [form, editingId, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
+  }, [form, editingId, isQueueFull, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
-  const handleDelete = useCallback(async (itemId: string) => {
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDeleteId) return;
     try {
-      await materialQueueApi.deleteFitupItem(targetWCId, itemId);
+      await materialQueueApi.deleteFitupItem(targetWCId, pendingDeleteId);
       showScanResult({ type: 'success', message: 'Item removed' });
       loadQueue();
       props.refreshHistory();
-    } catch { showScanResult({ type: 'error', message: 'Failed to remove' }); }
-  }, [targetWCId, showScanResult, loadQueue, props.refreshHistory]);
+    } catch {
+      showScanResult({ type: 'error', message: 'Failed to remove' });
+    } finally {
+      setPendingDeleteId(null);
+    }
+  }, [pendingDeleteId, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
 
   const selectedProduct = products.find((p) => p.id === form.productId);
   const selectedVendor = vendors.find((v) => v.id === form.vendorHeadId);
@@ -147,34 +165,37 @@ export function FitupQueueScreen(props: WorkCenterProps) {
       <div className={styles.queueHeader}>
         <h3 className={styles.queueTitle}>Material Queue for: Fitup</h3>
         <div className={styles.headerActions}>
-          <Button appearance="primary" size="large" onClick={openAdd}>Add Material to Queue</Button>
+          <Button appearance="primary" size="large" onClick={openAdd} disabled={isQueueFull}>Add Material to Queue</Button>
           <Button appearance="outline" size="large" onClick={loadQueue}>Refresh</Button>
         </div>
       </div>
-      {queue.length === 0 ? (
-        <div className={styles.emptyQueue}>No material in queue</div>
-      ) : (
-        queue.map((item) => (
-          <div key={item.id} className={styles.queueCard}>
-            <span
-              className={styles.cardColorSwatch}
-              style={{ backgroundColor: item.cardColor || '#dee2e6' }}
-              title={item.cardColor || 'No color'}
-            />
-            <div className={styles.queueInfo}>
-              <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
-              <div className={styles.queueMeta}>
-                <span>Card {item.cardId ?? '—'}</span>
-                {item.createdAt && <span>{formatTimeOnly(item.createdAt)}</span>}
+      {isQueueFull && <div className={styles.emptyQueue}>Queue is full (max {MAX_QUEUE_ITEMS} items)</div>}
+      <div className={styles.queueListPanel}>
+        {queue.length === 0 ? (
+          <div className={styles.emptyQueue}>No material in queue</div>
+        ) : (
+          queue.map((item) => (
+            <div key={item.id} className={styles.queueCard}>
+              <span
+                className={styles.cardColorSwatch}
+                style={{ backgroundColor: item.cardColor || '#dee2e6' }}
+                title={item.cardColor || 'No color'}
+              />
+              <div className={styles.queueInfo}>
+                <span className={styles.queueDesc}>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
+                <div className={styles.queueMeta}>
+                  <span>Card {item.cardId ?? '—'}</span>
+                  {item.createdAt && <span>{formatTimeOnly(item.createdAt)}</span>}
+                </div>
+              </div>
+              <div className={styles.queueActions}>
+                <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => { setForm({ productId: '', vendorHeadId: '', lotNumber: '', heatNumber: item.heatNumber, coilSlabNumber: '', cardCode: item.cardId ?? '', cardColor: item.cardColor ?? '' }); setEditingId(item.id); setShowForm(true); }}>✏️ Edit</Button>
+                <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => setPendingDeleteId(item.id)}>🗑️ Delete</Button>
               </div>
             </div>
-            <div className={styles.queueActions}>
-              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => { setForm({ productId: '', vendorHeadId: '', lotNumber: '', heatNumber: item.heatNumber, coilSlabNumber: '', cardCode: item.cardId ?? '', cardColor: item.cardColor ?? '' }); setEditingId(item.id); setShowForm(true); }}>✏️ Edit</Button>
-              <Button appearance="outline" size="large" className={styles.actionBtn} onClick={() => handleDelete(item.id)}>🗑️ Delete</Button>
-            </div>
-          </div>
-        ))
-      )}
+          ))
+        )}
+      </div>
 
       {showForm && (
         <div className={styles.overlay} onClick={() => { if (!selectingField) setShowForm(false); }}>
@@ -221,6 +242,18 @@ export function FitupQueueScreen(props: WorkCenterProps) {
             <div className={styles.formActions}>
               <Button appearance="secondary" size="large" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button appearance="primary" size="large" onClick={handleSave}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeleteId && (
+        <div className={styles.overlay} onClick={() => setPendingDeleteId(null)}>
+          <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.formTitle}>Remove from queue?</h3>
+            <div className={styles.formActions}>
+              <Button appearance="secondary" size="large" onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+              <Button appearance="primary" size="large" onClick={confirmDelete}>Yes, Remove</Button>
             </div>
           </div>
         </div>

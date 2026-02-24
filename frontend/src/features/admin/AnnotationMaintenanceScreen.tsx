@@ -217,7 +217,14 @@ export function AnnotationMaintenanceScreen() {
   }, [linkToType, allPlants, allLines, allWorkCenters]);
 
   return (
-    <AdminLayout title="Annotations">
+    <AdminLayout
+      title="Annotations"
+      nlqContext={{
+        screenKey: 'annotations',
+        activeFilterTotalCount: filteredItems.length,
+        filterSummary: `search=${search || 'none'}, type=${typeFilter || 'all'}, status=${statusFilter}, site=${siteFilter || 'all'}`,
+      }}
+    >
       <div className={styles.filterBar}>
         <div className={styles.filterField}>
           <label>Search</label>

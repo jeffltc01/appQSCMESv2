@@ -57,6 +57,10 @@ public class MesDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<FrontendTelemetryEvent> FrontendTelemetryEvents => Set<FrontendTelemetryEvent>();
     public DbSet<DemoShellFlow> DemoShellFlows => Set<DemoShellFlow>();
+    public DbSet<ChecklistTemplate> ChecklistTemplates => Set<ChecklistTemplate>();
+    public DbSet<ChecklistTemplateItem> ChecklistTemplateItems => Set<ChecklistTemplateItem>();
+    public DbSet<ChecklistEntry> ChecklistEntries => Set<ChecklistEntry>();
+    public DbSet<ChecklistEntryItemResponse> ChecklistEntryItemResponses => Set<ChecklistEntryItemResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

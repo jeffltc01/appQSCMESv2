@@ -102,6 +102,11 @@ describe('parseShellLabel', () => {
     expect(result).toEqual({ serialNumber: '000001', labelSuffix: 'L2' });
   });
 
+  it('handles lowercase label suffix', () => {
+    const result = parseShellLabel('000001/l1');
+    expect(result).toEqual({ serialNumber: '000001', labelSuffix: 'L1' });
+  });
+
   it('returns null suffix for no label', () => {
     const result = parseShellLabel('000001');
     expect(result).toEqual({ serialNumber: '000001', labelSuffix: null });

@@ -3,6 +3,9 @@ node_modules/
 
 # Build output
 frontend/dist/
+.tmp/
+**/bin_temp/
+**/obj_test/
 
 # .NET build artifacts
 backend/**/bin/
@@ -13,6 +16,8 @@ migration/**/obj/
 # Test output
 frontend/coverage/
 backend/TestResults/
+e2e/artifacts/**/build/
+e2e/artifacts/**/screenshots/
 
 # IDE / tooling
 .vs/

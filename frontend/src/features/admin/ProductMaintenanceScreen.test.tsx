@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { ProductMaintenanceScreen } from './ProductMaintenanceScreen.tsx';
@@ -98,6 +99,27 @@ describe('ProductMaintenanceScreen', () => {
   it('displays correct title', async () => {
     renderScreen();
     expect(screen.getByText('Product Maintenance')).toBeInTheDocument();
+  });
+
+  it('renders a two-column form layout in the add product dialog', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Add Product/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Add Product/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('close')).toBeInTheDocument();
+    });
+
+    const formGrid = document.querySelector('[class*="formGrid"]');
+    const formColumns = document.querySelectorAll('[class*="formColumn"]');
+
+    expect(formGrid).toBeTruthy();
+    expect(formColumns.length).toBeGreaterThanOrEqual(6);
   });
 
   it('renders gracefully when getAll API fails', async () => {

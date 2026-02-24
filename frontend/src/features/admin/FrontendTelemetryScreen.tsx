@@ -87,7 +87,14 @@ export function FrontendTelemetryScreen() {
   };
 
   return (
-    <AdminLayout title="Frontend Telemetry">
+    <AdminLayout
+      title="Frontend Telemetry"
+      nlqContext={{
+        screenKey: 'frontend-telemetry',
+        activeFilterTotalCount: data?.totalCount,
+        filterSummary: `category=${category || 'all'}, source=${source || 'all'}, severity=${severity || 'all'}, userId=${userId || 'any'}, wcId=${workCenterId || 'any'}, reactOnly=${reactOnly ? 'true' : 'false'}`,
+      }}
+    >
       {countInfo?.isWarning && (
         <div className={styles.warningBanner}>
           Telemetry has reached {countInfo.rowCount.toLocaleString()} rows (threshold: {countInfo.warningThreshold.toLocaleString()}).

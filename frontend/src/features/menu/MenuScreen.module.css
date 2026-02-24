@@ -189,6 +189,25 @@
   letter-spacing: 0.5px;
 }
 
+.tileCountBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #dc3545;
+  line-height: 1;
+  text-align: center;
+}
+
 /* ── Tablet ── */
 
 @media (max-width: 1024px) {

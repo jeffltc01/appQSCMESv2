@@ -12,12 +12,14 @@ const ProductMaintenanceScreen = named(() => import('./ProductMaintenanceScreen.
 const UserMaintenanceScreen = named(() => import('./UserMaintenanceScreen.tsx'), 'UserMaintenanceScreen');
 const VendorMaintenanceScreen = named(() => import('./VendorMaintenanceScreen.tsx'), 'VendorMaintenanceScreen');
 const WorkCenterConfigScreen = named(() => import('./WorkCenterConfigScreen.tsx'), 'WorkCenterConfigScreen');
+const ProductionLineWorkCentersScreen = named(() => import('./ProductionLineWorkCentersScreen.tsx'), 'ProductionLineWorkCentersScreen');
 const DefectCodesScreen = named(() => import('./DefectCodesScreen.tsx'), 'DefectCodesScreen');
 const DefectLocationsScreen = named(() => import('./DefectLocationsScreen.tsx'), 'DefectLocationsScreen');
 const AssetManagementScreen = named(() => import('./AssetManagementScreen.tsx'), 'AssetManagementScreen');
 const KanbanCardScreen = named(() => import('./KanbanCardScreen.tsx'), 'KanbanCardScreen');
 const CharacteristicsScreen = named(() => import('./CharacteristicsScreen.tsx'), 'CharacteristicsScreen');
 const ControlPlansScreen = named(() => import('./ControlPlansScreen.tsx'), 'ControlPlansScreen');
+const ChecklistTemplatesScreen = named(() => import('./ChecklistTemplatesScreen.tsx'), 'ChecklistTemplatesScreen');
 const PlantGearScreen = named(() => import('./PlantGearScreen.tsx'), 'PlantGearScreen');
 const WhosOnFloorScreen = named(() => import('./WhosOnFloorScreen.tsx'), 'WhosOnFloorScreen');
 const ProductionLineMaintenanceScreen = named(() => import('./ProductionLineMaintenanceScreen.tsx'), 'ProductionLineMaintenanceScreen');
@@ -26,8 +28,7 @@ const SerialNumberLookupScreen = named(() => import('./SerialNumberLookupScreen.
 const SellableTankStatusScreen = named(() => import('./SellableTankStatusScreen.tsx'), 'SellableTankStatusScreen');
 const AnnotationMaintenanceScreen = named(() => import('./AnnotationMaintenanceScreen.tsx'), 'AnnotationMaintenanceScreen');
 const PlantPrinterScreen = named(() => import('./PlantPrinterScreen.tsx'), 'PlantPrinterScreen');
-const ReportIssueScreen = named(() => import('./ReportIssueScreen.tsx'), 'ReportIssueScreen');
-const IssueApprovalsScreen = named(() => import('./IssueApprovalsScreen.tsx'), 'IssueApprovalsScreen');
+const IssuesScreen = named(() => import('./IssuesScreen.tsx'), 'IssuesScreen');
 const AIReviewScreen = named(() => import('./AIReviewScreen.tsx'), 'AIReviewScreen');
 const ProductionLogsScreen = named(() => import('./ProductionLogsScreen.tsx'), 'ProductionLogsScreen');
 const SupervisorDashboardScreen = named(() => import('./SupervisorDashboardScreen.tsx'), 'SupervisorDashboardScreen');
@@ -61,12 +62,14 @@ export function AdminRoutes() {
         <Route path="users" element={<UserMaintenanceScreen />} />
         <Route path="vendors" element={<VendorMaintenanceScreen />} />
         <Route path="workcenters" element={<WorkCenterConfigScreen />} />
+        <Route path="production-line-workcenters" element={<ProductionLineWorkCentersScreen />} />
         <Route path="defect-codes" element={<DefectCodesScreen />} />
         <Route path="defect-locations" element={<DefectLocationsScreen />} />
         <Route path="assets" element={<AssetManagementScreen />} />
         <Route path="kanban-cards" element={<KanbanCardScreen />} />
         <Route path="characteristics" element={<CharacteristicsScreen />} />
         <Route path="control-plans" element={<ControlPlansScreen />} />
+        <Route path="checklists" element={<ChecklistTemplatesScreen />} />
         <Route path="plant-gear" element={<PlantGearScreen />} />
         <Route path="whos-on-floor" element={<WhosOnFloorScreen />} />
         <Route path="production-lines" element={<ProductionLineMaintenanceScreen />} />
@@ -75,8 +78,9 @@ export function AdminRoutes() {
         <Route path="serial-lookup" element={<SerialNumberLookupScreen />} />
         <Route path="sellable-tank-status" element={<SellableTankStatusScreen />} />
         <Route path="plant-printers" element={<PlantPrinterScreen />} />
-        <Route path="report-issue" element={<ReportIssueScreen />} />
-        <Route path="issue-approvals" element={<IssueApprovalsScreen />} />
+        <Route path="issues" element={<IssuesScreen />} />
+        <Route path="report-issue" element={<Navigate to="/menu/issues" replace />} />
+        <Route path="issue-approvals" element={<Navigate to="/menu/issues" replace />} />
         <Route path="ai-review" element={<AIReviewScreen />} />
         <Route path="production-logs" element={<ProductionLogsScreen />} />
         <Route path="supervisor-dashboard" element={<SupervisorDashboardScreen />} />

@@ -1,0 +1,222 @@
+name: Build, Test, and Package
+
+on:
+  workflow_call:
+    inputs:
+      release_ref:
+        description: Git ref (commit SHA, tag, or branch) to build.
+        required: true
+        type: string
+      backend_url:
+        description: Absolute backend URL injected as VITE_API_URL.
+        required: true
+        type: string
+      run_e2e:
+        description: Run Playwright E2E tests as part of build.
+        required: false
+        type: boolean
+        default: false
+      coverage_storage_connection_string:
+        description: Optional Azure Blob connection string for coverage reports.
+        required: false
+        type: string
+        default: ""
+    outputs:
+      backend_artifact_name:
+        description: Backend artifact name for this release.
+        value: ${{ jobs.build-test-package.outputs.backend_artifact_name }}
+      frontend_artifact_name:
+        description: Frontend artifact name for this release.
+        value: ${{ jobs.build-test-package.outputs.frontend_artifact_name }}
+      manifest_artifact_name:
+        description: Release manifest artifact name for this release.
+        value: ${{ jobs.build-test-package.outputs.manifest_artifact_name }}
+      release_sha:
+        description: Full commit SHA built by this workflow.
+        value: ${{ jobs.build-test-package.outputs.release_sha }}
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  NODE_VERSION: "20"
+  BACKEND_PATH: backend/MESv2.Api
+  FRONTEND_PATH: frontend
+
+jobs:
+  build-test-package:
+    name: Build, test, and package
+    runs-on: ubuntu-latest
+    outputs:
+      backend_artifact_name: ${{ steps.meta.outputs.backend_artifact_name }}
+      frontend_artifact_name: ${{ steps.meta.outputs.frontend_artifact_name }}
+      manifest_artifact_name: ${{ steps.meta.outputs.manifest_artifact_name }}
+      release_sha: ${{ steps.meta.outputs.release_sha }}
+
+    steps:
+      - name: Checkout release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref }}
+          fetch-depth: 0
+
+      - name: Validate build inputs
+        run: bash .github/scripts/validate-release-inputs.sh
+        env:
+          BACKEND_URL: ${{ inputs.backend_url }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
+
+      - name: Build backend
+        run: dotnet publish ${{ env.BACKEND_PATH }} -c Release -o ./publish/backend
+
+      - name: Build frontend
+        working-directory: ${{ env.FRONTEND_PATH }}
+        env:
+          VITE_API_URL: ${{ inputs.backend_url }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run backend tests with coverage
+        run: |
+          dotnet test backend/MESv2.Api.Tests \
+            --configuration Release \
+            --verbosity normal \
+            --settings backend/MESv2.Api.Tests/coverage.runsettings \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Generate backend HTML coverage report
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator \
+            -reports:./TestResults/**/coverage.cobertura.xml \
+            -targetdir:./coverage-reports/backend \
+            -reporttypes:HtmlInline
+
+      - name: Run frontend tests with coverage
+        working-directory: ${{ env.FRONTEND_PATH }}
+        run: |
+          npm ci
+          npm run test:coverage
+
+      - name: Assemble coverage reports
+        run: |
+          cp -r ${{ env.FRONTEND_PATH }}/coverage ./coverage-reports/frontend
+
+          BACKEND_COB="$(find ./TestResults -name 'coverage.cobertura.xml' | head -1)"
+          FRONTEND_COB="${{ env.FRONTEND_PATH }}/coverage/cobertura-coverage.xml"
+
+          python3 - "$BACKEND_COB" "$FRONTEND_COB" <<'PYEOF'
+          import xml.etree.ElementTree as ET, json, sys, datetime
+
+          def parse_cobertura(path):
+              try:
+                  tree = ET.parse(path)
+                  root = tree.getroot()
+                  return {
+                      "lineRate": round(float(root.get("line-rate", 0)) * 100, 1),
+                      "branchRate": round(float(root.get("branch-rate", 0)) * 100, 1),
+                      "linesValid": int(root.get("lines-valid", 0)),
+                      "linesCovered": int(root.get("lines-covered", 0)),
+                      "branchesValid": int(root.get("branches-valid", 0)),
+                      "branchesCovered": int(root.get("branches-covered", 0)),
+                  }
+              except Exception as e:
+                  return {"error": str(e)}
+
+          summary = {
+              "generatedAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "backend": parse_cobertura(sys.argv[1]),
+              "frontend": parse_cobertura(sys.argv[2]),
+          }
+          with open("./coverage-reports/summary.json", "w") as f:
+              json.dump(summary, f, indent=2)
+          PYEOF
+
+      - name: Upload coverage to Azure Blob Storage
+        if: ${{ inputs.coverage_storage_connection_string != '' }}
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --source ./coverage-reports \
+              --destination coverage-reports \
+              --connection-string "${{ inputs.coverage_storage_connection_string }}" \
+              --overwrite true
+
+      - name: Install Playwright
+        if: ${{ inputs.run_e2e }}
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        if: ${{ inputs.run_e2e }}
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: ${{ always() && inputs.run_e2e }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Capture release metadata
+        id: meta
+        run: |
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          BACKEND_ARTIFACT_NAME="backend-${SHORT_SHA}"
+          FRONTEND_ARTIFACT_NAME="frontend-${SHORT_SHA}"
+          MANIFEST_ARTIFACT_NAME="release-manifest-${SHORT_SHA}"
+
+          mkdir -p ./release
+          cat <<EOF > ./release/manifest.json
+          {
+            "releaseSha": "${RELEASE_SHA}",
+            "shortSha": "${SHORT_SHA}",
+            "backendArtifact": "${BACKEND_ARTIFACT_NAME}",
+            "frontendArtifact": "${FRONTEND_ARTIFACT_NAME}",
+            "backendUrl": "${{ inputs.backend_url }}",
+            "generatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+
+          echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "backend_artifact_name=${BACKEND_ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "frontend_artifact_name=${FRONTEND_ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+          echo "manifest_artifact_name=${MANIFEST_ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.backend_artifact_name }}
+          path: ./publish/backend
+          retention-days: 30
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.frontend_artifact_name }}
+          path: ${{ env.FRONTEND_PATH }}/dist
+          retention-days: 30
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.manifest_artifact_name }}
+          path: ./release/manifest.json
+          retention-days: 30

@@ -96,7 +96,16 @@ export function ProductionLineMaintenanceScreen() {
   });
 
   return (
-    <AdminLayout title="Production Line Maintenance" onAdd={openAdd} addLabel="Add Production Line">
+    <AdminLayout
+      title="Production Line Maintenance"
+      onAdd={openAdd}
+      addLabel="Add Production Line"
+      nlqContext={{
+        screenKey: 'production-line-maintenance',
+        activeFilterTotalCount: filteredItems.length,
+        filterSummary: `search=${search || 'none'}`,
+      }}
+    >
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (

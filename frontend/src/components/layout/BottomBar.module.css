@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
+  min-height: 36px;
   padding: 0 12px;
   background: #343a40;
   color: #ffffff;
@@ -47,6 +47,12 @@
   opacity: 0.8;
 }
 
+.rightSide {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .statusDot {
   width: 8px;
   height: 8px;
@@ -87,4 +93,100 @@
 .scannerLost {
   background-color: #dc3545;
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+.capacityBadge {
+  min-width: 220px;
+  background: #ffffff;
+  color: #212529;
+  border: 1px solid #dfe2ed;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.capacityHeader,
+.capacityMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.capacityHeader {
+  font-weight: 700;
+}
+
+.capacityMeta {
+  opacity: 0.85;
+}
+
+.capacityTrack {
+  width: 100%;
+  height: 6px;
+  background: #dfe2ed;
+}
+
+.capacityFill {
+  display: block;
+  height: 100%;
+  background: #2b3b84;
+}
+
+.capacityFooter {
+  font-size: 10px;
+  line-height: 1.1;
+  opacity: 0.8;
+}
+
+.capacityNormal .capacityFill {
+  background: #2b3b84;
+}
+
+.capacityWarning .capacityFill {
+  background: #ffc107;
+}
+
+.capacityFull .capacityFill {
+  background: #dc3545;
+}
+
+@media (max-width: 1024px) {
+  .bottomBar {
+    padding: 6px 10px;
+    min-height: 42px;
+    gap: 8px;
+  }
+
+  .plantTime {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .capacityBadge {
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .bottomBar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .rightSide {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .toggleArea {
+    flex-wrap: wrap;
+  }
+
+  .capacityBadge {
+    min-width: 0;
+    width: 100%;
+  }
 }

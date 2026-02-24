@@ -75,3 +75,34 @@
   text-align: center;
   padding: 20px;
 }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.popup {
+  width: min(520px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid #d0d7de;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
+  padding: 18px;
+}
+
+.formTitle {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

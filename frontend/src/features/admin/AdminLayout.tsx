@@ -21,6 +21,7 @@ interface AdminLayoutProps {
   backLabel?: string;
   onBack?: () => void;
   nlqContext?: NaturalLanguageQueryContextRequest;
+  showAskMes?: boolean;
 }
 
 export function AdminLayout({
@@ -31,6 +32,7 @@ export function AdminLayout({
   backLabel,
   onBack,
   nlqContext,
+  showAskMes = false,
 }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -39,7 +41,8 @@ export function AdminLayout({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<NaturalLanguageQueryResponse | null>(null);
   const [error, setError] = useState('');
-  const canAskMes = (user?.roleTier ?? 99) <= 5.0;
+  const canAskMes = showAskMes && (user?.roleTier ?? 99) <= 5.0;
+  const defaultScreenKey = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   const handleLogout = () => {
     logout();
@@ -57,6 +60,7 @@ export function AdminLayout({
         question: clean,
         context: {
           plantId: user?.defaultSiteId,
+          screenKey: defaultScreenKey,
           ...nlqContext,
         },
       };

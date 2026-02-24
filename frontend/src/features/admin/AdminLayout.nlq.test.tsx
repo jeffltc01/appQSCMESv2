@@ -51,7 +51,7 @@ function renderLayout() {
   return render(
     <FluentProvider theme={webLightTheme}>
       <MemoryRouter>
-        <AdminLayout title="Admin Test">
+        <AdminLayout title="Admin Test" showAskMes>
           <div>Child content</div>
         </AdminLayout>
       </MemoryRouter>

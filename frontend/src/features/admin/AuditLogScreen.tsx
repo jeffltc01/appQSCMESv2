@@ -133,7 +133,14 @@ export function AuditLogScreen() {
   const totalPages = data ? Math.ceil(data.totalCount / PAGE_SIZE) : 0;
 
   return (
-    <AdminLayout title="Audit Log">
+    <AdminLayout
+      title="Audit Log"
+      nlqContext={{
+        screenKey: 'audit-log',
+        activeFilterTotalCount: data?.totalCount,
+        filterSummary: `entity=${filterEntity || 'all'}, action=${filterAction || 'all'}, entityId=${filterEntityId || 'any'}, from=${filterFrom || 'any'}, to=${filterTo || 'any'}`,
+      }}
+    >
       <div className={styles.filterBar}>
         <div className={styles.filterField}>
           <label>Entity</label>

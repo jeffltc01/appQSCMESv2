@@ -337,6 +337,8 @@ export interface CreateWorkCenterProductionLineRequest {
   productionLineId: string;
   displayName: string;
   numberOfWelders: number;
+  enableWorkCenterChecklist: boolean;
+  enableSafetyChecklist: boolean;
 }
 
 export interface UpdateWorkCenterProductionLineRequest {
@@ -344,6 +346,8 @@ export interface UpdateWorkCenterProductionLineRequest {
   numberOfWelders: number;
   downtimeTrackingEnabled: boolean;
   downtimeThresholdMinutes: number;
+  enableWorkCenterChecklist: boolean;
+  enableSafetyChecklist: boolean;
 }
 
 export interface CreateCharacteristicRequest {
@@ -549,9 +553,13 @@ export interface AIReviewResultDto {
 export interface NaturalLanguageQueryContextRequest {
   plantId?: string;
   workCenterId?: string;
+  productionLineId?: string;
   operatorId?: string;
   date?: string;
   view?: string;
+  screenKey?: string;
+  activeFilterTotalCount?: number;
+  filterSummary?: string;
 }
 
 export interface NaturalLanguageQueryRequest {
@@ -615,6 +623,64 @@ export interface BulkCapacityTargetItem {
 export interface BulkUpsertCapacityTargetsRequest {
   productionLineId: string;
   targets: BulkCapacityTargetItem[];
+}
+
+export interface ChecklistTemplateItemRequest {
+  id?: string;
+  sortOrder: number;
+  prompt: string;
+  isRequired: boolean;
+  responseMode?: string;
+  responseType?: 'PassFail' | 'Text' | 'Select' | 'Date';
+  responseOptions?: string[];
+  helpText?: string;
+  requireFailNote: boolean;
+}
+
+export interface UpsertChecklistTemplateRequest {
+  id?: string;
+  templateCode: string;
+  title: string;
+  checklistType: string;
+  scopeLevel: string;
+  siteId?: string;
+  workCenterId?: string;
+  productionLineId?: string;
+  versionNo: number;
+  effectiveFromUtc: string;
+  effectiveToUtc?: string;
+  isActive: boolean;
+  responseMode: string;
+  requireFailNote: boolean;
+  isSafetyProfile: boolean;
+  deletedItemIds?: string[];
+  items: ChecklistTemplateItemRequest[];
+}
+
+export interface ResolveChecklistTemplateRequest {
+  checklistType: string;
+  siteId: string;
+  workCenterId: string;
+  productionLineId?: string;
+}
+
+export interface CreateChecklistEntryRequest {
+  checklistType: string;
+  siteId: string;
+  workCenterId: string;
+  productionLineId?: string;
+  operatorUserId: string;
+}
+
+export interface ChecklistResponseRequest {
+  id?: string;
+  checklistTemplateItemId: string;
+  responseValue: string;
+  note?: string;
+}
+
+export interface SubmitChecklistResponsesRequest {
+  responses: ChecklistResponseRequest[];
 }
 
 // ---- Downtime ----

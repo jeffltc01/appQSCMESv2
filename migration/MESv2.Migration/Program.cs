@@ -7,6 +7,7 @@ using MESv2.Migration.Readers;
 var config = new ConfigurationBuilder()
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false)
+    .AddEnvironmentVariables()
     .AddCommandLine(args)
     .Build();
 
@@ -17,11 +18,16 @@ var v2ConnStr = config.GetConnectionString("V2")
 
 bool skipTestRows = config.GetValue("Migration:SkipTestRows", true);
 string reportPath = config.GetValue("Migration:ReportPath", "migration-report.json")!;
+string? onlyTablesRaw = config.GetValue<string>("Migration:OnlyTables")
+    ?? config.GetValue<string>("Migration:OnlyTable");
+var onlyTables = ParseTables(onlyTablesRaw);
 
 Console.WriteLine("=== MES V1 -> V2 Data Migration Tool ===");
 Console.WriteLine($"V1 source:  {MaskConnectionString(v1ConnStr)}");
 Console.WriteLine($"V2 target:  {MaskConnectionString(v2ConnStr)}");
 Console.WriteLine($"Skip test rows: {skipTestRows}");
+if (onlyTables.Count > 0)
+    Console.WriteLine($"Only tables: {string.Join(", ", onlyTables)}");
 Console.WriteLine();
 
 MesDbContext CreateDbContext()
@@ -46,15 +52,24 @@ using var v1Reader = new V1Reader(v1ConnStr);
 await v1Reader.OpenAsync();
 Console.WriteLine("Connected to V1 database.");
 
-var runner = new MigrationRunner(v1Reader, CreateDbContext, logger, skipTestRows);
+var runner = new MigrationRunner(v1Reader, CreateDbContext, logger, skipTestRows, onlyTables);
 await runner.RunAsync();
 
 logger.SaveReport(reportPath);
 
-// Phase 4: Validation
-Console.WriteLine("\n=== Running Validation ===");
-var validator = new MigrationValidator(v1Reader, CreateDbContext, logger);
-await validator.ValidateAsync();
+if (onlyTables.Count == 0)
+{
+    // Phase 4: Validation
+    Console.WriteLine("\n=== Running Validation ===");
+    var validator = new MigrationValidator(v1Reader, CreateDbContext, logger);
+    await validator.ValidateAsync();
+}
+else
+{
+    Console.WriteLine($"\n=== Running Targeted Validation ===");
+    var validator = new MigrationValidator(v1Reader, CreateDbContext, logger);
+    await validator.ValidateSelectedAsync(onlyTables);
+}
 
 Console.WriteLine("\nMigration complete.");
 
@@ -66,4 +81,16 @@ static string MaskConnectionString(string connStr)
     return end > 0
         ? connStr[..idx] + "Password=***" + connStr[end..]
         : connStr[..idx] + "Password=***";
+}
+
+static List<string> ParseTables(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw))
+        return [];
+
+    return raw
+        .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
 }

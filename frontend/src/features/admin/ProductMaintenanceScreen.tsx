@@ -122,7 +122,16 @@ export function ProductMaintenanceScreen() {
   }, [items, filterTypeId]);
 
   return (
-    <AdminLayout title="Product Maintenance" onAdd={isAdmin ? openAdd : undefined} addLabel="Add Product">
+    <AdminLayout
+      title="Product Maintenance"
+      onAdd={isAdmin ? openAdd : undefined}
+      addLabel="Add Product"
+      nlqContext={{
+        screenKey: 'product-maintenance',
+        activeFilterTotalCount: filteredItems.length,
+        filterSummary: `productType=${filterTypeId || 'all'}`,
+      }}
+    >
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
@@ -193,6 +202,7 @@ export function ProductMaintenanceScreen() {
       <AdminModal
         open={modalOpen}
         title={editing ? 'Edit Product' : 'Add Product'}
+        wide
         onConfirm={handleSave}
         onCancel={() => setModalOpen(false)}
         confirmLabel={editing ? 'Save' : 'Add'}
@@ -200,45 +210,63 @@ export function ProductMaintenanceScreen() {
         error={error}
         confirmDisabled={!productNumber || !tankSize || !tankType || !productTypeId}
       >
-        <Label>Product Number</Label>
-        <Input value={productNumber} onChange={(_, d) => setProductNumber(d.value)} />
-        <Label>Tank Size</Label>
-        <Input type="number" value={tankSize} onChange={(_, d) => setTankSize(d.value)} />
-        <Label>Tank Type</Label>
-        <Input value={tankType} onChange={(_, d) => setTankType(d.value)} />
-        <Label>Product Type</Label>
-        <Dropdown
-          value={types.find(t => t.id === productTypeId)?.name ?? ''}
-          selectedOptions={[productTypeId]}
-          onOptionSelect={(_, d) => { if (d.optionValue) setProductTypeId(d.optionValue); }}
-        >
-          {types.map(t => <Option key={t.id} value={t.id}>{t.name}</Option>)}
-        </Dropdown>
-        <Label>Sage Item Number</Label>
-        <Input value={sageItemNumber} onChange={(_, d) => setSageItemNumber(d.value)} />
-        <Label>Nameplate Number</Label>
-        <Input value={nameplateNumber} onChange={(_, d) => setNameplateNumber(d.value)} />
-        <Label>Sites</Label>
-        <Dropdown
-          multiselect
-          value={selectedSites.length > 0
-            ? selectedSites.map(c => plants.find(p => p.code === c)?.name ?? c).join(', ')
-            : ''}
-          selectedOptions={selectedSites}
-          onOptionSelect={(_, d: OptionOnSelectData) => {
-            setSelectedSites(d.selectedOptions.filter(Boolean));
-          }}
-          placeholder="Select sites..."
-        >
-          {plants.map(p => (
-            <Option key={p.code} value={p.code} text={`${p.name} (${p.code})`}>
-              {p.name} ({p.code})
-            </Option>
-          ))}
-        </Dropdown>
-        {editing && (
-          <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
-        )}
+        <div className={styles.formGrid}>
+          <div className={styles.formColumn}>
+            <Label>Product Number</Label>
+            <Input value={productNumber} onChange={(_, d) => setProductNumber(d.value)} />
+          </div>
+          <div className={styles.formColumn}>
+            <Label>Tank Size</Label>
+            <Input type="number" value={tankSize} onChange={(_, d) => setTankSize(d.value)} />
+          </div>
+          <div className={styles.formColumn}>
+            <Label>Tank Type</Label>
+            <Input value={tankType} onChange={(_, d) => setTankType(d.value)} />
+          </div>
+          <div className={styles.formColumn}>
+            <Label>Product Type</Label>
+            <Dropdown
+              value={types.find(t => t.id === productTypeId)?.name ?? ''}
+              selectedOptions={[productTypeId]}
+              onOptionSelect={(_, d) => { if (d.optionValue) setProductTypeId(d.optionValue); }}
+            >
+              {types.map(t => <Option key={t.id} value={t.id}>{t.name}</Option>)}
+            </Dropdown>
+          </div>
+          <div className={styles.formColumn}>
+            <Label>Sage Item Number</Label>
+            <Input value={sageItemNumber} onChange={(_, d) => setSageItemNumber(d.value)} />
+          </div>
+          <div className={styles.formColumn}>
+            <Label>Nameplate Number</Label>
+            <Input value={nameplateNumber} onChange={(_, d) => setNameplateNumber(d.value)} />
+          </div>
+          <div className={`${styles.formColumn} ${styles.formFieldFull}`}>
+            <Label>Sites</Label>
+            <Dropdown
+              multiselect
+              value={selectedSites.length > 0
+                ? selectedSites.map(c => plants.find(p => p.code === c)?.name ?? c).join(', ')
+                : ''}
+              selectedOptions={selectedSites}
+              onOptionSelect={(_, d: OptionOnSelectData) => {
+                setSelectedSites(d.selectedOptions.filter(Boolean));
+              }}
+              placeholder="Select sites..."
+            >
+              {plants.map(p => (
+                <Option key={p.code} value={p.code} text={`${p.name} (${p.code})`}>
+                  {p.name} ({p.code})
+                </Option>
+              ))}
+            </Dropdown>
+          </div>
+          {editing && (
+            <div className={`${styles.formColumn} ${styles.formFieldFull}`}>
+              <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
+            </div>
+          )}
+        </div>
       </AdminModal>
 
       <ConfirmDeleteDialog

@@ -97,7 +97,9 @@ public class AdminWorkCenterServiceTests
         {
             ProductionLineId = newPlId,
             DisplayName = "Rolls - Svc Test",
-            NumberOfWelders = 2
+            NumberOfWelders = 2,
+            EnableWorkCenterChecklist = true,
+            EnableSafetyChecklist = false,
         };
 
         var result = await service.CreateProductionLineConfigAsync(TestHelpers.wcRollsId, dto);
@@ -105,6 +107,8 @@ public class AdminWorkCenterServiceTests
         Assert.Equal("Rolls - Svc Test", result.DisplayName);
         Assert.Equal(2, result.NumberOfWelders);
         Assert.Equal("Svc Test Line", result.ProductionLineName);
+        Assert.True(result.EnableWorkCenterChecklist);
+        Assert.False(result.EnableSafetyChecklist);
     }
 
     [Fact]
@@ -116,7 +120,9 @@ public class AdminWorkCenterServiceTests
             DisplayName = "Updated via Service",
             NumberOfWelders = 7,
             DowntimeTrackingEnabled = true,
-            DowntimeThresholdMinutes = 10
+            DowntimeThresholdMinutes = 10,
+            EnableWorkCenterChecklist = true,
+            EnableSafetyChecklist = true,
         };
 
         var result = await service.UpdateProductionLineConfigAsync(
@@ -127,6 +133,8 @@ public class AdminWorkCenterServiceTests
         Assert.Equal(7, result.NumberOfWelders);
         Assert.True(result.DowntimeTrackingEnabled);
         Assert.Equal(10, result.DowntimeThresholdMinutes);
+        Assert.True(result.EnableWorkCenterChecklist);
+        Assert.True(result.EnableSafetyChecklist);
     }
 
     [Fact]

@@ -42,6 +42,23 @@ test.describe('Login', () => {
     await expect(page).toHaveURL('/tablet-setup');
   });
 
+  test('supervisor login on phone lands on /mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginViaUI(page, TEST_USERS.supervisor.empNo, TEST_USERS.supervisor.pin);
+    await expect(page).toHaveURL('/mobile');
+    await expect(page.getByText('Supervisor Hub')).toBeVisible();
+  });
+
+  test('operator login on phone lands on quick actions', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      localStorage.removeItem('cachedWorkCenterId');
+    });
+    await loginViaUI(page, TEST_USERS.operator.empNo);
+    await expect(page).toHaveURL('/mobile/operator-quick-actions');
+    await expect(page.getByText('Operator Quick Actions')).toBeVisible();
+  });
+
   test('invalid employee number shows error', async ({ page }) => {
     await page.locator('#emp-input').fill('INVALID999');
     await page.locator('#emp-input').blur();

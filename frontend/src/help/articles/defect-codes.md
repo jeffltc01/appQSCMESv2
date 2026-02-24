@@ -27,6 +27,6 @@ Manage the library of defect codes used during inspection and hydro testing. Def
 ## Tips
 
 - Keep codes short and consistent — operators may need to select them quickly during inspection.
-- The work center assignment checkboxes only show Inspection and Hydro types. If you don't see a work center, verify its Data Entry Type in Work Center Configuration.
+- The work center assignment checkboxes only show Inspection and Hydro types. If you don't see a work center, verify its Data Entry Type in Work Centers.
 - Deactivating a defect code does not remove it from existing inspection records, it just makes it non selectable for future recorded defects.
 

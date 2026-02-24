@@ -77,4 +77,27 @@ describe('AdminModal', () => {
     renderModal({ loading: true });
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
+
+  it('applies layout classes that keep footer actions visible', () => {
+    render(
+      <FluentProvider theme={webLightTheme}>
+        <AdminModal
+          open
+          title="Edit Item"
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        >
+          <p>Modal body content</p>
+        </AdminModal>
+      </FluentProvider>,
+    );
+
+    const dialogBody = document.querySelector('.fui-DialogBody');
+    const dialogActions = document.querySelector('.fui-DialogActions');
+
+    expect(dialogBody).toBeTruthy();
+    expect(dialogActions).toBeTruthy();
+    expect(dialogBody?.className).toContain('body');
+    expect(dialogActions?.className).toContain('actions');
+  });
 });

@@ -1,0 +1,280 @@
+.shell {
+  min-height: 100dvh;
+  background: #f6f7fb;
+  font-family: 'Roboto', Helvetica, Arial, sans-serif;
+  color: #1f2937;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background: #2b3b84;
+  color: #ffffff;
+  padding: 14px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.headerIdentity {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.logoutButton {
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  min-width: 88px;
+}
+
+.logoutButton:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.chipRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  border: 1px solid #d0d5e2;
+  background: #ffffff;
+  color: #2b3b84;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chipActive {
+  background: #2b3b84;
+  color: #ffffff;
+  border-color: #2b3b84;
+}
+
+.content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 80px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2e5a;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.card {
+  border: 1px solid #d8dce8;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 88px;
+}
+
+.kpiCard {
+  border: 1px solid #ccd4e8;
+  border-left: 4px solid #2b3b84;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 96px;
+}
+
+.cardLabel {
+  font-size: 13px;
+  color: #1f2e5a;
+  font-weight: 700;
+}
+
+.cardTarget {
+  font-size: 11px;
+  color: #667085;
+}
+
+.cardValue {
+  font-size: 30px;
+  line-height: 1;
+  color: #2b3b84;
+  font-weight: 800;
+}
+
+.cardDeltaGood {
+  color: #1d8f4e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cardDeltaBad {
+  color: #c4314b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.list {
+  border: 1px solid #ccd4e8;
+  background: #ffffff;
+}
+
+.listRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #eceff5;
+  padding: 10px;
+}
+
+.listRow:last-child {
+  border-bottom: none;
+}
+
+.rowTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2e5a;
+}
+
+.rowMeta {
+  font-size: 13px;
+  color: #667085;
+}
+
+.badgeCritical,
+.badgeHigh,
+.badgeWarn,
+.badgeGood {
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.badgeCritical {
+  background: #e41e2f;
+}
+
+.badgeHigh {
+  background: #f06b1a;
+}
+
+.badgeWarn {
+  background: #c58a00;
+}
+
+.badgeGood {
+  background: #1d8f4e;
+}
+
+.actionRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.footerNote {
+  font-size: 12px;
+  color: #667085;
+}
+
+.emptyState {
+  border: 1px solid #d8dce8;
+  background: #ffffff;
+  padding: 16px;
+  font-size: 14px;
+  color: #475467;
+}
+
+.lookupInput {
+  background: #ffffff;
+}
+
+.tabBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  background: #1f2e5a;
+  border-top: 1px solid #0f1a36;
+  z-index: 20;
+}
+
+.tabButton {
+  border: none;
+  background: transparent;
+  color: #cdd5ea;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 52px;
+}
+
+.tabButtonActive {
+  color: #ffffff;
+  background: #2b3b84;
+}
+
+.actionRow :global(.fui-Button) {
+  min-height: 42px;
+  font-weight: 700;
+  border-radius: 0 !important;
+}
+
+.actionRow :global(.fui-Button--primary) {
+  background: #e41e2f;
+  border-color: #e41e2f;
+}
+
+.actionRow :global(.fui-Button--primary):hover {
+  background: #c81928;
+  border-color: #c81928;
+}
+
+@media (max-width: 768px) {
+  .logoutButton {
+    min-width: 72px;
+    padding: 4px 8px !important;
+  }
+
+  .cardGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cardValue {
+    font-size: 26px;
+  }
+}

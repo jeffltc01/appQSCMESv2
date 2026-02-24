@@ -21,6 +21,7 @@ public class WCHistoryEntryDto
 public class WCHistoryDto
 {
     public int DayCount { get; set; }
+    public List<HourlyCountDto> HourlyCounts { get; set; } = new();
     public List<WCHistoryEntryDto> RecentRecords { get; set; } = new();
 }
 

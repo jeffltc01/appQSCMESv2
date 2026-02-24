@@ -3,13 +3,14 @@ import { Routes, Route } from 'react-router-dom';
 import { Button, Input, Label, Spinner } from '@fluentui/react-components';
 import { DismissRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { isOperatorKioskRole } from '../../auth/kioskPolicy.ts';
 import { getTabletCache } from '../../hooks/useLocalStorage.ts';
 import { useBarcode } from '../../hooks/useBarcode.ts';
 import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import { useInactivityTracker } from '../../hooks/useInactivityTracker.ts';
 import { parseBarcode, type ParsedBarcode } from '../../types/barcode.ts';
-import type { Welder, WCHistoryData, QueueTransaction, DowntimeConfig } from '../../types/domain.ts';
-import { workCenterApi, adminWorkCenterApi, adminPlantGearApi, downtimeConfigApi, downtimeEventApi } from '../../api/endpoints.ts';
+import type { Welder, WCHistoryData, QueueTransaction, DowntimeConfig, HourlyCount } from '../../types/domain.ts';
+import { workCenterApi, adminWorkCenterApi, adminPlantGearApi, downtimeConfigApi, downtimeEventApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
 import { BottomBar } from './BottomBar.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
@@ -19,7 +20,8 @@ import { ScanOverlay, type ScanResult } from './ScanOverlay.tsx';
 import { DowntimeOverlay } from './DowntimeOverlay.tsx';
 import { DemoScanOverlay } from '../scanMenu/DemoScanOverlay.tsx';
 import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
-import { reportException } from '../../telemetry/telemetryClient.ts';
+import { reportException, reportTelemetry } from '../../telemetry/telemetryClient.ts';
+import { normalizeTimeZoneId } from '../../utils/dateFormat.ts';
 import styles from './OperatorLayout.module.css';
 
 const namedLazy = <T extends Record<string, React.ComponentType<any>>>(
@@ -39,6 +41,7 @@ const RtXrayQueueScreen = namedLazy(() => import('../../features/rtXrayQueue/RtX
 const SpotXrayScreen = namedLazy(() => import('../../features/spotXray/SpotXrayScreen.tsx'), 'SpotXrayScreen');
 const NameplateScreen = namedLazy(() => import('../../features/nameplate/NameplateScreen.tsx'), 'NameplateScreen');
 const HydroScreen = namedLazy(() => import('../../features/hydro/HydroScreen.tsx'), 'HydroScreen');
+const ChecklistScreen = namedLazy(() => import('../../features/checklists/ChecklistScreen.tsx'), 'ChecklistScreen');
 
 const DATA_ENTRY_TO_LOG_TYPE: Record<string, string> = {
   Rolls: 'rolls',
@@ -52,8 +55,66 @@ function dataEntryTypeToLogType(dataEntryType: string): string | undefined {
   return DATA_ENTRY_TO_LOG_TYPE[dataEntryType];
 }
 
+type HourlySummaryRow = {
+  hour: number;
+  planned: number | null;
+  actual: number;
+};
+const TARGET_TOLERANCE = 1;
+
+function toHour24(rawHour: number): number {
+  return ((rawHour % 24) + 24) % 24;
+}
+
+function getCurrentHourInTimeZone(timeZoneId?: string): number {
+  const normalizedTimeZoneId = normalizeTimeZoneId(timeZoneId);
+  try {
+    const hourPart = new Intl.DateTimeFormat('en-US', {
+      hour: '2-digit',
+      hour12: false,
+      ...(normalizedTimeZoneId ? { timeZone: normalizedTimeZoneId } : {}),
+    }).format(new Date());
+    const parsed = Number.parseInt(hourPart, 10);
+    return Number.isNaN(parsed) ? new Date().getHours() : toHour24(parsed);
+  } catch {
+    return new Date().getHours();
+  }
+}
+
+function formatHourLabel(hour: number): string {
+  const normalized = toHour24(hour);
+  const displayHour = normalized % 12 || 12;
+  const suffix = normalized < 12 ? 'AM' : 'PM';
+  return `${displayHour} ${suffix}`;
+}
+
+function getDateIsoInTimeZone(timeZoneId?: string): string {
+  const normalizedTimeZoneId = normalizeTimeZoneId(timeZoneId);
+  try {
+    const date = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      ...(normalizedTimeZoneId ? { timeZone: normalizedTimeZoneId } : {}),
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find((p) => p.type === 'year')?.value ?? String(date.getFullYear());
+    const month = parts.find((p) => p.type === 'month')?.value ?? String(date.getMonth() + 1).padStart(2, '0');
+    const day = parts.find((p) => p.type === 'day')?.value ?? String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+}
+
 export function OperatorLayout() {
   const { user, logout } = useAuth();
+  const kioskMode = isOperatorKioskRole(user?.roleTier);
   const [cache] = useState(getTabletCache);
 
   const sessionData = useMemo(() => {
@@ -94,17 +155,133 @@ export function OperatorLayout() {
   const previousScanResultRef = useRef<ScanResult | null>(null);
   const prevExternalInputRef = useRef(false);
   const [downtimeLastActivity, setDowntimeLastActivity] = useState(0);
+  const [showChecklistOverlay, setShowChecklistOverlay] = useState(false);
+  const [selectedChecklistType, setSelectedChecklistType] = useState<string | null>(null);
+  const [checklistConfig, setChecklistConfig] = useState({
+    enableWorkCenterChecklist: false,
+    enableSafetyChecklist: false,
+  });
   const autoLogoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const AUTO_LOGOUT_MINUTES = 60;
-
   const dataEntryType = cache?.cachedDataEntryType ?? '';
+  const isQueueScreen = dataEntryType === 'MatQueue-Material' || dataEntryType === 'MatQueue-Fitup';
+  const historyLogType = dataEntryType === 'MatQueue-Shell'
+    ? undefined
+    : dataEntryTypeToLogType(dataEntryType);
+  const [plannedData, setPlannedData] = useState<{
+    hourMap: Record<number, number | null>;
+    defaultPlan: number | null;
+    metricsHourlyCounts: HourlyCount[];
+  }>({ hourMap: {}, defaultPlan: null, metricsHourlyCounts: [] });
+
+  const hasSummaryCard = !isQueueScreen && dataEntryType !== 'MatQueue-Shell';
+  const checklistEnabled = checklistConfig.enableSafetyChecklist || checklistConfig.enableWorkCenterChecklist;
+
+  const summaryDeltaClass = (planned: number | null, actual: number): string => {
+    if (planned === null) return styles.summaryDeltaNeutral;
+    const delta = actual - planned;
+    if (delta === 0) return styles.summaryDeltaOnTarget;
+    if (Math.abs(delta) <= TARGET_TOLERANCE) return styles.summaryDeltaNeutral;
+    if (delta > 0) return styles.summaryDeltaOverTarget;
+    return styles.summaryDeltaUnderTarget;
+  };
+
+  const currentHour = getCurrentHourInTimeZone(user?.plantTimeZoneId);
+
+  const summaryRows = useMemo(() => {
+    const rows: HourlySummaryRow[] = [];
+    const hourlyCounts = (historyData.hourlyCounts?.length ?? 0) > 0
+      ? historyData.hourlyCounts!
+      : plannedData.metricsHourlyCounts;
+    const actualByHour = new Map<number, number>();
+    for (const h of hourlyCounts) {
+      actualByHour.set(h.hour, h.count);
+    }
+    for (let offset = 4; offset >= 0; offset -= 1) {
+      const hour = toHour24(currentHour - offset);
+      rows.push({
+        hour,
+        planned: plannedData.hourMap[hour] ?? plannedData.defaultPlan,
+        actual: actualByHour.get(hour) ?? 0,
+      });
+    }
+    return rows;
+  }, [currentHour, historyData.hourlyCounts, plannedData]);
+
+  const summaryStatus = useMemo(() => {
+    const comparableRows = summaryRows.filter((row) => row.planned !== null);
+    if (comparableRows.length === 0) {
+      return { label: 'In Progress', className: styles.summaryStatusNeutral };
+    }
+
+    const totals = comparableRows.reduce(
+      (acc, row) => ({
+        planned: acc.planned + (row.planned ?? 0),
+        actual: acc.actual + row.actual,
+      }),
+      { planned: 0, actual: 0 },
+    );
+
+    const delta = totals.actual - totals.planned;
+    if (delta === 0) {
+      return { label: 'On Target', className: styles.summaryStatusOnTarget };
+    }
+    if (Math.abs(delta) <= TARGET_TOLERANCE) {
+      return { label: 'Within Tolerance', className: styles.summaryStatusNeutral };
+    }
+    if (delta > 0) {
+      return { label: 'Over Target', className: styles.summaryStatusOverTarget };
+    }
+    return { label: 'Under Target', className: styles.summaryStatusUnderTarget };
+  }, [summaryRows]);
+
+  const hasCapacityTarget = useMemo(
+    () => summaryRows.some((row) => row.planned !== null),
+    [summaryRows],
+  );
+
+  const loadPlannedData = useCallback(async () => {
+    if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;
+    try {
+      const date = getDateIsoInTimeZone(user.plantTimeZoneId);
+      const [metrics, perf] = await Promise.all([
+        supervisorDashboardApi.getMetrics(cache.cachedWorkCenterId, user.defaultSiteId, date).catch(() => null),
+        supervisorDashboardApi.getPerformanceTable(
+          cache.cachedWorkCenterId,
+          user.defaultSiteId,
+          'day',
+          date,
+        ).catch(() => null),
+      ]);
+
+      const hourMap: Record<number, number | null> = {};
+      let defaultPlan: number | null = null;
+      for (const row of perf?.rows ?? []) {
+        const match = row.label.match(/^(\d{1,2}):/);
+        if (!match) continue;
+        const hour = toHour24(Number.parseInt(match[1], 10));
+        hourMap[hour] = row.planned === null ? null : Math.floor(row.planned);
+        if (defaultPlan === null && row.planned !== null) {
+          defaultPlan = Math.floor(row.planned);
+        }
+      }
+      setPlannedData({
+        hourMap,
+        defaultPlan,
+        metricsHourlyCounts: metrics?.hourlyCounts ?? [],
+      });
+    } catch { /* keep stale planned data */ }
+  }, [cache?.cachedWorkCenterId, user?.defaultSiteId, user?.plantTimeZoneId]);
+
+  useEffect(() => {
+    void loadPlannedData();
+  }, [loadPlannedData]);
+
   const helpArticle = useCurrentHelpArticle(dataEntryType);
   const hideHistory = dataEntryType === 'Spot';
   const weldersSatisfied = welders.length >= numberOfWelders;
   const showWelderGate = numberOfWelders > 0 && !weldersSatisfied;
-
-  const isQueueScreen = dataEntryType === 'MatQueue-Material' || dataEntryType === 'MatQueue-Fitup';
 
   const queueTxnWCId = cache?.cachedMaterialQueueForWCId ?? cache?.cachedWorkCenterId;
 
@@ -144,9 +321,22 @@ export function OperatorLayout() {
           const plConfig = await adminWorkCenterApi.getProductionLineConfig(
             cache.cachedWorkCenterId, cache.cachedProductionLineId);
           count = plConfig.numberOfWelders;
+          setChecklistConfig({
+            enableWorkCenterChecklist: !!plConfig.enableWorkCenterChecklist,
+            enableSafetyChecklist: !!plConfig.enableSafetyChecklist,
+          });
         } catch {
           // No per-line config — keep base WorkCenter default
+          setChecklistConfig({
+            enableWorkCenterChecklist: false,
+            enableSafetyChecklist: false,
+          });
         }
+      } else {
+        setChecklistConfig({
+          enableWorkCenterChecklist: false,
+          enableSafetyChecklist: false,
+        });
       }
 
       setNumberOfWelders(count);
@@ -277,17 +467,33 @@ export function OperatorLayout() {
   const showScanResult = useCallback((result: ScanResult) => {
     if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
     setScanResult(result);
+    if (result.type === 'error') {
+      reportTelemetry({
+        category: 'scan_feedback',
+        source: 'operator_scan_overlay',
+        severity: 'error',
+        isReactRuntimeOverlayCandidate: false,
+        message: result.message ?? 'Operator scan rejected',
+        metadataJson: JSON.stringify({
+          resultType: result.type,
+          dataEntryType,
+          externalInput,
+          kioskMode,
+        }),
+      });
+    }
     const delay = result.type === 'success' ? 1000 : 5000;
     scanTimerRef.current = setTimeout(() => { scanTimerRef.current = null; setScanResult(null); }, delay);
-  }, []);
+  }, [dataEntryType, externalInput, kioskMode]);
 
   const refreshHistory = useCallback(() => {
+    void loadPlannedData();
     if (isQueueScreen) {
       loadQueueTransactions();
     } else {
       loadHistory();
     }
-  }, [isQueueScreen, loadHistory, loadQueueTransactions]);
+  }, [isQueueScreen, loadHistory, loadQueueTransactions, loadPlannedData]);
 
   const pulseHideDemoOverlay = useCallback(() => {
     if (!showDemoScanOverlay) return;
@@ -484,6 +690,12 @@ export function OperatorLayout() {
         <LeftPanel
           externalInput={externalInput}
           currentGearLevel={currentGearLevel}
+          kioskMode={kioskMode}
+          showChecklistButton={checklistEnabled}
+          onChecklistClick={() => {
+            setSelectedChecklistType(null);
+            setShowChecklistOverlay(true);
+          }}
         />
 
         <main
@@ -505,14 +717,60 @@ export function OperatorLayout() {
             {isQueueScreen ? (
               <QueueHistory transactions={queueTransactions} />
             ) : (
-              <WCHistory data={historyData} logType={dataEntryTypeToLogType(dataEntryType)} operatorId={user?.id} onAnnotationCreated={refreshHistory} />
+              <WCHistory
+                data={historyData}
+                logType={historyLogType}
+                operatorId={user?.id}
+                kioskMode={kioskMode}
+                onAnnotationCreated={refreshHistory}
+              />
             )}
           </aside>
+        )}
+
+        {hasSummaryCard && (
+          <section className={styles.summaryFloatingCard} aria-label="Operator capacity indicator">
+            <div className={styles.summaryTop}>
+              <div className={styles.summaryTopLeft}>
+                <span className={styles.summaryTopLabel}>Total Count</span>
+                <span className={styles.summaryTopValue}>{historyData.dayCount}</span>
+              </div>
+              <span className={`${styles.summaryStatusBadge} ${summaryStatus.className}`}>
+                {summaryStatus.label}
+              </span>
+            </div>
+
+            <div className={styles.summaryBody}>
+              <div className={styles.summaryHoursRow}>
+                <span className={styles.summaryMetricLabel}>Hour</span>
+                {summaryRows.map((row) => (
+                  <span key={`hour-${row.hour}`}>{formatHourLabel(row.hour)}</span>
+                ))}
+              </div>
+
+              {hasCapacityTarget && (
+                <div className={styles.summaryMetricRow}>
+                  <span className={styles.summaryMetricLabel}>Plan</span>
+                  {summaryRows.map((row) => (
+                    <span key={`plan-${row.hour}`}>{row.planned === null ? '--' : row.planned}</span>
+                  ))}
+                </div>
+              )}
+
+              <div className={`${styles.summaryMetricRow} ${styles.summaryActualRow}`}>
+                <span className={styles.summaryMetricLabel}>Actual</span>
+                {summaryRows.map((row) => (
+                  <span key={`actual-${row.hour}`} className={summaryDeltaClass(row.planned, row.actual)}>{row.actual}</span>
+                ))}
+              </div>
+            </div>
+          </section>
         )}
       </div>
 
       <BottomBar
         plantCode={user?.plantCode ?? ''}
+        plantTimeZoneId={user?.plantTimeZoneId}
         externalInput={externalInput}
         onToggleExternalInput={() => setExternalInput((v) => !v)}
         showToggle={supportsExternalInput}
@@ -537,6 +795,56 @@ export function OperatorLayout() {
           operatorUserId={user?.id ?? ''}
           onDismiss={handleDowntimeDismiss}
         />
+      )}
+
+      {showChecklistOverlay && (
+        <div className={styles.checklistOverlay}>
+          <div className={styles.checklistPanel}>
+            <div className={styles.checklistPanelHeader}>
+              <h2>Checklist</h2>
+              <Button
+                appearance="subtle"
+                icon={<DismissRegular />}
+                onClick={() => setShowChecklistOverlay(false)}
+                aria-label="Close checklist"
+              />
+            </div>
+            <div className={styles.checklistTypePicker}>
+              <Button
+                appearance={selectedChecklistType === 'OpsPreShift' ? 'primary' : 'secondary'}
+                className={`${styles.checklistTypeButton} ${selectedChecklistType === 'OpsPreShift' ? styles.checklistTypeButtonActive : ''}`}
+                onClick={() => setSelectedChecklistType('OpsPreShift')}
+              >
+                PreShift
+              </Button>
+              <Button
+                appearance={selectedChecklistType === 'SafetyPreShift' ? 'primary' : 'secondary'}
+                className={`${styles.checklistTypeButton} ${selectedChecklistType === 'SafetyPreShift' ? styles.checklistTypeButtonActive : ''}`}
+                onClick={() => setSelectedChecklistType('SafetyPreShift')}
+              >
+                Safety
+              </Button>
+              <Button
+                appearance={selectedChecklistType === 'OpsChangeover' ? 'primary' : 'secondary'}
+                className={`${styles.checklistTypeButton} ${selectedChecklistType === 'OpsChangeover' ? styles.checklistTypeButtonActive : ''}`}
+                onClick={() => setSelectedChecklistType('OpsChangeover')}
+              >
+                PostShift
+              </Button>
+            </div>
+            <div className={styles.checklistPaper}>
+              {selectedChecklistType ? (
+                <ChecklistScreen
+                  {...wcProps}
+                  checklistType={selectedChecklistType}
+                  onChecklistCompleted={() => setShowChecklistOverlay(false)}
+                />
+              ) : (
+                <div className={styles.checklistPickPrompt}>Select checklist type to begin.</div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <DemoScanOverlay

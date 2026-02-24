@@ -39,7 +39,8 @@ public class AuthService : IAuthService
         {
             RequiresPin = user.RequirePinForLogin,
             DefaultSiteId = user.DefaultSiteId,
-            AllowSiteSelection = true,
+            // Only Admin/Director roles can switch sites at login.
+            AllowSiteSelection = user.RoleTier <= 2.0m,
             IsWelder = user.IsCertifiedWelder,
             UserName = user.DisplayName
         }, false);

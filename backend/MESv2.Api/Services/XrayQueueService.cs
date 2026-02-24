@@ -7,6 +7,7 @@ namespace MESv2.Api.Services;
 
 public class XrayQueueService : IXrayQueueService
 {
+    private const int MaxQueueItemsPerWorkCenter = 5;
     private readonly MesDbContext _db;
 
     public XrayQueueService(MesDbContext db)
@@ -32,6 +33,11 @@ public class XrayQueueService : IXrayQueueService
 
     public async Task<XrayQueueItemDto> AddAsync(Guid wcId, AddXrayQueueItemDto dto, CancellationToken cancellationToken = default)
     {
+        var currentQueueCount = await _db.XrayQueueItems
+            .CountAsync(x => x.WorkCenterId == wcId, cancellationToken);
+        if (currentQueueCount >= MaxQueueItemsPerWorkCenter)
+            throw new InvalidOperationException($"Queue is full. Maximum {MaxQueueItemsPerWorkCenter} items are allowed per work center queue.");
+
         var sn = await _db.SerialNumbers
             .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken);
         if (sn == null)

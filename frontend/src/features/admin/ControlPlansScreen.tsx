@@ -137,7 +137,15 @@ export function ControlPlansScreen() {
   };
 
   return (
-    <AdminLayout title="Control Plans" onAdd={isAdmin ? openCreate : undefined}>
+    <AdminLayout
+      title="Control Plans"
+      onAdd={isAdmin ? openCreate : undefined}
+      nlqContext={{
+        screenKey: 'control-plans',
+        activeFilterTotalCount: items.length,
+        filterSummary: `site=${siteFilter || 'all'}`,
+      }}
+    >
       {isDirectorPlus && (
         <div className={styles.filterBar}>
           <label style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>Site</label>

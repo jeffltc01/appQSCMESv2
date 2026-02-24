@@ -167,6 +167,7 @@ export interface WCHistoryEntry {
 
 export interface WCHistoryData {
   dayCount: number;
+  hourlyCounts?: HourlyCount[];
   recentRecords: WCHistoryEntry[];
 }
 
@@ -379,6 +380,63 @@ export interface WorkCenterProductionLine {
   numberOfWelders: number;
   downtimeTrackingEnabled: boolean;
   downtimeThresholdMinutes: number;
+  enableWorkCenterChecklist?: boolean;
+  enableSafetyChecklist?: boolean;
+}
+
+export interface ChecklistTemplateItem {
+  id?: string;
+  sortOrder: number;
+  prompt: string;
+  isRequired: boolean;
+  responseMode?: string;
+  responseType?: 'PassFail' | 'Text' | 'Select' | 'Date';
+  responseOptions?: string[];
+  helpText?: string;
+  requireFailNote: boolean;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  templateCode: string;
+  title: string;
+  checklistType: string;
+  scopeLevel: string;
+  siteId?: string;
+  workCenterId?: string;
+  productionLineId?: string;
+  versionNo: number;
+  effectiveFromUtc: string;
+  effectiveToUtc?: string;
+  isActive: boolean;
+  responseMode: string;
+  requireFailNote: boolean;
+  isSafetyProfile: boolean;
+  items: ChecklistTemplateItem[];
+}
+
+export interface ChecklistResponse {
+  id?: string;
+  checklistTemplateItemId: string;
+  responseValue: string;
+  note?: string;
+}
+
+export interface ChecklistEntry {
+  id: string;
+  checklistTemplateId: string;
+  checklistType: string;
+  siteId: string;
+  workCenterId: string;
+  productionLineId?: string;
+  operatorUserId: string;
+  status: string;
+  startedAtUtc: string;
+  completedAtUtc?: string;
+  resolvedFromScope: string;
+  resolvedTemplateCode: string;
+  resolvedTemplateVersionNo: number;
+  responses: ChecklistResponse[];
 }
 
 export interface AdminCharacteristic {

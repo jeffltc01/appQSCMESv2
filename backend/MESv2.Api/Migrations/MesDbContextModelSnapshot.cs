@@ -359,6 +359,237 @@ namespace MESv2.Api.Migrations
                     b.ToTable("CharacteristicWorkCenters");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChecklistTemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChecklistType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OperatorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductionLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResolvedFromScope")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ResolvedTemplateCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("ResolvedTemplateVersionNo")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("WorkCenterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChecklistTemplateId");
+
+                    b.HasIndex("ChecklistType");
+
+                    b.HasIndex("OperatorUserId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.HasIndex("WorkCenterId");
+
+                    b.HasIndex("SiteId", "WorkCenterId", "StartedAtUtc");
+
+                    b.ToTable("ChecklistEntries");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistEntryItemResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChecklistEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChecklistTemplateItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("RespondedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResponseValue")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChecklistTemplateItemId");
+
+                    b.HasIndex("ChecklistEntryId", "ChecklistTemplateItemId")
+                        .IsUnique();
+
+                    b.ToTable("ChecklistEntryItemResponses");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChecklistType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveToUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSafetyProfile")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("ProductionLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("RequireFailNote")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ResponseMode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ScopeLevel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("SiteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TemplateCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("VersionNo")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("WorkCenterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.HasIndex("SiteId");
+
+                    b.HasIndex("WorkCenterId");
+
+                    b.HasIndex("ChecklistType", "IsActive", "EffectiveFromUtc", "EffectiveToUtc");
+
+                    b.HasIndex("ChecklistType", "ScopeLevel", "SiteId", "WorkCenterId", "ProductionLineId", "VersionNo")
+                        .IsUnique()
+                        .HasFilter("[SiteId] IS NOT NULL AND [WorkCenterId] IS NOT NULL AND [ProductionLineId] IS NOT NULL");
+
+                    b.ToTable("ChecklistTemplates");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistTemplateItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChecklistTemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("HelpText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Prompt")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("RequireFailNote")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ResponseMode")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("ResponseOptionsJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ResponseType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChecklistTemplateId", "SortOrder");
+
+                    b.ToTable("ChecklistTemplateItems");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.ControlPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2067,6 +2298,12 @@ namespace MESv2.Api.Migrations
                     b.Property<bool>("DowntimeTrackingEnabled")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("EnableSafetyChecklist")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EnableWorkCenterChecklist")
+                        .HasColumnType("bit");
+
                     b.Property<int>("NumberOfWelders")
                         .HasColumnType("int");
 
@@ -2326,6 +2563,110 @@ namespace MESv2.Api.Migrations
                     b.Navigation("Characteristic");
 
                     b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistEntry", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.ChecklistTemplate", "ChecklistTemplate")
+                        .WithMany()
+                        .HasForeignKey("ChecklistTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.User", "OperatorUser")
+                        .WithMany()
+                        .HasForeignKey("OperatorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.ProductionLine", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MESv2.Api.Models.Plant", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.WorkCenter", "WorkCenter")
+                        .WithMany()
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChecklistTemplate");
+
+                    b.Navigation("OperatorUser");
+
+                    b.Navigation("ProductionLine");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistEntryItemResponse", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.ChecklistEntry", "ChecklistEntry")
+                        .WithMany("Responses")
+                        .HasForeignKey("ChecklistEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.ChecklistTemplateItem", "ChecklistTemplateItem")
+                        .WithMany()
+                        .HasForeignKey("ChecklistTemplateItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChecklistEntry");
+
+                    b.Navigation("ChecklistTemplateItem");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistTemplate", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.ProductionLine", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MESv2.Api.Models.Plant", "Site")
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MESv2.Api.Models.WorkCenter", "WorkCenter")
+                        .WithMany()
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("ProductionLine");
+
+                    b.Navigation("Site");
+
+                    b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistTemplateItem", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.ChecklistTemplate", "ChecklistTemplate")
+                        .WithMany("Items")
+                        .HasForeignKey("ChecklistTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChecklistTemplate");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.ControlPlan", b =>
@@ -3242,6 +3583,16 @@ namespace MESv2.Api.Migrations
                     b.Navigation("DefectLogs");
 
                     b.Navigation("WelderLogs");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistEntry", b =>
+                {
+                    b.Navigation("Responses");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ChecklistTemplate", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.ControlPlan", b =>

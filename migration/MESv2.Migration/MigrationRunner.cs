@@ -13,16 +13,25 @@ public class MigrationRunner
     private readonly Func<MesDbContext> _dbFactory;
     private readonly MigrationLogger _log;
     private readonly bool _skipTestRows;
+    private readonly HashSet<string> _onlyTables;
     private const int BatchSize = 2000;
     private HashSet<Guid> _skipPlantIds = new();
     private HashSet<string> _skipPlantCodes = new(StringComparer.OrdinalIgnoreCase) { "600" };
 
-    public MigrationRunner(V1Reader v1, Func<MesDbContext> dbFactory, MigrationLogger log, bool skipTestRows = true)
+    public MigrationRunner(
+        V1Reader v1,
+        Func<MesDbContext> dbFactory,
+        MigrationLogger log,
+        bool skipTestRows = true,
+        IEnumerable<string>? onlyTables = null)
     {
         _v1 = v1;
         _dbFactory = dbFactory;
         _log = log;
         _skipTestRows = skipTestRows;
+        _onlyTables = onlyTables != null
+            ? new HashSet<string>(onlyTables.Where(t => !string.IsNullOrWhiteSpace(t)), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task BuildPlantFiltersAsync()
@@ -41,6 +50,12 @@ public class MigrationRunner
 
     public async Task RunAsync()
     {
+        if (_onlyTables.Count > 0)
+        {
+            await RunSelectedTablesAsync(_onlyTables);
+            return;
+        }
+
         Console.WriteLine("Starting V1 -> V2 full data migration...");
         var total = Stopwatch.StartNew();
 
@@ -81,6 +96,62 @@ public class MigrationRunner
 
         total.Stop();
         Console.WriteLine($"\nTotal migration time: {total.Elapsed.TotalMinutes:F1} minutes");
+        _log.PrintSummary();
+    }
+
+    private async Task RunSelectedTablesAsync(IEnumerable<string> tables)
+    {
+        var list = tables.ToList();
+        Console.WriteLine($"Starting targeted migration for table(s): {string.Join(", ", list)}");
+        var total = Stopwatch.StartNew();
+
+        await BuildPlantFiltersAsync();
+
+        foreach (var table in list)
+        {
+            switch (table)
+            {
+                case "mesSerialNumberMaster":
+                    await MigrateSerialNumbersAsync();
+                    break;
+                case "mesManufacturingLog":
+                    await MigrateProductionRecordsAsync();
+                    break;
+                case "mesManufacturingLogWelder":
+                    await MigrateTableAsync("mesManufacturingLogWelder", WelderLogMapper.Map, "IsTest = 0");
+                    break;
+                case "mesManufacturingTraceLog":
+                    await MigrateTraceabilityLogsAsync();
+                    break;
+                case "mesManufacturingInspectionsLog":
+                    await MigrateInspectionRecordsAsync();
+                    break;
+                case "mesDefectLog":
+                    await MigrateDefectLogsAsync();
+                    break;
+                case "mesAnnotation":
+                    await MigrateAnnotationsAsync();
+                    break;
+                case "mesWorkCenterMaterialQueue":
+                    await MigrateMaterialQueueAsync();
+                    break;
+                case "mesChangeLog":
+                    await MigrateTableAsync("mesChangeLog", ChangeLogMapper.Map);
+                    break;
+                case "mesSpotXrayIncrement":
+                    await MigrateSpotXrayIncrementsAsync();
+                    break;
+                case "mesSiteSchedule":
+                    await MigrateSiteSchedulesAsync();
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unsupported table '{table}' for targeted mode.");
+            }
+        }
+
+        total.Stop();
+        Console.WriteLine($"\nTargeted migration time: {total.Elapsed.TotalMinutes:F1} minutes");
         _log.PrintSummary();
     }
 
@@ -744,13 +815,42 @@ public class MigrationRunner
         var list = rows.ToList();
         _log.SetSourceCount(list.Count);
 
+        // Pre-load FK targets so bad rows are handled deterministically instead of failing whole batches.
+        using var lookupDb = _dbFactory();
+        var validSnIds = (await lookupDb.SerialNumbers.Select(s => s.Id).ToListAsync()).ToHashSet();
+        var validPrIds = (await lookupDb.ProductionRecords.Select(p => p.Id).ToListAsync()).ToHashSet();
+
         var batch = new List<TraceabilityLog>(BatchSize);
+        int skippedFk = 0;
+        int nulledProductionRecordFk = 0;
         foreach (var row in list)
         {
             try
             {
-                var entity = TraceabilityLogMapper.Map(row);
+                var entity = TraceabilityLogMapper.Map((object)row);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
+
+                if (entity.FromSerialNumberId.HasValue && !validSnIds.Contains(entity.FromSerialNumberId.Value))
+                {
+                    skippedFk++;
+                    _log.IncrementSkipped();
+                    continue;
+                }
+
+                if (entity.ToSerialNumberId.HasValue && !validSnIds.Contains(entity.ToSerialNumberId.Value))
+                {
+                    skippedFk++;
+                    _log.IncrementSkipped();
+                    continue;
+                }
+
+                // ProductionRecordId is optional in v2. Preserve trace links when the record no longer exists.
+                if (entity.ProductionRecordId.HasValue && !validPrIds.Contains(entity.ProductionRecordId.Value))
+                {
+                    entity.ProductionRecordId = null;
+                    nulledProductionRecordFk++;
+                }
+
                 batch.Add(entity);
                 if (batch.Count >= BatchSize)
                 {
@@ -778,6 +878,11 @@ public class MigrationRunner
                 await UpsertRowByRowAsync(batch);
             }
         }
+
+        if (skippedFk > 0)
+            Console.WriteLine($"  Skipped {skippedFk} trace rows with missing SerialNumber FK(s).");
+        if (nulledProductionRecordFk > 0)
+            Console.WriteLine($"  Cleared ProductionRecordId on {nulledProductionRecordFk} trace rows with missing ProductionRecord FK.");
 
         sw.Stop();
         _log.EndTable(sw.Elapsed);

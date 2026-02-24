@@ -112,7 +112,15 @@ export function AIReviewScreen() {
 
 
   return (
-    <AdminLayout title="AI Review">
+    <AdminLayout
+      title="AI Review"
+      nlqContext={{
+        screenKey: 'ai-review',
+        workCenterId: selectedWcId || undefined,
+        date: todayISOString(),
+        activeFilterTotalCount: records.length,
+      }}
+    >
       <div className={styles.toolbar}>
         <div className={styles.toolbarField}>
           <Label weight="semibold">Work Center</Label>

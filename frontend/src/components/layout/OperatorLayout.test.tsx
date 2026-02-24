@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
+import { reportTelemetry } from '../../telemetry/telemetryClient.ts';
 
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: {
@@ -9,6 +10,28 @@ vi.mock('../../api/endpoints', () => ({
     getWorkCenters: vi.fn().mockResolvedValue([]),
     getQueueTransactions: vi.fn().mockResolvedValue([]),
     lookupWelder: vi.fn(),
+  },
+  supervisorDashboardApi: {
+    getMetrics: vi.fn().mockResolvedValue({
+      dayCount: 15,
+      hourlyCounts: [
+        { hour: 10, count: 2 },
+        { hour: 11, count: 3 },
+        { hour: 12, count: 4 },
+        { hour: 13, count: 5 },
+        { hour: 14, count: 6 },
+      ],
+    }),
+    getPerformanceTable: vi.fn().mockResolvedValue({
+      rows: [
+        { label: '10:00', planned: 4, actual: 2, delta: -2, fpy: null, downtimeMinutes: 0 },
+        { label: '11:00', planned: 4, actual: 3, delta: -1, fpy: null, downtimeMinutes: 0 },
+        { label: '12:00', planned: 4, actual: 4, delta: 0, fpy: null, downtimeMinutes: 0 },
+        { label: '13:00', planned: 4, actual: 5, delta: 1, fpy: null, downtimeMinutes: 0 },
+        { label: '14:00', planned: 4, actual: 6, delta: 2, fpy: null, downtimeMinutes: 0 },
+      ],
+      totalRow: { label: 'Total', planned: 20, actual: 20, delta: 0, fpy: null, downtimeMinutes: 0 },
+    }),
   },
   adminWorkCenterApi: {
     getProductionLineConfigs: vi.fn().mockResolvedValue([]),
@@ -64,6 +87,10 @@ vi.mock('../../hooks/useInactivityTracker', () => ({
 vi.mock('../../help/useCurrentHelpArticle', () => ({
   useCurrentHelpArticle: () => null,
 }));
+vi.mock('../../telemetry/telemetryClient.ts', () => ({
+  reportException: vi.fn(),
+  reportTelemetry: vi.fn(),
+}));
 
 vi.mock('./TopBar', () => ({ TopBar: () => <div data-testid="top-bar" /> }));
 vi.mock('./BottomBar', () => ({ BottomBar: () => <div data-testid="bottom-bar" /> }));
@@ -73,7 +100,22 @@ vi.mock('./QueueHistory', () => ({ QueueHistory: () => <div data-testid="queue-h
 vi.mock('./ScanOverlay.tsx', () => ({ ScanOverlay: () => null }));
 vi.mock('./DowntimeOverlay', () => ({ DowntimeOverlay: () => null }));
 
-vi.mock('../../features/rolls/RollsScreen.tsx', () => ({ RollsScreen: () => <div data-testid="rolls-screen" /> }));
+const mockRollsScreenBehavior = { emitErrorOnMount: false };
+vi.mock('../../features/rolls/RollsScreen.tsx', async () => {
+  const React = await import('react');
+  return {
+    RollsScreen: (props: { showScanResult?: (result: { type: 'error' | 'success' | 'warning'; message?: string }) => void }) => {
+      const emittedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (mockRollsScreenBehavior.emitErrorOnMount && !emittedRef.current) {
+          emittedRef.current = true;
+          props.showScanResult?.({ type: 'error', message: 'Mock scan error' });
+        }
+      }, []);
+      return <div data-testid="rolls-screen" />;
+    },
+  };
+});
 vi.mock('../../features/hydro/HydroScreen.tsx', () => ({ HydroScreen: () => <div data-testid="hydro-screen" /> }));
 vi.mock('../../features/fitup/FitupScreen.tsx', () => ({ FitupScreen: () => <div data-testid="fitup-screen" /> }));
 vi.mock('../../features/spotXray/SpotXrayScreen.tsx', () => ({ SpotXrayScreen: () => <div data-testid="spot-screen" /> }));
@@ -101,6 +143,7 @@ function renderOperatorLayout() {
 describe('OperatorLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRollsScreenBehavior.emitErrorOnMount = false;
   });
 
   it('renders TopBar, BottomBar, and LeftPanel', async () => {
@@ -150,5 +193,53 @@ describe('OperatorLayout', () => {
       expect(screen.getByTestId('top-bar')).toBeInTheDocument();
     });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('renders the floating capacity summary card', async () => {
+    renderOperatorLayout();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Operator capacity indicator')).toBeInTheDocument();
+      expect(screen.getByText('Total Count')).toBeInTheDocument();
+      expect(screen.getByText('Plan')).toBeInTheDocument();
+      expect(screen.getByText('Actual')).toBeInTheDocument();
+    });
+  });
+
+  it('hides Plan row when no capacity target is configured', async () => {
+    const { supervisorDashboardApi } = await import('../../api/endpoints');
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValueOnce({
+      rows: [
+        { label: '10:00', planned: null, actual: 2, delta: 2, fpy: null, downtimeMinutes: 0 },
+        { label: '11:00', planned: null, actual: 3, delta: 3, fpy: null, downtimeMinutes: 0 },
+        { label: '12:00', planned: null, actual: 4, delta: 4, fpy: null, downtimeMinutes: 0 },
+        { label: '13:00', planned: null, actual: 5, delta: 5, fpy: null, downtimeMinutes: 0 },
+        { label: '14:00', planned: null, actual: 6, delta: 6, fpy: null, downtimeMinutes: 0 },
+      ],
+      totalRow: { label: 'Total', planned: null, actual: 20, delta: 20, fpy: null, downtimeMinutes: 0 },
+    });
+
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Operator capacity indicator')).toBeInTheDocument();
+      expect(screen.getByText('Actual')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Plan')).not.toBeInTheDocument();
+  });
+
+  it('logs telemetry when an error scan overlay is shown', async () => {
+    mockRollsScreenBehavior.emitErrorOnMount = true;
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(vi.mocked(reportTelemetry)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'scan_feedback',
+          source: 'operator_scan_overlay',
+          severity: 'error',
+          message: 'Mock scan error',
+        }),
+      );
+    });
   });
 });

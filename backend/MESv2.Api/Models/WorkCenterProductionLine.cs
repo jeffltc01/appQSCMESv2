@@ -9,6 +9,8 @@ public class WorkCenterProductionLine
     public int NumberOfWelders { get; set; }
     public bool DowntimeTrackingEnabled { get; set; }
     public int DowntimeThresholdMinutes { get; set; } = 5;
+    public bool EnableWorkCenterChecklist { get; set; }
+    public bool EnableSafetyChecklist { get; set; }
 
     public WorkCenter WorkCenter { get; set; } = null!;
     public ProductionLine ProductionLine { get; set; } = null!;

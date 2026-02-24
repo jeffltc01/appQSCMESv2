@@ -41,24 +41,20 @@ export function AdminModal({
   return (
     <Dialog open={open} onOpenChange={(_, data) => { if (!data.open) onCancel(); }}>
       <DialogSurface className={wide ? styles.surfaceWide : styles.surface}>
-        <DialogBody>
-          <DialogTitle
-            action={
-              <Button
-                appearance="subtle"
-                aria-label="close"
-                icon={<DismissRegular />}
-                onClick={onCancel}
-              />
-            }
-          >
-            {title}
-          </DialogTitle>
+        <DialogBody className={styles.body}>
+          <Button
+            appearance="subtle"
+            aria-label="close"
+            icon={<DismissRegular />}
+            onClick={onCancel}
+            className={styles.closeButton}
+          />
+          <DialogTitle>{title}</DialogTitle>
           <DialogContent className={styles.content}>
             {children}
             {error && <div className={styles.error}>{error}</div>}
           </DialogContent>
-          <DialogActions>
+          <DialogActions className={styles.actions}>
             <Button appearance="secondary" onClick={onCancel} disabled={loading}>
               {cancelLabel}
             </Button>

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { MenuScreen } from './MenuScreen';
-import { frontendTelemetryApi } from '../../api/endpoints';
+import { adminAnnotationApi, frontendTelemetryApi, issueRequestApi } from '../../api/endpoints';
 
 vi.mock('../../api/endpoints');
 vi.mock('../../help/helpRegistry', () => ({ getArticleBySlug: vi.fn() }));
@@ -55,13 +55,16 @@ describe('MenuScreen', () => {
       warningThreshold: 250000,
       isWarning: false,
     });
+    vi.mocked(issueRequestApi.getPending).mockResolvedValue([]);
+    vi.mocked(adminAnnotationApi.getAll).mockResolvedValue([]);
   });
 
-  it('admin (roleTier 1) sees all tiles including Work Center Config and User Maintenance', () => {
+  it('admin (roleTier 1) sees all tiles including Work Centers screens and User Maintenance', () => {
     mockUseAuth.mockReturnValue(authValue({ roleTier: 1 }));
     renderScreen();
 
-    expect(screen.getByText('Work Center Config')).toBeInTheDocument();
+    expect(screen.getByText('Work Centers')).toBeInTheDocument();
+    expect(screen.getByText('Production Line Work Centers')).toBeInTheDocument();
     expect(screen.getByText('User Maintenance')).toBeInTheDocument();
     expect(screen.getByText('Product Maintenance')).toBeInTheDocument();
     expect(screen.getByText('Vendor Maintenance')).toBeInTheDocument();
@@ -79,7 +82,8 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Log Viewer')).toBeInTheDocument();
 
     expect(screen.queryByText('Product Maintenance')).not.toBeInTheDocument();
-    expect(screen.queryByText('Work Center Config')).not.toBeInTheDocument();
+    expect(screen.queryByText('Work Centers')).not.toBeInTheDocument();
+    expect(screen.queryByText('Production Line Work Centers')).not.toBeInTheDocument();
     expect(screen.queryByText('User Maintenance')).not.toBeInTheDocument();
     expect(screen.queryByText('Defect Codes')).not.toBeInTheDocument();
     expect(screen.queryByText('Kanban Card Mgmt')).not.toBeInTheDocument();
@@ -95,9 +99,31 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Downtime Log')).toBeInTheDocument();
     expect(screen.getByText('Supervisor / Team Lead Dashboard')).toBeInTheDocument();
     expect(screen.getByText("Who's On the Floor")).toBeInTheDocument();
-    expect(screen.getByText('Report Issue')).toBeInTheDocument();
+    expect(screen.getByText('Issues')).toBeInTheDocument();
     expect(screen.getByText('Operator View')).toBeInTheDocument();
     expect(screen.getByText('Log Viewer')).toBeInTheDocument();
+  });
+
+  it('shows pending approvals count on Issues tile for approvers', async () => {
+    vi.mocked(issueRequestApi.getPending).mockResolvedValue([
+      { id: 'a' } as never,
+      { id: 'b' } as never,
+    ]);
+    mockUseAuth.mockReturnValue(authValue({ roleTier: 3 }));
+    renderScreen();
+    expect(await screen.findByLabelText('Issues pending approval count: 2')).toBeInTheDocument();
+  });
+
+  it('shows unresolved annotation count on Annotations tile for approvers', async () => {
+    vi.mocked(adminAnnotationApi.getAll).mockResolvedValue([
+      { id: 'a1', resolvedByName: undefined } as never,
+      { id: 'a2', resolvedByName: 'Admin User' } as never,
+      { id: 'a3', resolvedByName: undefined } as never,
+    ]);
+    mockUseAuth.mockReturnValue(authValue({ roleTier: 3 }));
+    renderScreen();
+    expect(await screen.findByLabelText('Annotations needing response count: 2')).toBeInTheDocument();
+    expect(adminAnnotationApi.getAll).toHaveBeenCalledWith('site-1');
   });
 
   it('roleTier 5.5 user sees AI Review tile', () => {

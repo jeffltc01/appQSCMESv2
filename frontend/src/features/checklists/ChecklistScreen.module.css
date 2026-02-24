@@ -1,0 +1,73 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.header h2 {
+  margin: 0;
+  color: #1b2a4a;
+}
+
+.meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #495057;
+}
+
+.itemCard {
+  border: 1px solid #dfe2ed;
+}
+
+.prompt {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.responses {
+  display: flex;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+
+.responses button {
+  min-width: 120px;
+  min-height: 56px;
+  font-size: 20px;
+}
+
+.selectedPass {
+  background: #d3f9d8 !important;
+  border-color: #2b8a3e !important;
+}
+
+.selectedFail {
+  background: #ffe3e3 !important;
+  border-color: #c92a2a !important;
+}
+
+.selectedNa {
+  background: #e7f5ff !important;
+  border-color: #1c7ed6 !important;
+}
+
+.noteWrap {
+  padding: 0 12px 12px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.error {
+  color: #c92a2a;
+  font-weight: 600;
+}
+
+.loading {
+  padding: 24px;
+}

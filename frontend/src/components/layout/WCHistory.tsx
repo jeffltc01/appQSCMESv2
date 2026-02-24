@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FlagRegular, FlagFilled } from '@fluentui/react-icons';
+import { useAuth } from '../../auth/AuthContext.tsx';
 import type { WCHistoryData, WCHistoryEntry } from '../../types/domain.ts';
-import { formatShortDateTime } from '../../utils/dateFormat.ts';
+import { formatShortDateOnly, formatTimeOnly } from '../../utils/dateFormat.ts';
 import { AnnotationDialog } from './AnnotationDialog.tsx';
 import styles from './WCHistory.module.css';
 
@@ -10,10 +11,12 @@ interface WCHistoryProps {
   data: WCHistoryData;
   logType?: string;
   operatorId?: string;
+  kioskMode?: boolean;
   onAnnotationCreated?: () => void;
 }
 
-export function WCHistory({ data, logType, operatorId, onAnnotationCreated }: WCHistoryProps) {
+export function WCHistory({ data, logType, operatorId, kioskMode = false, onAnnotationCreated }: WCHistoryProps) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [dialogRecord, setDialogRecord] = useState<WCHistoryEntry | null>(null);
 
@@ -32,7 +35,7 @@ export function WCHistory({ data, logType, operatorId, onAnnotationCreated }: WC
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span className={styles.headerCount}>Today&apos;s Count: {data.dayCount}</span>
+        <span className={styles.headerTitle}>Last 5 Transactions</span>
       </div>
 
       <div className={styles.tableHeader}>
@@ -61,7 +64,10 @@ export function WCHistory({ data, logType, operatorId, onAnnotationCreated }: WC
                       : <FlagRegular fontSize={20} className={styles.flagInactive} />}
                   </button>
                 </span>
-                <span className={styles.colDateTime}>{formatShortDateTime(record.timestamp)}</span>
+                <span className={styles.colDateTime}>
+                  <span className={styles.dateLine}>{formatShortDateOnly(record.timestamp, user?.plantTimeZoneId)}</span>
+                  <span className={styles.timeLine}>{formatTimeOnly(record.timestamp, user?.plantTimeZoneId)}</span>
+                </span>
                 <span className={styles.colSerial}>{record.serialOrIdentifier}</span>
                 <span className={styles.colSize}>{record.tankSize ?? ''}</span>
               </div>
@@ -69,7 +75,7 @@ export function WCHistory({ data, logType, operatorId, onAnnotationCreated }: WC
         )}
       </div>
 
-      {logType && (
+      {logType && !kioskMode && (
         <button
           className={styles.viewFullLogBtn}
           onClick={() => navigate(`/menu/production-logs?logType=${logType}`)}

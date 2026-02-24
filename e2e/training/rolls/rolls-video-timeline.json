@@ -1,0 +1,69 @@
+{
+  "title": "MES v2 Rolls Work Center Training",
+  "outputFileName": "rolls-training-video.mp4",
+  "scenes": [
+    {
+      "id": "scene-01",
+      "screenshot": "01_rolls_idle.png",
+      "durationSec": 8,
+      "caption": "Rolls = first station in shell production.",
+      "narration": "This is the Rolls station in MES v2. Think of this as the handoff point where raw plate becomes a traceable shell record that downstream stations can trust."
+    },
+    {
+      "id": "scene-02",
+      "screenshot": "02_queue_advanced.png",
+      "durationSec": 9,
+      "caption": "Advance queue before scanning shell labels.",
+      "narration": "Before any shell scan, advance the material queue. That activates the batch and auto-loads size, heat, coil, planned quantity, and remaining count."
+    },
+    {
+      "id": "scene-03",
+      "screenshot": "03_thickness_prompt.png",
+      "durationSec": 10,
+      "caption": "First shell requires thickness inspection.",
+      "narration": "On the first shell of a batch, Rolls asks for thickness confirmation. Treat this as a quick quality gate before you settle into a repeat rhythm."
+    },
+    {
+      "id": "scene-04",
+      "screenshot": "04_shell_recorded.png",
+      "durationSec": 9,
+      "caption": "Matched labels create a production record.",
+      "narration": "Once the label pair is valid, the system writes the production record and updates history immediately, so traceability stays current in real time."
+    },
+    {
+      "id": "scene-05",
+      "screenshot": "05_second_shell_recorded.png",
+      "durationSec": 9,
+      "caption": "Repeat for each shell in the active batch.",
+      "narration": "From here, it is a repeat loop. Each accepted shell increments your count and burns down remaining material with no extra bookkeeping."
+    },
+    {
+      "id": "scene-06",
+      "screenshot": "06_advance_queue_prompt.png",
+      "durationSec": 10,
+      "caption": "Zero remaining triggers queue advance prompt.",
+      "narration": "When remaining hits zero, Rolls prompts you to advance. Pick Yes for the next batch, or No if floor reality does not match expected quantity."
+    },
+    {
+      "id": "scene-07",
+      "screenshot": "07_scan_label2_state.png",
+      "durationSec": 8,
+      "caption": "Follow the scan state indicator.",
+      "narration": "Use the scan-state banner as your guide. After label one, the screen explicitly waits for label two to prevent accidental mis-pairing."
+    },
+    {
+      "id": "scene-08",
+      "screenshot": "08_manual_mode_input.png",
+      "durationSec": 8,
+      "caption": "Manual mode is available when scanners are offline.",
+      "narration": "If scanner input is unavailable, switch to manual entry. The rules do not change, you are only swapping how the serial gets into the system."
+    },
+    {
+      "id": "scene-09",
+      "screenshot": "09_rolls_close.png",
+      "durationSec": 9,
+      "caption": "Advance, scan, inspect, record.",
+      "narration": "The operating pattern is simple: activate batch, verify labels, clear quality checks, and keep an eye on remaining. If the queue is empty, pull in Material Handling."
+    }
+  ]
+}

@@ -59,6 +59,7 @@ builder.Services.AddScoped<IFrontendTelemetryService, FrontendTelemetryService>(
 builder.Services.AddScoped<IDemoShellFlowService, DemoShellFlowService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminWorkCenterService, AdminWorkCenterService>();
+builder.Services.AddScoped<IChecklistService, ChecklistService>();
 builder.Services.AddScoped<INaturalLanguageQueryService, NaturalLanguageQueryService>();
 builder.Services.AddScoped<INlqToolExecutor, NaturalLanguageQueryToolExecutor>();
 

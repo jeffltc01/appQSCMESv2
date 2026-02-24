@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const CI = !!process.env.CI;
+const DEPLOY_SMOKE = process.env.DEPLOY_SMOKE === 'true';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5001';
 
 export default defineConfig({
   testDir: './tests',
@@ -12,7 +15,7 @@ export default defineConfig({
   timeout: 30_000,
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: FRONTEND_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -24,17 +27,17 @@ export default defineConfig({
     },
   ],
 
-  webServer: [
+  webServer: DEPLOY_SMOKE ? undefined : [
     {
       command: 'dotnet run --project ../backend/MESv2.Api',
-      url: 'http://localhost:5001/healthz',
+      url: `${BACKEND_URL}/healthz`,
       reuseExistingServer: !CI,
       timeout: 30_000,
     },
     {
       command: process.platform === 'win32' ? 'npm.cmd run dev' : 'npm run dev',
       cwd: '../frontend',
-      url: 'http://localhost:5173',
+      url: FRONTEND_URL,
       reuseExistingServer: !CI,
       timeout: 15_000,
     },

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loginViaAPI, setTabletCache } from '../helpers/auth';
+import { FRONTEND_BASE_URL, loginViaAPI, setTabletCache } from '../helpers/auth';
 import {
   generateShellSerial,
 } from '../helpers/production';
@@ -64,13 +64,13 @@ async function loginFromProxy(
   pin: string | null,
 ): Promise<{ token: string; siteId: string }> {
   const configResp = await request.get(`/api/users/login-config?empNo=${encodeURIComponent(empNo)}`, {
-    baseURL: 'http://localhost:5173',
+    baseURL: FRONTEND_BASE_URL,
   });
   expect(configResp.ok(), `login-config failed for ${empNo} (${configResp.status()})`).toBeTruthy();
   const config = await configResp.json();
 
   const loginResp = await request.post('/api/auth/login', {
-    baseURL: 'http://localhost:5173',
+    baseURL: FRONTEND_BASE_URL,
     data: {
       employeeNumber: empNo,
       pin,
@@ -85,7 +85,7 @@ async function loginFromProxy(
 
 async function authedGet<T>(request: APIRequestContext, token: string, path: string): Promise<T> {
   const resp = await request.get(path, {
-    baseURL: 'http://localhost:5173',
+    baseURL: FRONTEND_BASE_URL,
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(resp.ok(), `GET ${path} failed (${resp.status()})`).toBeTruthy();
@@ -115,7 +115,7 @@ async function seedRollsViaProxy(request: APIRequestContext, context: TrainingCo
 
   for (const payload of payloads) {
     const resp = await request.post(`/api/workcenters/${context.workCenterId}/material-queue`, {
-      baseURL: 'http://localhost:5173',
+      baseURL: FRONTEND_BASE_URL,
       headers: { Authorization: `Bearer ${context.token}` },
       data: payload,
     });

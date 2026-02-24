@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
-import { setAuthToken, setRoleTier, setSiteId } from '../api/apiClient.ts';
+import { setAuthToken, setRoleTier, setSiteId, setUserId } from '../api/apiClient.ts';
 
 const SESSION_KEY = 'mes_auth';
 
@@ -39,6 +39,7 @@ function loadPersistedState(): AuthState {
         setAuthToken(parsed.token);
         setRoleTier(parsed.user?.roleTier ?? null);
         setSiteId(parsed.user?.defaultSiteId ?? null);
+        setUserId(parsed.user?.id ?? null);
         return parsed;
       }
     }
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(token);
     setRoleTier(user.roleTier);
     setSiteId(user.defaultSiteId);
+    setUserId(user.id);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
   }, []);
 
@@ -67,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(null);
     setRoleTier(null);
     setSiteId(null);
+    setUserId(null);
     sessionStorage.removeItem(SESSION_KEY);
   }, []);
 

@@ -5,6 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { WCHistory } from './WCHistory';
 import type { WCHistoryEntry } from '../../types/domain';
 
+vi.mock('../../auth/AuthContext.tsx', () => ({
+  useAuth: () => ({
+    user: { plantTimeZoneId: 'America/Denver' },
+  }),
+}));
+
 vi.mock('../../api/endpoints', () => ({
   adminAnnotationTypeApi: {
     getAll: vi.fn().mockResolvedValue([
@@ -35,9 +41,14 @@ function renderWCHistory(props: Parameters<typeof WCHistory>[0]) {
 }
 
 describe('WCHistory', () => {
-  it('displays day count in header', () => {
+  it('shows history title', () => {
+    renderWCHistory({ data: { dayCount: 0, recentRecords: [] } });
+    expect(screen.getByText('Last 5 Transactions')).toBeInTheDocument();
+  });
+
+  it('does not display day count header text', () => {
     renderWCHistory({ data: { dayCount: 42, recentRecords: [] } });
-    expect(screen.getByText(/Today's Count: 42/)).toBeInTheDocument();
+    expect(screen.queryByText(/Today's Count:/)).not.toBeInTheDocument();
   });
 
   it('shows "No records today" when empty', () => {
@@ -59,7 +70,9 @@ describe('WCHistory', () => {
     expect(screen.getByText('SH002')).toBeInTheDocument();
     expect(screen.getByText('120')).toBeInTheDocument();
     expect(screen.getByText('250')).toBeInTheDocument();
-    expect(screen.getByText(/Today's Count: 3/)).toBeInTheDocument();
+    expect(screen.getAllByText('2/19').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('7:30 AM').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Today's Count:/)).not.toBeInTheDocument();
   });
 
   it('renders annotation flag with the correct color from annotationColor', () => {
@@ -100,6 +113,15 @@ describe('WCHistory', () => {
 
   it('hides View Full Log link when logType is not provided', () => {
     renderWCHistory({ data: { dayCount: 0, recentRecords: [] } });
+    expect(screen.queryByText('View Full Log')).not.toBeInTheDocument();
+  });
+
+  it('hides View Full Log link in kiosk mode', () => {
+    renderWCHistory({
+      data: { dayCount: 0, recentRecords: [] },
+      logType: 'rolls',
+      kioskMode: true,
+    });
     expect(screen.queryByText('View Full Log')).not.toBeInTheDocument();
   });
 

@@ -83,4 +83,31 @@ describe('BottomBar', () => {
     expect(readyDot).not.toBeInTheDocument();
     expect(lostDot).not.toBeInTheDocument();
   });
+
+  it('hides capacity indicator when capacity props are missing', () => {
+    renderBottomBar();
+    expect(screen.queryByLabelText('Operator capacity indicator')).not.toBeInTheDocument();
+  });
+
+  it('shows normal capacity indicator for values below warning threshold', () => {
+    renderBottomBar({ currentCount: 42, capacityCount: 60 });
+    expect(screen.getByLabelText('Operator capacity indicator')).toBeInTheDocument();
+    expect(screen.getByText('42 / 60')).toBeInTheDocument();
+    expect(screen.getByText('70%')).toBeInTheDocument();
+    expect(screen.getByText('In Capacity')).toBeInTheDocument();
+    expect(screen.getByText('18 remaining')).toBeInTheDocument();
+  });
+
+  it('shows warning capacity indicator near full', () => {
+    renderBottomBar({ currentCount: 48, capacityCount: 60 });
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(screen.getByText('Near Capacity')).toBeInTheDocument();
+  });
+
+  it('shows full capacity indicator when count reaches capacity', () => {
+    renderBottomBar({ currentCount: 60, capacityCount: 60 });
+    expect(screen.getByText('100%')).toBeInTheDocument();
+    expect(screen.getByText('Capacity Reached')).toBeInTheDocument();
+    expect(screen.getByText('0 remaining')).toBeInTheDocument();
+  });
 });

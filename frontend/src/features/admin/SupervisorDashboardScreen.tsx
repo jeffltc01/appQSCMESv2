@@ -173,11 +173,16 @@ export function SupervisorDashboardScreen() {
   return (
     <AdminLayout
       title="Supervisor / Team Lead Dashboard"
+      showAskMes
       nlqContext={{
+        screenKey: 'supervisor-dashboard',
         workCenterId: selectedWcId || undefined,
         operatorId: selectedOperatorId ?? undefined,
         date: todayISOString(),
         view: viewMode,
+        activeFilterTotalCount: viewMode === 'annotate'
+          ? records.length
+          : (perfTable?.rows.length ?? metrics?.operators.length ?? undefined),
       }}
     >
       {/* Toolbar */}

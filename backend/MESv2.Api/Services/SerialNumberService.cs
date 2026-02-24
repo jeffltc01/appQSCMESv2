@@ -183,7 +183,7 @@ public class SerialNumberService : ISerialNumberService
 
         var marriageLog = await _db.TraceabilityLogs
             .FirstOrDefaultAsync(t => t.ToSerialNumberId == sellableSn.Id
-                && t.Relationship == "hydro-marriage"
+                && (t.Relationship == "hydro-marriage" || t.Relationship == "component")
                 && t.FromSerialNumberId != null, ct);
 
         if (marriageLog?.FromSerialNumberId != null)
@@ -222,9 +222,12 @@ public class SerialNumberService : ISerialNumberService
                 {
                     allSnIds.Add(childSn.Id);
                     var nodeType = NormalizeRelationship(log.Relationship, log.TankLocation);
-                    var childNode = BuildNodeDto(childSn, nodeType);
+                    var resolvedNodeType = nodeType == "component"
+                        ? InferNodeTypeFromProduct(childSn, log.TankLocation)
+                        : nodeType;
+                    var childNode = BuildNodeDto(childSn, resolvedNodeType);
 
-                    if (nodeType == "shell")
+                    if (resolvedNodeType == "shell")
                         await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
 
                     assemblyNode.Children.Add(childNode);
@@ -261,7 +264,27 @@ public class SerialNumberService : ISerialNumberService
             "leftHead" or "rightHead" => relationship,
             "plate" => "plate",
             "NameplateToAssembly" or "Nameplate" => "nameplate",
+            "component" => tankLocation switch
+            {
+                "Head 1" => "leftHead",
+                "Head 2" => "rightHead",
+                var l when !string.IsNullOrWhiteSpace(l) && l.StartsWith("Shell", StringComparison.OrdinalIgnoreCase) => "shell",
+                _ => "component"
+            },
             _ => relationship ?? "component"
+        };
+    }
+
+    private static string InferNodeTypeFromProduct(SerialNumber childSn, string? tankLocation)
+    {
+        var systemType = childSn.Product?.ProductType?.SystemTypeName;
+        return systemType switch
+        {
+            "shell" => "shell",
+            "plate" => "plate",
+            "sellable" => "nameplate",
+            "head" => tankLocation == "Head 2" ? "rightHead" : "leftHead",
+            _ => "component"
         };
     }
 
@@ -284,7 +307,7 @@ public class SerialNumberService : ISerialNumberService
 
             var sellableLog = await _db.TraceabilityLogs
                 .FirstOrDefaultAsync(t => t.FromSerialNumberId == parentSn.Id
-                    && t.Relationship == "hydro-marriage"
+                    && (t.Relationship == "hydro-marriage" || t.Relationship == "component")
                     && t.ToSerialNumberId != null, ct);
             if (sellableLog?.ToSerialNumberId != null)
             {
@@ -309,13 +332,16 @@ public class SerialNumberService : ISerialNumberService
         HashSet<Guid> allSnIds, CancellationToken ct)
     {
         var plateLogs = await _db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == shellId && t.Relationship == "plate" && t.FromSerialNumberId != null)
+            .Where(t => t.ToSerialNumberId == shellId
+                && (t.Relationship == "plate" || t.Relationship == "component")
+                && t.FromSerialNumberId != null)
             .ToListAsync(ct);
 
         foreach (var log in plateLogs)
         {
             var plateSn = await LoadFullSn(log.FromSerialNumberId!.Value, ct);
-            if (plateSn != null)
+            var isPlate = plateSn?.Product?.ProductType?.SystemTypeName == "plate";
+            if (plateSn != null && (log.Relationship == "plate" || isPlate))
             {
                 allSnIds.Add(plateSn.Id);
                 var plateNode = BuildNodeDto(plateSn, "plate");

@@ -1,5 +1,5 @@
 import type { QueueTransaction } from '../../types/domain.ts';
-import { formatShortDateTime } from '../../utils/dateFormat.ts';
+import { formatShortDateOnly, formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './WCHistory.module.css';
 
 interface QueueHistoryProps {
@@ -18,17 +18,22 @@ export function QueueHistory({ transactions }: QueueHistoryProps) {
         <span className={styles.colSerial}>Item</span>
       </div>
 
-      <div className={styles.tableBody}>
-        {transactions.length === 0 ? (
-          <div className={styles.noRecords}>No recent activity</div>
-        ) : (
-          transactions.map((tx) => (
-              <div key={tx.id} className={styles.queueRow}>
-                <span className={styles.colDateTime}>{formatShortDateTime(tx.timestamp)}</span>
-                <span className={styles.colSerial}>{tx.itemSummary}</span>
-              </div>
-          ))
-        )}
+      <div className={styles.queueListPanel}>
+        <div className={styles.tableBody}>
+          {transactions.length === 0 ? (
+            <div className={styles.noRecords}>No recent activity</div>
+          ) : (
+            transactions.map((tx) => (
+                <div key={tx.id} className={styles.queueRow}>
+                  <span className={styles.colDateTime}>
+                    <span className={styles.dateLine}>{formatShortDateOnly(tx.timestamp)}</span>
+                    <span className={styles.timeLine}>{formatTimeOnly(tx.timestamp)}</span>
+                  </span>
+                  <span className={`${styles.colSerial} ${styles.queueItemSummary}`}>{tx.itemSummary}</span>
+                </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

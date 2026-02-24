@@ -221,6 +221,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
                 NumberOfWelders = wcpl.NumberOfWelders,
                 DowntimeTrackingEnabled = wcpl.DowntimeTrackingEnabled,
                 DowntimeThresholdMinutes = wcpl.DowntimeThresholdMinutes,
+                EnableWorkCenterChecklist = wcpl.EnableWorkCenterChecklist,
+                EnableSafetyChecklist = wcpl.EnableSafetyChecklist,
             })
             .ToListAsync(ct);
     }
@@ -241,6 +243,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             ProductionLineName = wcpl.ProductionLine.Name,
             DisplayName = wcpl.DisplayName,
             NumberOfWelders = wcpl.NumberOfWelders,
+            EnableWorkCenterChecklist = wcpl.EnableWorkCenterChecklist,
+            EnableSafetyChecklist = wcpl.EnableSafetyChecklist,
         };
     }
 
@@ -266,6 +270,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             ProductionLineId = dto.ProductionLineId,
             DisplayName = dto.DisplayName,
             NumberOfWelders = dto.NumberOfWelders,
+            EnableWorkCenterChecklist = dto.EnableWorkCenterChecklist,
+            EnableSafetyChecklist = dto.EnableSafetyChecklist,
         };
 
         _db.WorkCenterProductionLines.Add(entity);
@@ -282,6 +288,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             NumberOfWelders = entity.NumberOfWelders,
             DowntimeTrackingEnabled = entity.DowntimeTrackingEnabled,
             DowntimeThresholdMinutes = entity.DowntimeThresholdMinutes,
+            EnableWorkCenterChecklist = entity.EnableWorkCenterChecklist,
+            EnableSafetyChecklist = entity.EnableSafetyChecklist,
         };
     }
 
@@ -297,6 +305,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
         wcpl.NumberOfWelders = dto.NumberOfWelders;
         wcpl.DowntimeTrackingEnabled = dto.DowntimeTrackingEnabled;
         wcpl.DowntimeThresholdMinutes = dto.DowntimeThresholdMinutes;
+        wcpl.EnableWorkCenterChecklist = dto.EnableWorkCenterChecklist;
+        wcpl.EnableSafetyChecklist = dto.EnableSafetyChecklist;
         await _db.SaveChangesAsync(ct);
 
         return new AdminWorkCenterProductionLineDto
@@ -310,6 +320,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             NumberOfWelders = wcpl.NumberOfWelders,
             DowntimeTrackingEnabled = wcpl.DowntimeTrackingEnabled,
             DowntimeThresholdMinutes = wcpl.DowntimeThresholdMinutes,
+            EnableWorkCenterChecklist = wcpl.EnableWorkCenterChecklist,
+            EnableSafetyChecklist = wcpl.EnableSafetyChecklist,
         };
     }
 

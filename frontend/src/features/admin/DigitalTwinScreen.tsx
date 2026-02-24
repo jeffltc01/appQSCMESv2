@@ -111,7 +111,13 @@ export function DigitalTwinScreen() {
   const selectedLine = productionLines.find((l) => l.id === selectedLineId);
 
   return (
-    <AdminLayout title={`Digital Twin${selectedLine ? ` — ${selectedLine.name}` : ''}`}>
+    <AdminLayout
+      title={`Digital Twin${selectedLine ? ` — ${selectedLine.name}` : ''}`}
+      nlqContext={{
+        productionLineId: selectedLineId || undefined,
+        screenKey: 'digital-twin',
+      }}
+    >
       <div className={styles.container}>
         {/* ---- Toolbar ---- */}
         <div className={styles.toolbar}>

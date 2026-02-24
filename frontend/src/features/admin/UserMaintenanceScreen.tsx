@@ -159,7 +159,16 @@ export function UserMaintenanceScreen() {
   ) : undefined;
 
   return (
-    <AdminLayout title="User Maintenance" onAdd={openAdd} addLabel="Add User">
+    <AdminLayout
+      title="User Maintenance"
+      onAdd={openAdd}
+      addLabel="Add User"
+      nlqContext={{
+        screenKey: 'user-maintenance',
+        activeFilterTotalCount: filteredItems.length,
+        filterSummary: `search=${search || 'none'}`,
+      }}
+    >
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (

@@ -7,6 +7,7 @@ namespace MESv2.Api.Services;
 
 public class WorkCenterService : IWorkCenterService
 {
+    private const int MaxQueueItemsPerWorkCenter = 5;
     private readonly MesDbContext _db;
     private readonly ILogger<WorkCenterService> _logger;
 
@@ -66,6 +67,7 @@ public class WorkCenterService : IWorkCenterService
         var dayCount = await baseFilter
             .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
             .CountAsync(cancellationToken);
+        var dayHourlyCounts = await BuildProductionHourlyCountsAsync(baseFilter, startOfDay, endOfDay, tz, cancellationToken);
 
         var recentProdRecords = await baseFilter
             .Include(r => r.SerialNumber)
@@ -75,13 +77,42 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         if (recentProdRecords.Count > 0)
-            return await GetProductionHistoryItems(wcId, dayCount, recentProdRecords, tz, cancellationToken);
+            return await GetProductionHistoryItems(wcId, dayCount, dayHourlyCounts, recentProdRecords, tz, cancellationToken);
 
         return await GetInspectionHistoryItems(wcId, startOfDay, endOfDay, limit, tz, cancellationToken);
     }
 
+    private static List<HourlyCountDto> BuildHourlyCountDtos(IEnumerable<DateTime> timestampsUtc, TimeZoneInfo tz)
+    {
+        var grouped = timestampsUtc
+            .GroupBy(t => TimeZoneInfo.ConvertTimeFromUtc(
+                t.Kind == DateTimeKind.Utc ? t : DateTime.SpecifyKind(t, DateTimeKind.Utc), tz).Hour)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var result = new List<HourlyCountDto>(24);
+        for (var h = 0; h < 24; h++)
+            result.Add(new HourlyCountDto { Hour = h, Count = grouped.GetValueOrDefault(h) });
+
+        return result;
+    }
+
+    private async Task<List<HourlyCountDto>> BuildProductionHourlyCountsAsync(
+        IQueryable<ProductionRecord> baseFilter,
+        DateTime startOfDay,
+        DateTime endOfDay,
+        TimeZoneInfo tz,
+        CancellationToken cancellationToken)
+    {
+        var timestamps = await baseFilter
+            .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
+            .Select(r => r.Timestamp)
+            .ToListAsync(cancellationToken);
+
+        return BuildHourlyCountDtos(timestamps, tz);
+    }
+
     private async Task<WCHistoryDto> GetProductionHistoryItems(
-        Guid wcId, int dayCount, List<ProductionRecord> recentProdRecords,
+        Guid wcId, int dayCount, List<HourlyCountDto> dayHourlyCounts, List<ProductionRecord> recentProdRecords,
         TimeZoneInfo tz, CancellationToken cancellationToken)
     {
         var recordIds = recentProdRecords.Select(r => r.Id).ToList();
@@ -144,7 +175,7 @@ public class WorkCenterService : IWorkCenterService
             {
                 Id = r.Id,
                 ProductionRecordId = r.Id,
-                Timestamp = ToLocal(r.Timestamp, tz),
+                Timestamp = DateTime.SpecifyKind(r.Timestamp, DateTimeKind.Utc),
                 SerialOrIdentifier = serialOrIdentifier,
                 TankSize = tankSize,
                 HasAnnotation = color != null,
@@ -152,7 +183,7 @@ public class WorkCenterService : IWorkCenterService
             };
         }).ToList();
 
-        return new WCHistoryDto { DayCount = dayCount, RecentRecords = recentRecords };
+        return new WCHistoryDto { DayCount = dayCount, HourlyCounts = dayHourlyCounts, RecentRecords = recentRecords };
     }
 
     private async Task<WCHistoryDto> GetInspectionHistoryItems(
@@ -162,6 +193,11 @@ public class WorkCenterService : IWorkCenterService
         var inspDayCount = await _db.InspectionRecords
             .Where(i => i.WorkCenterId == wcId && i.Timestamp >= startOfDay && i.Timestamp < endOfDay)
             .CountAsync(cancellationToken);
+        var inspTimestamps = await _db.InspectionRecords
+            .Where(i => i.WorkCenterId == wcId && i.Timestamp >= startOfDay && i.Timestamp < endOfDay)
+            .Select(i => i.Timestamp)
+            .ToListAsync(cancellationToken);
+        var inspHourlyCounts = BuildHourlyCountDtos(inspTimestamps, tz);
 
         var inspRecords = await _db.InspectionRecords
             .Include(i => i.SerialNumber)
@@ -190,7 +226,7 @@ public class WorkCenterService : IWorkCenterService
             {
                 Id = i.Id,
                 ProductionRecordId = i.ProductionRecordId,
-                Timestamp = ToLocal(i.Timestamp, tz),
+                Timestamp = DateTime.SpecifyKind(i.Timestamp, DateTimeKind.Utc),
                 SerialOrIdentifier = serialOrIdentifier,
                 TankSize = tankSize,
                 HasAnnotation = color != null,
@@ -198,7 +234,7 @@ public class WorkCenterService : IWorkCenterService
             };
         }).ToList();
 
-        return new WCHistoryDto { DayCount = inspDayCount, RecentRecords = inspEntries };
+        return new WCHistoryDto { DayCount = inspDayCount, HourlyCounts = inspHourlyCounts, RecentRecords = inspEntries };
     }
 
     private async Task<Dictionary<Guid, string>> ResolveAssemblyByShellAsync(
@@ -445,6 +481,14 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<MaterialQueueItemDto> AddMaterialQueueItemAsync(Guid wcId, CreateMaterialQueueItemDto dto, CancellationToken cancellationToken = default)
     {
+        var currentQueueCount = await _db.MaterialQueueItems
+            .CountAsync(
+                m => m.WorkCenterId == wcId &&
+                     (m.Status == "queued" || m.Status == "active"),
+                cancellationToken);
+        if (currentQueueCount >= MaxQueueItemsPerWorkCenter)
+            throw new InvalidOperationException($"Queue is full. Maximum {MaxQueueItemsPerWorkCenter} items are allowed per work center queue.");
+
         var maxPos = await _db.MaterialQueueItems
             .Where(m => m.WorkCenterId == wcId)
             .Select(m => (int?)m.Position)
@@ -556,6 +600,14 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<MaterialQueueItemDto> AddFitupQueueItemAsync(Guid wcId, CreateFitupQueueItemDto dto, CancellationToken cancellationToken = default)
     {
+        var currentQueueCount = await _db.MaterialQueueItems
+            .CountAsync(
+                m => m.WorkCenterId == wcId &&
+                     (m.Status == "queued" || m.Status == "active"),
+                cancellationToken);
+        if (currentQueueCount >= MaxQueueItemsPerWorkCenter)
+            throw new InvalidOperationException($"Queue is full. Maximum {MaxQueueItemsPerWorkCenter} items are allowed per work center queue.");
+
         var existingCard = await _db.MaterialQueueItems
             .AnyAsync(m => m.CardId == dto.CardCode && m.Status == "queued", cancellationToken);
         if (existingCard)
@@ -795,12 +847,6 @@ public class WorkCenterService : IWorkCenterService
         }
 
         return TimeZoneInfo.Utc;
-    }
-
-    private static DateTime ToLocal(DateTime utc, TimeZoneInfo tz)
-    {
-        var spec = utc.Kind == DateTimeKind.Utc ? utc : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
-        return TimeZoneInfo.ConvertTimeFromUtc(spec, tz);
     }
 
     public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)

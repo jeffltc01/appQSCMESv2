@@ -50,10 +50,11 @@ export function parseBarcode(raw: string): ParsedBarcode | null {
 }
 
 export function parseShellLabel(value: string): ShellLabelParsed {
-  if (value.endsWith('/L1')) {
+  const upperValue = value.toUpperCase();
+  if (upperValue.endsWith('/L1')) {
     return { serialNumber: value.slice(0, -3), labelSuffix: 'L1' };
   }
-  if (value.endsWith('/L2')) {
+  if (upperValue.endsWith('/L2')) {
     return { serialNumber: value.slice(0, -3), labelSuffix: 'L2' };
   }
   return { serialNumber: value, labelSuffix: null };

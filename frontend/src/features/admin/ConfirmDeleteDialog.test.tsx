@@ -58,4 +58,22 @@ describe('ConfirmDeleteDialog', () => {
     expect(screen.queryByText('Deactivate')).not.toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
+
+  it('renders custom delete wording when props are provided', () => {
+    renderDialog({
+      title: 'Confirm Delete Printer',
+      confirmLabel: 'Delete Printer',
+      message: (
+        <p>
+          Are you sure you want to delete <strong>Printer A</strong>?
+        </p>
+      ),
+      details: <p>This printer configuration will be permanently removed.</p>,
+    });
+
+    expect(screen.getByText('Confirm Delete Printer')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete Printer' })).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete/i)).toBeInTheDocument();
+    expect(screen.getByText('This printer configuration will be permanently removed.')).toBeInTheDocument();
+  });
 });

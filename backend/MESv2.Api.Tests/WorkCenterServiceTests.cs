@@ -593,4 +593,93 @@ public class WorkCenterServiceTests
             .FirstAsync(s => s.Serial == "Heat H-REUSE Coil C-REUSE");
         Assert.Equal(product1000.Id, sn.ProductId);
     }
+
+    [Fact]
+    public async Task AddMaterialQueueItem_WhenQueueHasFiveItems_Throws()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            ProductNumber = "PL 250",
+            TankSize = 250,
+            TankType = "Plate",
+            ProductTypeId = TestProductTypeId
+        };
+        db.Products.Add(product);
+
+        for (var i = 1; i <= 5; i++)
+        {
+            SeedQueueItemWithSN(
+                db,
+                TestHelpers.wcRollsId,
+                i == 1 ? "active" : "queued",
+                i,
+                "250 gal",
+                250,
+                $"H{i}",
+                $"C{i}",
+                1);
+        }
+
+        await db.SaveChangesAsync();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.AddMaterialQueueItemAsync(TestHelpers.wcRollsId, new DTOs.CreateMaterialQueueItemDto
+            {
+                ProductId = product.Id,
+                HeatNumber = "H-OVER",
+                CoilNumber = "C-OVER",
+                Quantity = 1
+            }));
+
+        Assert.Contains("Queue is full", ex.Message);
+    }
+
+    [Fact]
+    public async Task AddFitupQueueItem_WhenQueueHasFiveItems_Throws()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = new Product
+        {
+            Id = Guid.NewGuid(),
+            ProductNumber = "HEAD 500",
+            TankSize = 500,
+            TankType = "Head",
+            ProductTypeId = TestProductTypeId
+        };
+        db.Products.Add(product);
+
+        for (var i = 1; i <= 5; i++)
+        {
+            SeedQueueItemWithSN(
+                db,
+                TestHelpers.wcFitupId,
+                "queued",
+                i,
+                "ELLIP 24\" OD",
+                500,
+                $"FH{i}",
+                $"FC{i}",
+                1,
+                queueType: "fitup",
+                cardId: i.ToString("00"),
+                cardColor: "Blue");
+        }
+
+        await db.SaveChangesAsync();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+            {
+                ProductId = product.Id,
+                VendorHeadId = Guid.NewGuid(),
+                LotNumber = "LOT-OVER",
+                CardCode = "99"
+            }));
+
+        Assert.Contains("Queue is full", ex.Message);
+    }
 }

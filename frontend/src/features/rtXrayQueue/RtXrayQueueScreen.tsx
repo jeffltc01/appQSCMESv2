@@ -8,11 +8,15 @@ import { xrayQueueApi } from '../../api/endpoints.ts';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './RtXrayQueueScreen.module.css';
 
+const MAX_QUEUE_ITEMS = 5;
+
 export function RtXrayQueueScreen(props: WorkCenterProps) {
   const { workCenterId, operatorId, showScanResult, registerBarcodeHandler } = props;
 
   const [queue, setQueue] = useState<XrayQueueItem[]>([]);
   const [manualSerial, setManualSerial] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const isQueueFull = queue.length >= MAX_QUEUE_ITEMS;
 
   useEffect(() => {
     loadQueue();
@@ -26,6 +30,11 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
   }, [workCenterId]);
 
   const addToQueue = useCallback(async (serial: string) => {
+    if (isQueueFull) {
+      showScanResult({ type: 'error', message: `Queue is full (max ${MAX_QUEUE_ITEMS} items)` });
+      return;
+    }
+
     try {
       await xrayQueueApi.addItem(workCenterId, { serialNumber: serial, operatorId });
       showScanResult({ type: 'success', message: `Shell ${serial} added to queue` });
@@ -33,17 +42,20 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to add to queue' });
     }
-  }, [workCenterId, operatorId, showScanResult, loadQueue]);
+  }, [isQueueFull, workCenterId, operatorId, showScanResult, loadQueue]);
 
-  const removeFromQueue = useCallback(async (itemId: string) => {
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDeleteId) return;
     try {
-      await xrayQueueApi.removeItem(workCenterId, itemId);
+      await xrayQueueApi.removeItem(workCenterId, pendingDeleteId);
       showScanResult({ type: 'success', message: 'Removed from queue' });
       loadQueue();
     } catch {
       showScanResult({ type: 'error', message: 'Failed to remove' });
+    } finally {
+      setPendingDeleteId(null);
     }
-  }, [workCenterId, showScanResult, loadQueue]);
+  }, [pendingDeleteId, workCenterId, showScanResult, loadQueue]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
@@ -78,6 +90,7 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
         <h3 className={styles.queueTitle}>Queue for: Real Time X-ray</h3>
         <Button appearance="subtle" onClick={loadQueue}>Refresh</Button>
       </div>
+      {isQueueFull && <div className={styles.emptyQueue}>Queue is full (max {MAX_QUEUE_ITEMS} items)</div>}
 
       {!props.externalInput && (
         <div className={styles.addRow}>
@@ -91,7 +104,7 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
               className={styles.input}
               onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }}
             />
-            <Button appearance="primary" size="large" onClick={handleManualSubmit} disabled={!manualSerial.trim()}>
+            <Button appearance="primary" size="large" onClick={handleManualSubmit} disabled={!manualSerial.trim() || isQueueFull}>
               Add
             </Button>
           </div>
@@ -108,11 +121,23 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
                 <span className={styles.queueSerial}>{item.serialNumber}</span>
                 <span className={styles.queueTime}>{formatTimeOnly(item.createdAt)}</span>
               </div>
-              <Button appearance="subtle" size="small" onClick={() => removeFromQueue(item.id)}>🗑</Button>
+              <Button appearance="subtle" size="small" onClick={() => setPendingDeleteId(item.id)}>🗑</Button>
             </div>
           ))
         )}
       </div>
+
+      {pendingDeleteId && (
+        <div className={styles.overlay} onClick={() => setPendingDeleteId(null)}>
+          <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.formTitle}>Remove from queue?</h3>
+            <div className={styles.formActions}>
+              <Button appearance="secondary" size="large" onClick={() => setPendingDeleteId(null)}>Cancel</Button>
+              <Button appearance="primary" size="large" onClick={confirmDelete}>Yes, Remove</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

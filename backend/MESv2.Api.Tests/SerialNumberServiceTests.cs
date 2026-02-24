@@ -412,6 +412,49 @@ public class SerialNumberServiceTests
     }
 
     [Fact]
+    public async Task GetLookup_V1ComponentRelationships_BuildsTreeUsingFallbackInference()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var sellableProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 500);
+        var plateProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "plate" && p.TankSize == 500);
+
+        var plate = new SerialNumber { Id = Guid.NewGuid(), Serial = "PLATE-V1", ProductId = plateProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var shell = new SerialNumber { Id = Guid.NewGuid(), Serial = "V1-SH-COMP", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var assembled = new SerialNumber { Id = Guid.NewGuid(), Serial = "V1-ASSY-COMP", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var sellable = new SerialNumber { Id = Guid.NewGuid(), Serial = "V1-SELL-COMP", ProductId = sellableProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        db.SerialNumbers.AddRange(plate, shell, assembled, sellable);
+
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = shell.Id, ToSerialNumberId = assembled.Id, Relationship = "component", TankLocation = "Shell 1", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = plate.Id, ToSerialNumberId = shell.Id, Relationship = "component", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), ToSerialNumberId = assembled.Id, Relationship = "component", TankLocation = "Head 1", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), ToSerialNumberId = assembled.Id, Relationship = "component", TankLocation = "Head 2", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = assembled.Id, ToSerialNumberId = sellable.Id, Relationship = "component", Timestamp = DateTime.UtcNow }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("V1-SELL-COMP");
+
+        Assert.NotNull(result);
+        Assert.Single(result.TreeNodes);
+        var root = result.TreeNodes[0];
+        Assert.Equal("sellable", root.NodeType);
+
+        var assemblyNode = root.Children.Single();
+        Assert.Equal("assembled", assemblyNode.NodeType);
+
+        var shellNode = assemblyNode.Children.Single(c => c.NodeType == "shell");
+        Assert.Equal("V1-SH-COMP", shellNode.Serial);
+        Assert.Contains(shellNode.Children, c => c.NodeType == "plate" && c.Serial == "PLATE-V1");
+
+        Assert.Contains(assemblyNode.Children, c => c.NodeType == "leftHead");
+        Assert.Contains(assemblyNode.Children, c => c.NodeType == "rightHead");
+    }
+
+    [Fact]
     public async Task GetLookup_EventsIncludeAnnotationBadges()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -496,6 +539,10 @@ public class SerialNumberServiceTests
     [InlineData("plate", null, "plate")]
     [InlineData("NameplateToAssembly", null, "nameplate")]
     [InlineData("Nameplate", null, "nameplate")]
+    [InlineData("component", "Shell 1", "shell")]
+    [InlineData("component", "Head 1", "leftHead")]
+    [InlineData("component", "Head 2", "rightHead")]
+    [InlineData("component", null, "component")]
     [InlineData("SomeOtherRelationship", null, "SomeOtherRelationship")]
     [InlineData(null, null, "component")]
     public void NormalizeRelationship_ReturnsExpectedNodeType(

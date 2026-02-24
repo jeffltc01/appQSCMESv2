@@ -30,7 +30,26 @@ public class MigrationValidator
         await SpotCheckSerialNumbersAsync(5);
     }
 
+    public async Task ValidateSelectedAsync(IReadOnlyCollection<string> selectedV1Tables)
+    {
+        var selected = new HashSet<string>(selectedV1Tables, StringComparer.OrdinalIgnoreCase);
+        if (selected.Count == 0)
+        {
+            await ValidateAsync();
+            return;
+        }
+
+        Console.WriteLine("\n--- Targeted Row Count Verification ---");
+        await VerifyRowCountsAsync(selected);
+
+        Console.WriteLine("\n--- Targeted FK Integrity Checks ---");
+        await CheckForeignKeyIntegrityAsync(selected);
+    }
+
     private async Task VerifyRowCountsAsync()
+        => await VerifyRowCountsAsync(null);
+
+    private async Task VerifyRowCountsAsync(HashSet<string>? selectedV1Tables)
     {
         var checks = new (string V1Table, string V2Table, Func<MesDbContext, Task<int>> V2Count)[]
         {
@@ -66,6 +85,9 @@ public class MigrationValidator
         using var db = _dbFactory();
         foreach (var (v1Table, v2Table, v2CountFn) in checks)
         {
+            if (selectedV1Tables != null && !selectedV1Tables.Contains(v1Table))
+                continue;
+
             try
             {
                 var v1Count = await _v1.CountAsync(v1Table);
@@ -89,38 +111,74 @@ public class MigrationValidator
     }
 
     private async Task CheckForeignKeyIntegrityAsync()
+        => await CheckForeignKeyIntegrityAsync(null);
+
+    private async Task CheckForeignKeyIntegrityAsync(HashSet<string>? selectedV1Tables)
     {
         using var db = _dbFactory();
 
         // Check ProductionRecords have valid SerialNumbers
-        var orphanedPR = await db.ProductionRecords
-            .Where(r => !db.SerialNumbers.Any(s => s.Id == r.SerialNumberId))
-            .CountAsync();
-        ReportIntegrity("ProductionRecord.SerialNumberId", orphanedPR);
+        if (selectedV1Tables == null || selectedV1Tables.Contains("mesManufacturingLog"))
+        {
+            var orphanedPR = await db.ProductionRecords
+                .Where(r => !db.SerialNumbers.Any(s => s.Id == r.SerialNumberId))
+                .CountAsync();
+            ReportIntegrity("ProductionRecord.SerialNumberId", orphanedPR);
+        }
 
         // Check WelderLogs have valid ProductionRecords
-        var orphanedWL = await db.WelderLogs
-            .Where(w => !db.ProductionRecords.Any(r => r.Id == w.ProductionRecordId))
-            .CountAsync();
-        ReportIntegrity("WelderLog.ProductionRecordId", orphanedWL);
+        if (selectedV1Tables == null || selectedV1Tables.Contains("mesManufacturingLogWelder"))
+        {
+            var orphanedWL = await db.WelderLogs
+                .Where(w => !db.ProductionRecords.Any(r => r.Id == w.ProductionRecordId))
+                .CountAsync();
+            ReportIntegrity("WelderLog.ProductionRecordId", orphanedWL);
+        }
 
         // Check DefectLogs have valid DefectCodes
-        var orphanedDL = await db.DefectLogs
-            .Where(d => !db.DefectCodes.Any(c => c.Id == d.DefectCodeId))
-            .CountAsync();
-        ReportIntegrity("DefectLog.DefectCodeId", orphanedDL);
+        if (selectedV1Tables == null || selectedV1Tables.Contains("mesDefectLog"))
+        {
+            var orphanedDL = await db.DefectLogs
+                .Where(d => !db.DefectCodes.Any(c => c.Id == d.DefectCodeId))
+                .CountAsync();
+            ReportIntegrity("DefectLog.DefectCodeId", orphanedDL);
+        }
 
         // Check Annotations have valid ProductionRecords
-        var orphanedAn = await db.Annotations
-            .Where(a => !db.ProductionRecords.Any(r => r.Id == a.ProductionRecordId))
-            .CountAsync();
-        ReportIntegrity("Annotation.ProductionRecordId", orphanedAn);
+        if (selectedV1Tables == null || selectedV1Tables.Contains("mesAnnotation"))
+        {
+            var orphanedAn = await db.Annotations
+                .Where(a => !db.ProductionRecords.Any(r => r.Id == a.ProductionRecordId))
+                .CountAsync();
+            ReportIntegrity("Annotation.ProductionRecordId", orphanedAn);
+        }
 
         // Check Users have valid DefaultSiteId
-        var orphanedUser = await db.Users
-            .Where(u => !db.Plants.Any(p => p.Id == u.DefaultSiteId))
-            .CountAsync();
-        ReportIntegrity("User.DefaultSiteId", orphanedUser);
+        if (selectedV1Tables == null || selectedV1Tables.Contains("mesUser"))
+        {
+            var orphanedUser = await db.Users
+                .Where(u => !db.Plants.Any(p => p.Id == u.DefaultSiteId))
+                .CountAsync();
+            ReportIntegrity("User.DefaultSiteId", orphanedUser);
+        }
+
+        if (selectedV1Tables == null || selectedV1Tables.Contains("mesManufacturingTraceLog"))
+        {
+            var orphanedTraceFrom = await db.TraceabilityLogs
+                .Where(t => t.FromSerialNumberId.HasValue && !db.SerialNumbers.Any(s => s.Id == t.FromSerialNumberId!.Value))
+                .CountAsync();
+            ReportIntegrity("TraceabilityLog.FromSerialNumberId", orphanedTraceFrom);
+
+            var orphanedTraceTo = await db.TraceabilityLogs
+                .Where(t => t.ToSerialNumberId.HasValue && !db.SerialNumbers.Any(s => s.Id == t.ToSerialNumberId!.Value))
+                .CountAsync();
+            ReportIntegrity("TraceabilityLog.ToSerialNumberId", orphanedTraceTo);
+
+            var orphanedTracePr = await db.TraceabilityLogs
+                .Where(t => t.ProductionRecordId.HasValue && !db.ProductionRecords.Any(r => r.Id == t.ProductionRecordId!.Value))
+                .CountAsync();
+            ReportIntegrity("TraceabilityLog.ProductionRecordId", orphanedTracePr);
+        }
     }
 
     private static void ReportIntegrity(string fkName, int orphanCount)

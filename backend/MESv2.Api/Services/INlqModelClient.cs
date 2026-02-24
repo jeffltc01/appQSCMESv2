@@ -15,6 +15,18 @@ public enum NlqIntent
     WorkCentersBehindTargetToday = 2,
     TopDowntimeDriversToday = 3,
     WorkCenterPerformanceSummary = 4,
+    DefectHotspotsToday = 5,
+    FirstPassYieldTrend = 6,
+    OperatorOutlierPerformance = 7,
+    DowntimeByAsset = 8,
+    DowntimeUncodedEvents = 9,
+    BottleneckWorkCenterNow = 10,
+    QueueBacklogRisk = 11,
+    TargetAtRiskByShift = 12,
+    CycleTimeAnomalies = 13,
+    AnnotationFollowUpNeeded = 14,
+    QualityVsThroughputTradeoff = 15,
+    CurrentScreenFilteredRecordCount = 16,
 }
 
 public sealed class NlqModelInterpretation

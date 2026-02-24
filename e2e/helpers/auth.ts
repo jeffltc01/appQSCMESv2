@@ -1,5 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 
+export const FRONTEND_BASE_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+
 export const TEST_USERS = {
   admin: { empNo: 'EMP001' },
   operator: { empNo: 'EMP002' },
@@ -47,13 +49,13 @@ export async function loginViaAPI(page: Page, empNo: string, pin?: string) {
 
   const configResp = await page.request.get(
     `/api/users/login-config?empNo=${empNo}`,
-    { baseURL: 'http://localhost:5173' },
+    { baseURL: FRONTEND_BASE_URL },
   );
   expect(configResp.ok(), `login-config for ${empNo} failed (${configResp.status()}). Is the backend running with seed data?`).toBeTruthy();
   const config = await configResp.json();
 
   const loginResp = await page.request.post('/api/auth/login', {
-    baseURL: 'http://localhost:5173',
+    baseURL: FRONTEND_BASE_URL,
     data: {
       employeeNumber: empNo,
       pin: pin ?? null,

@@ -25,9 +25,30 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 480px;
   width: 100%;
-  margin: 0 auto;
+}
+
+.manualCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+.manualCard {
+  border: 1px solid #d9dde8;
+  border-radius: 12px;
+  background: #f8f9fa;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.manualSvg {
+  width: 100%;
+  height: 84px;
+  display: block;
 }
 
 .manualRow {
@@ -37,6 +58,12 @@
 
 .manualInput {
   flex: 1;
+}
+
+@media (max-width: 900px) {
+  .manualCards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .inspHeader {

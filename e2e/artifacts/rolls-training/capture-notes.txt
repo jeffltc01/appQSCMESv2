@@ -1,0 +1,2 @@
+Captured 9 screenshots for MES v2 Rolls Work Center Training.
+Output directory: C:\Users\zosim\appMESv2\e2e\artifacts\rolls-training\screenshots
