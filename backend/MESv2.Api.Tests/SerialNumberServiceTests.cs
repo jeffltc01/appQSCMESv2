@@ -62,6 +62,35 @@ public class SerialNumberServiceTests
     }
 
     [Fact]
+    public async Task GetContext_WithReversedShellToAssemblyLog_ReturnsAssemblyInfo()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+
+        var shellSnId = Guid.NewGuid();
+        var assemblySnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber { Id = shellSnId, Serial = "SH100-REV", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
+        db.SerialNumbers.Add(new SerialNumber { Id = assemblySnId, Serial = "AA-REV", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = assemblySnId,
+            ToSerialNumberId = shellSnId,
+            Relationship = "shell",
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetContextAsync("SH100-REV");
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.ExistingAssembly);
+        Assert.Equal("AA-REV", result.ExistingAssembly!.AlphaCode);
+    }
+
+    [Fact]
     public async Task GetContext_DuplicateSerials_ReturnsNewest()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -523,6 +552,42 @@ public class SerialNumberServiceTests
         {
             Assert.False(string.IsNullOrEmpty(head.HeatNumber));
         }
+    }
+
+    [Fact]
+    public async Task GetLookup_WithReversedDirectionAndCasedSystemTypes_BuildsTree()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var sellableProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 500);
+
+        assembledProduct.ProductType!.SystemTypeName = "Assembeled";
+        sellableProduct.ProductType!.SystemTypeName = "Sellable";
+
+        var shell = new SerialNumber { Id = Guid.NewGuid(), Serial = "REV-SH-001", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var assembled = new SerialNumber { Id = Guid.NewGuid(), Serial = "REV-ASSY-001", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var sellable = new SerialNumber { Id = Guid.NewGuid(), Serial = "REV-SELL-001", ProductId = sellableProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        db.SerialNumbers.AddRange(shell, assembled, sellable);
+
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = assembled.Id, ToSerialNumberId = shell.Id, Relationship = "shell", Timestamp = DateTime.UtcNow },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = sellable.Id, ToSerialNumberId = assembled.Id, Relationship = "hydro-marriage", Timestamp = DateTime.UtcNow }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("REV-SELL-001");
+
+        Assert.NotNull(result);
+        Assert.Single(result.TreeNodes);
+        var root = result.TreeNodes[0];
+        Assert.Equal("sellable", root.NodeType);
+        Assert.Single(root.Children);
+
+        var assemblyNode = root.Children[0];
+        Assert.Equal("assembled", assemblyNode.NodeType);
+        Assert.Contains(assemblyNode.Children, c => c.NodeType == "shell" && c.Serial == "REV-SH-001");
     }
 
     #region NormalizeRelationship Direct Tests

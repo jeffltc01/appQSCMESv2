@@ -830,14 +830,14 @@ public class MigrationRunner
                 var entity = TraceabilityLogMapper.Map((object)row);
                 if (entity == null) { _log.IncrementSkipped(); continue; }
 
-                if (entity.FromSerialNumberId.HasValue && !validSnIds.Contains(entity.FromSerialNumberId.Value))
+                if (entity.FromSerialNumberId is Guid fromSnId && !validSnIds.Contains(fromSnId))
                 {
                     skippedFk++;
                     _log.IncrementSkipped();
                     continue;
                 }
 
-                if (entity.ToSerialNumberId.HasValue && !validSnIds.Contains(entity.ToSerialNumberId.Value))
+                if (entity.ToSerialNumberId is Guid toSnId && !validSnIds.Contains(toSnId))
                 {
                     skippedFk++;
                     _log.IncrementSkipped();
@@ -845,7 +845,7 @@ public class MigrationRunner
                 }
 
                 // ProductionRecordId is optional in v2. Preserve trace links when the record no longer exists.
-                if (entity.ProductionRecordId.HasValue && !validPrIds.Contains(entity.ProductionRecordId.Value))
+                if (entity.ProductionRecordId is Guid productionRecordId && !validPrIds.Contains(productionRecordId))
                 {
                     entity.ProductionRecordId = null;
                     nulledProductionRecordFk++;

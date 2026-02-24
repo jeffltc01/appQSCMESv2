@@ -4,7 +4,7 @@ namespace MESv2.Migration.Mappers;
 
 public static class TraceabilityLogMapper
 {
-    public static TraceabilityLog? Map(dynamic row)
+    public static TraceabilityLog? Map(object row)
     {
         var d = (IDictionary<string, object>)row;
 

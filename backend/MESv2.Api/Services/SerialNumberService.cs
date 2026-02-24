@@ -30,12 +30,24 @@ public class SerialNumberService : ISerialNumberService
         var shellLog = await _db.TraceabilityLogs
             .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id
                 && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
+        var shellLogUsesReversedDirection = false;
+        if (shellLog == null)
+        {
+            shellLog = await _db.TraceabilityLogs
+                .FirstOrDefaultAsync(t => t.ToSerialNumberId == sn.Id
+                    && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
+            shellLogUsesReversedDirection = shellLog != null;
+        }
 
-        if (shellLog?.ToSerialNumberId != null)
+        var assemblySnId = shellLogUsesReversedDirection
+            ? shellLog?.FromSerialNumberId
+            : shellLog?.ToSerialNumberId;
+
+        if (assemblySnId != null)
         {
             var assemblySn = await _db.SerialNumbers
                 .Include(s => s.Product)
-                .FirstOrDefaultAsync(s => s.Id == shellLog.ToSerialNumberId.Value, cancellationToken);
+                .FirstOrDefaultAsync(s => s.Id == assemblySnId.Value, cancellationToken);
 
             if (assemblySn != null)
             {
@@ -45,6 +57,15 @@ public class SerialNumberService : ISerialNumberService
                         && t.FromSerialNumberId != null)
                     .Select(t => t.FromSerialNumberId!.Value)
                     .ToListAsync(cancellationToken);
+                if (shellSnIds.Count == 0)
+                {
+                    shellSnIds = await _db.TraceabilityLogs
+                        .Where(t => t.FromSerialNumberId == assemblySn.Id
+                            && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                            && t.ToSerialNumberId != null)
+                        .Select(t => t.ToSerialNumberId!.Value)
+                        .ToListAsync(cancellationToken);
+                }
 
                 var serials = await _db.SerialNumbers
                     .Where(s => shellSnIds.Contains(s.Id))
@@ -59,22 +80,39 @@ public class SerialNumberService : ISerialNumberService
                         && (t.Relationship == "HeadToAssembly" || t.Relationship == "leftHead" || t.Relationship == "rightHead"))
                     .OrderBy(t => t.TankLocation)
                     .ToListAsync(cancellationToken);
+                var headLogsUseReversedDirection = false;
+                if (headLogs.Count == 0)
+                {
+                    headLogs = await _db.TraceabilityLogs
+                        .Include(t => t.ToSerialNumber)
+                        .Where(t => t.FromSerialNumberId == assemblySn.Id
+                            && (t.Relationship == "HeadToAssembly" || t.Relationship == "leftHead" || t.Relationship == "rightHead"))
+                        .OrderBy(t => t.TankLocation)
+                        .ToListAsync(cancellationToken);
+                    headLogsUseReversedDirection = headLogs.Count > 0;
+                }
                 var leftLog = headLogs.FirstOrDefault(t => t.TankLocation == "Head 1" || t.Relationship == "leftHead");
                 if (leftLog != null)
+                {
+                    var leftHeadSn = headLogsUseReversedDirection ? leftLog.ToSerialNumber : leftLog.FromSerialNumber;
                     leftHead = new HeadLotInfoDto
                     {
-                        HeatNumber = leftLog.FromSerialNumber?.HeatNumber ?? leftLog.TankLocation ?? "",
-                        CoilNumber = leftLog.FromSerialNumber?.CoilNumber ?? "",
+                        HeatNumber = leftHeadSn?.HeatNumber ?? leftLog.TankLocation ?? "",
+                        CoilNumber = leftHeadSn?.CoilNumber ?? "",
                         ProductDescription = ""
                     };
+                }
                 var rightLog = headLogs.FirstOrDefault(t => t.TankLocation == "Head 2" || t.Relationship == "rightHead");
                 if (rightLog != null)
+                {
+                    var rightHeadSn = headLogsUseReversedDirection ? rightLog.ToSerialNumber : rightLog.FromSerialNumber;
                     rightHead = new HeadLotInfoDto
                     {
-                        HeatNumber = rightLog.FromSerialNumber?.HeatNumber ?? rightLog.TankLocation ?? "",
-                        CoilNumber = rightLog.FromSerialNumber?.CoilNumber ?? "",
+                        HeatNumber = rightHeadSn?.HeatNumber ?? rightLog.TankLocation ?? "",
+                        CoilNumber = rightHeadSn?.CoilNumber ?? "",
                         ProductDescription = ""
                     };
+                }
 
                 existingAssembly = new ExistingAssemblyDto
                 {
@@ -109,7 +147,7 @@ public class SerialNumberService : ISerialNumberService
 
         var allSnIds = new HashSet<Guid> { sn.Id };
         var treeNodes = new List<TraceabilityNodeDto>();
-        var systemType = sn.Product?.ProductType?.SystemTypeName;
+        var systemType = NormalizeSystemType(sn.Product?.ProductType?.SystemTypeName);
 
         if (systemType == "sellable")
         {
@@ -185,10 +223,23 @@ public class SerialNumberService : ISerialNumberService
             .FirstOrDefaultAsync(t => t.ToSerialNumberId == sellableSn.Id
                 && (t.Relationship == "hydro-marriage" || t.Relationship == "component")
                 && t.FromSerialNumberId != null, ct);
-
-        if (marriageLog?.FromSerialNumberId != null)
+        var marriageUsesReversedDirection = false;
+        if (marriageLog == null)
         {
-            var assemblySn = await LoadFullSn(marriageLog.FromSerialNumberId.Value, ct);
+            marriageLog = await _db.TraceabilityLogs
+                .FirstOrDefaultAsync(t => t.FromSerialNumberId == sellableSn.Id
+                    && (t.Relationship == "hydro-marriage" || t.Relationship == "component")
+                    && t.ToSerialNumberId != null, ct);
+            marriageUsesReversedDirection = marriageLog != null;
+        }
+
+        var assemblySnId = marriageUsesReversedDirection
+            ? marriageLog?.ToSerialNumberId
+            : marriageLog?.FromSerialNumberId;
+
+        if (assemblySnId != null)
+        {
+            var assemblySn = await LoadFullSn(assemblySnId.Value, ct);
             if (assemblySn != null)
             {
                 allSnIds.Add(assemblySn.Id);
@@ -206,18 +257,62 @@ public class SerialNumberService : ISerialNumberService
         var assemblyNode = BuildNodeDto(assemblySn, "assembled");
         assemblyNode.Label = $"{assemblySn.Serial} (Assembled)";
 
-        var childLogs = await _db.TraceabilityLogs
+        var childLogsToAssembly = await _db.TraceabilityLogs
             .Where(t => t.ToSerialNumberId == assemblySn.Id)
             .ToListAsync(ct);
+        var childLogsFromAssembly = await _db.TraceabilityLogs
+            .Where(t => t.FromSerialNumberId == assemblySn.Id)
+            .ToListAsync(ct);
 
-        foreach (var log in childLogs)
+        foreach (var log in childLogsToAssembly)
         {
-            if (log.FromSerialNumberId.HasValue)
+            var childSnId = log.FromSerialNumberId;
+
+            if (childSnId.HasValue)
             {
-                if (allSnIds.Contains(log.FromSerialNumberId.Value))
+                if (allSnIds.Contains(childSnId.Value))
                     continue;
 
-                var childSn = await LoadFullSn(log.FromSerialNumberId.Value, ct);
+                var childSn = await LoadFullSn(childSnId.Value, ct);
+                if (childSn != null)
+                {
+                    allSnIds.Add(childSn.Id);
+                    var nodeType = NormalizeRelationship(log.Relationship, log.TankLocation);
+                    var resolvedNodeType = nodeType == "component"
+                        ? InferNodeTypeFromProduct(childSn, log.TankLocation)
+                        : nodeType;
+                    var childNode = BuildNodeDto(childSn, resolvedNodeType);
+
+                    if (resolvedNodeType == "shell")
+                        await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
+
+                    assemblyNode.Children.Add(childNode);
+                }
+            }
+            else if (!string.IsNullOrEmpty(log.TankLocation))
+            {
+                var headType = NormalizeRelationship(log.Relationship, log.TankLocation);
+                assemblyNode.Children.Add(new TraceabilityNodeDto
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Serial = log.TankLocation,
+                    Label = $"Heat {log.TankLocation} ({headType})",
+                    NodeType = headType,
+                    HeatNumber = log.TankLocation
+                });
+            }
+        }
+
+        foreach (var log in childLogsFromAssembly)
+        {
+            var childSnId = log.ToSerialNumberId;
+
+            if (childSnId.HasValue)
+            {
+                if (allSnIds.Contains(childSnId.Value))
+                    continue;
+
+                var childSn = await LoadFullSn(childSnId.Value, ct);
                 if (childSn != null)
                 {
                     allSnIds.Add(childSn.Id);
@@ -277,7 +372,7 @@ public class SerialNumberService : ISerialNumberService
 
     private static string InferNodeTypeFromProduct(SerialNumber childSn, string? tankLocation)
     {
-        var systemType = childSn.Product?.ProductType?.SystemTypeName;
+        var systemType = NormalizeSystemType(childSn.Product?.ProductType?.SystemTypeName);
         return systemType switch
         {
             "shell" => "shell",
@@ -293,13 +388,22 @@ public class SerialNumberService : ISerialNumberService
     {
         var parentLog = await _db.TraceabilityLogs
             .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id && t.ToSerialNumberId != null, ct);
-        if (parentLog?.ToSerialNumberId == null) return null;
+        var parentLogUsesReversedDirection = false;
+        if (parentLog == null)
+        {
+            parentLog = await _db.TraceabilityLogs
+                .FirstOrDefaultAsync(t => t.ToSerialNumberId == sn.Id && t.FromSerialNumberId != null, ct);
+            parentLogUsesReversedDirection = parentLog != null;
+        }
 
-        var parentSn = await LoadFullSn(parentLog.ToSerialNumberId.Value, ct);
+        var parentSnId = parentLogUsesReversedDirection ? parentLog?.FromSerialNumberId : parentLog?.ToSerialNumberId;
+        if (parentSnId == null) return null;
+
+        var parentSn = await LoadFullSn(parentSnId.Value, ct);
         if (parentSn == null) return null;
 
         allSnIds.Add(parentSn.Id);
-        var parentType = parentSn.Product?.ProductType?.SystemTypeName;
+        var parentType = NormalizeSystemType(parentSn.Product?.ProductType?.SystemTypeName);
 
         if (parentType == "assembled")
         {
@@ -336,11 +440,25 @@ public class SerialNumberService : ISerialNumberService
                 && (t.Relationship == "plate" || t.Relationship == "component")
                 && t.FromSerialNumberId != null)
             .ToListAsync(ct);
+        var plateLogsUseReversedDirection = false;
+        if (plateLogs.Count == 0)
+        {
+            plateLogs = await _db.TraceabilityLogs
+                .Where(t => t.FromSerialNumberId == shellId
+                    && (t.Relationship == "plate" || t.Relationship == "component")
+                    && t.ToSerialNumberId != null)
+                .ToListAsync(ct);
+            plateLogsUseReversedDirection = plateLogs.Count > 0;
+        }
 
         foreach (var log in plateLogs)
         {
-            var plateSn = await LoadFullSn(log.FromSerialNumberId!.Value, ct);
-            var isPlate = plateSn?.Product?.ProductType?.SystemTypeName == "plate";
+            var plateSnId = plateLogsUseReversedDirection ? log.ToSerialNumberId : log.FromSerialNumberId;
+            if (!plateSnId.HasValue)
+                continue;
+
+            var plateSn = await LoadFullSn(plateSnId.Value, ct);
+            var isPlate = NormalizeSystemType(plateSn?.Product?.ProductType?.SystemTypeName) == "plate";
             if (plateSn != null && (log.Relationship == "plate" || isPlate))
             {
                 allSnIds.Add(plateSn.Id);
@@ -348,6 +466,19 @@ public class SerialNumberService : ISerialNumberService
                 shellNode.Children.Add(plateNode);
             }
         }
+    }
+
+    private static string? NormalizeSystemType(string? systemTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(systemTypeName))
+            return null;
+
+        var normalized = systemTypeName.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "assembeled" => "assembled",
+            _ => normalized
+        };
     }
 
     private async Task AttachEventsToNodes(List<TraceabilityNodeDto> nodes, CancellationToken ct)
