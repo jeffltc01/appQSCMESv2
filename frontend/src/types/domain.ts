@@ -306,6 +306,23 @@ export interface DemoShellCurrent {
   stageQueueCount: number;
 }
 
+export interface DemoDataTableCount {
+  table: string;
+  count: number;
+}
+
+export interface DemoDataResetSeedResult {
+  executedAtUtc: string;
+  deleted: DemoDataTableCount[];
+  inserted: DemoDataTableCount[];
+}
+
+export interface DemoDataRefreshDatesResult {
+  executedAtUtc: string;
+  appliedDeltaHours: number;
+  updated: DemoDataTableCount[];
+}
+
 export interface RoleOption {
   tier: number;
   name: string;

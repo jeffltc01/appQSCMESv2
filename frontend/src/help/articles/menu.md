@@ -42,6 +42,7 @@ Tile-based navigation grid for supervisory and administrative functions. Visible
 | Production Line Work Centers | 2.0 | Configure per-line overrides such as display name, welder count, checklist toggles, and downtime settings |
 | Safety / Shift Checklists | 4.0 | Manage checklist templates used for safety and shift workflows |
 | Downtime Reasons | 3.0 | Manage downtime reason codes |
+| Downtime Log | 5.0 | Review, add, edit, and delete downtime events by work center/date |
 | Shift Schedule | 3.0 | Define shift times and patterns |
 | Capacity Targets | 3.0 | Set daily production capacity targets |
 
@@ -66,6 +67,7 @@ Tile-based navigation grid for supervisory and administrative functions. Visible
 | Plant Printers | 3.0 | Manage NiceLabel Cloud printer mappings |
 | Issues | 5.0 | Submit issues, filter requests, and for approvers review/approve/deny pending items |
 | Operator View | 5.0 | Navigate to Tablet Setup and enter the operator work center layout |
+| Test Coverage | 1.0 | View backend/frontend test coverage summaries and detailed reports |
 
 ## Tips
 

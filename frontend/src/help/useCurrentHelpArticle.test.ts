@@ -46,6 +46,21 @@ describe('useCurrentHelpArticle', () => {
     expect(result.current.slug).toBe('tablet-setup');
   });
 
+  it('matches newer admin routes', () => {
+    const routeToSlug: Record<string, string> = {
+      '/menu/checklists': 'checklists',
+      '/menu/downtime-events': 'downtime-events',
+      '/menu/frontend-telemetry': 'frontend-telemetry',
+      '/menu/test-coverage': 'test-coverage',
+    };
+
+    for (const [pathname, expectedSlug] of Object.entries(routeToSlug)) {
+      mockUseLocation.mockReturnValue({ pathname, search: '', hash: '', state: null, key: '' });
+      const { result } = renderHook(() => useCurrentHelpArticle());
+      expect(result.current.slug).toBe(expectedSlug);
+    }
+  });
+
   it('falls back to overview for unknown routes', () => {
     mockUseLocation.mockReturnValue({ pathname: '/unknown', search: '', hash: '', state: null, key: '' });
     const { result } = renderHook(() => useCurrentHelpArticle());

@@ -9,6 +9,7 @@ export interface HelpArticle {
 export const helpArticles: HelpArticle[] = [
   // ── General ──
   { slug: 'overview', title: 'MES v2 Overview', category: 'general' },
+  { slug: 'mes-feature-summary', title: 'MES Feature Summary', category: 'general' },
   { slug: 'login', title: 'Login', category: 'general', routeMatch: '/login' },
   { slug: 'tablet-setup', title: 'Tablet Setup', category: 'general', routeMatch: '/tablet-setup' },
   { slug: 'menu', title: 'Admin Menu', category: 'general', routeMatch: '/menu' },
@@ -41,6 +42,7 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'kanban-cards', title: 'Kanban Card Management', category: 'admin', routeMatch: '/menu/kanban-cards' },
   { slug: 'characteristics', title: 'Characteristics', category: 'admin', routeMatch: '/menu/characteristics' },
   { slug: 'control-plans', title: 'Control Plans', category: 'admin', routeMatch: '/menu/control-plans' },
+  { slug: 'checklists', title: 'Checklist Templates', category: 'admin', routeMatch: '/menu/checklists' },
   { slug: 'plant-gear', title: 'Plant Gear', category: 'admin', routeMatch: '/menu/plant-gear' },
   { slug: 'whos-on-floor', title: "Who's On the Floor", category: 'admin', routeMatch: '/menu/whos-on-floor' },
   { slug: 'production-lines', title: 'Production Lines', category: 'admin', routeMatch: '/menu/production-lines' },
@@ -54,10 +56,13 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'production-logs', title: 'Log Viewer', category: 'admin', routeMatch: '/menu/production-logs' },
   { slug: 'supervisor-dashboard', title: 'Supervisor / Team Lead Dashboard', category: 'admin', routeMatch: '/menu/supervisor-dashboard' },
   { slug: 'downtime-reasons', title: 'Downtime Reasons', category: 'admin', routeMatch: '/menu/downtime-reasons' },
+  { slug: 'downtime-events', title: 'Downtime Log', category: 'admin', routeMatch: '/menu/downtime-events' },
   { slug: 'digital-twin', title: 'Digital Twin', category: 'admin', routeMatch: '/menu/digital-twin' },
   { slug: 'shift-schedule', title: 'Shift Schedule', category: 'admin', routeMatch: '/menu/shift-schedule' },
   { slug: 'capacity-targets', title: 'Capacity Targets', category: 'admin', routeMatch: '/menu/capacity-targets' },
   { slug: 'audit-log', title: 'Audit Log', category: 'admin', routeMatch: '/menu/audit-log' },
+  { slug: 'frontend-telemetry', title: 'Frontend Telemetry', category: 'admin', routeMatch: '/menu/frontend-telemetry' },
+  { slug: 'test-coverage', title: 'Test Coverage', category: 'admin', routeMatch: '/menu/test-coverage' },
 ];
 
 export const categoryLabels: Record<HelpArticle['category'], string> = {

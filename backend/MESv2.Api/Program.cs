@@ -57,11 +57,13 @@ builder.Services.AddScoped<IAnnotationService, AnnotationService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IFrontendTelemetryService, FrontendTelemetryService>();
 builder.Services.AddScoped<IDemoShellFlowService, DemoShellFlowService>();
+builder.Services.AddScoped<IDemoDataAdminService, DemoDataAdminService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminWorkCenterService, AdminWorkCenterService>();
 builder.Services.AddScoped<IChecklistService, ChecklistService>();
 builder.Services.AddScoped<INaturalLanguageQueryService, NaturalLanguageQueryService>();
 builder.Services.AddScoped<INlqToolExecutor, NaturalLanguageQueryToolExecutor>();
+builder.Services.Configure<DemoDataAdminOptions>(builder.Configuration.GetSection("DemoDataAdmin"));
 
 builder.Services.Configure<NaturalLanguageQueryOptions>(builder.Configuration.GetSection("NaturalLanguageQuery"));
 builder.Services.AddHttpClient<HttpPrivateLlmClient>();

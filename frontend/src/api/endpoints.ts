@@ -81,6 +81,8 @@ import type {
   FrontendTelemetryArchiveRequest,
   DemoShellCurrentResponse,
   DemoShellAdvanceRequest,
+  DemoDataResetSeedResponse,
+  DemoDataRefreshDatesResponse,
   UpsertChecklistTemplateRequest,
   ResolveChecklistTemplateRequest,
   CreateChecklistEntryRequest,
@@ -158,6 +160,8 @@ import type {
   FrontendTelemetryCount,
   FrontendTelemetryArchiveResult,
   DemoShellCurrent,
+  DemoDataResetSeedResult,
+  DemoDataRefreshDatesResult,
   ChecklistTemplate,
   ChecklistEntry,
 } from '../types/domain.ts';
@@ -362,6 +366,13 @@ export const demoShellApi = {
     api.get<DemoShellCurrentResponse>(`/demo-shell-flow/current?workCenterId=${encodeURIComponent(workCenterId)}`) as Promise<DemoShellCurrent>,
   advance: (req: DemoShellAdvanceRequest) =>
     api.post<DemoShellCurrentResponse>('/demo-shell-flow/advance', req) as Promise<DemoShellCurrent>,
+};
+
+export const demoDataAdminApi = {
+  resetSeed: () =>
+    api.post<DemoDataResetSeedResponse>('/admin/demo-data/reset-seed', {}) as Promise<DemoDataResetSeedResult>,
+  refreshDates: () =>
+    api.post<DemoDataRefreshDatesResponse>('/admin/demo-data/refresh-dates', {}) as Promise<DemoDataRefreshDatesResult>,
 };
 
 // ---- Admin APIs ----

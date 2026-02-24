@@ -55,4 +55,17 @@ describe('helpRegistry', () => {
     expect(categoryLabels.operator).toBe('Operator Screens');
     expect(categoryLabels.admin).toBe('Admin & Supervisor');
   });
+
+  it('includes help mappings for newer admin routes', () => {
+    const byRoute = new Map(
+      helpArticles
+        .filter((a) => a.routeMatch)
+        .map((a) => [a.routeMatch, a.slug]),
+    );
+
+    expect(byRoute.get('/menu/checklists')).toBe('checklists');
+    expect(byRoute.get('/menu/downtime-events')).toBe('downtime-events');
+    expect(byRoute.get('/menu/frontend-telemetry')).toBe('frontend-telemetry');
+    expect(byRoute.get('/menu/test-coverage')).toBe('test-coverage');
+  });
 });

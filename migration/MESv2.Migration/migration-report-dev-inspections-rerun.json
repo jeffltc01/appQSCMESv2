@@ -1,0 +1,12 @@
+[
+  {
+    "TableName": "mesManufacturingInspectionsLog",
+    "SourceCount": 5789,
+    "MigratedCount": 5608,
+    "SkippedCount": 181,
+    "Warnings": [],
+    "WarningCount": 0,
+    "WarningStorageSuppressedCount": 0,
+    "Duration": "00:04:38.1628905"
+  }
+]

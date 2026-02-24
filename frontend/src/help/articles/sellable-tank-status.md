@@ -1,15 +1,15 @@
 # Sellable Tank Status
 
-Sellable Tank Status provides a daily snapshot of all sellable tanks produced at a site on a given date. Each row shows a tank's serial number alongside gate-check result icons so supervisors and quality staff can quickly identify which tanks have passed, failed, or are still missing inspections.
+Sellable Tank Status provides a daily snapshot of sellable tanks by site and date, including gate-check indicators for RT X-ray, Spot X-ray, and Hydro.
 
 **Access:** All roles can view. Directors (2.0) and above can switch between sites.
 
 ## How It Works
 
-1. **Select a date.** Use the date picker at the top of the screen. The table loads all sellable tanks produced on that date.
-2. **Select a site.** If you are a Director or above, the site selector allows you to view tanks from any plant. Site-scoped users see only their own plant.
-3. **Review gate checks.** Each row displays colored icons for RT X-ray, Spot X-ray, and Hydro results. Glance across a row to see whether a tank has cleared all gates.
-4. **Look up a serial.** The Serial Number column is a clickable link that opens the Serial Number Lookup screen for that tank's full history.
+1. **Select site/date.** Directors and above can choose site; all users can set date.
+2. **Run search.** Click **Search** to load the selected snapshot.
+3. **Review gate icons.** Each row shows pass/reject/no-record status for RT X-ray, Spot X-ray, and Hydro.
+4. **Open full trace.** Click a serial link to open Serial Number Lookup for that unit.
 
 ### Gate Check Legend
 
@@ -23,9 +23,11 @@ Sellable Tank Status provides a daily snapshot of all sellable tanks produced at
 
 | Element | Description |
 |---|---|
-| **Date Picker** | Selects the production date to display. Defaults to today. |
-| **Site Selector** | Switches the view to another plant. Visible only to Director (2.0) and above. |
+| **Site Selector** | Select site context (visible to Director 2.0 and above). |
+| **Date Picker** | Select production date. |
+| **Search button** | Loads table data for current site/date selection. |
 | **Serial Number** | The tank's unique serial number. Tap to open Serial Number Lookup. |
+| **Secondary trace text** | Optional alpha/shell trace text shown under serial when available. |
 | **Product Number** | The product catalog number for the tank. |
 | **Tank Size** | The tank capacity in gallons. |
 | **RT X-ray** | Gate check result icon for the RT X-ray inspection. |
@@ -34,6 +36,6 @@ Sellable Tank Status provides a daily snapshot of all sellable tanks produced at
 
 ## Tips
 
-- URL parameters for site and date are preserved in the address bar, so you can bookmark or share a specific view.
-- If a tank shows a gray dash for a gate check, it means no inspection record exists yet — not necessarily that it was skipped.
-- Use this screen for end-of-day audits to confirm all tanks have cleared required inspections before shipping.
+- URL parameters for site/date are preserved, so filtered views can be bookmarked/shared.
+- A gray dash means no qualifying gate record was found for that checkpoint.
+- Use serial links to pivot into full genealogy when a gate result looks unexpected.

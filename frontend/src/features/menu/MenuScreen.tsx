@@ -117,6 +117,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Issues', icon: <BugRegular />, minRoleTier: 5, route: '/menu/issues', implemented: true },
       { label: 'Operator View', icon: <DesktopRegular />, minRoleTier: 5, route: '/tablet-setup', implemented: true },
       { label: 'Test Coverage', icon: <ShieldTaskRegular />, minRoleTier: 1, route: '/menu/test-coverage', implemented: true },
+      { label: 'Demo Data Tools', icon: <SettingsRegular />, minRoleTier: 1, route: '/menu/demo-data', implemented: true },
     ],
   },
 ];

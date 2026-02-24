@@ -40,6 +40,7 @@ const CapacityTargetsScreen = named(() => import('./CapacityTargetsScreen.tsx'),
 const AuditLogScreen = named(() => import('./AuditLogScreen.tsx'), 'AuditLogScreen');
 const FrontendTelemetryScreen = named(() => import('./FrontendTelemetryScreen.tsx'), 'FrontendTelemetryScreen');
 const TestCoverageScreen = named(() => import('./TestCoverageScreen.tsx'), 'TestCoverageScreen');
+const DemoDataResetScreen = named(() => import('./DemoDataResetScreen.tsx'), 'DemoDataResetScreen');
 
 function AdminFallbackRoute() {
   useEffect(() => {
@@ -92,6 +93,7 @@ export function AdminRoutes() {
         <Route path="audit-log" element={<AuditLogScreen />} />
         <Route path="frontend-telemetry" element={<FrontendTelemetryScreen />} />
         <Route path="test-coverage" element={<TestCoverageScreen />} />
+        <Route path="demo-data" element={<DemoDataResetScreen />} />
         <Route path="*" element={<AdminFallbackRoute />} />
       </Routes>
     </Suspense>

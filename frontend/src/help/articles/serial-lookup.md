@@ -1,49 +1,49 @@
 # Serial Number Lookup
 
-Search for any serial number to view its complete production genealogy and manufacturing event history. This screen provides deep traceability from raw material through finished product. Supports deep-linking via URL query parameter for integration with other systems.
+Search for any serial number to view production genealogy and manufacturing events across shell, assembly, and sellable history. This screen is used for traceability troubleshooting and quality investigations.
 
 ## How It Works
 
-1. **Search.** Enter a serial number in the search field and press Enter or click **Search**. The serial number can also be provided via URL query parameter for direct linking (e.g., `?serial=ABC123`).
-2. **View Production Genealogy.** A horizontal flow diagram displays the relationships between nodes: sellable tank, assembled components, shell, plates, heads, and valves. Click a node for details.
-3. **View Manufacturing Events.** Below the genealogy, a timeline lists every manufacturing event for the serial number in chronological order.
-4. **Check gate status.** Gate check results are color-coded: green for Pass, red for Fail, and gray for No Record.
+1. **Enter serial and run lookup.** Type a serial number and press Enter or click **Go**. You can also deep-link with `?serial=...`.
+2. **Review production genealogy.** The horizontal genealogy view shows linked node types such as sellable, assembled, shell, plate, heads, valve, and nameplate.
+3. **Check gate indicators.** Main cards show gate status icons where applicable: pass, fail, or no record.
+4. **Inspect event history.** The events panel lists manufacturing/inspection events in reverse chronological order with timestamp, operator, asset, and inspection result details.
 
 ### Production Genealogy Diagram
 
-The genealogy diagram shows a horizontal flow of connected nodes representing the serial number's production lineage. Node types include:
+The genealogy diagram shows connected cards representing the trace chain. Node types include:
 
-- **Sellable** — the finished, sellable tank.
-- **Assembled** — the assembled tank before final processing.
-- **Shell** — the rolled shell with associated plate and heat/coil data.
-- **Heads** — the formed heads with vendor and lot information.
-- **Valves** — any valves installed on the assembly.
+- **Sellable** — finished product identity.
+- **Assembled** — fitup-level assembly identity.
+- **Shell** — shell-level identity.
+- **Plate / Heads / Valves** — traced components.
+- **Nameplate** — final nameplate-linked identity when available.
 
 ### Manufacturing Events Timeline
 
-Each event in the timeline shows:
+Each event row includes:
 
 | Element | Description |
 |---|---|
 | **Work Center** | The work center where the event occurred. |
 | **Event Type** | The type of manufacturing event (e.g., "Roll", "Weld", "Inspect", "Hydro Test"). |
-| **Timestamp** | When the event was recorded. |
+| **Timestamp** | When the event was recorded (localized for display). |
 | **Operator** | The operator who performed the event. |
 | **Asset** | The asset (equipment) used, if applicable. |
-| **Inspection Result** | For inspection events, the pass/fail result with color-coded gate check status. |
+| **Inspection Result** | Pass/fail-style result when present. |
 
 ## Fields & Controls
 
 | Element | Description |
 |---|---|
-| **Search** | Text input for the serial number. Press Enter or click Search to load. |
-| **Genealogy Diagram** | Horizontal flow visualization of sellable → assembled → shell/heads/valves with plate and material details. |
-| **Node Detail** | Click a node in the genealogy to view its details (serial, material, vendor, heat/coil, dates). |
-| **Events Timeline** | Chronological list of all manufacturing events for the serial number. |
-| **Gate Check Status** | Color-coded indicator on inspection events: green (Pass), red (Fail), gray (No Record). |
+| **Serial Number input** | Entry field for the serial to trace. |
+| **Go button** | Executes the lookup for the entered serial. |
+| **Genealogy panel** | Visual trace chain across parent/child component relationships. |
+| **Diagram key + gate key** | Legend for node types and gate icons. |
+| **Manufacturing Events panel** | Reverse-chronological event list from all nodes in the trace tree. |
 
 ## Tips
 
-- Use the URL query parameter (`?serial=ABC123`) to link directly to a serial lookup from other screens, reports, or external systems.
-- The genealogy diagram is the fastest way to trace a quality issue back to the source material, vendor, or specific production step.
-- Gray "No Record" gate check statuses mean the serial did not pass through that gate check — this may be expected for certain product types or may indicate a missed step.
+- Use deep links (`?serial=ABC123`) to jump directly to a known unit.
+- If you opened this screen from Sellable Tank Status, the Back action returns to that prior context.
+- Gray "No Record" means no qualifying gate event was found for that stage.

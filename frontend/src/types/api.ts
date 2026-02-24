@@ -269,6 +269,23 @@ export interface DemoShellAdvanceRequest {
   workCenterId: string;
 }
 
+export interface DemoDataTableCountResponse {
+  table: string;
+  count: number;
+}
+
+export interface DemoDataResetSeedResponse {
+  executedAtUtc: string;
+  deleted: DemoDataTableCountResponse[];
+  inserted: DemoDataTableCountResponse[];
+}
+
+export interface DemoDataRefreshDatesResponse {
+  executedAtUtc: string;
+  appliedDeltaHours: number;
+  updated: DemoDataTableCountResponse[];
+}
+
 export interface CreateVendorRequest {
   name: string;
   vendorType: string;
