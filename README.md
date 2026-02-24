@@ -154,9 +154,10 @@ Each environment (`dev`, `test`, `production`) needs these configured in GitHub 
 The `test` and `production` environments should have **required reviewers** configured for an approval gate.
 `BACKEND_URL` is required at build time and is injected into `VITE_API_URL`; CI now fails fast if missing.
 
-## Local Git Hook: TypeScript Guard
+## Local Git Hook: TypeScript + Optional Deploy Prompt
 
 To fail fast before pushing code to GitHub, this repo includes a versioned pre-push hook at `.githooks/pre-push` that runs frontend TypeScript validation.
+When pushing `origin/main` from an interactive terminal, the hook also asks whether to trigger the Azure Dev deploy workflow.
 
 One-time setup:
 
@@ -171,7 +172,12 @@ What it runs:
 npm --prefix frontend run typecheck
 ```
 
-This catches TypeScript compile issues locally before CI.
+Behavior on `origin/main` push:
+
+- If you answer `No` (default), push continues and no deploy is triggered.
+- If you answer `Yes`, push continues and the hook triggers `Build & Deploy to Dev` via GitHub CLI (`gh workflow run`).
+
+This catches TypeScript compile issues locally before CI and lets you choose deploy-per-push.
 
 ## Infrastructure (Azure)
 

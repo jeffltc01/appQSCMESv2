@@ -11,3 +11,32 @@ fi
 npm --prefix frontend run typecheck
 
 echo "TypeScript validation passed."
+
+remote_name="${1:-}"
+
+# Read the refs list from stdin (provided by git pre-push hook).
+stdin_refs="$(cat)"
+
+is_main_push=0
+if printf "%s\n" "$stdin_refs" | awk '{print $3}' | grep -q '^refs/heads/main$'; then
+  is_main_push=1
+fi
+
+# Only prompt for Azure deploy when pushing main to origin from an interactive terminal.
+if [ "$remote_name" = "origin" ] && [ "$is_main_push" -eq 1 ] && [ -t 0 ]; then
+  printf "Deploy to Azure Dev after this push? [y/N]: "
+  IFS= read -r deploy_choice || deploy_choice=""
+  deploy_choice_lc="$(printf "%s" "$deploy_choice" | tr '[:upper:]' '[:lower:]')"
+
+  if [ "$deploy_choice_lc" = "y" ] || [ "$deploy_choice_lc" = "yes" ]; then
+    if command -v gh >/dev/null 2>&1; then
+      # Fire-and-forget trigger shortly after push starts so the workflow sees the new main SHA.
+      nohup sh -c "sleep 8; gh workflow run \"Build & Deploy to Dev\" --ref main >/dev/null 2>&1" >/dev/null 2>&1 &
+      echo "Scheduled Azure Dev deploy trigger."
+    else
+      echo "GitHub CLI (gh) not found. Push will continue, but deploy was not triggered." >&2
+    fi
+  else
+    echo "Push will continue without triggering Azure deploy."
+  fi
+fi
