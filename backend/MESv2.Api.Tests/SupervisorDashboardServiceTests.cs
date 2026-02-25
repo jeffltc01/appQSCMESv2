@@ -19,6 +19,8 @@ public class SupervisorDashboardServiceTests
     private static readonly DateTime MidDay = new(2026, 6, 10, 18, 0, 0, DateTimeKind.Utc);
     // Three days earlier (same week, still mid-day)
     private static readonly DateTime EarlierInWeek = new(2026, 6, 8, 18, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime EarlierInMonth = new(2026, 6, 2, 18, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime PreviousMonth = new(2026, 5, 31, 18, 0, 0, DateTimeKind.Utc);
 
     private SupervisorDashboardService CreateService(Data.MesDbContext db)
     {
@@ -61,6 +63,28 @@ public class SupervisorDashboardServiceTests
 
         Assert.Equal(2, result.DayCount);
         Assert.Equal(3, result.WeekCount);
+    }
+
+    [Fact]
+    public async Task GetMetrics_ReturnsMonthAggregates()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        SeedRecord(db, TestHelpers.wcRollsId, EarlierInWeek);
+        SeedRecord(db, TestHelpers.wcRollsId, EarlierInMonth);
+        SeedRecord(db, TestHelpers.wcRollsId, PreviousMonth);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetMetricsAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate);
+
+        Assert.Equal(3, result.MonthCount);
+        Assert.NotNull(result.MonthFPY);
+        Assert.Equal(100.0m, result.MonthFPY);
+        Assert.Equal(0, result.MonthDefects);
+        Assert.True(result.MonthAvgTimeBetweenScans > 0);
     }
 
     [Fact]
@@ -436,5 +460,52 @@ public class SupervisorDashboardServiceTests
 
         Assert.Empty(result.Rows);
         Assert.Null(result.TotalRow);
+    }
+
+    [Fact]
+    public async Task GetTrends_ReturnsThirtyDaysInAscendingOrder()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
+        SeedRecord(db, TestHelpers.wcRollsId, EarlierInWeek);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetTrendsAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate);
+
+        Assert.Equal(30, result.Count.Count);
+        Assert.Equal(30, result.Fpy.Count);
+        Assert.Equal(30, result.Defects.Count);
+        Assert.Equal(30, result.QtyPerHour.Count);
+        Assert.Equal(30, result.AvgBetweenScans.Count);
+        Assert.Equal(30, result.Oee.Count);
+        Assert.Equal(30, result.Availability.Count);
+        Assert.Equal(30, result.Performance.Count);
+        Assert.Equal(30, result.Quality.Count);
+        Assert.Equal("2026-05-12", result.Count.First().Date);
+        Assert.Equal("2026-06-10", result.Count.Last().Date);
+        Assert.Equal("2026-05-12", result.AvgBetweenScans.First().Date);
+        Assert.Equal("2026-06-10", result.Quality.Last().Date);
+    }
+
+    [Fact]
+    public async Task GetTrends_OperatorFilter_RestrictsCountSeries()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var otherOperatorId = Guid.Parse("88888888-8888-8888-8888-888888888801");
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30), TestHelpers.TestUserId);
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-20), otherOperatorId);
+        await db.SaveChangesAsync();
+
+        var filtered = await sut.GetTrendsAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, TestHelpers.TestUserId);
+
+        var lastDay = filtered.Count.Last();
+        Assert.Equal("2026-06-10", lastDay.Date);
+        Assert.Equal(1m, lastDay.Value);
     }
 }

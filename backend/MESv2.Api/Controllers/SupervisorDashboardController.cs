@@ -33,6 +33,22 @@ public class SupervisorDashboardController : ControllerBase
         return Ok(metrics);
     }
 
+    [HttpGet("{wcId:guid}/trends")]
+    public async Task<ActionResult<SupervisorDashboardTrendsDto>> GetTrends(
+        Guid wcId,
+        [FromQuery] Guid plantId,
+        [FromQuery] string date,
+        [FromQuery] Guid? operatorId,
+        [FromQuery] int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsTeamLeadOrAbove())
+            return Forbid();
+
+        var trends = await _service.GetTrendsAsync(wcId, plantId, date, operatorId, days, cancellationToken);
+        return Ok(trends);
+    }
+
     [HttpGet("{wcId:guid}/records")]
     public async Task<ActionResult<IReadOnlyList<SupervisorRecordDto>>> GetRecords(
         Guid wcId,

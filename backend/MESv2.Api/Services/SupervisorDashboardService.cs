@@ -51,6 +51,9 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         var weekStart = localDate.AddDays(-dayOfWeek);
         var startOfWeek = TimeZoneInfo.ConvertTimeToUtc(weekStart, tz);
         var endOfWeek = TimeZoneInfo.ConvertTimeToUtc(weekStart.AddDays(7), tz);
+        var monthStart = new DateTime(localDate.Year, localDate.Month, 1);
+        var startOfMonth = TimeZoneInfo.ConvertTimeToUtc(monthStart, tz);
+        var endOfMonth = TimeZoneInfo.ConvertTimeToUtc(monthStart.AddMonths(1), tz);
 
         var dataEntryType = await _db.WorkCenters
             .Where(w => w.Id == wcId)
@@ -63,10 +66,14 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         if (operatorId.HasValue)
             baseQuery = baseQuery.Where(r => r.OperatorId == operatorId.Value);
 
-        var weekRecords = await baseQuery
-            .Where(r => r.Timestamp >= startOfWeek && r.Timestamp < endOfWeek)
+        var monthRecords = await baseQuery
+            .Where(r => r.Timestamp >= startOfMonth && r.Timestamp < endOfMonth)
             .Select(r => new { r.Id, r.Timestamp, r.SerialNumberId, r.OperatorId })
             .ToListAsync(cancellationToken);
+
+        var weekRecords = monthRecords
+            .Where(r => r.Timestamp >= startOfWeek && r.Timestamp < endOfWeek)
+            .ToList();
 
         var dayRecords = weekRecords
             .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
@@ -76,22 +83,142 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         {
             DayCount = dayRecords.Count,
             WeekCount = weekRecords.Count,
+            MonthCount = monthRecords.Count,
         };
 
         var dayTimestamps = dayRecords.Select(r => r.Timestamp).ToList();
         var weekTimestamps = weekRecords.Select(r => r.Timestamp).ToList();
+        var monthTimestamps = monthRecords.Select(r => r.Timestamp).ToList();
 
         ComputeHourlyCounts(dto, dayTimestamps, tz);
         ComputeWeeklyCounts(dto, weekTimestamps, weekStart, tz);
 
         dto.DayAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(dayTimestamps);
         dto.WeekAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(weekTimestamps);
+        dto.MonthAvgTimeBetweenScans = ComputeAvgTimeBetweenScans(monthTimestamps);
         dto.DayQtyPerHour = ComputeQtyPerHour(dayTimestamps, startOfDay, endOfDay);
         dto.WeekQtyPerHour = ComputeQtyPerHour(weekTimestamps, startOfWeek, endOfWeek);
+        dto.MonthQtyPerHour = ComputeQtyPerHour(monthTimestamps, startOfMonth, endOfMonth);
 
-        await ComputeFpyAndDefects(dto, wcId, plantId, dataEntryType, startOfDay, endOfDay, startOfWeek, endOfWeek, operatorId, cancellationToken);
+        await ComputeFpyAndDefects(
+            dto,
+            wcId,
+            plantId,
+            dataEntryType,
+            startOfDay,
+            endOfDay,
+            startOfWeek,
+            endOfWeek,
+            startOfMonth,
+            endOfMonth,
+            operatorId,
+            cancellationToken);
         dto.Operators = await BuildOperatorSummary(wcId, plantId, startOfWeek, endOfWeek, cancellationToken);
         await ComputeOeeMetrics(dto, wcId, plantId, date, cancellationToken);
+
+        return dto;
+    }
+
+    public async Task<SupervisorDashboardTrendsDto> GetTrendsAsync(
+        Guid wcId, Guid plantId, string date, Guid? operatorId = null, int days = 30,
+        CancellationToken cancellationToken = default)
+    {
+        if (!DateTime.TryParse(date, out var dateParsed))
+            dateParsed = DateTime.UtcNow.Date;
+
+        var normalizedDays = Math.Clamp(days, 1, 30);
+        var tz = await GetPlantTimeZoneAsync(plantId, cancellationToken);
+        var localDate = dateParsed.Date;
+        var startLocalDate = localDate.AddDays(-(normalizedDays - 1));
+        var startUtc = TimeZoneInfo.ConvertTimeToUtc(startLocalDate, tz);
+        var endUtc = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
+
+        var dataEntryType = await _db.WorkCenters
+            .Where(w => w.Id == wcId)
+            .Select(w => w.DataEntryType)
+            .FirstOrDefaultAsync(cancellationToken);
+        var characteristicIds = GetApplicableCharacteristicIds(dataEntryType);
+
+        var recordsQuery = _db.ProductionRecords
+            .Where(r => r.WorkCenterId == wcId
+                        && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp >= startUtc
+                        && r.Timestamp < endUtc);
+        if (operatorId.HasValue)
+            recordsQuery = recordsQuery.Where(r => r.OperatorId == operatorId.Value);
+
+        var records = await recordsQuery
+            .Select(r => new { r.Timestamp })
+            .ToListAsync(cancellationToken);
+
+        var timestampsByDay = records
+            .GroupBy(r => TimeZoneInfo.ConvertTimeFromUtc(r.Timestamp, tz).Date)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Timestamp).ToList());
+
+        var trendDates = Enumerable
+            .Range(0, normalizedDays)
+            .Select(offset => startLocalDate.AddDays(offset))
+            .ToList();
+
+        var fpyByDay = new Dictionary<DateTime, (decimal? fpy, int defectCount)>();
+        if (characteristicIds is not null)
+        {
+            var periods = trendDates
+                .Select(day => (
+                    key: day,
+                    utcStart: TimeZoneInfo.ConvertTimeToUtc(day, tz),
+                    utcEnd: TimeZoneInfo.ConvertTimeToUtc(day.AddDays(1), tz)))
+                .ToList();
+            fpyByDay = await BatchComputeFpyAsync(
+                wcId, plantId, periods, characteristicIds, operatorId, cancellationToken);
+        }
+
+        var dto = new SupervisorDashboardTrendsDto();
+        foreach (var day in trendDates)
+        {
+            var utcStart = TimeZoneInfo.ConvertTimeToUtc(day, tz);
+            var utcEnd = TimeZoneInfo.ConvertTimeToUtc(day.AddDays(1), tz);
+            var timestamps = timestampsByDay.GetValueOrDefault(day) ?? new List<DateTime>();
+            var count = timestamps.Count;
+            var dateKey = day.ToString("yyyy-MM-dd");
+            var fpyTuple = fpyByDay.GetValueOrDefault(day);
+            var oee = await _oeeService.CalculateOeeAsync(wcId, plantId, dateKey, cancellationToken);
+            var availability = oee.Availability;
+            var performance = oee.Performance;
+            decimal? quality = null;
+            decimal? overallOee = null;
+
+            if (fpyTuple.fpy.HasValue)
+            {
+                quality = fpyTuple.fpy;
+                if (availability.HasValue && performance.HasValue)
+                    overallOee = Math.Round(
+                        availability.Value / 100m * performance.Value / 100m * quality.Value / 100m * 100m, 1);
+            }
+            else if (availability.HasValue && performance.HasValue)
+            {
+                quality = 100m;
+                overallOee = Math.Round(availability.Value / 100m * performance.Value / 100m * 100m, 1);
+            }
+
+            dto.Count.Add(new KpiTrendPointDto { Date = dateKey, Value = count });
+            dto.Fpy.Add(new KpiTrendPointDto { Date = dateKey, Value = fpyTuple.fpy });
+            dto.Defects.Add(new KpiTrendPointDto { Date = dateKey, Value = fpyTuple.defectCount });
+            dto.QtyPerHour.Add(new KpiTrendPointDto
+            {
+                Date = dateKey,
+                Value = ComputeQtyPerHour(timestamps, utcStart, utcEnd),
+            });
+            dto.AvgBetweenScans.Add(new KpiTrendPointDto
+            {
+                Date = dateKey,
+                Value = Convert.ToDecimal(ComputeAvgTimeBetweenScans(timestamps)),
+            });
+            dto.Availability.Add(new KpiTrendPointDto { Date = dateKey, Value = availability });
+            dto.Performance.Add(new KpiTrendPointDto { Date = dateKey, Value = performance });
+            dto.Quality.Add(new KpiTrendPointDto { Date = dateKey, Value = quality });
+            dto.Oee.Add(new KpiTrendPointDto { Date = dateKey, Value = overallOee });
+        }
 
         return dto;
     }
@@ -135,6 +262,7 @@ public class SupervisorDashboardService : ISupervisorDashboardService
         Guid wcId, Guid plantId, string? dataEntryType,
         DateTime startOfDay, DateTime endOfDay,
         DateTime startOfWeek, DateTime endOfWeek,
+        DateTime startOfMonth, DateTime endOfMonth,
         Guid? operatorId, CancellationToken cancellationToken)
     {
         var charIds = GetApplicableCharacteristicIds(dataEntryType);
@@ -145,11 +273,15 @@ public class SupervisorDashboardService : ISupervisorDashboardService
             wcId, plantId, startOfDay, endOfDay, charIds, operatorId, cancellationToken);
         var (weekFpy, weekDefects) = await ComputeFpyAsync(
             wcId, plantId, startOfWeek, endOfWeek, charIds, operatorId, cancellationToken);
+        var (monthFpy, monthDefects) = await ComputeFpyAsync(
+            wcId, plantId, startOfMonth, endOfMonth, charIds, operatorId, cancellationToken);
 
         dto.DayFPY = dayFpy;
         dto.WeekFPY = weekFpy;
+        dto.MonthFPY = monthFpy;
         dto.DayDefects = dayDefects;
         dto.WeekDefects = weekDefects;
+        dto.MonthDefects = monthDefects;
     }
 
     private async Task<List<OperatorSummaryDto>> BuildOperatorSummary(

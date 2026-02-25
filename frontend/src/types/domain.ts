@@ -823,15 +823,20 @@ export interface OperatorSummary {
 export interface SupervisorDashboardMetrics {
   dayCount: number;
   weekCount: number;
+  monthCount: number;
   supportsFirstPassYield: boolean;
   dayFPY: number | null;
   weekFPY: number | null;
+  monthFPY: number | null;
   dayDefects: number;
   weekDefects: number;
+  monthDefects: number;
   dayAvgTimeBetweenScans: number;
   weekAvgTimeBetweenScans: number;
+  monthAvgTimeBetweenScans: number;
   dayQtyPerHour: number;
   weekQtyPerHour: number;
+  monthQtyPerHour: number;
   hourlyCounts: HourlyCount[];
   weekDailyCounts: DailyCount[];
   operators: OperatorSummary[];
@@ -842,6 +847,23 @@ export interface SupervisorDashboardMetrics {
   oeePlannedMinutes: number | null;
   oeeDowntimeMinutes: number | null;
   oeeRunTimeMinutes: number | null;
+}
+
+export interface KpiTrendPoint {
+  date: string;
+  value: number | null;
+}
+
+export interface SupervisorDashboardTrends {
+  count: KpiTrendPoint[];
+  fpy: KpiTrendPoint[];
+  defects: KpiTrendPoint[];
+  qtyPerHour: KpiTrendPoint[];
+  avgBetweenScans: KpiTrendPoint[];
+  oee: KpiTrendPoint[];
+  availability: KpiTrendPoint[];
+  performance: KpiTrendPoint[];
+  quality: KpiTrendPoint[];
 }
 
 export interface ExistingAnnotation {

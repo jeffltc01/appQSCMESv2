@@ -19,4 +19,8 @@ public interface ISupervisorDashboardService
     Task<PerformanceTableResponseDto> GetPerformanceTableAsync(
         Guid wcId, Guid plantId, string date, string view,
         Guid? operatorId = null, CancellationToken cancellationToken = default);
+
+    Task<SupervisorDashboardTrendsDto> GetTrendsAsync(
+        Guid wcId, Guid plantId, string date, Guid? operatorId = null, int days = 30,
+        CancellationToken cancellationToken = default);
 }

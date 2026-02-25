@@ -10,12 +10,17 @@ import {
 } from '@fluentui/react-components';
 import { NoteRegular, TimerRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
+import { AdminModal } from './AdminModal.tsx';
 import { LogDowntimeDialog } from '../../components/dialogs/LogDowntimeDialog.tsx';
 import { workCenterApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
+import { Sparkline } from '../../components/charts/Sparkline.tsx';
+import { MetricTrendChart } from '../../components/charts/MetricTrendChart.tsx';
 import type {
   WorkCenter,
+  KpiTrendPoint,
   SupervisorDashboardMetrics,
+  SupervisorDashboardTrends,
   SupervisorRecord,
   PerformanceTableResponse,
 } from '../../types/domain.ts';
@@ -25,6 +30,27 @@ import styles from './SupervisorDashboardScreen.module.css';
 const REFRESH_INTERVAL_MS = 30_000;
 
 type ViewMode = 'day' | 'week' | 'month' | 'annotate';
+type MetricDrilldownId =
+  | 'count'
+  | 'fpy'
+  | 'defects'
+  | 'avgBetweenScans'
+  | 'qtyPerHour'
+  | 'oee'
+  | 'availability'
+  | 'performance'
+  | 'quality';
+
+type MetricFormatKind = 'integer' | 'decimal' | 'percent' | 'seconds';
+type MetricDrilldownDescriptor = {
+  id: MetricDrilldownId;
+  title: string;
+  cardValueText: string;
+  color?: string;
+  points: KpiTrendPoint[];
+  format: MetricFormatKind;
+};
+
 const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: 'day', label: 'Day' },
   { key: 'week', label: 'Week' },
@@ -44,6 +70,7 @@ export function SupervisorDashboardScreen() {
   const [selectedWcId, setSelectedWcId] = useState('');
   const [selectedWcName, setSelectedWcName] = useState('');
   const [metrics, setMetrics] = useState<SupervisorDashboardMetrics | null>(null);
+  const [trends, setTrends] = useState<SupervisorDashboardTrends | null>(null);
   const [records, setRecords] = useState<SupervisorRecord[]>([]);
   const [perfTable, setPerfTable] = useState<PerformanceTableResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,6 +83,7 @@ export function SupervisorDashboardScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
   const [showDowntimeDialog, setShowDowntimeDialog] = useState(false);
+  const [selectedMetricId, setSelectedMetricId] = useState<MetricDrilldownId | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -72,6 +100,10 @@ export function SupervisorDashboardScreen() {
           selectedWcId, user.defaultSiteId, today,
           selectedOperatorId ?? undefined,
         ).then(setMetrics),
+        supervisorDashboardApi.getTrends(
+          selectedWcId, user.defaultSiteId, today,
+          selectedOperatorId ?? undefined, 30,
+        ).then(setTrends),
         supervisorDashboardApi.getRecords(selectedWcId, user.defaultSiteId, today)
           .then((data) => {
             setRecords(data);
@@ -94,6 +126,7 @@ export function SupervisorDashboardScreen() {
       await Promise.all(fetches);
     } catch {
       setMetrics(null);
+      setTrends(null);
       setRecords([]);
       setPerfTable(null);
     } finally {
@@ -106,6 +139,7 @@ export function SupervisorDashboardScreen() {
       loadData();
     } else {
       setMetrics(null);
+      setTrends(null);
       setRecords([]);
       setPerfTable(null);
       setCheckedIds(new Set());
@@ -169,6 +203,125 @@ export function SupervisorDashboardScreen() {
   };
 
   const formatNum = (v: number | null) => (v !== null ? String(v) : '--');
+  const formatDelta = (v: number | null) => (v !== null ? (v >= 0 ? `+${v}` : String(v)) : '--');
+  const formatTrendValue = (value: number | null, format: MetricFormatKind) => {
+    if (value === null) return '--';
+    if (format === 'seconds') return formatSeconds(value);
+    if (format === 'percent') return `${value}%`;
+    if (format === 'integer') return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  };
+  const deltaBarWidth = (delta: number | null, planned: number | null) => {
+    if (delta === null) return 0;
+    const base = planned && planned > 0 ? planned : 25;
+    const pct = Math.round((Math.abs(delta) / base) * 100);
+    return Math.max(10, Math.min(100, pct));
+  };
+  const metricView: 'day' | 'week' | 'month' = viewMode === 'annotate' ? 'day' : viewMode;
+  const selectedPeriodLabel = metricView === 'day' ? 'Day' : metricView === 'week' ? 'Week' : 'Month';
+  const selectedCount = metricView === 'day' ? metrics?.dayCount : metricView === 'week' ? metrics?.weekCount : metrics?.monthCount;
+  const selectedFpy = metricView === 'day' ? metrics?.dayFPY : metricView === 'week' ? metrics?.weekFPY : metrics?.monthFPY;
+  const selectedDefects = metricView === 'day' ? metrics?.dayDefects : metricView === 'week' ? metrics?.weekDefects : metrics?.monthDefects;
+  const selectedAvgScanSeconds = metricView === 'day'
+    ? metrics?.dayAvgTimeBetweenScans
+    : metricView === 'week'
+      ? metrics?.weekAvgTimeBetweenScans
+      : metrics?.monthAvgTimeBetweenScans;
+  const selectedQtyPerHour = metricView === 'day'
+    ? metrics?.dayQtyPerHour
+    : metricView === 'week'
+      ? metrics?.weekQtyPerHour
+      : metrics?.monthQtyPerHour;
+  const countTrendValues = trends?.count.map((point) => point.value) ?? [];
+  const fpyTrendValues = trends?.fpy.map((point) => point.value) ?? [];
+  const defectsTrendValues = trends?.defects.map((point) => point.value) ?? [];
+  const qtyPerHourTrendValues = trends?.qtyPerHour.map((point) => point.value) ?? [];
+  const avgBetweenScansTrendValues = trends?.avgBetweenScans.map((point) => point.value) ?? [];
+  const oeeTrendValues = trends?.oee.map((point) => point.value) ?? [];
+  const availabilityTrendValues = trends?.availability.map((point) => point.value) ?? [];
+  const performanceTrendValues = trends?.performance.map((point) => point.value) ?? [];
+  const qualityTrendValues = trends?.quality.map((point) => point.value) ?? [];
+  const metricDrilldowns: Partial<Record<MetricDrilldownId, MetricDrilldownDescriptor>> = {
+    count: {
+      id: 'count',
+      title: 'Count',
+      cardValueText: String(selectedCount ?? '--'),
+      points: trends?.count ?? [],
+      format: 'integer',
+    },
+    avgBetweenScans: {
+      id: 'avgBetweenScans',
+      title: 'Avg Between Scans',
+      cardValueText: formatSeconds(selectedAvgScanSeconds ?? 0),
+      points: trends?.avgBetweenScans ?? [],
+      format: 'seconds',
+    },
+    qtyPerHour: {
+      id: 'qtyPerHour',
+      title: 'Qty / Hour',
+      cardValueText: String(selectedQtyPerHour ?? '--'),
+      points: trends?.qtyPerHour ?? [],
+      format: 'decimal',
+    },
+  };
+
+  if (metrics?.supportsFirstPassYield) {
+    metricDrilldowns.fpy = {
+      id: 'fpy',
+      title: 'First Pass Yield',
+      cardValueText: selectedFpy !== null ? `${selectedFpy}%` : '--',
+      color: '#65e26f',
+      points: trends?.fpy ?? [],
+      format: 'percent',
+    };
+    metricDrilldowns.defects = {
+      id: 'defects',
+      title: 'Total Defects',
+      cardValueText: String(selectedDefects ?? '--'),
+      color: '#ff6671',
+      points: trends?.defects ?? [],
+      format: 'integer',
+    };
+  }
+
+  if (metrics?.oeeAvailability != null) {
+    metricDrilldowns.oee = {
+      id: 'oee',
+      title: 'OEE',
+      cardValueText: metrics?.oeeOverall !== null ? `${metrics.oeeOverall}%` : '--',
+      points: trends?.oee ?? [],
+      format: 'percent',
+    };
+    metricDrilldowns.availability = {
+      id: 'availability',
+      title: 'Availability',
+      cardValueText: `${metrics?.oeeAvailability}%`,
+      points: trends?.availability ?? [],
+      format: 'percent',
+    };
+    metricDrilldowns.performance = {
+      id: 'performance',
+      title: 'Performance',
+      cardValueText: metrics?.oeePerformance !== null ? `${metrics.oeePerformance}%` : '--',
+      points: trends?.performance ?? [],
+      format: 'percent',
+    };
+    metricDrilldowns.quality = {
+      id: 'quality',
+      title: 'Quality',
+      cardValueText: metrics?.oeeQuality !== null ? `${metrics.oeeQuality}%` : '--',
+      points: trends?.quality ?? [],
+      format: 'percent',
+    };
+  }
+
+  const selectedMetric = selectedMetricId ? metricDrilldowns[selectedMetricId] ?? null : null;
+  const selectedMetricRows = selectedMetric
+    ? [...selectedMetric.points].sort((a, b) => b.date.localeCompare(a.date))
+    : [];
+  const openMetricDrilldown = (id: MetricDrilldownId) => {
+    if (metricDrilldowns[id]) setSelectedMetricId(id);
+  };
 
   return (
     <AdminLayout
@@ -262,10 +415,150 @@ export function SupervisorDashboardScreen() {
             </div>
           )}
 
-          {/* OEE Cards */}
-          {metrics.oeeAvailability !== null && (
-            <div className={styles.oeeRow}>
-              <div className={styles.oeeCard}>
+          {/* Top Cards */}
+          <div className={styles.cardsRow}>
+            <button
+              type="button"
+              className={`${styles.kpiCard} ${styles.metricCardButton}`}
+              onClick={() => openMetricDrilldown('count')}
+              aria-label="Open Count details"
+            >
+              <div className={styles.kpiHeader}>Count</div>
+              <div className={styles.kpiBody}>
+                <div className={styles.kpiValues}>
+                  <div className={styles.kpiValueGroup}>
+                    <span className={styles.kpiNumber}>{selectedCount}</span>
+                      <div className={styles.kpiSparkline}>
+                        <Sparkline
+                          values={countTrendValues}
+                          testId="sparkline-count"
+                          ariaLabel="Count trend for last 30 days"
+                        />
+                      </div>
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {metrics.supportsFirstPassYield && (
+              <button
+                type="button"
+                className={`${styles.kpiCard} ${styles.kpiCardFpy} ${styles.metricCardButton}`}
+                onClick={() => openMetricDrilldown('fpy')}
+                aria-label="Open First Pass Yield details"
+              >
+                <div className={styles.kpiHeader}>First Pass Yield</div>
+                <div className={styles.kpiBody}>
+                  <div className={styles.kpiValues}>
+                    <div className={styles.kpiValueGroup}>
+                      <span className={selectedFpy !== null
+                        ? (selectedFpy! >= 95 ? styles.kpiNumberGreen : styles.kpiNumberRed)
+                        : styles.kpiNumber}>
+                        {selectedFpy !== null
+                          ? `${selectedFpy}%`
+                          : '--'}
+                      </span>
+                      <div className={styles.kpiSparkline}>
+                        <Sparkline
+                          values={fpyTrendValues}
+                          color="#65e26f"
+                          testId="sparkline-fpy"
+                          ariaLabel="First pass yield trend for last 30 days"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            {metrics.supportsFirstPassYield && (
+              <button
+                type="button"
+                className={`${styles.kpiCard} ${styles.kpiCardDefects} ${styles.metricCardButton}`}
+                onClick={() => openMetricDrilldown('defects')}
+                aria-label="Open Total Defects details"
+              >
+                <div className={styles.kpiHeader}>Total Defects</div>
+                <div className={styles.kpiBody}>
+                  <div className={styles.kpiValues}>
+                    <div className={styles.kpiValueGroup}>
+                      <span
+                        className={selectedDefects === 0
+                          ? styles.kpiNumberGreen
+                          : styles.kpiNumberRed}
+                      >
+                        {selectedDefects}
+                      </span>
+                      <div className={styles.kpiSparkline}>
+                        <Sparkline
+                          values={defectsTrendValues}
+                          color="#ff6671"
+                          testId="sparkline-defects"
+                          ariaLabel="Defect trend for last 30 days"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className={`${styles.kpiCard} ${styles.metricCardButton}`}
+              onClick={() => openMetricDrilldown('avgBetweenScans')}
+              aria-label="Open Avg Between Scans details"
+            >
+              <div className={styles.kpiHeader}>Avg Between Scans</div>
+              <div className={styles.kpiBody}>
+                <div className={styles.kpiValues}>
+                  <div className={styles.kpiValueGroup}>
+                    <span className={styles.kpiNumber}>
+                      {formatSeconds(selectedAvgScanSeconds ?? 0)}
+                    </span>
+                    <div className={styles.kpiSparkline}>
+                      <Sparkline
+                        values={avgBetweenScansTrendValues}
+                        testId="sparkline-avg-between-scans"
+                        ariaLabel="Average time between scans trend for last 30 days"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`${styles.kpiCard} ${styles.metricCardButton}`}
+              onClick={() => openMetricDrilldown('qtyPerHour')}
+              aria-label="Open Qty Per Hour details"
+            >
+              <div className={styles.kpiHeader}>Qty / Hour</div>
+              <div className={styles.kpiBody}>
+                <div className={styles.kpiValues}>
+                  <div className={styles.kpiValueGroup}>
+                    <span className={styles.kpiNumber}>{selectedQtyPerHour}</span>
+                    <div className={styles.kpiSparkline}>
+                      <Sparkline
+                        values={qtyPerHourTrendValues}
+                        testId="sparkline-qty-per-hour"
+                        ariaLabel="Quantity per hour trend for last 30 days"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {metrics.oeeAvailability != null && (
+              <button
+                type="button"
+                className={`${styles.oeeCard} ${styles.oeeCardOverall} ${styles.metricCardButton}`}
+                onClick={() => openMetricDrilldown('oee')}
+                aria-label="Open OEE details"
+              >
                 <div className={styles.oeeHeader}>OEE</div>
                 <div className={styles.oeeBody}>
                   <span className={
@@ -277,9 +570,24 @@ export function SupervisorDashboardScreen() {
                   }>
                     {metrics.oeeOverall !== null ? `${metrics.oeeOverall}%` : '--'}
                   </span>
+                  <div className={styles.kpiSparkline}>
+                    <Sparkline
+                      values={oeeTrendValues}
+                      testId="sparkline-oee"
+                      ariaLabel="OEE trend for last 30 days"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className={styles.oeeCard}>
+              </button>
+            )}
+
+            {metrics.oeeAvailability != null && (
+              <button
+                type="button"
+                className={`${styles.oeeCard} ${styles.oeeCardAvailability} ${styles.metricCardButton}`}
+                onClick={() => openMetricDrilldown('availability')}
+                aria-label="Open Availability details"
+              >
                 <div className={styles.oeeHeader}>Availability</div>
                 <div className={styles.oeeBody}>
                   <span className={
@@ -289,12 +597,24 @@ export function SupervisorDashboardScreen() {
                   }>
                     {metrics.oeeAvailability}%
                   </span>
-                  <span className={styles.oeeSubtext}>
-                    {metrics.oeeDowntimeMinutes !== null ? `${metrics.oeeDowntimeMinutes}m down` : ''}
-                  </span>
+                  <div className={styles.kpiSparkline}>
+                    <Sparkline
+                      values={availabilityTrendValues}
+                      testId="sparkline-availability"
+                      ariaLabel="Availability trend for last 30 days"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className={styles.oeeCard}>
+              </button>
+            )}
+
+            {metrics.oeeAvailability != null && (
+              <button
+                type="button"
+                className={`${styles.oeeCard} ${styles.oeeCardPerformance} ${styles.metricCardButton}`}
+                onClick={() => openMetricDrilldown('performance')}
+                aria-label="Open Performance details"
+              >
                 <div className={styles.oeeHeader}>Performance</div>
                 <div className={styles.oeeBody}>
                   <span className={
@@ -306,12 +626,24 @@ export function SupervisorDashboardScreen() {
                   }>
                     {metrics.oeePerformance !== null ? `${metrics.oeePerformance}%` : '--'}
                   </span>
-                  <span className={styles.oeeSubtext}>
-                    {metrics.oeeRunTimeMinutes !== null ? `${metrics.oeeRunTimeMinutes}m run` : ''}
-                  </span>
+                  <div className={styles.kpiSparkline}>
+                    <Sparkline
+                      values={performanceTrendValues}
+                      testId="sparkline-performance"
+                      ariaLabel="Performance trend for last 30 days"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className={styles.oeeCard}>
+              </button>
+            )}
+
+            {metrics.oeeAvailability != null && (
+              <button
+                type="button"
+                className={`${styles.oeeCard} ${styles.oeeCardQuality} ${styles.metricCardButton}`}
+                onClick={() => openMetricDrilldown('quality')}
+                aria-label="Open Quality details"
+              >
                 <div className={styles.oeeHeader}>Quality</div>
                 <div className={styles.oeeBody}>
                   <span className={
@@ -323,171 +655,94 @@ export function SupervisorDashboardScreen() {
                   }>
                     {metrics.oeeQuality !== null ? `${metrics.oeeQuality}%` : '--'}
                   </span>
-                  <span className={styles.oeeSubtext}>
-                    {metrics.oeePlannedMinutes !== null ? `${metrics.oeePlannedMinutes}m planned` : ''}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* KPI Cards */}
-          <div className={styles.kpiRow}>
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiHeader}>Count</div>
-              <div className={styles.kpiBody}>
-                <div className={styles.kpiValues}>
-                  <div className={styles.kpiValueGroup}>
-                    <span className={styles.kpiLabel}>Day</span>
-                    <span className={styles.kpiNumber}>{metrics.dayCount}</span>
-                  </div>
-                  <div className={styles.kpiValueGroup}>
-                    <span className={styles.kpiLabel}>Week</span>
-                    <span className={styles.kpiNumber}>{metrics.weekCount}</span>
+                  <div className={styles.kpiSparkline}>
+                    <Sparkline
+                      values={qualityTrendValues}
+                      testId="sparkline-quality"
+                      ariaLabel="Quality trend for last 30 days"
+                    />
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {metrics.supportsFirstPassYield && (
-              <div className={styles.kpiCard}>
-                <div className={styles.kpiHeader}>First Pass Yield</div>
-                <div className={styles.kpiBody}>
-                  <div className={styles.kpiValues}>
-                    <div className={styles.kpiValueGroup}>
-                      <span className={styles.kpiLabel}>Day</span>
-                      <span className={metrics.dayFPY !== null
-                        ? (metrics.dayFPY >= 95 ? styles.kpiNumberGreen : styles.kpiNumberRed)
-                        : styles.kpiNumber}>
-                        {metrics.dayFPY !== null ? `${metrics.dayFPY}%` : '--'}
-                      </span>
-                    </div>
-                    <div className={styles.kpiValueGroup}>
-                      <span className={styles.kpiLabel}>Week</span>
-                      <span className={metrics.weekFPY !== null
-                        ? ((metrics.weekFPY >= 95) ? styles.kpiNumberGreen : styles.kpiNumberRed)
-                        : styles.kpiNumber}>
-                        {metrics.weekFPY !== null ? `${metrics.weekFPY}%` : '--'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </button>
             )}
-
-            {metrics.supportsFirstPassYield && (
-              <div className={styles.kpiCard}>
-                <div className={styles.kpiHeader}>Total Defects</div>
-                <div className={styles.kpiBody}>
-                  <div className={styles.kpiValues}>
-                    <div className={styles.kpiValueGroup}>
-                      <span className={styles.kpiLabel}>Day</span>
-                      <span className={metrics.dayDefects === 0 ? styles.kpiNumberGreen : styles.kpiNumberRed}>
-                        {metrics.dayDefects}
-                      </span>
-                    </div>
-                    <div className={styles.kpiValueGroup}>
-                      <span className={styles.kpiLabel}>Week</span>
-                      <span className={metrics.weekDefects === 0 ? styles.kpiNumberGreen : styles.kpiNumberRed}>
-                        {metrics.weekDefects}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiHeader}>Avg Time Between Scans</div>
-              <div className={styles.kpiBody}>
-                <div className={styles.kpiValues}>
-                  <div className={styles.kpiValueGroup}>
-                    <span className={styles.kpiLabel}>Day</span>
-                    <span className={styles.kpiNumber}>{formatSeconds(metrics.dayAvgTimeBetweenScans)}</span>
-                  </div>
-                  <div className={styles.kpiValueGroup}>
-                    <span className={styles.kpiLabel}>Week</span>
-                    <span className={styles.kpiNumber}>{formatSeconds(metrics.weekAvgTimeBetweenScans)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiHeader}>Qty / Hour</div>
-              <div className={styles.kpiBody}>
-                <div className={styles.kpiValues}>
-                  <div className={styles.kpiValueGroup}>
-                    <span className={styles.kpiLabel}>Day</span>
-                    <span className={styles.kpiNumber}>{metrics.dayQtyPerHour}</span>
-                  </div>
-                  <div className={styles.kpiValueGroup}>
-                    <span className={styles.kpiLabel}>Week</span>
-                    <span className={styles.kpiNumber}>{metrics.weekQtyPerHour}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Performance Table (Day / Week / Month) */}
           {viewMode !== 'annotate' && perfTable && (
             <>
-              <div className={styles.sectionHeader}>
+              <div className={`${styles.sectionHeader} ${styles.sectionHeaderPerf}`}>
                 {viewMode === 'day' ? 'Hourly Performance - Today'
                   : viewMode === 'week' ? 'Daily Performance - This Week'
                   : 'Weekly Performance - This Month'}
               </div>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>{viewMode === 'day' ? 'Hour' : viewMode === 'week' ? 'Day' : 'Week'}</th>
-                    <th>Planned</th>
-                    <th>Actual</th>
-                    <th>Delta</th>
-                    <th>FPY</th>
-                    <th>Downtime (min)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {perfTable.rows.map((row) => (
-                    <tr key={row.label}>
-                      <td className={styles.perfLabel}>{row.label}</td>
-                      <td>{formatNum(row.planned)}</td>
-                      <td>{row.actual}</td>
-                      <td className={
-                        row.delta !== null
-                          ? (row.delta >= 0 ? styles.deltaPositive : styles.deltaNegative)
-                          : undefined
-                      }>
-                        {row.delta !== null ? (row.delta >= 0 ? `+${row.delta}` : String(row.delta)) : '--'}
-                      </td>
-                      <td>{row.fpy !== null ? `${row.fpy}%` : '--'}</td>
-                      <td>{row.downtimeMinutes > 0 ? row.downtimeMinutes : '--'}</td>
+              <div className={styles.perfTableScroll}>
+                <table className={`${styles.table} ${styles.perfTable}`}>
+                  <thead>
+                    <tr>
+                      <th>{viewMode === 'day' ? 'Hour' : viewMode === 'week' ? 'Day' : 'Week'}</th>
+                      <th>Planned</th>
+                      <th>Actual</th>
+                      <th>Delta</th>
+                      <th>FPY</th>
+                      <th>Downtime (min)</th>
                     </tr>
-                  ))}
-                </tbody>
-                {perfTable.totalRow && (
-                  <tfoot>
-                    <tr className={styles.totalRow}>
-                      <td className={styles.perfLabel}>{perfTable.totalRow.label}</td>
-                      <td>{formatNum(perfTable.totalRow.planned)}</td>
-                      <td>{perfTable.totalRow.actual}</td>
-                      <td className={
-                        perfTable.totalRow.delta !== null
-                          ? (perfTable.totalRow.delta >= 0 ? styles.deltaPositive : styles.deltaNegative)
-                          : undefined
-                      }>
-                        {perfTable.totalRow.delta !== null
-                          ? (perfTable.totalRow.delta >= 0 ? `+${perfTable.totalRow.delta}` : String(perfTable.totalRow.delta))
-                          : '--'}
-                      </td>
-                      <td>{perfTable.totalRow.fpy !== null ? `${perfTable.totalRow.fpy}%` : '--'}</td>
-                      <td>{perfTable.totalRow.downtimeMinutes > 0 ? perfTable.totalRow.downtimeMinutes : '--'}</td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
+                  </thead>
+                  <tbody>
+                    {perfTable.rows.map((row) => (
+                      <tr key={row.label}>
+                        <td className={styles.perfLabel}>{row.label}</td>
+                        <td>{formatNum(row.planned)}</td>
+                        <td>{row.actual}</td>
+                        <td className={styles.deltaCell}>
+                          {row.delta !== null ? (
+                            <div className={styles.deltaWrap}>
+                              <span className={row.delta >= 0 ? styles.deltaPositive : styles.deltaNegative}>
+                                {formatDelta(row.delta)}
+                              </span>
+                              <span
+                                className={`${styles.deltaBar} ${row.delta >= 0 ? styles.deltaBarPositive : styles.deltaBarNegative}`}
+                                style={{ width: `${deltaBarWidth(row.delta, row.planned)}%` }}
+                              />
+                            </div>
+                          ) : '--'}
+                        </td>
+                        <td>{row.fpy !== null ? `${row.fpy}%` : '--'}</td>
+                        <td>{row.downtimeMinutes > 0 ? row.downtimeMinutes : '--'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {perfTable.totalRow && (
+                    <tfoot>
+                      <tr className={styles.totalRow}>
+                        <td className={styles.perfLabel}>{perfTable.totalRow.label}</td>
+                        <td>{formatNum(perfTable.totalRow.planned)}</td>
+                        <td>{perfTable.totalRow.actual}</td>
+                        <td className={styles.deltaCell}>
+                          {perfTable.totalRow.delta !== null ? (
+                            <div className={styles.deltaWrap}>
+                              <span
+                                className={
+                                  perfTable.totalRow.delta >= 0 ? styles.deltaPositive : styles.deltaNegative
+                                }
+                              >
+                                {formatDelta(perfTable.totalRow.delta)}
+                              </span>
+                              <span
+                                className={`${styles.deltaBar} ${perfTable.totalRow.delta >= 0 ? styles.deltaBarPositive : styles.deltaBarNegative}`}
+                                style={{
+                                  width: `${deltaBarWidth(perfTable.totalRow.delta, perfTable.totalRow.planned)}%`,
+                                }}
+                              />
+                            </div>
+                          ) : '--'}
+                        </td>
+                        <td>{perfTable.totalRow.fpy !== null ? `${perfTable.totalRow.fpy}%` : '--'}</td>
+                        <td>{perfTable.totalRow.downtimeMinutes > 0 ? perfTable.totalRow.downtimeMinutes : '--'}</td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
             </>
           )}
 
@@ -594,6 +849,58 @@ export function SupervisorDashboardScreen() {
             </>
           )}
         </>
+      )}
+      {selectedMetric && (
+        <AdminModal
+          open
+          title={`${selectedMetric.title} Details`}
+          onConfirm={() => setSelectedMetricId(null)}
+          onCancel={() => setSelectedMetricId(null)}
+          confirmLabel="Close"
+          hideCancel
+          wide
+          titleClassName={styles.metricDialogTitle}
+          contentClassName={styles.metricDialogContentEdgeToEdge}
+          closeButtonClassName={styles.metricDialogCloseButton}
+          bodyClassName={styles.metricDialogBodyFlush}
+          surfaceClassName={styles.metricDialogSurfaceFlush}
+        >
+          <div className={styles.metricDialogContent}>
+            <div className={styles.metricDialogHeader}>
+              <div className={styles.metricDialogHeaderTitle}>Last 30 Days</div>
+              <div className={styles.metricDialogCurrentValue}>
+                Current {selectedPeriodLabel}: {selectedMetric.cardValueText}
+              </div>
+            </div>
+            <div className={styles.metricDialogChart}>
+              <MetricTrendChart
+                points={selectedMetric.points}
+                color={selectedMetric.color}
+                testId="metric-drilldown-chart"
+                ariaLabel={`${selectedMetric.title} trend for last 30 days`}
+              />
+            </div>
+            <div className={styles.metricDialogTableHeader}>Daily Values</div>
+            <div className={styles.metricDialogTableWrap}>
+              <table className={`${styles.table} ${styles.metricDialogTable}`} data-testid="metric-drilldown-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedMetricRows.map((point) => (
+                    <tr key={point.date}>
+                      <td>{point.date}</td>
+                      <td>{formatTrendValue(point.value, selectedMetric.format)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </AdminModal>
       )}
       <LogDowntimeDialog
         open={showDowntimeDialog}

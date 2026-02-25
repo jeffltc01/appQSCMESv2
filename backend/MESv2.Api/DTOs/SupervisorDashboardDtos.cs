@@ -4,15 +4,20 @@ public class SupervisorDashboardMetricsDto
 {
     public int DayCount { get; set; }
     public int WeekCount { get; set; }
+    public int MonthCount { get; set; }
     public bool SupportsFirstPassYield { get; set; }
     public decimal? DayFPY { get; set; }
     public decimal? WeekFPY { get; set; }
+    public decimal? MonthFPY { get; set; }
     public int DayDefects { get; set; }
     public int WeekDefects { get; set; }
+    public int MonthDefects { get; set; }
     public double DayAvgTimeBetweenScans { get; set; }
     public double WeekAvgTimeBetweenScans { get; set; }
+    public double MonthAvgTimeBetweenScans { get; set; }
     public decimal DayQtyPerHour { get; set; }
     public decimal WeekQtyPerHour { get; set; }
+    public decimal MonthQtyPerHour { get; set; }
     public List<HourlyCountDto> HourlyCounts { get; set; } = new();
     public List<DailyCountDto> WeekDailyCounts { get; set; } = new();
     public List<OperatorSummaryDto> Operators { get; set; } = new();
@@ -25,6 +30,25 @@ public class SupervisorDashboardMetricsDto
     public decimal? OeePlannedMinutes { get; set; }
     public decimal? OeeDowntimeMinutes { get; set; }
     public decimal? OeeRunTimeMinutes { get; set; }
+}
+
+public class KpiTrendPointDto
+{
+    public string Date { get; set; } = string.Empty;
+    public decimal? Value { get; set; }
+}
+
+public class SupervisorDashboardTrendsDto
+{
+    public List<KpiTrendPointDto> Count { get; set; } = new();
+    public List<KpiTrendPointDto> Fpy { get; set; } = new();
+    public List<KpiTrendPointDto> Defects { get; set; } = new();
+    public List<KpiTrendPointDto> QtyPerHour { get; set; } = new();
+    public List<KpiTrendPointDto> AvgBetweenScans { get; set; } = new();
+    public List<KpiTrendPointDto> Oee { get; set; } = new();
+    public List<KpiTrendPointDto> Availability { get; set; } = new();
+    public List<KpiTrendPointDto> Performance { get; set; } = new();
+    public List<KpiTrendPointDto> Quality { get; set; } = new();
 }
 
 public class HourlyCountDto

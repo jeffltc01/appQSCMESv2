@@ -142,6 +142,7 @@ import type {
   SpotXrayIncrementSummary,
   SpotXrayIncrementDetail,
   SupervisorDashboardMetrics,
+  SupervisorDashboardTrends,
   SupervisorRecord,
   PerformanceTableResponse,
   DowntimeReasonCategory,
@@ -567,6 +568,11 @@ export const supervisorDashboardApi = {
     const params = new URLSearchParams({ plantId, date });
     if (operatorId) params.set('operatorId', operatorId);
     return api.get<SupervisorDashboardMetrics>(`/supervisor-dashboard/${wcId}/metrics?${params}`);
+  },
+  getTrends: (wcId: string, plantId: string, date: string, operatorId?: string, days = 30) => {
+    const params = new URLSearchParams({ plantId, date, days: String(days) });
+    if (operatorId) params.set('operatorId', operatorId);
+    return api.get<SupervisorDashboardTrends>(`/supervisor-dashboard/${wcId}/trends?${params}`);
   },
   getRecords: (wcId: string, plantId: string, date: string) =>
     api.get<SupervisorRecord[]>(`/supervisor-dashboard/${wcId}/records?plantId=${encodeURIComponent(plantId)}&date=${encodeURIComponent(date)}`),

@@ -23,6 +23,12 @@ interface AdminModalProps {
   error?: string;
   confirmDisabled?: boolean;
   wide?: boolean;
+  titleClassName?: string;
+  contentClassName?: string;
+  closeButtonClassName?: string;
+  bodyClassName?: string;
+  surfaceClassName?: string;
+  hideCancel?: boolean;
 }
 
 export function AdminModal({
@@ -37,27 +43,46 @@ export function AdminModal({
   error,
   confirmDisabled = false,
   wide = false,
+  titleClassName,
+  contentClassName,
+  closeButtonClassName,
+  bodyClassName,
+  surfaceClassName,
+  hideCancel = false,
 }: AdminModalProps) {
+  const baseSurfaceClassName = wide ? styles.surfaceWide : styles.surface;
+  const dialogSurfaceClassName = surfaceClassName
+    ? `${baseSurfaceClassName} ${surfaceClassName}`
+    : baseSurfaceClassName;
+  const dialogTitleClassName = titleClassName ? `${styles.title} ${titleClassName}` : styles.title;
+  const dialogContentClassName = contentClassName ? `${styles.content} ${contentClassName}` : styles.content;
+  const dialogCloseButtonClassName = closeButtonClassName
+    ? `${styles.closeButton} ${closeButtonClassName}`
+    : styles.closeButton;
+  const dialogBodyClassName = bodyClassName ? `${styles.body} ${bodyClassName}` : styles.body;
+
   return (
     <Dialog open={open} onOpenChange={(_, data) => { if (!data.open) onCancel(); }}>
-      <DialogSurface className={wide ? styles.surfaceWide : styles.surface}>
-        <DialogBody className={styles.body}>
+      <DialogSurface className={dialogSurfaceClassName}>
+        <DialogBody className={dialogBodyClassName}>
           <Button
             appearance="subtle"
             aria-label="close"
             icon={<DismissRegular />}
             onClick={onCancel}
-            className={styles.closeButton}
+            className={dialogCloseButtonClassName}
           />
-          <DialogTitle>{title}</DialogTitle>
-          <DialogContent className={styles.content}>
+          <DialogTitle className={dialogTitleClassName}>{title}</DialogTitle>
+          <DialogContent className={dialogContentClassName}>
             {children}
             {error && <div className={styles.error}>{error}</div>}
           </DialogContent>
           <DialogActions className={styles.actions}>
-            <Button appearance="secondary" onClick={onCancel} disabled={loading}>
-              {cancelLabel}
-            </Button>
+            {!hideCancel && (
+              <Button appearance="secondary" onClick={onCancel} disabled={loading}>
+                {cancelLabel}
+              </Button>
+            )}
             <Button
               appearance="primary"
               onClick={onConfirm}

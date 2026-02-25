@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { SupervisorDashboardScreen } from './SupervisorDashboardScreen';
-import type { SupervisorDashboardMetrics, SupervisorRecord, PerformanceTableResponse } from '../../types/domain';
+import type {
+  SupervisorDashboardMetrics,
+  SupervisorDashboardTrends,
+  SupervisorRecord,
+  PerformanceTableResponse,
+} from '../../types/domain';
 
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: {
@@ -15,6 +20,17 @@ vi.mock('../../api/endpoints', () => ({
   },
   supervisorDashboardApi: {
     getMetrics: vi.fn().mockResolvedValue(null),
+    getTrends: vi.fn().mockResolvedValue({
+      count: [],
+      fpy: [],
+      defects: [],
+      qtyPerHour: [],
+      avgBetweenScans: [],
+      oee: [],
+      availability: [],
+      performance: [],
+      quality: [],
+    }),
     getRecords: vi.fn().mockResolvedValue([]),
     getPerformanceTable: vi.fn().mockResolvedValue({ rows: [], totalRow: null }),
     submitAnnotation: vi.fn().mockResolvedValue({ annotationsCreated: 0 }),
@@ -55,28 +71,33 @@ const emptyDailyCounts = Array.from({ length: 7 }, (_, i) => ({ date: `2026-02-$
 const mockMetrics: SupervisorDashboardMetrics = {
   dayCount: 42,
   weekCount: 187,
+  monthCount: 713,
   supportsFirstPassYield: true,
   dayFPY: 96.5,
   weekFPY: 94.2,
+  monthFPY: 95.1,
   dayDefects: 3,
   weekDefects: 12,
+  monthDefects: 41,
   dayAvgTimeBetweenScans: 135,
   weekAvgTimeBetweenScans: 142,
+  monthAvgTimeBetweenScans: 139,
   dayQtyPerHour: 8.2,
   weekQtyPerHour: 7.6,
+  monthQtyPerHour: 7.9,
   hourlyCounts: emptyHourlyCounts,
   weekDailyCounts: emptyDailyCounts,
   operators: [
     { id: 'op-1', displayName: 'John D.', recordCount: 25 },
     { id: 'op-2', displayName: 'Jane S.', recordCount: 17 },
   ],
-  oeeAvailability: null,
-  oeePerformance: null,
-  oeeQuality: null,
-  oeeOverall: null,
-  oeePlannedMinutes: null,
-  oeeDowntimeMinutes: null,
-  oeeRunTimeMinutes: null,
+  oeeAvailability: 92.5,
+  oeePerformance: 88.4,
+  oeeQuality: 96.8,
+  oeeOverall: 79.3,
+  oeePlannedMinutes: 480,
+  oeeDowntimeMinutes: 36,
+  oeeRunTimeMinutes: 444,
 };
 
 const mockRecords: SupervisorRecord[] = [
@@ -102,6 +123,18 @@ const mockPerfTable: PerformanceTableResponse = {
   totalRow: { label: 'Total', planned: 30, actual: 30, delta: 0, fpy: 97.8, downtimeMinutes: 5 },
 };
 
+const mockTrends: SupervisorDashboardTrends = {
+  count: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: i + 1 })),
+  fpy: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 92 + (i % 5) })),
+  defects: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: i % 3 })),
+  qtyPerHour: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 6 + (i % 4) / 10 })),
+  avgBetweenScans: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 120 + (i % 6) })),
+  oee: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 75 + (i % 7) })),
+  availability: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 88 + (i % 4) })),
+  performance: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 84 + (i % 5) })),
+  quality: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 95 + (i % 3) })),
+};
+
 async function selectWorkCenter(user: ReturnType<typeof userEvent.setup>) {
   await waitFor(() => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
@@ -113,6 +146,7 @@ async function selectWorkCenter(user: ReturnType<typeof userEvent.setup>) {
 describe('SupervisorDashboardScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(supervisorDashboardApi.getTrends).mockResolvedValue(mockTrends);
   });
 
   it('shows prompt to select a work center initially', async () => {
@@ -140,7 +174,105 @@ describe('SupervisorDashboardScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('42')).toBeInTheDocument();
-      expect(screen.getByText('187')).toBeInTheDocument();
+    });
+  });
+
+  it('renders sparklines under core KPI values', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sparkline-count')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-fpy')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-defects')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-avg-between-scans')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-qty-per-hour')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-oee')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-availability')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-performance')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-quality')).toBeInTheDocument();
+    });
+  });
+
+  it('opens a metric drilldown dialog with large chart and 30-day table', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open count details/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /open count details/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Count Details')).toBeInTheDocument();
+      expect(screen.getByText('Last 30 Days')).toBeInTheDocument();
+      expect(screen.getByTestId('metric-drilldown-chart')).toBeInTheDocument();
+      const table = screen.getByTestId('metric-drilldown-table');
+      expect(table).toBeInTheDocument();
+      expect(within(table).getByText('2026-01-01')).toBeInTheDocument();
+      expect(within(table).getByText('2026-01-30')).toBeInTheDocument();
+    });
+  });
+
+  it('closes the metric drilldown dialog', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open count details/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /open count details/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Count Details')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Count Details')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders null metric trend values as placeholder in drilldown table', async () => {
+    const trendsWithNullFpy: SupervisorDashboardTrends = {
+      ...mockTrends,
+      fpy: mockTrends.fpy.map((point, idx) => (idx === 5 ? { ...point, value: null } : point)),
+    };
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getTrends).mockResolvedValue(trendsWithNullFpy);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open first pass yield details/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /open first pass yield details/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('First Pass Yield Details')).toBeInTheDocument();
+      expect(screen.getByTestId('metric-drilldown-table')).toBeInTheDocument();
+      expect(screen.getAllByText('--').length).toBeGreaterThan(0);
     });
   });
 
@@ -258,7 +390,6 @@ describe('SupervisorDashboardScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('96.5%')).toBeInTheDocument();
-      expect(screen.getByText('94.2%')).toBeInTheDocument();
     });
   });
 
@@ -436,7 +567,6 @@ describe('SupervisorDashboardScreen', () => {
     });
 
     expect(screen.getByText('--')).toBeInTheDocument();
-    expect(screen.getByText('97.3%')).toBeInTheDocument();
   });
 
   it('shows Log Downtime button when work center is selected', async () => {
