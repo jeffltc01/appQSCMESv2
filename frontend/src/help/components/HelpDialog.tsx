@@ -2,10 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogSurface,
-  DialogBody,
-  DialogTitle,
-  DialogContent,
-  Button,
   Spinner,
 } from '@fluentui/react-components';
 import { Dismiss24Regular, ArrowDownload24Regular } from '@fluentui/react-icons';
@@ -29,10 +25,41 @@ interface HelpDialogProps {
   initialSlug?: string;
 }
 
+const ANIMATION_DURATION_MS = 260;
+
+type DialogPhase = 'hidden' | 'entering' | 'open' | 'closing';
+
 export function HelpDialog({ open, onClose, initialSlug }: HelpDialogProps) {
+  const [isMounted, setIsMounted] = useState(open);
+  const [phase, setPhase] = useState<DialogPhase>(open ? 'open' : 'hidden');
   const [activeSlug, setActiveSlug] = useState(initialSlug ?? 'overview');
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setIsMounted(true);
+      setPhase('entering');
+      const enterTimer = window.setTimeout(() => {
+        setPhase('open');
+      }, ANIMATION_DURATION_MS);
+      return () => window.clearTimeout(enterTimer);
+    }
+    if (isMounted) {
+      setPhase('closing');
+    }
+  }, [open, isMounted]);
+
+  useEffect(() => {
+    if (phase !== 'closing') {
+      return;
+    }
+    const closeTimer = window.setTimeout(() => {
+      setIsMounted(false);
+      setPhase('hidden');
+    }, ANIMATION_DURATION_MS);
+    return () => window.clearTimeout(closeTimer);
+  }, [phase]);
 
   useEffect(() => {
     if (open && initialSlug) {
@@ -80,24 +107,33 @@ export function HelpDialog({ open, onClose, initialSlug }: HelpDialogProps) {
     return groups;
   }, []);
 
+  if (!isMounted && phase === 'hidden') {
+    return null;
+  }
+
+  const surfaceClassName = [
+    styles.surface,
+    phase === 'entering' ? styles.surfaceEntering : '',
+    phase === 'open' ? styles.surfaceOpen : '',
+    phase === 'closing' ? styles.surfaceClosing : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <Dialog open={open} onOpenChange={(_, data) => { if (!data.open) onClose(); }}>
-      <DialogSurface className={styles.surface}>
-        <DialogBody className={styles.body}>
-          <DialogTitle
-            action={
-              <Button
-                appearance="subtle"
-                icon={<Dismiss24Regular />}
-                onClick={onClose}
-                aria-label="Close"
-              />
-            }
-            className={styles.title}
-          >
-            MES v2 Help
-          </DialogTitle>
-          <DialogContent className={styles.contentArea}>
+    <Dialog open={isMounted} onOpenChange={(_, data) => { if (!data.open) onClose(); }}>
+      <DialogSurface className={surfaceClassName} data-testid="help-dialog-surface" data-phase={phase}>
+        <div className={styles.body}>
+          <div className={styles.header}>
+            <div className={styles.headerTitle}>MES v2 Help</div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className={styles.closeButton}
+            >
+              <Dismiss24Regular />
+            </button>
+          </div>
+          <div className={styles.contentArea}>
             <nav className={styles.toc}>
               {(['general', 'operator', 'admin'] as const).map((cat) => (
                 <div key={cat} className={styles.tocGroup}>
@@ -135,8 +171,8 @@ export function HelpDialog({ open, onClose, initialSlug }: HelpDialogProps) {
                 </ReactMarkdown>
               )}
             </div>
-          </DialogContent>
-        </DialogBody>
+          </div>
+        </div>
       </DialogSurface>
     </Dialog>
   );

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { HelpDialog } from './HelpDialog';
@@ -33,6 +33,28 @@ function renderDialog(props: Partial<Parameters<typeof HelpDialog>[0]> = {}) {
 }
 
 describe('HelpDialog', () => {
+  it('keeps the dialog mounted while closing animation runs', () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    const { rerender } = renderDialog({ open: true, onClose });
+
+    rerender(
+      <FluentProvider theme={webLightTheme}>
+        <HelpDialog open={false} onClose={onClose} initialSlug="overview" />
+      </FluentProvider>,
+    );
+
+    const surface = screen.getByTestId('help-dialog-surface');
+    expect(surface).toHaveAttribute('data-phase', 'closing');
+    expect(screen.getByText('MES v2 Help')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(260);
+    });
+    expect(screen.queryByText('MES v2 Help')).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it('renders the dialog title', () => {
     renderDialog();
     expect(screen.getByText('MES v2 Help')).toBeInTheDocument();
