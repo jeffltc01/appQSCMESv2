@@ -1,24 +1,33 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Input, Label, Checkbox, Dropdown, Option, Spinner } from '@fluentui/react-components';
-import { EditRegular } from '@fluentui/react-icons';
+import { Button, Input, Label, Checkbox, Dropdown, Option, Spinner, Select } from '@fluentui/react-components';
+import { DeleteRegular, EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
-import { adminAssetApi, adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
+import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
+import { adminAssetApi, adminWorkCenterApi, productionLineApi, siteApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import type { AdminAsset, AdminWorkCenter, ProductionLineAdmin } from '../../types/domain.ts';
+import type { AdminAsset, AdminWorkCenter, Plant, ProductionLineAdmin } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 export function AssetManagementScreen() {
   const { user } = useAuth();
+  const roleTier = user?.roleTier ?? 99;
+  const isDirectorPlus = roleTier <= 2;
   const isSiteScoped = (user?.roleTier ?? 99) > 2;
 
   const [items, setItems] = useState<AdminAsset[]>([]);
   const [workCenters, setWorkCenters] = useState<AdminWorkCenter[]>([]);
   const [productionLines, setProductionLines] = useState<ProductionLineAdmin[]>([]);
+  const [sites, setSites] = useState<Plant[]>([]);
+  const [siteFilter, setSiteFilter] = useState<string>(
+    isDirectorPlus ? '' : (user?.defaultSiteId ?? ''),
+  );
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<AdminAsset | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminAsset | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
   const [name, setName] = useState('');
@@ -31,30 +40,31 @@ export function AssetManagementScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const siteId = isDirectorPlus ? (siteFilter || undefined) : user?.defaultSiteId;
       const [assets, wcs, pls] = await Promise.all([
-        adminAssetApi.getAll(), adminWorkCenterApi.getAll(), productionLineApi.getAll(),
+        adminAssetApi.getAll(siteId), adminWorkCenterApi.getAll(), productionLineApi.getAll(),
       ]);
       setItems(assets); setWorkCenters(wcs); setProductionLines(pls);
     } catch { setError('Failed to load assets.'); }
     finally { setLoading(false); }
-  }, []);
+  }, [isDirectorPlus, siteFilter, user?.defaultSiteId]);
 
   useEffect(() => { load(); }, [load]);
 
-  const mySitePLIds = useMemo(() => {
-    if (!isSiteScoped) return null;
-    return new Set(productionLines.filter(pl => pl.plantId === user?.defaultSiteId).map(pl => pl.id));
-  }, [isSiteScoped, productionLines, user?.defaultSiteId]);
-
-  const filteredItems = useMemo(() => {
-    if (!isSiteScoped || !mySitePLIds) return items;
-    return items.filter(a => mySitePLIds.has(a.productionLineId));
-  }, [items, isSiteScoped, mySitePLIds]);
+  useEffect(() => {
+    if (isDirectorPlus) {
+      siteApi.getSites().then(setSites).catch(() => {});
+    }
+  }, [isDirectorPlus]);
 
   const filteredPLs = useMemo(() => {
+    if (isDirectorPlus) {
+      if (!siteFilter) return productionLines;
+      return productionLines.filter(pl => pl.plantId === siteFilter);
+    }
     if (!isSiteScoped) return productionLines;
     return productionLines.filter(pl => pl.plantId === user?.defaultSiteId);
-  }, [productionLines, isSiteScoped, user?.defaultSiteId]);
+  }, [productionLines, isDirectorPlus, isSiteScoped, siteFilter, user?.defaultSiteId]);
 
   const openAdd = () => {
     setEditing(null);
@@ -87,6 +97,21 @@ export function AssetManagementScreen() {
     finally { setSaving(false); }
   };
 
+  const handleConfirmDeactivate = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await adminAssetApi.remove(deleteTarget.id);
+      setItems(prev => prev.map(a => (a.id === deleteTarget.id ? { ...a, isActive: false } : a)));
+      setDeleteTarget(null);
+    } catch {
+      setError('Failed to deactivate asset.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <AdminLayout
       title="Asset Management"
@@ -94,21 +119,46 @@ export function AssetManagementScreen() {
       addLabel="Add Asset"
       nlqContext={{
         screenKey: 'asset-management',
-        activeFilterTotalCount: filteredItems.length,
-        filterSummary: `siteScoped=${isSiteScoped ? 'true' : 'false'}`,
+        activeFilterTotalCount: items.length,
+        filterSummary: `site=${siteFilter || 'all'}`,
       }}
     >
+      {isDirectorPlus && (
+        <div className={styles.filterBar}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#495057' }}>Site</label>
+          <Select
+            value={siteFilter}
+            onChange={(_, d) => setSiteFilter(d.value)}
+            style={{ minWidth: 160 }}
+          >
+            <option value="">All Sites</option>
+            {sites.map(s => (
+              <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
         <div className={styles.grid}>
-          {filteredItems.length === 0 && <div className={styles.emptyState}>No assets found.</div>}
-          {filteredItems.map(item => (
+          {items.length === 0 && <div className={styles.emptyState}>No assets found.</div>}
+          {items.map(item => (
             <div key={item.id} className={`${styles.card} ${!item.isActive ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
                 <span className={styles.cardTitle}>{item.name}</span>
                 <div className={styles.cardActions}>
                   <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openEdit(item)} />
+                  {item.isActive && (
+                    <Button
+                      appearance="subtle"
+                      icon={<DeleteRegular />}
+                      size="small"
+                      onClick={() => setDeleteTarget(item)}
+                      aria-label={`Deactivate ${item.name}`}
+                    />
+                  )}
                 </div>
               </div>
               <div className={styles.cardField}>
@@ -175,6 +225,14 @@ export function AssetManagementScreen() {
           <Checkbox label="Active" checked={isActive} onChange={(_, d) => setIsActive(!!d.checked)} />
         )}
       </AdminModal>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        itemName={deleteTarget?.name ?? ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDeactivate}
+        loading={deleting}
+      />
     </AdminLayout>
   );
 }

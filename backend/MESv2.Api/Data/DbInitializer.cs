@@ -354,19 +354,16 @@ public static class DbInitializer
         );
 
         context.Assets.AddRange(
-            new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000001"), Name = "Rolls Asset", WorkCenterId = wcRolls, ProductionLineId = line1Plt1 },
             new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000002"), Name = "Long Seam Asset", WorkCenterId = wcLongSeam, ProductionLineId = line1Plt1 },
             new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000003"), Name = "Fitup Asset", WorkCenterId = wcFitup, ProductionLineId = line1Plt1 },
             new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000004"), Name = "RS Lane 1", WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt1, LaneName = "Lane 1" },
             new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000006"), Name = "RS Lane 2", WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt1, LaneName = "Lane 2" },
             new Asset { Id = Guid.Parse("a0000001-0000-0000-0000-000000000005"), Name = "Hydro Asset", WorkCenterId = wcHydro, ProductionLineId = line1Plt1 },
-            new Asset { Id = Guid.Parse("a0000002-0000-0000-0000-000000000001"), Name = "Rolls Asset", WorkCenterId = wcRolls, ProductionLineId = line1Plt2 },
             new Asset { Id = Guid.Parse("a0000002-0000-0000-0000-000000000002"), Name = "Long Seam Asset", WorkCenterId = wcLongSeam, ProductionLineId = line1Plt2 },
             new Asset { Id = Guid.Parse("a0000002-0000-0000-0000-000000000003"), Name = "Fitup Asset", WorkCenterId = wcFitup, ProductionLineId = line1Plt2 },
             new Asset { Id = Guid.Parse("a0000002-0000-0000-0000-000000000004"), Name = "RS Lane 1", WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt2, LaneName = "Lane 1" },
             new Asset { Id = Guid.Parse("a0000002-0000-0000-0000-000000000006"), Name = "RS Lane 2", WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt2, LaneName = "Lane 2" },
             new Asset { Id = Guid.Parse("a0000002-0000-0000-0000-000000000005"), Name = "Hydro Asset", WorkCenterId = wcHydro, ProductionLineId = line1Plt2 },
-            new Asset { Id = Guid.Parse("a0000003-0000-0000-0000-000000000001"), Name = "Rolls Asset", WorkCenterId = wcRolls, ProductionLineId = line1Plt3 },
             new Asset { Id = Guid.Parse("a0000003-0000-0000-0000-000000000002"), Name = "Long Seam Asset", WorkCenterId = wcLongSeam, ProductionLineId = line1Plt3 },
             new Asset { Id = Guid.Parse("a0000003-0000-0000-0000-000000000003"), Name = "Fitup Asset", WorkCenterId = wcFitup, ProductionLineId = line1Plt3 },
             new Asset { Id = Guid.Parse("a0000003-0000-0000-0000-000000000004"), Name = "RS Lane 1", WorkCenterId = wcRoundSeam, ProductionLineId = line1Plt3, LaneName = "Lane 1" },

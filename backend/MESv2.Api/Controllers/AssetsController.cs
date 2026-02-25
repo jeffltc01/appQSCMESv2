@@ -34,11 +34,18 @@ public class AssetsController : ControllerBase
     }
 
     [HttpGet("admin")]
-    public async Task<ActionResult<IEnumerable<AdminAssetDto>>> GetAllAssets(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AdminAssetDto>>> GetAllAssets([FromQuery] Guid? siteId, CancellationToken cancellationToken)
     {
-        var list = await _db.Assets
+        IQueryable<Asset> query = _db.Assets
             .Include(a => a.WorkCenter)
-            .Include(a => a.ProductionLine)
+            .Include(a => a.ProductionLine);
+
+        if (siteId.HasValue)
+        {
+            query = query.Where(a => a.ProductionLine.PlantId == siteId.Value);
+        }
+
+        var list = await query
             .OrderBy(a => a.WorkCenter.Name).ThenBy(a => a.Name)
             .Select(a => new AdminAssetDto
             {
@@ -93,5 +100,18 @@ public class AssetsController : ControllerBase
         var wc = await _db.WorkCenters.FindAsync(new object[] { dto.WorkCenterId }, cancellationToken);
         var pl = await _db.ProductionLines.Include(p => p.Plant).FirstOrDefaultAsync(p => p.Id == dto.ProductionLineId, cancellationToken);
         return Ok(new AdminAssetDto { Id = asset.Id, Name = asset.Name, WorkCenterId = asset.WorkCenterId, WorkCenterName = wc?.Name ?? "", ProductionLineId = asset.ProductionLineId, ProductionLineName = pl != null ? $"{pl.Name} ({pl.Plant.Name})" : "", LimbleIdentifier = asset.LimbleIdentifier, LaneName = asset.LaneName, IsActive = asset.IsActive });
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteAsset(Guid id, CancellationToken cancellationToken)
+    {
+        var asset = await _db.Assets.FindAsync(new object[] { id }, cancellationToken);
+        if (asset == null) return NotFound();
+
+        if (!asset.IsActive) return NoContent();
+
+        asset.IsActive = false;
+        await _db.SaveChangesAsync(cancellationToken);
+        return NoContent();
     }
 }

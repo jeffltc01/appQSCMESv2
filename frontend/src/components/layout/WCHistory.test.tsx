@@ -51,9 +51,9 @@ describe('WCHistory', () => {
     expect(screen.queryByText(/Today's Count:/)).not.toBeInTheDocument();
   });
 
-  it('shows "No records today" when empty', () => {
+  it('shows "No History Found" when empty', () => {
     renderWCHistory({ data: { dayCount: 0, recentRecords: [] } });
-    expect(screen.getByText('No records today')).toBeInTheDocument();
+    expect(screen.getByText('No History Found')).toBeInTheDocument();
   });
 
   it('displays recent records with serial numbers and tank sizes', () => {

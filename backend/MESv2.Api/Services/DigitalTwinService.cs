@@ -6,6 +6,23 @@ namespace MESv2.Api.Services;
 
 public class DigitalTwinService : IDigitalTwinService
 {
+    private static readonly Guid CharLongSeamId =
+        Guid.Parse("c1000001-0000-0000-0000-000000000001");
+
+    private static readonly Guid[] CharRoundSeamIds =
+    {
+        Guid.Parse("c2000001-0000-0000-0000-000000000001"),
+        Guid.Parse("c2000002-0000-0000-0000-000000000002"),
+        Guid.Parse("c2000003-0000-0000-0000-000000000003"),
+        Guid.Parse("c2000004-0000-0000-0000-000000000004"),
+    };
+
+    private static readonly HashSet<string> LongSeamDataEntryTypes = new(StringComparer.OrdinalIgnoreCase)
+        { "Rolls", "Barcode-LongSeam" };
+
+    private static readonly HashSet<string> RoundSeamDataEntryTypes = new(StringComparer.OrdinalIgnoreCase)
+        { "Fitup", "Barcode-RoundSeam" };
+
     private static readonly Dictionary<string, int> ProductionSequence = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Rolls"] = 1,
@@ -102,14 +119,35 @@ public class DigitalTwinService : IDigitalTwinService
             .Where(r => !consumedSet.Contains(r.SerialNumberId))
             .ToList();
 
+        var latestActiveBySerial = activeRecords
+            .GroupBy(r => r.SerialNumberId)
+            .Select(g => g.OrderByDescending(r => r.Timestamp).First())
+            .ToList();
+
         var todayRecords = recentRecords
             .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
             .ToList();
 
+        // --- FPY per station (for stations where FPY is applicable) ---
+        var fpyByStation = new Dictionary<Guid, decimal?>();
+        foreach (var workCenter in workCenters)
+        {
+            var characteristicIds = GetApplicableCharacteristicIds(workCenter.DataEntryType);
+            if (characteristicIds is null)
+                continue;
+
+            fpyByStation[workCenter.Id] = await ComputeFpyForStationAsync(
+                workCenter.Id,
+                plantId,
+                productionLineId,
+                startOfDay,
+                endOfDay,
+                characteristicIds,
+                cancellationToken);
+        }
+
         // --- WIP per station ---
-        var wipCounts = activeRecords
-            .GroupBy(r => r.SerialNumberId)
-            .Select(g => g.OrderByDescending(r => r.Timestamp).First())
+        var wipCounts = latestActiveBySerial
             .GroupBy(r => r.WorkCenterId)
             .ToDictionary(g => g.Key, g => g.Count());
 
@@ -188,7 +226,7 @@ public class DigitalTwinService : IDigitalTwinService
                     CurrentOperator = operatorByStation.GetValueOrDefault(w.Id),
                     UnitsToday = unitsTodayByStation.GetValueOrDefault(w.Id),
                     AvgCycleTimeMinutes = avgCycleByStation.GetValueOrDefault(w.Id),
-                    FirstPassYieldPercent = null,
+                    FirstPassYieldPercent = fpyByStation.GetValueOrDefault(w.Id),
                 };
             })
             .ToList();
@@ -197,6 +235,22 @@ public class DigitalTwinService : IDigitalTwinService
         var maxWip = stations.Where(s => s.Status is "Active" or "Slow").MaxBy(s => s.WipCount);
         if (maxWip is { WipCount: > 0 })
             maxWip.IsBottleneck = true;
+
+        // --- WIP between adjacent stations ---
+        var edgeWipCounts = new List<EdgeWipCountDto>();
+        for (var i = 0; i < stations.Count - 1; i++)
+        {
+            var fromStation = stations[i];
+            var toStation = stations[i + 1];
+
+            var count = latestActiveBySerial.Count(r => r.WorkCenterId == fromStation.WorkCenterId);
+            edgeWipCounts.Add(new EdgeWipCountDto
+            {
+                FromWorkCenterId = fromStation.WorkCenterId,
+                ToWorkCenterId = toStation.WorkCenterId,
+                Count = count,
+            });
+        }
 
         // --- Line throughput ---
         var hydroStation = stations.FirstOrDefault(s => s.Sequence == ProductionSequence["Hydro"]);
@@ -272,8 +326,13 @@ public class DigitalTwinService : IDigitalTwinService
         }
 
         // --- Line efficiency ---
-        const decimal targetUnitsPerHour = 6m;
-        var theoreticalMax = hoursElapsed > 0 ? targetUnitsPerHour * hoursElapsed : 1m;
+        var targetUnitsPerHour = hydroWcId.HasValue
+            ? await ResolveTargetUnitsPerHourAsync(hydroWcId.Value, plantId, productionLineId, cancellationToken)
+            : null;
+        var effectiveTargetUnitsPerHour = targetUnitsPerHour.GetValueOrDefault(6m);
+        var theoreticalMax = hoursElapsed > 0 && effectiveTargetUnitsPerHour > 0
+            ? effectiveTargetUnitsPerHour * hoursElapsed
+            : 1m;
         var efficiency = Math.Min(100, Math.Round(hydroToday / theoreticalMax * 100, 0));
 
         // --- Material feeds ---
@@ -340,12 +399,138 @@ public class DigitalTwinService : IDigitalTwinService
         return new DigitalTwinSnapshotDto
         {
             Stations = stations,
+            EdgeWipCounts = edgeWipCounts,
             MaterialFeeds = materialFeeds,
             Throughput = throughput,
             AvgCycleTimeMinutes = avgCycleTime,
             LineEfficiencyPercent = efficiency,
             UnitTracker = unitTracker,
         };
+    }
+
+    private async Task<decimal?> ComputeFpyForStationAsync(
+        Guid workCenterId,
+        Guid plantId,
+        Guid productionLineId,
+        DateTime utcStart,
+        DateTime utcEnd,
+        Guid[] characteristicIds,
+        CancellationToken cancellationToken)
+    {
+        var recordsInWindow = await _db.ProductionRecords
+            .Where(r => r.WorkCenterId == workCenterId
+                        && r.ProductionLineId == productionLineId
+                        && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp >= utcStart
+                        && r.Timestamp < utcEnd)
+            .Select(r => new { r.SerialNumberId, r.Timestamp })
+            .ToListAsync(cancellationToken);
+
+        if (recordsInWindow.Count == 0)
+            return null;
+
+        var firstPassSns = recordsInWindow
+            .GroupBy(r => r.SerialNumberId)
+            .Select(g => new
+            {
+                SerialNumberId = g.Key,
+                FirstTimestamp = g.Min(r => r.Timestamp),
+            })
+            .Where(x => x.FirstTimestamp >= utcStart && x.FirstTimestamp < utcEnd)
+            .Select(x => x.SerialNumberId)
+            .ToList();
+
+        if (firstPassSns.Count == 0)
+            return null;
+
+        var snsWithEarlierRecords = await _db.ProductionRecords
+            .Where(r => r.WorkCenterId == workCenterId
+                        && r.ProductionLineId == productionLineId
+                        && r.ProductionLine.PlantId == plantId
+                        && r.Timestamp < utcStart
+                        && firstPassSns.Contains(r.SerialNumberId))
+            .Select(r => r.SerialNumberId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var trueFirstPassSns = firstPassSns.Except(snsWithEarlierRecords).ToList();
+        var opportunities = trueFirstPassSns.Count;
+        if (opportunities == 0)
+            return null;
+
+        var defectSerialCount = await _db.DefectLogs
+            .Where(d => trueFirstPassSns.Contains(d.SerialNumberId)
+                        && characteristicIds.Contains(d.CharacteristicId)
+                        && d.Timestamp >= utcStart
+                        && d.Timestamp < utcEnd)
+            .Select(d => d.SerialNumberId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        return Math.Round((decimal)(opportunities - defectSerialCount) / opportunities * 100, 1);
+    }
+
+    private static Guid[]? GetApplicableCharacteristicIds(string? dataEntryType)
+    {
+        if (string.IsNullOrWhiteSpace(dataEntryType))
+            return null;
+
+        if (LongSeamDataEntryTypes.Contains(dataEntryType))
+            return new[] { CharLongSeamId };
+
+        if (RoundSeamDataEntryTypes.Contains(dataEntryType))
+            return CharRoundSeamIds;
+
+        return null;
+    }
+
+    private async Task<decimal?> ResolveTargetUnitsPerHourAsync(
+        Guid workCenterId, Guid plantId, Guid productionLineId, CancellationToken cancellationToken)
+    {
+        var wcplIds = await _db.WorkCenterProductionLines
+            .Where(wcpl => wcpl.WorkCenterId == workCenterId
+                           && wcpl.ProductionLineId == productionLineId
+                           && wcpl.ProductionLine.PlantId == plantId)
+            .Select(wcpl => wcpl.Id)
+            .ToListAsync(cancellationToken);
+
+        if (wcplIds.Count == 0)
+            return null;
+
+        var targets = await _db.WorkCenterCapacityTargets
+            .Where(t => wcplIds.Contains(t.WorkCenterProductionLineId))
+            .ToListAsync(cancellationToken);
+
+        if (targets.Count == 0)
+            return null;
+
+        // Prefer targets for the most recently used gear on this line/work center.
+        var recentGearId = await _db.ProductionRecords
+            .Where(r => r.WorkCenterId == workCenterId
+                        && r.ProductionLineId == productionLineId
+                        && r.ProductionLine.PlantId == plantId
+                        && r.PlantGearId != null)
+            .OrderByDescending(r => r.Timestamp)
+            .Select(r => r.PlantGearId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var filteredTargets = targets.AsEnumerable();
+        if (recentGearId != null)
+        {
+            var gearFilteredTargets = targets
+                .Where(t => t.PlantGearId == recentGearId.Value)
+                .ToList();
+
+            if (gearFilteredTargets.Count > 0)
+                filteredTargets = gearFilteredTargets;
+        }
+
+        // Sum capacity across matching line entries.
+        var byLine = filteredTargets
+            .GroupBy(t => t.WorkCenterProductionLineId)
+            .Select(g => g.Average(t => t.TargetUnitsPerHour));
+
+        return byLine.Sum();
     }
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(

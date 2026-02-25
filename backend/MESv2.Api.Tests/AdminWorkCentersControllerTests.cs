@@ -237,6 +237,21 @@ public class AdminWorkCentersControllerTests
     }
 
     [Fact]
+    public async Task GetProductionLineConfigs_FiltersByPlantId()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.GetProductionLineConfigs(
+            TestHelpers.wcRollsId,
+            CancellationToken.None,
+            TestHelpers.PlantPlt1Id);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminWorkCenterProductionLineDto>>(ok.Value).ToList();
+        Assert.NotEmpty(list);
+        Assert.All(list, pl => Assert.NotEqual(TestHelpers.ProductionLine1Plt2Id, pl.ProductionLineId));
+    }
+
+    [Fact]
     public async Task GetProductionLineConfig_ReturnsSingleRecord()
     {
         var controller = CreateController(out _);

@@ -688,8 +688,58 @@ public class DemoDataAdminService : IDemoDataAdminService
         var rsWc = ResolveWorkCenter("Barcode-RoundSeam");
         var rsInspWc = ResolveWorkCenter("Barcode-RoundSeamInsp");
         var hydroWc = ResolveWorkCenter("Hydro");
+        if (!workCenters.TryGetValue("MatQueue-Material", out var queueWc))
+            queueWc = workCenters.Values.First();
         workCenters.TryGetValue("MatQueue-Shell", out var rtXrayWc);
         workCenters.TryGetValue("Spot", out var spotWc);
+
+        var reusablePlateSerialIds = await _db.MaterialQueueItems
+            .Where(i => i.WorkCenterId == queueWc.Id && i.SerialNumberId.HasValue)
+            .Select(i => i.SerialNumberId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+        var reusablePlateSerials = await _db.SerialNumbers
+            .Where(sn => reusablePlateSerialIds.Contains(sn.Id) && sn.ProductId == plateProduct.Id)
+            .OrderBy(sn => sn.CreatedAt)
+            .ToListAsync(ct);
+        var reusablePlateQueue = new Queue<SerialNumber>(reusablePlateSerials);
+        var fallbackPlateIndex = 1;
+
+        SerialNumber AcquirePlateSerial(DateTime timestamp)
+        {
+            if (reusablePlateQueue.Count > 0)
+                return reusablePlateQueue.Dequeue();
+
+            var fallbackPlate = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"Heat DMP{fallbackPlateIndex:00000} Coil PC{fallbackPlateIndex:00000}",
+                PlantId = plant.Id,
+                ProductId = plateProduct.Id,
+                HeatNumber = $"DMP{fallbackPlateIndex:00000}",
+                CoilNumber = $"PC{fallbackPlateIndex:00000}",
+                CreatedAt = timestamp,
+                CreatedByUserId = op.Id,
+            };
+            fallbackPlateIndex++;
+            _db.SerialNumbers.Add(fallbackPlate);
+            return fallbackPlate;
+        }
+
+        void AttachPlateToShell(Guid shellSerialId, Guid rollsRecordId, DateTime timestamp)
+        {
+            var plateSerial = AcquirePlateSerial(timestamp);
+            _db.TraceabilityLogs.Add(new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = plateSerial.Id,
+                ToSerialNumberId = shellSerialId,
+                ProductionRecordId = rollsRecordId,
+                Relationship = "plate",
+                Quantity = 1,
+                Timestamp = timestamp,
+            });
+        }
 
         for (var i = 1; i <= shellCount; i++)
         {
@@ -712,6 +762,7 @@ public class DemoDataAdminService : IDemoDataAdminService
             var longSeamRecord = CreateProductionRecord(shellSn.Id, lsWc.Id, line.Id, welder.Id, plantGear.Id, shellStamp.AddMinutes(20));
             var longSeamInspRecord = CreateProductionRecord(shellSn.Id, lsInspWc.Id, line.Id, op.Id, plantGear.Id, shellStamp.AddMinutes(35));
             _db.ProductionRecords.AddRange(rollsRecord, longSeamRecord, longSeamInspRecord);
+            AttachPlateToShell(shellSn.Id, rollsRecord.Id, shellStamp);
             if (rtXrayWc is not null)
             {
                 var rtXrayRecord = CreateProductionRecord(shellSn.Id, rtXrayWc.Id, line.Id, op.Id, plantGear.Id, shellStamp.AddMinutes(50));
@@ -936,6 +987,7 @@ public class DemoDataAdminService : IDemoDataAdminService
 
             var rollsRecord = CreateProductionRecord(shellSn.Id, rollsWc.Id, line.Id, op.Id, plantGear.Id, stageStamp);
             _db.ProductionRecords.Add(rollsRecord);
+            AttachPlateToShell(shellSn.Id, rollsRecord.Id, stageStamp);
 
             if (i > 6)
             {
@@ -1094,8 +1146,10 @@ public class DemoDataAdminService : IDemoDataAdminService
             };
             _db.SerialNumbers.Add(pulseShell);
 
-            _db.ProductionRecords.Add(CreateProductionRecord(
-                pulseShell.Id, rollsWc.Id, line.Id, op.Id, plantGear.Id, pulseStamp));
+            var pulseRollsRecord = CreateProductionRecord(
+                pulseShell.Id, rollsWc.Id, line.Id, op.Id, plantGear.Id, pulseStamp);
+            _db.ProductionRecords.Add(pulseRollsRecord);
+            AttachPlateToShell(pulseShell.Id, pulseRollsRecord.Id, pulseStamp);
             _db.ProductionRecords.Add(CreateProductionRecord(
                 pulseShell.Id, lsWc.Id, line.Id, welder.Id, plantGear.Id, pulseStamp.AddMinutes(1)));
             _db.ProductionRecords.Add(CreateProductionRecord(
@@ -1107,8 +1161,6 @@ public class DemoDataAdminService : IDemoDataAdminService
             }
         }
 
-        if (!workCenters.TryGetValue("MatQueue-Material", out var queueWc))
-            queueWc = workCenters.Values.First();
         var hasSourceQueueData = await _db.MaterialQueueItems.AnyAsync(i => i.WorkCenterId == queueWc.Id, ct);
         if (!hasSourceQueueData)
         {

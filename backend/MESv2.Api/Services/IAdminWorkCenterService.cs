@@ -11,7 +11,7 @@ public interface IAdminWorkCenterService
     Task<AdminWorkCenterGroupDto?> UpdateGroupAsync(Guid groupId, UpdateWorkCenterGroupDto dto, CancellationToken ct = default);
     Task<AdminWorkCenterDto?> UpdateConfigAsync(Guid id, UpdateWorkCenterConfigDto dto, CancellationToken ct = default);
 
-    Task<IReadOnlyList<AdminWorkCenterProductionLineDto>> GetProductionLineConfigsAsync(Guid wcId, CancellationToken ct = default);
+    Task<IReadOnlyList<AdminWorkCenterProductionLineDto>> GetProductionLineConfigsAsync(Guid wcId, Guid? plantId = null, CancellationToken ct = default);
     Task<WorkCenterProductionLineDto?> GetProductionLineConfigAsync(Guid wcId, Guid plId, CancellationToken ct = default);
     Task<AdminWorkCenterProductionLineDto> CreateProductionLineConfigAsync(Guid wcId, CreateWorkCenterProductionLineDto dto, CancellationToken ct = default);
     Task<AdminWorkCenterProductionLineDto?> UpdateProductionLineConfigAsync(Guid wcId, Guid plId, UpdateWorkCenterProductionLineDto dto, CancellationToken ct = default);

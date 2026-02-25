@@ -204,11 +204,11 @@ public class AdminWorkCenterService : IAdminWorkCenterService
         };
     }
 
-    public async Task<IReadOnlyList<AdminWorkCenterProductionLineDto>> GetProductionLineConfigsAsync(Guid wcId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<AdminWorkCenterProductionLineDto>> GetProductionLineConfigsAsync(Guid wcId, Guid? plantId = null, CancellationToken ct = default)
     {
         return await _db.WorkCenterProductionLines
             .Include(wcpl => wcpl.ProductionLine).ThenInclude(pl => pl.Plant)
-            .Where(wcpl => wcpl.WorkCenterId == wcId)
+            .Where(wcpl => wcpl.WorkCenterId == wcId && (!plantId.HasValue || wcpl.ProductionLine.PlantId == plantId.Value))
             .OrderBy(wcpl => wcpl.ProductionLine.Name)
             .Select(wcpl => new AdminWorkCenterProductionLineDto
             {

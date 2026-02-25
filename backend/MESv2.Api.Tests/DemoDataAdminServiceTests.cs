@@ -90,6 +90,7 @@ public class DemoDataAdminServiceTests
         Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "hydro-marriage"));
         Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "leftHead" && t.TankLocation == "Head 1"));
         Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "rightHead" && t.TankLocation == "Head 2"));
+        Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "plate"));
 
         var rollsSerialIds = db.ProductionRecords
             .Join(db.WorkCenters, r => r.WorkCenterId, w => w.Id, (r, w) => new { r.SerialNumberId, w.DataEntryType })
@@ -108,6 +109,32 @@ public class DemoDataAdminServiceTests
             Assert.False(string.IsNullOrWhiteSpace(sn.CoilNumber));
             Assert.False(string.IsNullOrWhiteSpace(sn.LotNumber));
         });
+        var plateLinks = db.TraceabilityLogs
+            .Where(t => t.Relationship == "plate" && t.FromSerialNumberId.HasValue && t.ToSerialNumberId.HasValue)
+            .ToList();
+        Assert.NotEmpty(plateLinks);
+        var sampledRollsSerialIds = rollsSerialIds.Take(10).ToList();
+        foreach (var serialId in sampledRollsSerialIds)
+            Assert.Contains(plateLinks, link => link.ToSerialNumberId == serialId);
+        var plateProductTypeIds = db.ProductTypes
+            .Where(pt => pt.SystemTypeName == "plate")
+            .Select(pt => pt.Id)
+            .ToHashSet();
+        var plateProductIds = db.Products
+            .Where(p => plateProductTypeIds.Contains(p.ProductTypeId))
+            .Select(p => p.Id)
+            .ToHashSet();
+        var linkedPlateSerialIds = plateLinks
+            .Select(link => link.FromSerialNumberId!.Value)
+            .Distinct()
+            .Take(20)
+            .ToList();
+        var linkedPlateSerials = db.SerialNumbers
+            .Where(sn => linkedPlateSerialIds.Contains(sn.Id))
+            .ToList();
+        Assert.NotEmpty(linkedPlateSerials);
+        Assert.All(linkedPlateSerials, sn =>
+            Assert.True(sn.ProductId.HasValue && plateProductIds.Contains(sn.ProductId.Value)));
 
         var headSerialIds = db.TraceabilityLogs
             .Where(t => t.Relationship == "leftHead" || t.Relationship == "rightHead")

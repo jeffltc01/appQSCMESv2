@@ -14,10 +14,19 @@ public class UserService : IUserService
         _db = db;
     }
 
-    public async Task<List<AdminUserDto>> GetAllUsersAsync(CancellationToken ct = default)
+    public async Task<List<AdminUserDto>> GetAllUsersAsync(Guid? siteId = null, IReadOnlyCollection<decimal>? roleTiers = null, CancellationToken ct = default)
     {
-        return await _db.Users
+        var query = _db.Users
             .Include(u => u.DefaultSite)
+            .AsQueryable();
+
+        if (siteId.HasValue)
+            query = query.Where(u => u.DefaultSiteId == siteId.Value);
+
+        if (roleTiers is { Count: > 0 })
+            query = query.Where(u => roleTiers.Contains(u.RoleTier));
+
+        return await query
             .OrderBy(u => (double)u.RoleTier).ThenBy(u => u.DisplayName)
             .Select(u => new AdminUserDto
             {

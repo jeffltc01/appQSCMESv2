@@ -899,6 +899,12 @@ export interface MaterialFeed {
   feedsIntoStation: string;
 }
 
+export interface EdgeWipCount {
+  fromWorkCenterId: string;
+  toWorkCenterId: string;
+  count: number;
+}
+
 export interface LineThroughput {
   unitsToday: number;
   unitsDelta: number;
@@ -916,6 +922,7 @@ export interface UnitPosition {
 
 export interface DigitalTwinSnapshot {
   stations: StationStatus[];
+  edgeWipCounts: EdgeWipCount[];
   materialFeeds: MaterialFeed[];
   throughput: LineThroughput;
   avgCycleTimeMinutes: number;

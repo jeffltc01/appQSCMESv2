@@ -17,12 +17,13 @@ public class AdminAssetsControllerTests
     public async Task GetAllAssets_ReturnsSeedAssets()
     {
         var controller = CreateController(out _);
-        var result = await controller.GetAllAssets(CancellationToken.None);
+        var result = await controller.GetAllAssets(null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<AdminAssetDto>>(ok.Value).ToList();
         Assert.True(list.Count >= 1);
         Assert.All(list, a => Assert.False(string.IsNullOrEmpty(a.WorkCenterName)));
+        Assert.DoesNotContain(list, a => a.Name == "Rolls Asset");
     }
 
     [Fact]
@@ -68,7 +69,7 @@ public class AdminAssetsControllerTests
     public async Task GetAllAssets_IncludesProductionLineInfo()
     {
         var controller = CreateController(out _);
-        var result = await controller.GetAllAssets(CancellationToken.None);
+        var result = await controller.GetAllAssets(null, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var list = Assert.IsAssignableFrom<IEnumerable<AdminAssetDto>>(ok.Value).ToList();
@@ -86,5 +87,65 @@ public class AdminAssetsControllerTests
         var dto = new UpdateAssetDto { Name = "X", WorkCenterId = TestHelpers.wcRollsId, ProductionLineId = TestHelpers.ProductionLine1Plt1Id };
         var result = await controller.UpdateAsset(Guid.NewGuid(), dto, CancellationToken.None);
         Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetAllAssets_FiltersBySite()
+    {
+        var controller = CreateController(out var db);
+        var site1Asset = new Asset
+        {
+            Id = Guid.NewGuid(),
+            Name = "Site 1 Asset",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+        };
+        var site2Asset = new Asset
+        {
+            Id = Guid.NewGuid(),
+            Name = "Site 2 Asset",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt2Id,
+        };
+        db.Assets.AddRange(site1Asset, site2Asset);
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetAllAssets(TestHelpers.PlantPlt1Id, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminAssetDto>>(ok.Value).ToList();
+
+        Assert.Contains(list, a => a.Name == "Site 1 Asset");
+        Assert.DoesNotContain(list, a => a.Name == "Site 2 Asset");
+    }
+
+    [Fact]
+    public async Task DeleteAsset_SetsIsActiveFalse()
+    {
+        var controller = CreateController(out var db);
+        var asset = new Asset
+        {
+            Id = Guid.NewGuid(),
+            Name = "Delete Me",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            IsActive = true,
+        };
+        db.Assets.Add(asset);
+        await db.SaveChangesAsync();
+
+        var result = await controller.DeleteAsset(asset.Id, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        var updated = await db.Assets.FindAsync(asset.Id);
+        Assert.NotNull(updated);
+        Assert.False(updated!.IsActive);
+    }
+
+    [Fact]
+    public async Task DeleteAsset_ReturnsNotFound_WhenMissing()
+    {
+        var controller = CreateController(out _);
+        var result = await controller.DeleteAsset(Guid.NewGuid(), CancellationToken.None);
+        Assert.IsType<NotFoundResult>(result);
     }
 }

@@ -258,9 +258,9 @@ public class WorkCentersController : ControllerBase
     // ---- Work Center Production Line endpoints ----
 
     [HttpGet("{wcId:guid}/production-lines")]
-    public async Task<ActionResult<IEnumerable<AdminWorkCenterProductionLineDto>>> GetProductionLineConfigs(Guid wcId, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AdminWorkCenterProductionLineDto>>> GetProductionLineConfigs(Guid wcId, CancellationToken cancellationToken, [FromQuery] Guid? plantId = null)
     {
-        var list = await _adminService.GetProductionLineConfigsAsync(wcId, cancellationToken);
+        var list = await _adminService.GetProductionLineConfigsAsync(wcId, plantId, cancellationToken);
         return Ok(list);
     }
 

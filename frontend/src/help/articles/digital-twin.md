@@ -103,9 +103,9 @@ For each station, all of today's production record timestamps are sorted chronol
 
 ### Line Efficiency
 
-Line efficiency uses a hardcoded target rate of **6 units per hour**. The calculation is:
+Line efficiency uses the Hydro station's configured capacity target (units/hour) for the selected line. The system prefers the target for the most recently used gear on that line/work center; if no matching gear target exists, it falls back to available Hydro targets for that line, and then to a default of **6 units per hour**. The calculation is:
 
-**Efficiency = (Hydro units today) / (6 x hours elapsed today) x 100**
+**Efficiency = (Hydro units today) / (target units/hour x hours elapsed today) x 100**
 
 The result is capped at 100%. If no time has elapsed (start of day), efficiency shows as 0%.
 
@@ -147,5 +147,5 @@ Units at Fitup or later in the sequence (sequence >= 5) are flagged as assemblie
 - Data refreshes every 30 seconds automatically. There is no manual refresh button since the screen is designed for passive monitoring on a wall-mounted display or supervisor tablet.
 - If all stations show Idle (gray), production may not have started for the day or no records have been created yet.
 - The "vs. yesterday" delta on Line Throughput compares today's in-progress count against yesterday's full-day total, so it will naturally be negative until production catches up later in the shift.
-- Line Efficiency uses a fixed target of 6 units/hour. This is a system-wide default and is not currently configurable per plant or line.
+- Line Efficiency is based on Hydro capacity targets for the selected line and current gear. If no capacity target data is available, it falls back to 6 units/hour.
 - The bottleneck indicator identifies where WIP is accumulating, which often points to a slower station or a station that needs support.

@@ -57,6 +57,17 @@ const mockSnapshot: DigitalTwinSnapshot = {
     { workCenterId: 'wc-9', name: 'Nameplate', sequence: 9, wipCount: 1, status: 'Active', isBottleneck: false, isGateCheck: false, currentOperator: 'J. Brown', unitsToday: 39, avgCycleTimeMinutes: 8.4, firstPassYieldPercent: 99 },
     { workCenterId: 'wc-10', name: 'Hydro', sequence: 10, wipCount: 2, status: 'Active', isBottleneck: false, isGateCheck: true, currentOperator: 'R. Wilson', unitsToday: 37, avgCycleTimeMinutes: 25.7, firstPassYieldPercent: 96 },
   ],
+  edgeWipCounts: [
+    { fromWorkCenterId: 'wc-1', toWorkCenterId: 'wc-2', count: 3 },
+    { fromWorkCenterId: 'wc-2', toWorkCenterId: 'wc-3', count: 2 },
+    { fromWorkCenterId: 'wc-3', toWorkCenterId: 'wc-4', count: 1 },
+    { fromWorkCenterId: 'wc-4', toWorkCenterId: 'wc-5', count: 4 },
+    { fromWorkCenterId: 'wc-5', toWorkCenterId: 'wc-6', count: 2 },
+    { fromWorkCenterId: 'wc-6', toWorkCenterId: 'wc-7', count: 1 },
+    { fromWorkCenterId: 'wc-7', toWorkCenterId: 'wc-8', count: 0 },
+    { fromWorkCenterId: 'wc-8', toWorkCenterId: 'wc-9', count: 0 },
+    { fromWorkCenterId: 'wc-9', toWorkCenterId: 'wc-10', count: 1 },
+  ],
   materialFeeds: [
     { workCenterName: 'Rolls Material', queueLabel: '12 plates', itemCount: 12, feedsIntoStation: 'Rolls' },
     { workCenterName: 'Heads Queue', queueLabel: '8 lots', itemCount: 8, feedsIntoStation: 'Fitup' },
@@ -177,6 +188,19 @@ describe('DigitalTwinScreen', () => {
     await waitFor(() => {
       expect(screen.getByText(/\+3 vs yesterday/)).toBeInTheDocument();
     });
+  });
+
+  it('renders edge WIP labels between adjacent stations', async () => {
+    vi.mocked(digitalTwinApi.getSnapshot).mockResolvedValueOnce(mockSnapshot);
+    renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('edge-wip-wc-1')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('edge-wip-wc-1')).toHaveTextContent('3');
+    expect(screen.getByTestId('edge-wip-wc-2')).toHaveTextContent('2');
+    expect(screen.getByTestId('edge-wip-wc-9')).toHaveTextContent('1');
   });
 
   it('renders gracefully when getSnapshot API fails', async () => {

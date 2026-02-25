@@ -26,3 +26,8 @@ e2e/artifacts/**/screenshots/
 *.db
 *.db-shm
 *.db-wal
+
+backend/**/TestResults/
+backend/.testobj/
+backend/**/.testobj/
+backend/**/coverage-html/

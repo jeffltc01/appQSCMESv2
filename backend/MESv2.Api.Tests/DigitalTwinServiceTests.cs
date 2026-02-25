@@ -7,6 +7,10 @@ namespace MESv2.Api.Tests;
 
 public class DigitalTwinServiceTests
 {
+    private static readonly Guid CharLongSeamId = Guid.Parse("c1000001-0000-0000-0000-000000000001");
+    private static readonly Guid DefectCodeId = Guid.Parse("d1010001-0000-0000-0000-000000000001");
+    private static readonly Guid DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000001");
+
     // Cleveland plant uses America/Chicago (Central Time).
     // 2026-06-10 18:00 UTC = 12:00 CDT (solidly mid-day)
     private static readonly DateTime MidDay = new(2026, 6, 10, 18, 0, 0, DateTimeKind.Utc);
@@ -15,7 +19,7 @@ public class DigitalTwinServiceTests
         new(db, new Mock<ILogger<DigitalTwinService>>().Object);
 
     private static void SeedRecord(
-        Data.MesDbContext db, Guid wcId, DateTime timestamp, Guid? snId = null, string? serial = null)
+        Data.MesDbContext db, Guid wcId, DateTime timestamp, Guid? snId = null, string? serial = null, Guid? plantGearId = null)
     {
         var id = snId ?? Guid.NewGuid();
         var tracked = db.ChangeTracker.Entries<SerialNumber>().Any(e => e.Entity.Id == id);
@@ -30,7 +34,69 @@ public class DigitalTwinServiceTests
             ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
             OperatorId = TestHelpers.TestUserId,
             Timestamp = timestamp,
+            PlantGearId = plantGearId,
         });
+    }
+
+    private static void SeedCapacityTarget(Data.MesDbContext db, Guid plantGearId, decimal targetUnitsPerHour)
+    {
+        db.WorkCenterCapacityTargets.Add(new WorkCenterCapacityTarget
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterProductionLineId = TestHelpers.wcplHydroId,
+            PlantGearId = plantGearId,
+            TankSize = null,
+            TargetUnitsPerHour = targetUnitsPerHour,
+        });
+    }
+
+    private static void SeedDefectLog(
+        Data.MesDbContext db,
+        Guid serialNumberId,
+        DateTime timestamp,
+        Guid? characteristicId = null)
+    {
+        db.DefectLogs.Add(new DefectLog
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = serialNumberId,
+            DefectCodeId = DefectCodeId,
+            CharacteristicId = characteristicId ?? CharLongSeamId,
+            LocationId = DefectLocationId,
+            Timestamp = timestamp,
+            CreatedAt = timestamp,
+        });
+    }
+
+    private static decimal ComputeExpectedLineEfficiency(Data.MesDbContext db, int hydroToday, decimal targetUnitsPerHour)
+    {
+        var tzId = db.Plants
+            .Where(p => p.Id == TestHelpers.PlantPlt1Id)
+            .Select(p => p.TimeZoneId)
+            .FirstOrDefault();
+
+        var tz = TimeZoneInfo.Utc;
+        if (!string.IsNullOrWhiteSpace(tzId))
+        {
+            try
+            {
+                tz = TimeZoneInfo.FindSystemTimeZoneById(tzId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                tz = TimeZoneInfo.Utc;
+            }
+        }
+
+        var utcNow = DateTime.UtcNow;
+        var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+        var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localNow.Date, tz);
+        var hoursElapsed = (decimal)(utcNow - startOfDay).TotalHours;
+        var theoreticalMax = hoursElapsed > 0 && targetUnitsPerHour > 0
+            ? targetUnitsPerHour * hoursElapsed
+            : 1m;
+
+        return Math.Min(100, Math.Round(hydroToday / theoreticalMax * 100, 0));
     }
 
     [Fact]
@@ -89,6 +155,44 @@ public class DigitalTwinServiceTests
     }
 
     [Fact]
+    public async Task GetSnapshot_EdgeWipCounts_ReflectCurrentUpstreamStationCounts()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var shellAtRolls = Guid.NewGuid();
+        var shellAtLongSeam = Guid.NewGuid();
+        var shellAtLsInspect = Guid.NewGuid();
+
+        // Latest station = Rolls
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-20), shellAtRolls, "SH1001");
+
+        // Latest station = Long Seam
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-40), shellAtLongSeam, "SH1002");
+        SeedRecord(db, TestHelpers.wcLongSeamId, MidDay.AddMinutes(-10), shellAtLongSeam, "SH1002");
+
+        // Latest station = LS Inspect
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-50), shellAtLsInspect, "SH1003");
+        SeedRecord(db, TestHelpers.wcLongSeamId, MidDay.AddMinutes(-30), shellAtLsInspect, "SH1003");
+        SeedRecord(db, TestHelpers.wcLongSeamInspId, MidDay.AddMinutes(-5), shellAtLsInspect, "SH1003");
+
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var rollsToLongSeam = result.EdgeWipCounts.Single(e =>
+            e.FromWorkCenterId == TestHelpers.wcRollsId
+            && e.ToWorkCenterId == TestHelpers.wcLongSeamId);
+        var longSeamToLsInspect = result.EdgeWipCounts.Single(e =>
+            e.FromWorkCenterId == TestHelpers.wcLongSeamId
+            && e.ToWorkCenterId == TestHelpers.wcLongSeamInspId);
+
+        Assert.Equal(1, rollsToLongSeam.Count);
+        Assert.Equal(1, longSeamToLsInspect.Count);
+    }
+
+    [Fact]
     public async Task GetSnapshot_BottleneckDetection_HighestWipStationFlagged()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -144,6 +248,57 @@ public class DigitalTwinServiceTests
     }
 
     [Fact]
+    public async Task GetSnapshot_Fpy_ComputedForEligibleStation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var snWithDefect = Guid.NewGuid();
+        var snWithoutDefect = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        SeedRecord(db, TestHelpers.wcRollsId, now.AddMinutes(-30), snWithDefect, "FPY001");
+        SeedRecord(db, TestHelpers.wcRollsId, now.AddMinutes(-20), snWithoutDefect, "FPY002");
+        SeedDefectLog(db, snWithDefect, now.AddMinutes(-25));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var rollsStation = result.Stations.First(s => s.Name == "Rolls");
+        Assert.Equal(50.0m, rollsStation.FirstPassYieldPercent);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_Fpy_NullForIneligibleStation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcHydroId, DateTime.UtcNow.AddMinutes(-10));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var hydroStation = result.Stations.First(s => s.Name == "Hydro");
+        Assert.Null(hydroStation.FirstPassYieldPercent);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_Fpy_NullWhenNoOpportunitiesAtEligibleStation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var rollsStation = result.Stations.First(s => s.Name == "Rolls");
+        Assert.Null(rollsStation.FirstPassYieldPercent);
+    }
+
+    [Fact]
     public async Task GetSnapshot_GateChecks_MarkedCorrectly()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -173,6 +328,64 @@ public class DigitalTwinServiceTests
             TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
 
         Assert.Equal(2, result.Throughput.UnitsToday);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_LineEfficiency_UsesCapacityForMostRecentGear()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var gear1Id = Guid.Parse("61111111-1111-1111-1111-111111111111");
+        var gear2Id = Guid.Parse("61111111-1111-1111-1111-111111111112");
+
+        SeedCapacityTarget(db, gear1Id, 4m);
+        SeedCapacityTarget(db, gear2Id, 10m);
+        SeedRecord(db, TestHelpers.wcHydroId, DateTime.UtcNow.AddMinutes(-20), plantGearId: gear1Id);
+        SeedRecord(db, TestHelpers.wcHydroId, DateTime.UtcNow.AddMinutes(-10), plantGearId: gear2Id);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var expected = ComputeExpectedLineEfficiency(db, hydroToday: 2, targetUnitsPerHour: 10m);
+        Assert.Equal(expected, result.LineEfficiencyPercent);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_LineEfficiency_FallsBackToAvailableTargetsWhenLatestGearMissing()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        var gear1Id = Guid.Parse("61111111-1111-1111-1111-111111111111");
+        var gear2Id = Guid.Parse("61111111-1111-1111-1111-111111111112");
+
+        SeedCapacityTarget(db, gear1Id, 5m);
+        SeedRecord(db, TestHelpers.wcHydroId, DateTime.UtcNow.AddMinutes(-10), plantGearId: gear2Id);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var expected = ComputeExpectedLineEfficiency(db, hydroToday: 1, targetUnitsPerHour: 5m);
+        Assert.Equal(expected, result.LineEfficiencyPercent);
+    }
+
+    [Fact]
+    public async Task GetSnapshot_LineEfficiency_FallsBackToDefaultWhenNoCapacityTargets()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+
+        SeedRecord(db, TestHelpers.wcHydroId, DateTime.UtcNow.AddMinutes(-10));
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetSnapshotAsync(
+            TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id);
+
+        var expected = ComputeExpectedLineEfficiency(db, hydroToday: 1, targetUnitsPerHour: 6m);
+        Assert.Equal(expected, result.LineEfficiencyPercent);
     }
 
     [Fact]

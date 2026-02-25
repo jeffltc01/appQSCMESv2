@@ -22,13 +22,6 @@ const STATION_BOX_CLASSES: Record<string, string> = {
   bottleneck: styles.stationBoxBottleneck,
 };
 
-const WIP_BADGE_CLASSES: Record<string, string> = {
-  bottleneck: styles.wipBadgeBottleneck,
-  idle: styles.wipBadgeIdle,
-  slow: styles.wipBadgeSlow,
-  down: styles.wipBadgeDown,
-};
-
 const STATUS_DOT_CLASSES: Record<string, string> = {
   active: styles.statusDotGreen,
   slow: styles.statusDotYellow,
@@ -193,15 +186,28 @@ function PipelineSection({ snapshot }: { snapshot: DigitalTwinSnapshot }) {
     feedByStation[feed.feedsIntoStation] = feed;
   }
 
+  const edgeWipByPair: Record<string, number> = {};
+  for (const edge of snapshot.edgeWipCounts) {
+    edgeWipByPair[`${edge.fromWorkCenterId}:${edge.toWorkCenterId}`] = edge.count;
+  }
+
   return (
     <div className={styles.pipelineSection}>
       <div className={styles.pipelineWrapper}>
         {snapshot.stations.map((station, idx) => (
+          // Each connector shows units currently at this upstream station.
           <StationNodeWithArrow
             key={station.workCenterId}
             station={station}
             isLast={idx === snapshot.stations.length - 1}
             materialFeed={feedByStation[station.name]}
+            edgeWipCount={
+              idx < snapshot.stations.length - 1
+                ? edgeWipByPair[
+                    `${station.workCenterId}:${snapshot.stations[idx + 1].workCenterId}`
+                  ] ?? station.wipCount
+                : undefined
+            }
           />
         ))}
       </div>
@@ -213,14 +219,15 @@ function StationNodeWithArrow({
   station,
   isLast,
   materialFeed,
+  edgeWipCount,
 }: {
   station: StationStatus;
   isLast: boolean;
   materialFeed?: { workCenterName: string; queueLabel: string; itemCount: number };
+  edgeWipCount?: number;
 }) {
   const statusKey = station.isBottleneck ? 'bottleneck' : station.status.toLowerCase();
   const boxClass = STATION_BOX_CLASSES[statusKey] ?? '';
-  const wipClass = WIP_BADGE_CLASSES[statusKey] ?? '';
   const circleColor = STATUS_CIRCLE_COLORS[statusKey] ?? 'var(--qs-gray)';
   const dotCount = statusKey === 'active' || statusKey === 'bottleneck' ? 3 : statusKey === 'slow' ? 2 : 0;
 
@@ -239,9 +246,6 @@ function StationNodeWithArrow({
 
         <div className={`${styles.stationBox} ${boxClass}`}>
           <div className={styles.stationName}>{station.name}</div>
-          <div className={`${styles.wipBadge} ${wipClass}`}>
-            {station.wipCount} WIP
-          </div>
           {station.isBottleneck && (
             <div className={styles.bottleneckLabel}>Bottleneck</div>
           )}
@@ -272,6 +276,9 @@ function StationNodeWithArrow({
       </div>
       {!isLast && (
         <div className={styles.stationArrow}>
+          <div className={styles.edgeWipLabel} data-testid={`edge-wip-${station.workCenterId}`}>
+            {edgeWipCount ?? 0}
+          </div>
           <div className={styles.arrowLine} />
           <div className={styles.arrowDots}>
             <div className={styles.arrowDot} />

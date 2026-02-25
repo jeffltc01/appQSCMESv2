@@ -19,6 +19,23 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task GetAllUsers_FiltersBySiteAndRoleTiers()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new UserService(db);
+        var allowedTiers = new[] { 4m, 5m, 6m };
+
+        var result = await sut.GetAllUsersAsync(TestHelpers.PlantPlt1Id, allowedTiers);
+
+        Assert.NotEmpty(result);
+        Assert.All(result, user =>
+        {
+            Assert.Equal(TestHelpers.PlantPlt1Id, user.DefaultSiteId);
+            Assert.Contains(user.RoleTier, allowedTiers);
+        });
+    }
+
+    [Fact]
     public async Task CreateUser_Succeeds()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

@@ -36,6 +36,24 @@ public class AdminUsersControllerTests
     }
 
     [Fact]
+    public async Task GetAllUsers_FiltersBySiteAndRoleTiers()
+    {
+        var controller = CreateController(out _);
+        var allowedTiers = new[] { 4m, 5m, 6m };
+
+        var result = await controller.GetAllUsers(CancellationToken.None, TestHelpers.PlantPlt1Id, allowedTiers);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var list = Assert.IsAssignableFrom<IEnumerable<AdminUserDto>>(ok.Value).ToList();
+        Assert.NotEmpty(list);
+        Assert.All(list, user =>
+        {
+            Assert.Equal(TestHelpers.PlantPlt1Id, user.DefaultSiteId);
+            Assert.Contains(user.RoleTier, allowedTiers);
+        });
+    }
+
+    [Fact]
     public void GetRoles_ReturnsKnownRoles()
     {
         var controller = CreateController(out _);

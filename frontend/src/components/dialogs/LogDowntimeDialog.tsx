@@ -11,6 +11,8 @@ import {
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type { WorkCenter, WorkCenterProductionLine, DowntimeReasonCategory, AdminUser, DowntimeEvent } from '../../types/domain.ts';
 
+const OPERATOR_ROLE_TIERS = [4, 5, 6];
+
 interface LogDowntimeDialogProps {
   open: boolean;
   onClose: () => void;
@@ -75,13 +77,13 @@ export function LogDowntimeDialog({
     setLoadingRef(true);
     Promise.all([
       workCenterApi.getWorkCenters(),
-      adminUserApi.getAll(),
+      adminUserApi.getAll(user?.defaultSiteId, OPERATOR_ROLE_TIERS),
     ]).then(([wcs, users]) => {
       setWorkCenters(wcs);
       setOperators(users.filter((u) => u.isActive));
     }).catch(() => {})
       .finally(() => setLoadingRef(false));
-  }, [open]);
+  }, [open, user?.defaultSiteId]);
 
   useEffect(() => {
     if (!open) {
@@ -119,10 +121,10 @@ export function LogDowntimeDialog({
       setProductionLines([]);
       return;
     }
-    adminWorkCenterApi.getProductionLineConfigs(selectedWcId)
+    adminWorkCenterApi.getProductionLineConfigs(selectedWcId, user?.defaultSiteId)
       .then(setProductionLines)
       .catch(() => setProductionLines([]));
-  }, [selectedWcId]);
+  }, [selectedWcId, user?.defaultSiteId]);
 
   // Pre-select WC
   useEffect(() => {
@@ -140,7 +142,7 @@ export function LogDowntimeDialog({
     const pl = productionLines.find((p) => p.id === editEvent.workCenterProductionLineId);
     if (pl) {
       setSelectedPlId(pl.id);
-      setSelectedPlName(pl.displayName || pl.productionLineName);
+      setSelectedPlName(pl.productionLineName);
     }
   }, [editEvent, productionLines]);
 
@@ -160,7 +162,7 @@ export function LogDowntimeDialog({
     const findWc = async () => {
       for (const wc of workCenters) {
         try {
-          const pls = await adminWorkCenterApi.getProductionLineConfigs(wc.id);
+          const pls = await adminWorkCenterApi.getProductionLineConfigs(wc.id, user?.defaultSiteId);
           const match = pls.find((pl: WorkCenterProductionLine) => pl.id === editEvent.workCenterProductionLineId);
           if (match) {
             setSelectedWcId(wc.id);
@@ -171,7 +173,7 @@ export function LogDowntimeDialog({
       }
     };
     if (!selectedWcId) findWc();
-  }, [editEvent, workCenters, selectedWcId]);
+  }, [editEvent, workCenters, selectedWcId, user?.defaultSiteId]);
 
   const buildReasonOptions = () => {
     const options: { id: string; label: string; categoryName: string; reasonName: string }[] = [];
@@ -307,8 +309,8 @@ export function LogDowntimeDialog({
               style={{ width: '100%' }}
             >
               {productionLines.map((pl) => (
-                <Option key={pl.id} value={pl.id} text={pl.displayName || pl.productionLineName}>
-                  {pl.displayName || pl.productionLineName}
+                <Option key={pl.id} value={pl.id} text={pl.productionLineName}>
+                  {pl.productionLineName}
                 </Option>
               ))}
             </Dropdown>

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { AssetManagementScreen } from './AssetManagementScreen.tsx';
-import { adminAssetApi, adminWorkCenterApi, productionLineApi } from '../../api/endpoints.ts';
+import { adminAssetApi, adminWorkCenterApi, productionLineApi, siteApi } from '../../api/endpoints.ts';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
@@ -15,12 +15,16 @@ const adminUser = { plantCode: 'PLT1', plantName: 'Cleveland', displayName: 'Tes
 vi.mock('../../api/endpoints.ts', () => ({
   adminAssetApi: {
     getAll: vi.fn(),
+    remove: vi.fn(),
   },
   adminWorkCenterApi: {
     getAll: vi.fn(),
   },
   productionLineApi: {
     getAll: vi.fn(),
+  },
+  siteApi: {
+    getSites: vi.fn(),
   },
 }));
 
@@ -68,12 +72,18 @@ const mockProductionLines = [
   },
 ];
 
+const mockSites = [
+  { id: 'p1', code: 'PLT1', name: 'Cleveland', timeZoneId: 'America/Chicago' },
+];
+
 describe('AssetManagementScreen', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({ user: adminUser, logout: vi.fn() });
     vi.mocked(adminAssetApi.getAll).mockResolvedValue(mockAssets);
+    vi.mocked(adminAssetApi.remove).mockResolvedValue(undefined);
     vi.mocked(adminWorkCenterApi.getAll).mockResolvedValue(mockWorkCenters);
     vi.mocked(productionLineApi.getAll).mockResolvedValue(mockProductionLines);
+    vi.mocked(siteApi.getSites).mockResolvedValue(mockSites);
   });
 
   it('renders loading state initially', async () => {
@@ -104,6 +114,7 @@ describe('AssetManagementScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('Asset 1')).toBeInTheDocument();
     });
+    expect(adminAssetApi.getAll).toHaveBeenCalledWith(undefined);
     expect(screen.getByText('Rolls 1')).toBeInTheDocument();
     expect(screen.getByText('LMB-001')).toBeInTheDocument();
     expect(screen.getByText('Lane A')).toBeInTheDocument();
@@ -135,5 +146,36 @@ describe('AssetManagementScreen', () => {
   it('displays correct title', async () => {
     renderScreen();
     expect(screen.getByText('Asset Management')).toBeInTheDocument();
+  });
+
+  it('requests filtered assets when site changes', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Asset 1')).toBeInTheDocument();
+    });
+
+    const siteSelect = screen.getByRole('combobox');
+    fireEvent.change(siteSelect, { target: { value: 'p1' } });
+
+    await waitFor(() => {
+      expect(adminAssetApi.getAll).toHaveBeenLastCalledWith('p1');
+    });
+  });
+
+  it('deactivates an active asset from confirmation dialog', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Asset 1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate Asset 1' }));
+    expect(screen.getByText('Confirm Deactivation')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+
+    await waitFor(() => {
+      expect(adminAssetApi.remove).toHaveBeenCalledWith('1');
+    });
+    expect(screen.getByText('Inactive')).toBeInTheDocument();
   });
 });

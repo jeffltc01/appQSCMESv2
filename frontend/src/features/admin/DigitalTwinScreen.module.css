@@ -206,37 +206,10 @@
   font-weight: 600;
   letter-spacing: 0.3px;
   line-height: 1.2;
-  min-height: 26px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.wipBadge {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 2px 12px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--qs-white);
-  background: var(--qs-success);
-}
-
-.wipBadgeBottleneck {
-  background: var(--qs-secondary);
-}
-
-.wipBadgeIdle {
-  background: var(--qs-gray);
-}
-
-.wipBadgeSlow {
-  background: var(--qs-warning);
-  color: var(--qs-body-text);
-}
-
-.wipBadgeDown {
-  background: var(--qs-danger);
 }
 
 .gateCheckIcon {
@@ -275,6 +248,20 @@
   padding: 0 1px;
   flex-shrink: 0;
   margin-top: 46px;
+  position: relative;
+}
+
+.edgeWipLabel {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 20px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--qs-primary);
+  line-height: 1;
 }
 
 .arrowLine {
@@ -608,18 +595,18 @@
 
   .stationName {
     font-size: 9px;
-    min-height: 22px;
-  }
-
-  .wipBadge {
-    font-size: 9px;
-    padding: 2px 8px;
-    margin-top: 4px;
+    min-height: 28px;
   }
 
   .stationArrow {
     padding: 0;
     margin-top: 30px;
+  }
+
+  .edgeWipLabel {
+    top: -12px;
+    min-width: 16px;
+    font-size: 9px;
   }
 
   .arrowLine {

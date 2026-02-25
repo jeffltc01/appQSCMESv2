@@ -3,11 +3,19 @@ namespace MESv2.Api.DTOs;
 public class DigitalTwinSnapshotDto
 {
     public List<StationStatusDto> Stations { get; set; } = new();
+    public List<EdgeWipCountDto> EdgeWipCounts { get; set; } = new();
     public List<MaterialFeedDto> MaterialFeeds { get; set; } = new();
     public LineThroughputDto Throughput { get; set; } = new();
     public decimal AvgCycleTimeMinutes { get; set; }
     public decimal LineEfficiencyPercent { get; set; }
     public List<UnitPositionDto> UnitTracker { get; set; } = new();
+}
+
+public class EdgeWipCountDto
+{
+    public Guid FromWorkCenterId { get; set; }
+    public Guid ToWorkCenterId { get; set; }
+    public int Count { get; set; }
 }
 
 public class StationStatusDto

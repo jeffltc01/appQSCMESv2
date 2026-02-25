@@ -386,7 +386,15 @@ export const adminProductApi = {
 };
 
 export const adminUserApi = {
-  getAll: () => api.get<AdminUser[]>('/users/admin'),
+  getAll: (siteId?: string, roleTiers?: number[]) => {
+    const params = new URLSearchParams();
+    if (siteId) params.set('siteId', siteId);
+    for (const tier of roleTiers ?? []) {
+      params.append('roleTiers', tier.toString());
+    }
+    const qs = params.toString();
+    return api.get<AdminUser[]>(`/users/admin${qs ? `?${qs}` : ''}`);
+  },
   getRoles: () => api.get<RoleOption[]>('/users/roles'),
   create: (req: CreateUserRequest) => api.post<AdminUser>('/users', req),
   update: (id: string, req: UpdateUserRequest) => api.put<AdminUser>(`/users/${id}`, req),
@@ -421,8 +429,8 @@ export const adminWorkCenterApi = {
   create: (req: CreateWorkCenterRequest) => api.post<AdminWorkCenterGroup>('/workcenters/admin', req),
   updateConfig: (id: string, req: UpdateWorkCenterConfigRequest) => api.put<AdminWorkCenter>(`/workcenters/${id}/config`, req),
   updateGroup: (groupId: string, req: UpdateWorkCenterGroupRequest) => api.put<AdminWorkCenterGroup>(`/workcenters/admin/group/${groupId}`, req),
-  getProductionLineConfigs: (wcId: string) =>
-    api.get<WorkCenterProductionLine[]>(`/workcenters/${wcId}/production-lines`),
+  getProductionLineConfigs: (wcId: string, plantId?: string) =>
+    api.get<WorkCenterProductionLine[]>(`/workcenters/${wcId}/production-lines${plantId ? `?plantId=${encodeURIComponent(plantId)}` : ''}`),
   getProductionLineConfig: (wcId: string, plId: string) =>
     api.get<WorkCenterProductionLine>(`/workcenters/${wcId}/production-lines/${plId}`),
   createProductionLineConfig: (wcId: string, req: CreateWorkCenterProductionLineRequest) =>
@@ -448,9 +456,10 @@ export const adminControlPlanApi = {
 };
 
 export const adminAssetApi = {
-  getAll: () => api.get<AdminAsset[]>('/assets/admin'),
+  getAll: (siteId?: string) => api.get<AdminAsset[]>(`/assets/admin${siteId ? `?siteId=${siteId}` : ''}`),
   create: (req: CreateAssetRequest) => api.post<AdminAsset>('/assets', req),
   update: (id: string, req: UpdateAssetRequest) => api.put<AdminAsset>(`/assets/${id}`, req),
+  remove: (id: string) => api.delete<void>(`/assets/${id}`),
 };
 
 export const adminKanbanCardApi = {

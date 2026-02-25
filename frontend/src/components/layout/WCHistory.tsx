@@ -47,7 +47,7 @@ export function WCHistory({ data, logType, operatorId, kioskMode = false, onAnno
 
       <div className={styles.tableBody}>
         {data.recentRecords.length === 0 ? (
-          <div className={styles.noRecords}>No records today</div>
+          <div className={styles.noRecords}>No History Found</div>
         ) : (
           data.recentRecords.map((record) => (
               <div key={record.id} className={styles.row}>

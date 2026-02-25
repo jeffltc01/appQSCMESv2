@@ -30,9 +30,9 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("admin")]
-    public async Task<ActionResult<IEnumerable<AdminUserDto>>> GetAllUsers(CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<AdminUserDto>>> GetAllUsers(CancellationToken cancellationToken, [FromQuery] Guid? siteId = null, [FromQuery] decimal[]? roleTiers = null)
     {
-        return Ok(await _userService.GetAllUsersAsync(cancellationToken));
+        return Ok(await _userService.GetAllUsersAsync(siteId, roleTiers, cancellationToken));
     }
 
     [HttpGet("roles")]
