@@ -1,6 +1,7 @@
 import { buildAuthHeaders, getApiBaseUrl, setApiErrorObserver } from '../api/apiClient.ts';
 import type { FrontendTelemetryIngestRequest } from '../types/api.ts';
 import { getTabletCache } from '../hooks/useLocalStorage.ts';
+import { generateSessionId } from './sessionId.ts';
 
 type TelemetryEvent = FrontendTelemetryIngestRequest;
 
@@ -17,6 +18,7 @@ let flushInProgress = false;
 let initialized = false;
 let windowStart = Date.now();
 let sentInWindow = 0;
+const SESSION_ID_KEY = 'mes_session_id';
 
 function trim(value: string | undefined, max: number): string | undefined {
   if (!value) return value;
@@ -47,6 +49,23 @@ function computeFingerprint(event: TelemetryEvent): string {
   ].join('|');
 }
 
+function getSessionId(): string | undefined {
+  try {
+    return sessionStorage.getItem(SESSION_ID_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function ensureSessionId(): void {
+  if (getSessionId()) return;
+  try {
+    sessionStorage.setItem(SESSION_ID_KEY, generateSessionId());
+  } catch {
+    // Some managed browsers can block Storage access.
+  }
+}
+
 function passRateLimit(): boolean {
   const now = Date.now();
   if (now - windowStart >= RATE_WINDOW_MS) {
@@ -75,7 +94,7 @@ function enrichEvent(input: TelemetryEvent): TelemetryEvent {
     metadataJson: trim(input.metadataJson, 8000),
     route: trim(input.route ?? window.location.pathname, 256),
     screen: trim(input.screen ?? document.title, 128),
-    sessionId: trim(input.sessionId ?? sessionStorage.getItem('mes_session_id') ?? undefined, 128),
+    sessionId: trim(input.sessionId ?? getSessionId(), 128),
     apiPath: trim(input.apiPath, 256),
     httpMethod: trim(input.httpMethod, 16),
     userId: input.userId ?? user?.id,
@@ -166,9 +185,7 @@ export function initializeTelemetry() {
   if (initialized) return;
   initialized = true;
 
-  if (!sessionStorage.getItem('mes_session_id')) {
-    sessionStorage.setItem('mes_session_id', crypto.randomUUID());
-  }
+  ensureSessionId();
 
   setApiErrorObserver((payload) => {
     if (payload.path.includes('/frontend-telemetry')) return;

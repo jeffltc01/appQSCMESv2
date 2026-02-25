@@ -30,9 +30,103 @@ public class DemoDataAdminServiceTests
 
         Assert.NotNull(result);
         Assert.True(db.Plants.Any());
-        Assert.True(db.ProductionRecords.Any());
+        Assert.True(db.ProductionRecords.Count() >= 500);
         Assert.True(db.InspectionRecords.Any());
         Assert.True(db.DowntimeEvents.Any());
+        var plantIds = db.Plants.Select(p => p.Id).ToList();
+        Assert.Equal(3, plantIds.Count);
+        foreach (var plantId in plantIds)
+        {
+            var categories = db.DowntimeReasonCategories.Where(c => c.PlantId == plantId).ToList();
+            Assert.Equal(6, categories.Count);
+            Assert.Contains(categories, c => c.Name == "Machine");
+            Assert.Contains(categories, c => c.Name == "Material");
+            Assert.Contains(categories, c => c.Name == "Environment");
+        }
+
+        var reasonNames = db.DowntimeReasons.Select(r => r.Name).ToList();
+        Assert.Contains("Welder Setup Delay", reasonNames);
+        Assert.Contains("Equipment Down", reasonNames);
+
+        var expectedCurrentGears = new Dictionary<string, int>
+        {
+            ["000"] = 4,
+            ["600"] = 2,
+            ["700"] = 1,
+        };
+        var plantsWithGear = db.Plants
+            .Join(db.PlantGears, p => p.CurrentPlantGearId, pg => pg.Id, (p, pg) => new { p.Code, pg.Level })
+            .ToDictionary(x => x.Code, x => x.Level);
+        foreach (var kvp in expectedCurrentGears)
+            Assert.True(plantsWithGear.TryGetValue(kvp.Key, out var level) && level == kvp.Value);
+
+        var shiftSchedules = db.ShiftSchedules
+            .Join(db.Plants, s => s.PlantId, p => p.Id, (s, p) => new { p.Code, s.EffectiveDate })
+            .OrderBy(x => x.Code)
+            .ThenBy(x => x.EffectiveDate)
+            .ToList();
+        Assert.Equal(3, shiftSchedules.Count);
+        Assert.Contains(shiftSchedules, x => x.Code == "000" && x.EffectiveDate == new DateOnly(2026, 2, 23));
+        Assert.Contains(shiftSchedules, x => x.Code == "700" && x.EffectiveDate == new DateOnly(2026, 2, 22));
+        Assert.Contains(shiftSchedules, x => x.Code == "700" && x.EffectiveDate == new DateOnly(2026, 3, 1));
+
+        var westJordanId = db.Plants.Single(p => p.Code == "700").Id;
+        var mainLineId = db.ProductionLines
+            .Where(l => l.PlantId == westJordanId && l.Name == "Main Line")
+            .Select(l => (Guid?)l.Id)
+            .FirstOrDefault();
+        if (mainLineId.HasValue)
+        {
+            Assert.True(db.ProductionRecords.Any(r => r.ProductionLineId == mainLineId.Value));
+        }
+        else
+        {
+            var westJordanLineIds = db.ProductionLines
+                .Where(l => l.PlantId == westJordanId)
+                .Select(l => l.Id)
+                .ToHashSet();
+            Assert.True(db.ProductionRecords.Any(r => westJordanLineIds.Contains(r.ProductionLineId)));
+        }
+        Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "hydro-marriage"));
+        Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "leftHead" && t.TankLocation == "Head 1"));
+        Assert.True(db.TraceabilityLogs.Any(t => t.Relationship == "rightHead" && t.TankLocation == "Head 2"));
+
+        var rollsSerialIds = db.ProductionRecords
+            .Join(db.WorkCenters, r => r.WorkCenterId, w => w.Id, (r, w) => new { r.SerialNumberId, w.DataEntryType })
+            .Where(x => x.DataEntryType == "Rolls")
+            .Select(x => x.SerialNumberId)
+            .Distinct()
+            .Take(10)
+            .ToList();
+        var rollsSerials = db.SerialNumbers
+            .Where(sn => rollsSerialIds.Contains(sn.Id))
+            .ToList();
+        Assert.NotEmpty(rollsSerials);
+        Assert.All(rollsSerials, sn =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(sn.HeatNumber));
+            Assert.False(string.IsNullOrWhiteSpace(sn.CoilNumber));
+            Assert.False(string.IsNullOrWhiteSpace(sn.LotNumber));
+        });
+
+        var headSerialIds = db.TraceabilityLogs
+            .Where(t => t.Relationship == "leftHead" || t.Relationship == "rightHead")
+            .Where(t => t.FromSerialNumberId.HasValue)
+            .Select(t => t.FromSerialNumberId!.Value)
+            .Distinct()
+            .Take(10)
+            .ToList();
+        var headSerials = db.SerialNumbers
+            .Where(sn => headSerialIds.Contains(sn.Id))
+            .ToList();
+        Assert.NotEmpty(headSerials);
+        Assert.All(headSerials, sn =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(sn.HeatNumber));
+            Assert.False(string.IsNullOrWhiteSpace(sn.CoilNumber));
+            Assert.False(string.IsNullOrWhiteSpace(sn.LotNumber));
+        });
+
         Assert.Contains(result.Inserted, r => r.Table == "ProductionRecords" && r.Count > 0);
     }
 

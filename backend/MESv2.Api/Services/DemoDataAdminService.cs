@@ -29,6 +29,7 @@ public class DemoDataAdminService : IDemoDataAdminService
     {
         EnsureDemoOperationsAllowed();
 
+        var referenceSnapshot = await CaptureReferenceSnapshotAsync(ct);
         var deleted = new List<DemoDataTableCountDto>();
         var inserted = new List<DemoDataTableCountDto>();
         var useTransaction = _db.Database.IsRelational();
@@ -110,6 +111,9 @@ public class DemoDataAdminService : IDemoDataAdminService
             DbInitializer.SyncJoinTables(_db);
             DbInitializer.EnsureAssembledProducts(_db);
             DbInitializer.BackfillInspectionProductionRecords(_db);
+            await ApplyReferenceSnapshotAsync(referenceSnapshot, ct);
+            await ApplyDemoPlantGearDefaultsAsync(ct);
+            _db.ChangeTracker.Clear();
             await SeedDeterministicDemoOperationsAsync(ct);
 
             inserted.Add(new DemoDataTableCountDto { Table = "Plants", Count = await _db.Plants.CountAsync(ct) });
@@ -315,12 +319,27 @@ public class DemoDataAdminService : IDemoDataAdminService
     private async Task SeedDeterministicDemoOperationsAsync(CancellationToken ct)
     {
         var baseUtc = new DateTime(2024, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        const string targetPlantCode = "700";
+        const string targetLineName = "Main Line";
+        const int shellCount = 120;
+        const int assemblyCount = 120;
+        const int roundSeamInspectionCount = 120;
+        const int sellableCount = 120;
+        const int queueSeedCount = 20;
 
-        var plant = await _db.Plants.FirstAsync(p => p.Code == "000", ct);
-        var line = await _db.ProductionLines.FirstAsync(pl => pl.PlantId == plant.Id && pl.Name == "Line 1", ct);
-        var admin = await _db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001", ct);
-        var op = await _db.Users.FirstAsync(u => u.EmployeeNumber == "EMP002", ct);
-        var welder = await _db.Users.FirstAsync(u => u.EmployeeNumber == "EMP003", ct);
+        var plant = await _db.Plants
+            .FirstOrDefaultAsync(p => p.Code == targetPlantCode, ct)
+            ?? await _db.Plants.FirstAsync(ct);
+        var line = await _db.ProductionLines
+            .FirstOrDefaultAsync(pl => pl.PlantId == plant.Id && pl.Name == targetLineName, ct)
+            ?? await _db.ProductionLines.FirstAsync(pl => pl.PlantId == plant.Id, ct);
+
+        var admin = await _db.Users.FirstOrDefaultAsync(u => u.EmployeeNumber == "EMP001", ct)
+            ?? await _db.Users.OrderBy(u => u.RoleTier).FirstAsync(ct);
+        var op = await _db.Users.FirstOrDefaultAsync(u => u.EmployeeNumber == "EMP002", ct)
+            ?? await _db.Users.Where(u => u.Id != admin.Id).OrderByDescending(u => u.RoleTier).FirstAsync(ct);
+        var welder = await _db.Users.FirstOrDefaultAsync(u => u.EmployeeNumber == "EMP003", ct)
+            ?? op;
 
         var workCenters = await _db.WorkCenters
             .Where(w => w.DataEntryType != null)
@@ -329,6 +348,12 @@ public class DemoDataAdminService : IDemoDataAdminService
         var wcplByWcId = await _db.WorkCenterProductionLines
             .Where(x => x.ProductionLineId == line.Id)
             .ToDictionaryAsync(x => x.WorkCenterId, x => x, ct);
+        var plantWcpls = await _db.WorkCenterProductionLines
+            .Where(x => x.ProductionLine.PlantId == plant.Id)
+            .ToListAsync(ct);
+        var plantWcplsByWcId = plantWcpls
+            .GroupBy(x => x.WorkCenterId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.ProductionLine.Name).First());
 
         var shellProduct = await _db.Products
             .Include(p => p.ProductType)
@@ -343,94 +368,277 @@ public class DemoDataAdminService : IDemoDataAdminService
             .Include(p => p.ProductType)
             .FirstAsync(p => p.ProductType.SystemTypeName == "plate" && p.TankSize == 120, ct);
 
-        var longSeamChar = await _db.Characteristics.FirstAsync(c => c.Name == "Long Seam", ct);
-        var rs1Char = await _db.Characteristics.FirstAsync(c => c.Name == "RS1", ct);
+        var longSeamChar = await _db.Characteristics
+            .FirstOrDefaultAsync(c => c.Name == "Long Seam", ct)
+            ?? await _db.Characteristics.FirstAsync(ct);
+        var rs1Char = await _db.Characteristics
+            .FirstOrDefaultAsync(c => c.Name == "RS1", ct)
+            ?? longSeamChar;
         var defectCode = await _db.DefectCodes.FirstAsync(dc => dc.Code == "101", ct);
-        var defectLocation = await _db.DefectLocations.FirstAsync(dl => dl.Code == "1", ct);
+        var defectLocation = await _db.DefectLocations
+            .FirstOrDefaultAsync(dl => dl.Code == "1", ct)
+            ?? await _db.DefectLocations.FirstAsync(ct);
         var annotationTypeDefect = await _db.AnnotationTypes.FirstAsync(a => a.Name == "Defect", ct);
         var annotationTypeCorrection = await _db.AnnotationTypes.FirstAsync(a => a.Name == "Correction Needed", ct);
-        var plantGear = await _db.PlantGears.FirstAsync(pg => pg.PlantId == plant.Id && pg.Level == 2, ct);
+        var plantGear = await _db.PlantGears
+            .FirstOrDefaultAsync(pg => pg.PlantId == plant.Id && pg.Level == 4, ct)
+            ?? await _db.PlantGears.FirstAsync(pg => pg.PlantId == plant.Id, ct);
 
-        var longSeamInspWcpl = wcplByWcId[workCenters["Barcode-LongSeamInsp"].Id];
-        var roundSeamInspWcpl = wcplByWcId[workCenters["Barcode-RoundSeamInsp"].Id];
-        var hydroWcpl = wcplByWcId[workCenters["Hydro"].Id];
-
-        var controlPlans = new[]
+        WorkCenter ResolveWorkCenter(string dataEntryType) =>
+            workCenters.TryGetValue(dataEntryType, out var wc)
+                ? wc
+                : workCenters.Values.First();
+        WorkCenterProductionLine ResolveWcpl(string dataEntryType)
         {
-            new ControlPlan
+            var workCenter = ResolveWorkCenter(dataEntryType);
+            return wcplByWcId.TryGetValue(workCenter.Id, out var wcpl)
+                ? wcpl
+                : plantWcplsByWcId.TryGetValue(workCenter.Id, out var plantWcpl)
+                    ? plantWcpl
+                    : wcplByWcId.Values.First();
+        }
+
+        var longSeamInspWcpl = ResolveWcpl("Barcode-LongSeamInsp");
+        var roundSeamInspWcpl = ResolveWcpl("Barcode-RoundSeamInsp");
+        var hydroWcpl = ResolveWcpl("Hydro");
+
+        var controlPlanLongSeam = await _db.ControlPlans
+            .FirstOrDefaultAsync(cp =>
+                cp.CharacteristicId == longSeamChar.Id &&
+                cp.WorkCenterProductionLineId == longSeamInspWcpl.Id, ct);
+        if (controlPlanLongSeam is null)
+        {
+            controlPlanLongSeam = new ControlPlan
             {
-                Id = Guid.Parse("7b430001-0000-0000-0000-000000000001"),
+                Id = Guid.NewGuid(),
                 CharacteristicId = longSeamChar.Id,
                 WorkCenterProductionLineId = longSeamInspWcpl.Id,
                 IsEnabled = true,
                 ResultType = "PassFail",
                 IsGateCheck = false,
                 CodeRequired = true,
-            },
-            new ControlPlan
+            };
+            _db.ControlPlans.Add(controlPlanLongSeam);
+        }
+
+        var controlPlanRoundSeam = await _db.ControlPlans
+            .FirstOrDefaultAsync(cp =>
+                cp.CharacteristicId == rs1Char.Id &&
+                cp.WorkCenterProductionLineId == roundSeamInspWcpl.Id, ct);
+        if (controlPlanRoundSeam is null)
+        {
+            controlPlanRoundSeam = new ControlPlan
             {
-                Id = Guid.Parse("7b430001-0000-0000-0000-000000000002"),
+                Id = Guid.NewGuid(),
                 CharacteristicId = rs1Char.Id,
                 WorkCenterProductionLineId = roundSeamInspWcpl.Id,
                 IsEnabled = true,
                 ResultType = "PassFail",
                 IsGateCheck = true,
                 CodeRequired = true,
-            },
-            new ControlPlan
+            };
+            _db.ControlPlans.Add(controlPlanRoundSeam);
+        }
+
+        var controlPlanHydro = await _db.ControlPlans
+            .FirstOrDefaultAsync(cp =>
+                cp.CharacteristicId == rs1Char.Id &&
+                cp.WorkCenterProductionLineId == hydroWcpl.Id, ct);
+        if (controlPlanHydro is null)
+        {
+            controlPlanHydro = new ControlPlan
             {
-                Id = Guid.Parse("7b430001-0000-0000-0000-000000000003"),
+                Id = Guid.NewGuid(),
                 CharacteristicId = rs1Char.Id,
                 WorkCenterProductionLineId = hydroWcpl.Id,
                 IsEnabled = true,
                 ResultType = "PassFail",
                 IsGateCheck = true,
                 CodeRequired = false,
+            };
+            _db.ControlPlans.Add(controlPlanHydro);
+        }
+
+        var controlPlans = new[] { controlPlanLongSeam, controlPlanRoundSeam, controlPlanHydro };
+
+        // Clone the current Cleveland downtime library to every plant in demo seed data.
+        var downtimeTemplate = new[]
+        {
+            new
+            {
+                CategoryName = "Other",
+                CategorySortOrder = 1,
+                IsCategoryActive = true,
+                Reasons = new[]
+                {
+                    new { Name = "Not Downtime", SortOrder = 0, IsActive = true, CountsAsDowntime = false },
+                },
+            },
+            new
+            {
+                CategoryName = "Machine",
+                CategorySortOrder = 2,
+                IsCategoryActive = true,
+                Reasons = new[]
+                {
+                    new { Name = "Equipment Down", SortOrder = 1, IsActive = true, CountsAsDowntime = true },
+                    new { Name = "Welder Setup Delay", SortOrder = 1, IsActive = true, CountsAsDowntime = true },
+                },
+            },
+            new
+            {
+                CategoryName = "Man",
+                CategorySortOrder = 2,
+                IsCategoryActive = true,
+                Reasons = new[]
+                {
+                    new { Name = "Training", SortOrder = 0, IsActive = true, CountsAsDowntime = true },
+                    new { Name = "Break", SortOrder = 1, IsActive = true, CountsAsDowntime = false },
+                },
+            },
+            new
+            {
+                CategoryName = "Method",
+                CategorySortOrder = 4,
+                IsCategoryActive = true,
+                Reasons = new[]
+                {
+                    new { Name = "Bad Work Instruction", SortOrder = 0, IsActive = true, CountsAsDowntime = true },
+                },
+            },
+            new
+            {
+                CategoryName = "Material",
+                CategorySortOrder = 5,
+                IsCategoryActive = true,
+                Reasons = new[]
+                {
+                    new { Name = "Defective Material", SortOrder = 0, IsActive = true, CountsAsDowntime = true },
+                    new { Name = "No Material", SortOrder = 1, IsActive = true, CountsAsDowntime = true },
+                },
+            },
+            new
+            {
+                CategoryName = "Environment",
+                CategorySortOrder = 6,
+                IsCategoryActive = true,
+                Reasons = new[]
+                {
+                    new { Name = "Plant Emergency", SortOrder = 0, IsActive = true, CountsAsDowntime = true },
+                    new { Name = "Plant Tour", SortOrder = 1, IsActive = true, CountsAsDowntime = true },
+                },
             },
         };
-        _db.ControlPlans.AddRange(controlPlans);
 
-        var category = new DowntimeReasonCategory
+        var reasonIdsByPlant = new Dictionary<Guid, Dictionary<string, Guid>>();
+        var plants = await _db.Plants.ToListAsync(ct);
+        foreach (var p in plants)
         {
-            Id = Guid.Parse("8c440001-0000-0000-0000-000000000001"),
-            PlantId = plant.Id,
-            Name = "Equipment",
-            SortOrder = 1,
-            IsActive = true,
-        };
-        var reason = new DowntimeReason
-        {
-            Id = Guid.Parse("8c440001-0000-0000-0000-000000000002"),
-            DowntimeReasonCategoryId = category.Id,
-            Name = "Welder Setup Delay",
-            IsActive = true,
-            CountsAsDowntime = true,
-            SortOrder = 1,
-        };
-        _db.DowntimeReasonCategories.Add(category);
-        _db.DowntimeReasons.Add(reason);
+            var reasonIdsByName = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+            foreach (var categoryTemplate in downtimeTemplate)
+            {
+                var category = new DowntimeReasonCategory
+                {
+                    Id = Guid.NewGuid(),
+                    PlantId = p.Id,
+                    Name = categoryTemplate.CategoryName,
+                    SortOrder = categoryTemplate.CategorySortOrder,
+                    IsActive = categoryTemplate.IsCategoryActive,
+                };
+                _db.DowntimeReasonCategories.Add(category);
+
+                foreach (var reasonTemplate in categoryTemplate.Reasons)
+                {
+                    var reason = new DowntimeReason
+                    {
+                        Id = Guid.NewGuid(),
+                        DowntimeReasonCategoryId = category.Id,
+                        Name = reasonTemplate.Name,
+                        IsActive = reasonTemplate.IsActive,
+                        CountsAsDowntime = reasonTemplate.CountsAsDowntime,
+                        SortOrder = reasonTemplate.SortOrder,
+                    };
+                    _db.DowntimeReasons.Add(reason);
+                    reasonIdsByName[reason.Name] = reason.Id;
+                }
+            }
+
+            reasonIdsByPlant[p.Id] = reasonIdsByName;
+        }
+
+        var selectedReasonId = reasonIdsByPlant[plant.Id].TryGetValue("Welder Setup Delay", out var mappedReasonId)
+            ? mappedReasonId
+            : reasonIdsByPlant[plant.Id].Values.First();
         _db.WorkCenterProductionLineDowntimeReasons.Add(new WorkCenterProductionLineDowntimeReason
         {
             Id = Guid.Parse("8c440001-0000-0000-0000-000000000003"),
-            WorkCenterProductionLineId = wcplByWcId[workCenters["Barcode-RoundSeam"].Id].Id,
-            DowntimeReasonId = reason.Id,
+            WorkCenterProductionLineId = ResolveWcpl("Barcode-RoundSeam").Id,
+            DowntimeReasonId = selectedReasonId,
         });
 
-        _db.ShiftSchedules.Add(new ShiftSchedule
+        var clevelandPlantId = await _db.Plants
+            .Where(p => p.Code == "000")
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync(ct);
+        var westJordanPlantId = await _db.Plants
+            .Where(p => p.Code == "700")
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync(ct);
+        if (westJordanPlantId == Guid.Empty)
         {
-            Id = Guid.Parse("9d550001-0000-0000-0000-000000000001"),
-            PlantId = plant.Id,
-            EffectiveDate = DateOnly.FromDateTime(baseUtc),
-            MondayHours = 9, MondayBreakMinutes = 30,
-            TuesdayHours = 9, TuesdayBreakMinutes = 30,
-            WednesdayHours = 9, WednesdayBreakMinutes = 30,
-            ThursdayHours = 9, ThursdayBreakMinutes = 30,
-            FridayHours = 8, FridayBreakMinutes = 30,
-            SaturdayHours = 5, SaturdayBreakMinutes = 15,
-            SundayHours = 0, SundayBreakMinutes = 0,
-            CreatedAt = baseUtc,
-            CreatedByUserId = admin.Id,
-        });
+            westJordanPlantId = plant.Id;
+        }
+        if (clevelandPlantId == Guid.Empty)
+        {
+            clevelandPlantId = plant.Id;
+        }
+
+        _db.ShiftSchedules.AddRange(
+            new ShiftSchedule
+            {
+                Id = Guid.Parse("9d550001-0000-0000-0000-000000000001"),
+                PlantId = clevelandPlantId, // 000 - Cleveland
+                EffectiveDate = new DateOnly(2026, 2, 23),
+                MondayHours = 9, MondayBreakMinutes = 30,
+                TuesdayHours = 9, TuesdayBreakMinutes = 30,
+                WednesdayHours = 9, WednesdayBreakMinutes = 30,
+                ThursdayHours = 9, ThursdayBreakMinutes = 30,
+                FridayHours = 8, FridayBreakMinutes = 30,
+                SaturdayHours = 5, SaturdayBreakMinutes = 15,
+                SundayHours = 0, SundayBreakMinutes = 0,
+                CreatedAt = baseUtc,
+                CreatedByUserId = admin.Id,
+            },
+            new ShiftSchedule
+            {
+                Id = Guid.Parse("9d550001-0000-0000-0000-000000000002"),
+                PlantId = westJordanPlantId, // 700 - West Jordan
+                EffectiveDate = new DateOnly(2026, 2, 22),
+                MondayHours = 10, MondayBreakMinutes = 30,
+                TuesdayHours = 10, TuesdayBreakMinutes = 30,
+                WednesdayHours = 10, WednesdayBreakMinutes = 30,
+                ThursdayHours = 10, ThursdayBreakMinutes = 30,
+                FridayHours = 0, FridayBreakMinutes = 0,
+                SaturdayHours = 0, SaturdayBreakMinutes = 0,
+                SundayHours = 0, SundayBreakMinutes = 0,
+                CreatedAt = baseUtc,
+                CreatedByUserId = admin.Id,
+            },
+            new ShiftSchedule
+            {
+                Id = Guid.Parse("9d550001-0000-0000-0000-000000000003"),
+                PlantId = westJordanPlantId, // 700 - West Jordan
+                EffectiveDate = new DateOnly(2026, 3, 1),
+                MondayHours = 10, MondayBreakMinutes = 30,
+                TuesdayHours = 10, TuesdayBreakMinutes = 30,
+                WednesdayHours = 10, WednesdayBreakMinutes = 30,
+                ThursdayHours = 10, ThursdayBreakMinutes = 30,
+                FridayHours = 6, FridayBreakMinutes = 0,
+                SaturdayHours = 0, SaturdayBreakMinutes = 0,
+                SundayHours = 0, SundayBreakMinutes = 0,
+                CreatedAt = baseUtc,
+                CreatedByUserId = admin.Id,
+            });
 
         var targetDataEntryTypes = new[]
         {
@@ -444,29 +652,46 @@ public class DemoDataAdminService : IDemoDataAdminService
             .Where(workCenters.ContainsKey)
             .Select(key => workCenters[key].Id)
             .ToHashSet();
+        var candidateWcplIds = wcplByWcId.Values
+            .Where(v => targetWorkCenterIds.Contains(v.WorkCenterId))
+            .Select(v => v.Id)
+            .ToHashSet();
+        var hasCapacityTargetsForLine = await _db.WorkCenterCapacityTargets
+            .AnyAsync(t => candidateWcplIds.Contains(t.WorkCenterProductionLineId), ct);
+        var existingCapacityTargetKeys = await _db.WorkCenterCapacityTargets
+            .Where(t => candidateWcplIds.Contains(t.WorkCenterProductionLineId) && t.TankSize == 120 && t.PlantGearId == plantGear.Id)
+            .Select(t => t.WorkCenterProductionLineId)
+            .ToHashSetAsync(ct);
         var capacityTargets = new List<WorkCenterCapacityTarget>();
-        foreach (var entry in wcplByWcId.Values.Where(v => targetWorkCenterIds.Contains(v.WorkCenterId)))
+        if (!hasCapacityTargetsForLine)
         {
-            capacityTargets.Add(new WorkCenterCapacityTarget
+            foreach (var entry in wcplByWcId.Values.Where(v => targetWorkCenterIds.Contains(v.WorkCenterId)))
             {
-                Id = Guid.NewGuid(),
-                WorkCenterProductionLineId = entry.Id,
-                TankSize = 120,
-                PlantGearId = plantGear.Id,
-                TargetUnitsPerHour = 6,
-            });
+                if (existingCapacityTargetKeys.Contains(entry.Id))
+                    continue;
+                capacityTargets.Add(new WorkCenterCapacityTarget
+                {
+                    Id = Guid.NewGuid(),
+                    WorkCenterProductionLineId = entry.Id,
+                    TankSize = 120,
+                    PlantGearId = plantGear.Id,
+                    TargetUnitsPerHour = 6,
+                });
+            }
         }
         _db.WorkCenterCapacityTargets.AddRange(capacityTargets);
 
-        var rollsWc = workCenters["Rolls"];
-        var lsWc = workCenters["Barcode-LongSeam"];
-        var lsInspWc = workCenters["Barcode-LongSeamInsp"];
-        var fitupWc = workCenters["Fitup"];
-        var rsWc = workCenters["Barcode-RoundSeam"];
-        var rsInspWc = workCenters["Barcode-RoundSeamInsp"];
-        var hydroWc = workCenters["Hydro"];
+        var rollsWc = ResolveWorkCenter("Rolls");
+        var lsWc = ResolveWorkCenter("Barcode-LongSeam");
+        var lsInspWc = ResolveWorkCenter("Barcode-LongSeamInsp");
+        var fitupWc = ResolveWorkCenter("Fitup");
+        var rsWc = ResolveWorkCenter("Barcode-RoundSeam");
+        var rsInspWc = ResolveWorkCenter("Barcode-RoundSeamInsp");
+        var hydroWc = ResolveWorkCenter("Hydro");
+        workCenters.TryGetValue("MatQueue-Shell", out var rtXrayWc);
+        workCenters.TryGetValue("Spot", out var spotWc);
 
-        for (var i = 1; i <= 12; i++)
+        for (var i = 1; i <= shellCount; i++)
         {
             var shellStamp = baseUtc.AddHours(i);
             var shellSn = new SerialNumber
@@ -475,6 +700,9 @@ public class DemoDataAdminService : IDemoDataAdminService
                 Serial = $"9{i:00000}",
                 PlantId = plant.Id,
                 ProductId = shellProduct.Id,
+                HeatNumber = $"H{i:00000}",
+                CoilNumber = $"C{i:00000}",
+                LotNumber = $"L{i:00000}",
                 CreatedAt = shellStamp,
                 CreatedByUserId = admin.Id,
             };
@@ -484,6 +712,11 @@ public class DemoDataAdminService : IDemoDataAdminService
             var longSeamRecord = CreateProductionRecord(shellSn.Id, lsWc.Id, line.Id, welder.Id, plantGear.Id, shellStamp.AddMinutes(20));
             var longSeamInspRecord = CreateProductionRecord(shellSn.Id, lsInspWc.Id, line.Id, op.Id, plantGear.Id, shellStamp.AddMinutes(35));
             _db.ProductionRecords.AddRange(rollsRecord, longSeamRecord, longSeamInspRecord);
+            if (rtXrayWc is not null)
+            {
+                var rtXrayRecord = CreateProductionRecord(shellSn.Id, rtXrayWc.Id, line.Id, op.Id, plantGear.Id, shellStamp.AddMinutes(50));
+                _db.ProductionRecords.Add(rtXrayRecord);
+            }
 
             _db.InspectionRecords.Add(new InspectionRecord
             {
@@ -531,7 +764,7 @@ public class DemoDataAdminService : IDemoDataAdminService
                 });
             }
 
-            if (i <= 10)
+            if (i <= assemblyCount)
             {
                 var assemblySn = new SerialNumber
                 {
@@ -548,6 +781,54 @@ public class DemoDataAdminService : IDemoDataAdminService
                 var rsRecord = CreateProductionRecord(assemblySn.Id, rsWc.Id, line.Id, welder.Id, plantGear.Id, shellStamp.AddMinutes(80));
                 _db.ProductionRecords.AddRange(fitupRecord, rsRecord);
 
+                var leftHeadSn = new SerialNumber
+                {
+                    Id = Guid.NewGuid(),
+                    Serial = $"HL{i:00000}",
+                    PlantId = plant.Id,
+                    HeatNumber = $"HHL{i:00000}",
+                    CoilNumber = $"CHL{i:00000}",
+                    LotNumber = $"LHL{i:00000}",
+                    CreatedAt = shellStamp.AddMinutes(58),
+                    CreatedByUserId = op.Id,
+                };
+                var rightHeadSn = new SerialNumber
+                {
+                    Id = Guid.NewGuid(),
+                    Serial = $"HR{i:00000}",
+                    PlantId = plant.Id,
+                    HeatNumber = $"HHR{i:00000}",
+                    CoilNumber = $"CHR{i:00000}",
+                    LotNumber = $"LHR{i:00000}",
+                    CreatedAt = shellStamp.AddMinutes(59),
+                    CreatedByUserId = op.Id,
+                };
+                _db.SerialNumbers.AddRange(leftHeadSn, rightHeadSn);
+
+                _db.TraceabilityLogs.AddRange(
+                    new TraceabilityLog
+                    {
+                        Id = Guid.NewGuid(),
+                        FromSerialNumberId = leftHeadSn.Id,
+                        ToSerialNumberId = assemblySn.Id,
+                        ProductionRecordId = fitupRecord.Id,
+                        Relationship = "leftHead",
+                        TankLocation = "Head 1",
+                        Quantity = 1,
+                        Timestamp = shellStamp.AddMinutes(60),
+                    },
+                    new TraceabilityLog
+                    {
+                        Id = Guid.NewGuid(),
+                        FromSerialNumberId = rightHeadSn.Id,
+                        ToSerialNumberId = assemblySn.Id,
+                        ProductionRecordId = fitupRecord.Id,
+                        Relationship = "rightHead",
+                        TankLocation = "Head 2",
+                        Quantity = 1,
+                        Timestamp = shellStamp.AddMinutes(61),
+                    });
+
                 _db.TraceabilityLogs.Add(new TraceabilityLog
                 {
                     Id = Guid.NewGuid(),
@@ -559,7 +840,7 @@ public class DemoDataAdminService : IDemoDataAdminService
                     Timestamp = shellStamp.AddMinutes(60),
                 });
 
-                if (i <= 8)
+                if (i <= roundSeamInspectionCount)
                 {
                     var rsInspRecord = CreateProductionRecord(assemblySn.Id, rsInspWc.Id, line.Id, op.Id, plantGear.Id, shellStamp.AddMinutes(95));
                     _db.ProductionRecords.Add(rsInspRecord);
@@ -574,9 +855,15 @@ public class DemoDataAdminService : IDemoDataAdminService
                         ControlPlanId = controlPlans[1].Id,
                         ResultText = i % 5 == 0 ? "Fail" : "Pass",
                     });
+
+                    if (spotWc is not null)
+                    {
+                        var spotRecord = CreateProductionRecord(assemblySn.Id, spotWc.Id, line.Id, op.Id, plantGear.Id, shellStamp.AddMinutes(110));
+                        _db.ProductionRecords.Add(spotRecord);
+                    }
                 }
 
-                if (i <= 6)
+                if (i <= sellableCount)
                 {
                     var sellableSn = new SerialNumber
                     {
@@ -609,7 +896,7 @@ public class DemoDataAdminService : IDemoDataAdminService
                         FromSerialNumberId = assemblySn.Id,
                         ToSerialNumberId = sellableSn.Id,
                         ProductionRecordId = hydroRecord.Id,
-                        Relationship = "AssemblyToSellable",
+                        Relationship = "hydro-marriage",
                         Quantity = 1,
                         Timestamp = shellStamp.AddMinutes(130),
                     });
@@ -627,45 +914,243 @@ public class DemoDataAdminService : IDemoDataAdminService
             }
         }
 
-        var queueWc = workCenters["MatQueue-Material"];
-        for (var i = 1; i <= 3; i++)
+        // Add staged in-progress units to keep upstream Digital Twin stations non-zero WIP
+        // while preserving completed hydro flow for sellable/status views.
+        var upstreamBase = baseUtc.AddHours(shellCount - 2);
+        for (var i = 1; i <= 24; i++)
         {
-            var queuedAt = baseUtc.AddHours(2).AddMinutes(i * 15);
-            var plateSerial = new SerialNumber
+            var stageStamp = upstreamBase.AddMinutes(i * 2);
+            var shellSn = new SerialNumber
             {
                 Id = Guid.NewGuid(),
-                Serial = $"Heat DMO{i:000} Coil C{i:000}",
+                Serial = $"U9{i:00000}",
                 PlantId = plant.Id,
-                ProductId = plateProduct.Id,
-                HeatNumber = $"DMO{i:000}",
-                CoilNumber = $"C{i:000}",
-                CreatedAt = queuedAt,
+                ProductId = shellProduct.Id,
+                HeatNumber = $"UH{i:00000}",
+                CoilNumber = $"UC{i:00000}",
+                LotNumber = $"UL{i:00000}",
+                CreatedAt = stageStamp,
                 CreatedByUserId = op.Id,
             };
-            _db.SerialNumbers.Add(plateSerial);
-            _db.MaterialQueueItems.Add(new MaterialQueueItem
+            _db.SerialNumbers.Add(shellSn);
+
+            var rollsRecord = CreateProductionRecord(shellSn.Id, rollsWc.Id, line.Id, op.Id, plantGear.Id, stageStamp);
+            _db.ProductionRecords.Add(rollsRecord);
+
+            if (i > 6)
+            {
+                var longSeamRecord = CreateProductionRecord(shellSn.Id, lsWc.Id, line.Id, welder.Id, plantGear.Id, stageStamp.AddMinutes(8));
+                _db.ProductionRecords.Add(longSeamRecord);
+            }
+            if (i > 12)
+            {
+                var lsInspRecord = CreateProductionRecord(shellSn.Id, lsInspWc.Id, line.Id, op.Id, plantGear.Id, stageStamp.AddMinutes(14));
+                _db.ProductionRecords.Add(lsInspRecord);
+            }
+            if (rtXrayWc is not null && i > 18)
+            {
+                var rtRecord = CreateProductionRecord(shellSn.Id, rtXrayWc.Id, line.Id, op.Id, plantGear.Id, stageStamp.AddMinutes(18));
+                _db.ProductionRecords.Add(rtRecord);
+            }
+        }
+
+        for (var i = 1; i <= 8; i++)
+        {
+            var fitupStamp = upstreamBase.AddMinutes(140 + i * 3);
+            var shellSn = new SerialNumber
             {
                 Id = Guid.NewGuid(),
-                WorkCenterId = queueWc.Id,
-                ProductionLineId = line.Id,
-                Position = i,
-                Status = i == 1 ? "active" : "queued",
-                Quantity = 2,
-                QuantityCompleted = i == 1 ? 1 : 0,
-                QueueType = "rolls",
-                SerialNumberId = plateSerial.Id,
-                CreatedAt = queuedAt,
-                OperatorId = op.Id,
-            });
-            _db.QueueTransactions.Add(new QueueTransaction
+                Serial = $"UF{i:00000}",
+                PlantId = plant.Id,
+                ProductId = shellProduct.Id,
+                HeatNumber = $"FH{i:00000}",
+                CoilNumber = $"FC{i:00000}",
+                LotNumber = $"FL{i:00000}",
+                CreatedAt = fitupStamp.AddMinutes(-4),
+                CreatedByUserId = op.Id,
+            };
+            var assemblySn = new SerialNumber
             {
                 Id = Guid.NewGuid(),
-                WorkCenterId = queueWc.Id,
-                Action = "added",
-                ItemSummary = $"Demo plate lot {i}",
-                OperatorName = op.DisplayName,
-                Timestamp = queuedAt,
+                Serial = $"UA{i:000}",
+                PlantId = plant.Id,
+                ProductId = assembledProduct.Id,
+                CreatedAt = fitupStamp,
+                CreatedByUserId = op.Id,
+            };
+            _db.SerialNumbers.AddRange(shellSn, assemblySn);
+            var fitupRecord = CreateProductionRecord(assemblySn.Id, fitupWc.Id, line.Id, op.Id, plantGear.Id, fitupStamp);
+            _db.ProductionRecords.Add(fitupRecord);
+            _db.TraceabilityLogs.Add(new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = shellSn.Id,
+                ToSerialNumberId = assemblySn.Id,
+                ProductionRecordId = fitupRecord.Id,
+                Relationship = "ShellToAssembly",
+                Quantity = 1,
+                Timestamp = fitupStamp,
             });
+        }
+
+        for (var i = 1; i <= 6; i++)
+        {
+            var seamStamp = upstreamBase.AddMinutes(180 + i * 3);
+            var shellSn = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"UR{i:00000}",
+                PlantId = plant.Id,
+                ProductId = shellProduct.Id,
+                HeatNumber = $"RH{i:00000}",
+                CoilNumber = $"RC{i:00000}",
+                LotNumber = $"RL{i:00000}",
+                CreatedAt = seamStamp.AddMinutes(-6),
+                CreatedByUserId = op.Id,
+            };
+            var assemblySn = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"URS{i:000}",
+                PlantId = plant.Id,
+                ProductId = assembledProduct.Id,
+                CreatedAt = seamStamp.AddMinutes(-2),
+                CreatedByUserId = op.Id,
+            };
+            _db.SerialNumbers.AddRange(shellSn, assemblySn);
+            var fitupRecord = CreateProductionRecord(assemblySn.Id, fitupWc.Id, line.Id, op.Id, plantGear.Id, seamStamp.AddMinutes(-1));
+            var rsRecord = CreateProductionRecord(assemblySn.Id, rsWc.Id, line.Id, welder.Id, plantGear.Id, seamStamp);
+            _db.ProductionRecords.AddRange(fitupRecord, rsRecord);
+            _db.TraceabilityLogs.Add(new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = shellSn.Id,
+                ToSerialNumberId = assemblySn.Id,
+                ProductionRecordId = fitupRecord.Id,
+                Relationship = "ShellToAssembly",
+                Quantity = 1,
+                Timestamp = seamStamp.AddMinutes(-1),
+            });
+        }
+
+        for (var i = 1; i <= 6; i++)
+        {
+            var inspStamp = upstreamBase.AddMinutes(220 + i * 3);
+            var shellSn = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"UI{i:00000}",
+                PlantId = plant.Id,
+                ProductId = shellProduct.Id,
+                HeatNumber = $"IH{i:00000}",
+                CoilNumber = $"IC{i:00000}",
+                LotNumber = $"IL{i:00000}",
+                CreatedAt = inspStamp.AddMinutes(-8),
+                CreatedByUserId = op.Id,
+            };
+            var assemblySn = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"UIS{i:000}",
+                PlantId = plant.Id,
+                ProductId = assembledProduct.Id,
+                CreatedAt = inspStamp.AddMinutes(-4),
+                CreatedByUserId = op.Id,
+            };
+            _db.SerialNumbers.AddRange(shellSn, assemblySn);
+            var fitupRecord = CreateProductionRecord(assemblySn.Id, fitupWc.Id, line.Id, op.Id, plantGear.Id, inspStamp.AddMinutes(-3));
+            var rsRecord = CreateProductionRecord(assemblySn.Id, rsWc.Id, line.Id, welder.Id, plantGear.Id, inspStamp.AddMinutes(-2));
+            var rsInspRecord = CreateProductionRecord(assemblySn.Id, rsInspWc.Id, line.Id, op.Id, plantGear.Id, inspStamp);
+            _db.ProductionRecords.AddRange(fitupRecord, rsRecord, rsInspRecord);
+            _db.TraceabilityLogs.Add(new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = shellSn.Id,
+                ToSerialNumberId = assemblySn.Id,
+                ProductionRecordId = fitupRecord.Id,
+                Relationship = "ShellToAssembly",
+                Quantity = 1,
+                Timestamp = inspStamp.AddMinutes(-3),
+            });
+        }
+
+        // Seed a small "live pulse" at upstream stations so Digital Twin status
+        // reflects active/slow behavior (based on recent scan timestamps).
+        var livePulseBase = baseUtc.AddHours(shellCount).AddMinutes(122);
+        for (var i = 1; i <= 8; i++)
+        {
+            var pulseStamp = livePulseBase.AddMinutes(i);
+            var pulseShell = new SerialNumber
+            {
+                Id = Guid.NewGuid(),
+                Serial = $"LP{i:00000}",
+                PlantId = plant.Id,
+                ProductId = shellProduct.Id,
+                HeatNumber = $"LH{i:00000}",
+                CoilNumber = $"LC{i:00000}",
+                LotNumber = $"LL{i:00000}",
+                CreatedAt = pulseStamp.AddMinutes(-2),
+                CreatedByUserId = op.Id,
+            };
+            _db.SerialNumbers.Add(pulseShell);
+
+            _db.ProductionRecords.Add(CreateProductionRecord(
+                pulseShell.Id, rollsWc.Id, line.Id, op.Id, plantGear.Id, pulseStamp));
+            _db.ProductionRecords.Add(CreateProductionRecord(
+                pulseShell.Id, lsWc.Id, line.Id, welder.Id, plantGear.Id, pulseStamp.AddMinutes(1)));
+            _db.ProductionRecords.Add(CreateProductionRecord(
+                pulseShell.Id, lsInspWc.Id, line.Id, op.Id, plantGear.Id, pulseStamp.AddMinutes(2)));
+            if (rtXrayWc is not null)
+            {
+                _db.ProductionRecords.Add(CreateProductionRecord(
+                    pulseShell.Id, rtXrayWc.Id, line.Id, op.Id, plantGear.Id, pulseStamp.AddMinutes(3)));
+            }
+        }
+
+        if (!workCenters.TryGetValue("MatQueue-Material", out var queueWc))
+            queueWc = workCenters.Values.First();
+        var hasSourceQueueData = await _db.MaterialQueueItems.AnyAsync(i => i.WorkCenterId == queueWc.Id, ct);
+        if (!hasSourceQueueData)
+        {
+            for (var i = 1; i <= queueSeedCount; i++)
+            {
+                var queuedAt = baseUtc.AddHours(2).AddMinutes(i * 15);
+                var plateSerial = new SerialNumber
+                {
+                    Id = Guid.NewGuid(),
+                    Serial = $"Heat DMO{i:000} Coil C{i:000}",
+                    PlantId = plant.Id,
+                    ProductId = plateProduct.Id,
+                    HeatNumber = $"DMO{i:000}",
+                    CoilNumber = $"C{i:000}",
+                    CreatedAt = queuedAt,
+                    CreatedByUserId = op.Id,
+                };
+                _db.SerialNumbers.Add(plateSerial);
+                _db.MaterialQueueItems.Add(new MaterialQueueItem
+                {
+                    Id = Guid.NewGuid(),
+                    WorkCenterId = queueWc.Id,
+                    ProductionLineId = line.Id,
+                    Position = i,
+                    Status = i == 1 ? "active" : "queued",
+                    Quantity = 2,
+                    QuantityCompleted = i == 1 ? 1 : 0,
+                    QueueType = "rolls",
+                    SerialNumberId = plateSerial.Id,
+                    CreatedAt = queuedAt,
+                    OperatorId = op.Id,
+                });
+                _db.QueueTransactions.Add(new QueueTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    WorkCenterId = queueWc.Id,
+                    Action = "added",
+                    ItemSummary = $"Demo plate lot {i}",
+                    OperatorName = op.DisplayName,
+                    Timestamp = queuedAt,
+                });
+            }
         }
 
         _db.ActiveSessions.Add(new ActiveSession
@@ -684,7 +1169,7 @@ public class DemoDataAdminService : IDemoDataAdminService
             Id = Guid.NewGuid(),
             WorkCenterProductionLineId = wcplByWcId[rsWc.Id].Id,
             OperatorUserId = op.Id,
-            DowntimeReasonId = reason.Id,
+            DowntimeReasonId = selectedReasonId,
             StartedAt = baseUtc.AddHours(8),
             EndedAt = baseUtc.AddHours(8).AddMinutes(22),
             DurationMinutes = 22,
@@ -729,6 +1214,224 @@ public class DemoDataAdminService : IDemoDataAdminService
         });
 
         await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task ApplyDemoPlantGearDefaultsAsync(CancellationToken ct)
+    {
+        var desiredGearByPlantCode = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["000"] = 4,
+            ["600"] = 2,
+            ["700"] = 1,
+        };
+
+        var plants = await _db.Plants.ToListAsync(ct);
+        foreach (var plant in plants)
+        {
+            if (!desiredGearByPlantCode.TryGetValue(plant.Code, out var desiredLevel))
+                continue;
+
+            var desiredGearId = await _db.PlantGears
+                .Where(pg => pg.PlantId == plant.Id && pg.Level == desiredLevel)
+                .Select(pg => (Guid?)pg.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (desiredGearId.HasValue)
+                plant.CurrentPlantGearId = desiredGearId.Value;
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task<ReferenceSnapshot> CaptureReferenceSnapshotAsync(CancellationToken ct)
+    {
+        var queueWorkCenterIds = await _db.WorkCenters
+            .Where(w => w.DataEntryType == "MatQueue-Material" || w.DataEntryType == "MatQueue-Fitup")
+            .Select(w => w.Id)
+            .ToListAsync(ct);
+        var materialQueueItems = await _db.MaterialQueueItems
+            .AsNoTracking()
+            .Where(i => queueWorkCenterIds.Contains(i.WorkCenterId))
+            .ToListAsync(ct);
+        var queueSerialIds = materialQueueItems
+            .Where(i => i.SerialNumberId.HasValue)
+            .Select(i => i.SerialNumberId!.Value)
+            .Distinct()
+            .ToList();
+        var queueSerialNumbers = await _db.SerialNumbers
+            .AsNoTracking()
+            .Where(sn => queueSerialIds.Contains(sn.Id))
+            .ToListAsync(ct);
+
+        return new ReferenceSnapshot
+        {
+            Users = await _db.Users.AsNoTracking().ToListAsync(ct),
+            WorkCenterProductionLines = await _db.WorkCenterProductionLines.AsNoTracking().ToListAsync(ct),
+            WorkCenterCapacityTargets = await _db.WorkCenterCapacityTargets.AsNoTracking().ToListAsync(ct),
+            Characteristics = await _db.Characteristics.AsNoTracking().ToListAsync(ct),
+            CharacteristicWorkCenters = await _db.CharacteristicWorkCenters.AsNoTracking().ToListAsync(ct),
+            DefectLocations = await _db.DefectLocations.AsNoTracking().ToListAsync(ct),
+            ControlPlans = await _db.ControlPlans.AsNoTracking().ToListAsync(ct),
+            Products = await _db.Products.AsNoTracking().ToListAsync(ct),
+            ProductPlants = await _db.ProductPlants.AsNoTracking().ToListAsync(ct),
+            Vendors = await _db.Vendors.AsNoTracking().ToListAsync(ct),
+            VendorPlants = await _db.VendorPlants.AsNoTracking().ToListAsync(ct),
+            Assets = await _db.Assets.AsNoTracking().ToListAsync(ct),
+            QueueSerialNumbers = queueSerialNumbers,
+            MaterialQueueItems = materialQueueItems,
+        };
+    }
+
+    private async Task ApplyReferenceSnapshotAsync(ReferenceSnapshot snapshot, CancellationToken ct)
+    {
+        // DbInitializer.Seed tracks many entities in this DbContext instance.
+        // Clear tracked state before re-attaching snapshot rows with same primary keys.
+        _db.ChangeTracker.Clear();
+
+        if (snapshot.Users.Count > 0)
+        {
+            await ClearSetAsync(_db.Users, ct);
+            await _db.Users.AddRangeAsync(snapshot.Users, ct);
+        }
+
+        if (snapshot.Products.Count > 0)
+        {
+            await ClearSetAsync(_db.ProductPlants, ct);
+            await ClearSetAsync(_db.Products, ct);
+            await _db.Products.AddRangeAsync(snapshot.Products, ct);
+            if (snapshot.ProductPlants.Count > 0)
+                await _db.ProductPlants.AddRangeAsync(snapshot.ProductPlants, ct);
+        }
+
+        if (snapshot.Vendors.Count > 0)
+        {
+            await ClearSetAsync(_db.VendorPlants, ct);
+            await ClearSetAsync(_db.Vendors, ct);
+            await _db.Vendors.AddRangeAsync(snapshot.Vendors, ct);
+            if (snapshot.VendorPlants.Count > 0)
+                await _db.VendorPlants.AddRangeAsync(snapshot.VendorPlants, ct);
+        }
+
+        if (snapshot.WorkCenterProductionLines.Count > 0)
+        {
+            await ClearSetAsync(_db.WorkCenterCapacityTargets, ct);
+            await ClearSetAsync(_db.WorkCenterProductionLines, ct);
+            await _db.WorkCenterProductionLines.AddRangeAsync(snapshot.WorkCenterProductionLines, ct);
+            if (snapshot.WorkCenterCapacityTargets.Count > 0)
+                await _db.WorkCenterCapacityTargets.AddRangeAsync(snapshot.WorkCenterCapacityTargets, ct);
+        }
+
+        await ClearSetAsync(_db.ControlPlans, ct);
+        await ClearSetAsync(_db.CharacteristicWorkCenters, ct);
+        await ClearSetAsync(_db.DefectLocations, ct);
+        await ClearSetAsync(_db.Characteristics, ct);
+
+        if (snapshot.Characteristics.Count > 0)
+            await _db.Characteristics.AddRangeAsync(snapshot.Characteristics, ct);
+        if (snapshot.CharacteristicWorkCenters.Count > 0)
+            await _db.CharacteristicWorkCenters.AddRangeAsync(snapshot.CharacteristicWorkCenters, ct);
+        if (snapshot.DefectLocations.Count > 0)
+            await _db.DefectLocations.AddRangeAsync(snapshot.DefectLocations, ct);
+        if (snapshot.ControlPlans.Count > 0)
+            await _db.ControlPlans.AddRangeAsync(snapshot.ControlPlans, ct);
+
+        if (snapshot.Assets.Count > 0)
+        {
+            await ClearSetAsync(_db.Assets, ct);
+            await _db.Assets.AddRangeAsync(snapshot.Assets, ct);
+        }
+
+        if (snapshot.MaterialQueueItems.Count > 0 || snapshot.QueueSerialNumbers.Count > 0)
+        {
+            var queueWorkCenterIds = await _db.WorkCenters
+                .Where(w => w.DataEntryType == "MatQueue-Material" || w.DataEntryType == "MatQueue-Fitup")
+                .Select(w => w.Id)
+                .ToListAsync(ct);
+
+            var existingQueueSerialIds = await _db.MaterialQueueItems
+                .Where(i => queueWorkCenterIds.Contains(i.WorkCenterId) && i.SerialNumberId.HasValue)
+                .Select(i => i.SerialNumberId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
+
+            if (_db.Database.IsRelational())
+            {
+                await _db.MaterialQueueItems
+                    .Where(i => queueWorkCenterIds.Contains(i.WorkCenterId))
+                    .ExecuteDeleteAsync(ct);
+                if (existingQueueSerialIds.Count > 0)
+                {
+                    await _db.SerialNumbers
+                        .Where(sn => existingQueueSerialIds.Contains(sn.Id))
+                        .ExecuteDeleteAsync(ct);
+                }
+            }
+            else
+            {
+                var existingQueueItems = await _db.MaterialQueueItems
+                    .Where(i => queueWorkCenterIds.Contains(i.WorkCenterId))
+                    .ToListAsync(ct);
+                if (existingQueueItems.Count > 0)
+                {
+                    _db.MaterialQueueItems.RemoveRange(existingQueueItems);
+                    await _db.SaveChangesAsync(ct);
+                }
+
+                if (existingQueueSerialIds.Count > 0)
+                {
+                    var serialsToRemove = await _db.SerialNumbers
+                        .Where(sn => existingQueueSerialIds.Contains(sn.Id))
+                        .ToListAsync(ct);
+                    if (serialsToRemove.Count > 0)
+                    {
+                        _db.SerialNumbers.RemoveRange(serialsToRemove);
+                        await _db.SaveChangesAsync(ct);
+                    }
+                }
+            }
+
+            if (snapshot.QueueSerialNumbers.Count > 0)
+                await _db.SerialNumbers.AddRangeAsync(snapshot.QueueSerialNumbers, ct);
+            if (snapshot.MaterialQueueItems.Count > 0)
+                await _db.MaterialQueueItems.AddRangeAsync(snapshot.MaterialQueueItems, ct);
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task ClearSetAsync<TEntity>(DbSet<TEntity> set, CancellationToken ct)
+        where TEntity : class
+    {
+        if (_db.Database.IsRelational())
+        {
+            await set.ExecuteDeleteAsync(ct);
+            return;
+        }
+
+        var existing = await set.ToListAsync(ct);
+        if (existing.Count > 0)
+        {
+            set.RemoveRange(existing);
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+
+    private sealed class ReferenceSnapshot
+    {
+        public List<User> Users { get; init; } = new();
+        public List<WorkCenterProductionLine> WorkCenterProductionLines { get; init; } = new();
+        public List<WorkCenterCapacityTarget> WorkCenterCapacityTargets { get; init; } = new();
+        public List<Characteristic> Characteristics { get; init; } = new();
+        public List<CharacteristicWorkCenter> CharacteristicWorkCenters { get; init; } = new();
+        public List<DefectLocation> DefectLocations { get; init; } = new();
+        public List<ControlPlan> ControlPlans { get; init; } = new();
+        public List<Product> Products { get; init; } = new();
+        public List<ProductPlant> ProductPlants { get; init; } = new();
+        public List<Vendor> Vendors { get; init; } = new();
+        public List<VendorPlant> VendorPlants { get; init; } = new();
+        public List<Asset> Assets { get; init; } = new();
+        public List<SerialNumber> QueueSerialNumbers { get; init; } = new();
+        public List<MaterialQueueItem> MaterialQueueItems { get; init; } = new();
     }
 
     private static ProductionRecord CreateProductionRecord(

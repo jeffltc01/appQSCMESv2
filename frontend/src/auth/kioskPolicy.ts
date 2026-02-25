@@ -6,5 +6,10 @@ export function isOperatorKioskRole(roleTier?: number | null): boolean {
 }
 
 export function hasCachedWorkCenter(): boolean {
-  return Boolean(localStorage.getItem('cachedWorkCenterId'));
+  try {
+    return Boolean(localStorage.getItem('cachedWorkCenterId'));
+  } catch {
+    // Some managed/locked-down browsers can throw on Storage access.
+    return false;
+  }
 }

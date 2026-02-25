@@ -116,9 +116,9 @@ public static class DbInitializer
         context.ProductionLines.AddRange(
             new ProductionLine { Id = line1Plt1, Name = "Line 1", PlantId = plant1Id },
             new ProductionLine { Id = line2Plt1, Name = "Line 2", PlantId = plant1Id },
-            new ProductionLine { Id = line1Plt2, Name = "Line 1", PlantId = plant2Id },
-            new ProductionLine { Id = line2Plt2, Name = "Line 2", PlantId = plant2Id },
-            new ProductionLine { Id = line1Plt3, Name = "Line 1", PlantId = plant3Id }
+            new ProductionLine { Id = line1Plt2, Name = "Inside Line", PlantId = plant2Id },
+            new ProductionLine { Id = line2Plt2, Name = "Outside Line", PlantId = plant2Id },
+            new ProductionLine { Id = line1Plt3, Name = "Main Line", PlantId = plant3Id }
         );
 
         var wcRolls = Guid.Parse("f1111111-1111-1111-1111-111111111111");

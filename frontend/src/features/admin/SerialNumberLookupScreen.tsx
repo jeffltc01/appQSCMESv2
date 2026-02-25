@@ -235,6 +235,8 @@ function HeroCard({
       <div className={styles.cardInfo}>
         {node.tankSize != null && <span title={`${node.tankSize} gal`}>{node.tankSize} gal</span>}
         {node.heatNumber && <span title={`Heat: ${node.heatNumber}`}>Heat: {node.heatNumber}</span>}
+        {node.coilNumber && <span title={`Coil: ${node.coilNumber}`}>Coil: {node.coilNumber}</span>}
+        {node.lotNumber && <span title={`Lot: ${node.lotNumber}`}>Lot: {node.lotNumber}</span>}
       </div>
       <div className={styles.cardFooter}>
         <div className={styles.cardStats}>

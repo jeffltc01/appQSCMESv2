@@ -89,6 +89,18 @@ describe('App kiosk routing', () => {
     expect(screen.getByTestId('tablet-setup-screen')).toBeInTheDocument();
   });
 
+  it('falls back safely when storage access is blocked', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Access denied', 'SecurityError');
+    });
+
+    setAuthState(true, 6);
+    renderApp('/menu');
+    expect(screen.getByTestId('tablet-setup-screen')).toBeInTheDocument();
+
+    getItemSpy.mockRestore();
+  });
+
   it('redirects operator away from tablet setup when work center is cached', () => {
     localStorage.setItem('cachedWorkCenterId', 'wc-1');
     setAuthState(true, 6);
