@@ -189,6 +189,7 @@ public class AdminWorkCenterDto
     public string Name { get; set; } = string.Empty;
     public string WorkCenterTypeName { get; set; } = string.Empty;
     public int NumberOfWelders { get; set; }
+    public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
     public string? MaterialQueueForWCName { get; set; }
@@ -197,6 +198,7 @@ public class AdminWorkCenterDto
 public class UpdateWorkCenterConfigDto
 {
     public int NumberOfWelders { get; set; }
+    public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
 }
@@ -206,6 +208,7 @@ public class AdminWorkCenterGroupDto
     public Guid GroupId { get; set; }
     public string BaseName { get; set; } = string.Empty;
     public string WorkCenterTypeName { get; set; } = string.Empty;
+    public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public List<WorkCenterSiteConfigDto> SiteConfigs { get; set; } = new();
 }
@@ -222,6 +225,7 @@ public class WorkCenterSiteConfigDto
 public class UpdateWorkCenterGroupDto
 {
     public string BaseName { get; set; } = string.Empty;
+    public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
 }
@@ -230,6 +234,7 @@ public class CreateWorkCenterDto
 {
     public string Name { get; set; } = string.Empty;
     public Guid WorkCenterTypeId { get; set; }
+    public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
 }

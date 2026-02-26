@@ -24,6 +24,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
                 Name = w.Name,
                 WorkCenterTypeName = w.WorkCenterType.Name,
                 NumberOfWelders = w.NumberOfWelders,
+                ProductionSequence = w.ProductionSequence,
                 DataEntryType = w.DataEntryType,
                 MaterialQueueForWCId = w.MaterialQueueForWCId,
                 MaterialQueueForWCName = w.MaterialQueueForWC != null ? w.MaterialQueueForWC.Name : null
@@ -76,6 +77,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
                     GroupId = w.Id,
                     BaseName = w.Name,
                     WorkCenterTypeName = w.WorkCenterType.Name,
+                    ProductionSequence = w.ProductionSequence,
                     DataEntryType = w.DataEntryType,
                     SiteConfigs = siteConfigs
                 };
@@ -107,6 +109,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             Id = Guid.NewGuid(),
             Name = dto.Name,
             WorkCenterTypeId = dto.WorkCenterTypeId,
+            ProductionSequence = dto.ProductionSequence,
             DataEntryType = dto.DataEntryType,
             MaterialQueueForWCId = dto.MaterialQueueForWCId,
         };
@@ -123,6 +126,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             GroupId = wc.Id,
             BaseName = wc.Name,
             WorkCenterTypeName = wcType.Name,
+            ProductionSequence = wc.ProductionSequence,
             DataEntryType = wc.DataEntryType,
             SiteConfigs = new List<WorkCenterSiteConfigDto>
             {
@@ -147,6 +151,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
         if (wc == null) return null;
 
         wc.Name = dto.BaseName;
+        wc.ProductionSequence = dto.ProductionSequence;
         wc.DataEntryType = dto.DataEntryType;
         wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
 
@@ -161,6 +166,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             GroupId = groupId,
             BaseName = wc.Name,
             WorkCenterTypeName = wc.WorkCenterType.Name,
+            ProductionSequence = wc.ProductionSequence,
             DataEntryType = wc.DataEntryType,
             SiteConfigs = new List<WorkCenterSiteConfigDto>
             {
@@ -184,6 +190,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
         if (wc == null) return null;
 
         wc.NumberOfWelders = dto.NumberOfWelders;
+        wc.ProductionSequence = dto.ProductionSequence;
         wc.DataEntryType = dto.DataEntryType;
         wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
         await _db.SaveChangesAsync(ct);
@@ -198,6 +205,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             Name = wc.Name,
             WorkCenterTypeName = wc.WorkCenterType.Name,
             NumberOfWelders = wc.NumberOfWelders,
+            ProductionSequence = wc.ProductionSequence,
             DataEntryType = wc.DataEntryType,
             MaterialQueueForWCId = wc.MaterialQueueForWCId,
             MaterialQueueForWCName = mqName

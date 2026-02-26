@@ -361,6 +361,7 @@ export interface AdminWorkCenter {
   name: string;
   workCenterTypeName: string;
   numberOfWelders: number;
+  productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
   materialQueueForWCName?: string;
@@ -375,6 +376,7 @@ export interface AdminWorkCenterGroup {
   groupId: string;
   baseName: string;
   workCenterTypeName: string;
+  productionSequence?: number;
   dataEntryType?: string;
   siteConfigs: WorkCenterSiteConfig[];
 }

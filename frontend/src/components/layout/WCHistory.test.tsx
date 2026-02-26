@@ -103,26 +103,27 @@ describe('WCHistory', () => {
     expect(flagSvg!.style.color).not.toBe('rgb(255, 0, 0)');
   });
 
-  it('shows View Full Log link when logType is provided', () => {
+  it('shows screen-specific log CTA when logCta is provided and external input is off', () => {
     renderWCHistory({
       data: { dayCount: 0, recentRecords: [] },
-      logType: 'rolls',
+      logCta: { label: 'View Rolls Log', logType: 'rolls' },
+      externalInput: false,
     });
-    expect(screen.getByText('View Full Log')).toBeInTheDocument();
+    expect(screen.getByText('View Rolls Log')).toBeInTheDocument();
   });
 
-  it('hides View Full Log link when logType is not provided', () => {
+  it('hides log CTA when logCta is not provided', () => {
     renderWCHistory({ data: { dayCount: 0, recentRecords: [] } });
-    expect(screen.queryByText('View Full Log')).not.toBeInTheDocument();
+    expect(screen.queryByText('View Rolls Log')).not.toBeInTheDocument();
   });
 
-  it('hides View Full Log link in kiosk mode', () => {
+  it('hides log CTA when external input is on', () => {
     renderWCHistory({
       data: { dayCount: 0, recentRecords: [] },
-      logType: 'rolls',
-      kioskMode: true,
+      logCta: { label: 'View Rolls Log', logType: 'rolls' },
+      externalInput: true,
     });
-    expect(screen.queryByText('View Full Log')).not.toBeInTheDocument();
+    expect(screen.queryByText('View Rolls Log')).not.toBeInTheDocument();
   });
 
   it('renders flag as a clickable button with aria-label', () => {

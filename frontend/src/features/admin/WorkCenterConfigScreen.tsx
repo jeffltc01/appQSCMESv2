@@ -27,6 +27,7 @@ export function WorkCenterConfigScreen() {
   const [error, setError] = useState('');
 
   const [baseName, setBaseName] = useState('');
+  const [productionSequence, setProductionSequence] = useState('');
   const [dataEntryType, setDataEntryType] = useState('');
   const [materialQueueForWCId, setMaterialQueueForWCId] = useState('');
 
@@ -34,6 +35,7 @@ export function WorkCenterConfigScreen() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createTypeId, setCreateTypeId] = useState('');
+  const [createProductionSequence, setCreateProductionSequence] = useState('');
   const [createDataEntryType, setCreateDataEntryType] = useState('');
   const [createMqId, setCreateMqId] = useState('');
   const [createSaving, setCreateSaving] = useState(false);
@@ -62,6 +64,7 @@ export function WorkCenterConfigScreen() {
   const openEdit = (group: AdminWorkCenterGroup) => {
     setEditing(group);
     setBaseName(group.baseName);
+    setProductionSequence(group.productionSequence != null ? String(group.productionSequence) : '');
     setDataEntryType(group.dataEntryType ?? '');
     setMaterialQueueForWCId(group.siteConfigs[0]?.materialQueueForWCId ?? '');
     setError(''); setModalOpen(true);
@@ -73,6 +76,7 @@ export function WorkCenterConfigScreen() {
     try {
       const updated = await adminWorkCenterApi.updateGroup(editing.groupId, {
         baseName,
+        productionSequence: productionSequence.trim() === '' ? undefined : Number(productionSequence),
         dataEntryType: dataEntryType || undefined,
         materialQueueForWCId: materialQueueForWCId || undefined,
       });
@@ -85,6 +89,7 @@ export function WorkCenterConfigScreen() {
   const openCreate = () => {
     setCreateName('');
     setCreateTypeId(wcTypes[0]?.id ?? '');
+    setCreateProductionSequence('');
     setCreateDataEntryType('');
     setCreateMqId('');
     setCreateError('');
@@ -98,6 +103,7 @@ export function WorkCenterConfigScreen() {
       const created = await adminWorkCenterApi.create({
         name: createName,
         workCenterTypeId: createTypeId,
+        productionSequence: createProductionSequence.trim() === '' ? undefined : Number(createProductionSequence),
         dataEntryType: createDataEntryType || undefined,
         materialQueueForWCId: createMqId || undefined,
       });
@@ -138,6 +144,12 @@ export function WorkCenterConfigScreen() {
                   <span className={styles.cardFieldValue}>{group.dataEntryType}</span>
                 </div>
               )}
+              {group.productionSequence != null && (
+                <div className={styles.cardField}>
+                  <span className={styles.cardFieldLabel}>Sequence</span>
+                  <span className={styles.cardFieldValue}>{group.productionSequence}</span>
+                </div>
+              )}
               {group.siteConfigs[0]?.materialQueueForWCName && (
                 <div className={styles.cardField}>
                   <span className={styles.cardFieldLabel}>Queue For</span>
@@ -161,6 +173,14 @@ export function WorkCenterConfigScreen() {
       >
         <Label>Base Name</Label>
         <Input value={baseName} onChange={(_, d) => setBaseName(d.value)} />
+        <Label>Production Sequence</Label>
+        <Input
+          value={productionSequence}
+          onChange={(_, d) => setProductionSequence(d.value)}
+          type="number"
+          step="0.1"
+          placeholder="e.g. 4.5"
+        />
         <Label>Data Entry Type</Label>
         <Dropdown
           value={dataEntryType || 'None'}
@@ -214,6 +234,14 @@ export function WorkCenterConfigScreen() {
         >
           {wcTypes.map(t => <Option key={t.id} value={t.id}>{t.name}</Option>)}
         </Dropdown>
+        <Label>Production Sequence</Label>
+        <Input
+          value={createProductionSequence}
+          onChange={(_, d) => setCreateProductionSequence(d.value)}
+          type="number"
+          step="0.1"
+          placeholder="e.g. 4.5"
+        />
         <Label>Data Entry Type</Label>
         <Dropdown
           value={createDataEntryType || 'None'}

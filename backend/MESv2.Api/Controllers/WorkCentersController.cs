@@ -224,6 +224,8 @@ public class WorkCentersController : ControllerBase
     [HttpPost("admin")]
     public async Task<ActionResult<AdminWorkCenterGroupDto>> CreateWorkCenter([FromBody] CreateWorkCenterDto dto, CancellationToken cancellationToken)
     {
+        if (!IsAdmin()) return StatusCode(403, new { message = "Admin role required." });
+
         try
         {
             var created = await _adminService.CreateWorkCenterAsync(dto, cancellationToken);
@@ -242,6 +244,8 @@ public class WorkCentersController : ControllerBase
     [HttpPut("admin/group/{groupId:guid}")]
     public async Task<ActionResult<AdminWorkCenterGroupDto>> UpdateGroup(Guid groupId, [FromBody] UpdateWorkCenterGroupDto dto, CancellationToken cancellationToken)
     {
+        if (!IsAdmin()) return StatusCode(403, new { message = "Admin role required." });
+
         var result = await _adminService.UpdateGroupAsync(groupId, dto, cancellationToken);
         if (result == null) return NotFound();
         return Ok(result);
@@ -250,6 +254,8 @@ public class WorkCentersController : ControllerBase
     [HttpPut("{id:guid}/config")]
     public async Task<ActionResult<AdminWorkCenterDto>> UpdateConfig(Guid id, [FromBody] UpdateWorkCenterConfigDto dto, CancellationToken cancellationToken)
     {
+        if (!IsAdmin()) return StatusCode(403, new { message = "Admin role required." });
+
         var result = await _adminService.UpdateConfigAsync(id, dto, cancellationToken);
         if (result == null) return NotFound();
         return Ok(result);
@@ -345,6 +351,14 @@ public class WorkCentersController : ControllerBase
         if (Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&
             decimal.TryParse(tierHeader, out var callerTier))
             return callerTier <= 3m;
+        return false;
+    }
+
+    private bool IsAdmin()
+    {
+        if (Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader) &&
+            decimal.TryParse(tierHeader, out var callerTier))
+            return callerTier <= 1m;
         return false;
     }
 }

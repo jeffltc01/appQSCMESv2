@@ -35,12 +35,14 @@ public class AdminWorkCenterServiceTests
         {
             Name = "Service Test WC",
             WorkCenterTypeId = TestHelpers.WorkCenterTypeRollsId,
+            ProductionSequence = 4.5m,
             DataEntryType = "Rolls",
         };
 
         var result = await service.CreateWorkCenterAsync(dto);
 
         Assert.Equal("Service Test WC", result.BaseName);
+        Assert.Equal(4.5m, result.ProductionSequence);
         Assert.Equal("Rolls", result.DataEntryType);
         Assert.NotEqual(Guid.Empty, result.GroupId);
     }
@@ -67,6 +69,24 @@ public class AdminWorkCenterServiceTests
         var result = await service.UpdateGroupAsync(Guid.NewGuid(), dto);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task UpdateGroup_UpdatesProductionSequence()
+    {
+        var service = CreateService(out _);
+        var existing = (await service.GetAllGroupedAsync()).First(g => g.BaseName == "Rolls");
+        var dto = new UpdateWorkCenterGroupDto
+        {
+            BaseName = existing.BaseName,
+            ProductionSequence = 7.5m,
+            DataEntryType = existing.DataEntryType
+        };
+
+        var result = await service.UpdateGroupAsync(existing.GroupId, dto);
+
+        Assert.NotNull(result);
+        Assert.Equal(7.5m, result!.ProductionSequence);
     }
 
     [Fact]

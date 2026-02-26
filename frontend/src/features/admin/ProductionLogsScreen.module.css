@@ -5,9 +5,9 @@
   margin-bottom: 16px;
   align-items: flex-end;
   padding: 12px;
-  border: 1px solid #cdbf9f;
+  border: 1px solid #1b2a4a;
   border-radius: 14px;
-  background: #fffdf6;
+  background: #eaf3ff;
   box-shadow: 0 2px 10px rgba(56, 45, 20, 0.08);
 }
 
@@ -27,9 +27,9 @@
 .filterField select,
 .filterField input {
   min-height: 34px;
-  border: 1px solid #cdbf9f;
+  border: 1px solid #1b2a4a;
   border-radius: 10px;
-  background: #fffdf6;
+  background: #ffffff;
   color: #3f3422;
 }
 
@@ -89,7 +89,7 @@
 .tableContainer {
   overflow: auto;
   max-height: min(62vh, 680px);
-  border: 1px solid #cdbf9f;
+  border: 1px solid #1b2a4a;
   border-radius: 14px;
   background: #fffdf6;
   box-shadow:
@@ -105,12 +105,12 @@
 }
 
 .table th {
-  background: #f3ead8;
+  background: #1b2a4a;
   padding: 10px 12px;
   text-align: left;
   font-weight: 600;
-  color: #4f4027;
-  border-bottom: 2px solid #cdbf9f;
+  color: #ffffff;
+  border-bottom: 2px solid #16233e;
   white-space: nowrap;
   letter-spacing: 0.02em;
   position: sticky;
@@ -120,14 +120,13 @@
 
 .table td {
   padding: 8px 12px;
-  border-bottom: 1px solid #d9ccb0;
+  border-bottom: 1px solid #eaf3ff;
   vertical-align: top;
-  background:
-    linear-gradient(to bottom, transparent calc(100% - 1px), rgba(157, 132, 89, 0.22) calc(100% - 1px));
+  background: #ffffff;
 }
 
-.table tr:hover {
-  background: #fff8e6;
+.table tbody tr:hover td {
+  background: #eef3ff;
 }
 
 .annotCell {

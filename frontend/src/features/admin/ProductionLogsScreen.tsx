@@ -43,6 +43,11 @@ const LOG_TYPE_OPTIONS: { value: LogType; label: string }[] = [
 
 type AnyLogEntry = RollsLogEntry | FitupLogEntry | HydroLogEntry | RtXrayLogEntry | SpotXrayLogEntry;
 
+function isDateInputValue(value: string | null): value is string {
+  if (!value) return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 function ResultCell({ result }: { result?: string }) {
   if (!result) return <span className={styles.resultUnknown}>—</span>;
   const lower = result.toLowerCase();
@@ -101,12 +106,20 @@ export function ProductionLogsScreen() {
   const [annotationTypes, setAnnotationTypes] = useState<AdminAnnotationType[]>([]);
 
   const initialLogType = (searchParams.get('logType') as LogType) || '';
+  const initialStartDate = searchParams.get('startDate');
+  const initialEndDate = searchParams.get('endDate');
   const [logType, setLogType] = useState<LogType | ''>(initialLogType);
   const [siteId, setSiteId] = useState(user?.defaultSiteId ?? '');
   const [startDate, setStartDate] = useState(
-    formatDateForInput(new Date(Date.now() - 7 * 86400000)),
+    isDateInputValue(initialStartDate)
+      ? initialStartDate
+      : formatDateForInput(new Date(Date.now() - 7 * 86400000)),
   );
-  const [endDate, setEndDate] = useState(formatDateForInput(new Date()));
+  const [endDate, setEndDate] = useState(
+    isDateInputValue(initialEndDate)
+      ? initialEndDate
+      : formatDateForInput(new Date()),
+  );
 
   const [entries, setEntries] = useState<AnyLogEntry[]>([]);
   const [shotCounts, setShotCounts] = useState<SpotXrayShotCount[]>([]);
@@ -264,7 +277,7 @@ export function ProductionLogsScreen() {
             type="date"
             value={startDate}
             onChange={(_, d) => setStartDate(d.value)}
-            style={{ minWidth: 140 }}
+            style={{ minWidth: 140, borderRadius: 10, backgroundColor: '#ffffff' }}
           />
         </div>
         <div className={styles.filterField}>
@@ -273,7 +286,7 @@ export function ProductionLogsScreen() {
             type="date"
             value={endDate}
             onChange={(_, d) => setEndDate(d.value)}
-            style={{ minWidth: 140 }}
+            style={{ minWidth: 140, borderRadius: 10, backgroundColor: '#ffffff' }}
           />
         </div>
         <button

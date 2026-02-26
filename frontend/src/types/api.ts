@@ -333,12 +333,14 @@ export interface UpdateDefectLocationRequest {
 
 export interface UpdateWorkCenterConfigRequest {
   numberOfWelders: number;
+  productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
 }
 
 export interface UpdateWorkCenterGroupRequest {
   baseName: string;
+  productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
 }
@@ -346,6 +348,7 @@ export interface UpdateWorkCenterGroupRequest {
 export interface CreateWorkCenterRequest {
   name: string;
   workCenterTypeId: string;
+  productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
 }

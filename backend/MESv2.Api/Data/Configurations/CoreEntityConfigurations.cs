@@ -32,6 +32,9 @@ public class WorkCenterConfiguration : IEntityTypeConfiguration<WorkCenter>
 {
     public void Configure(EntityTypeBuilder<WorkCenter> builder)
     {
+        builder.Property(w => w.ProductionSequence)
+            .HasPrecision(18, 6);
+
         builder.HasOne(w => w.WorkCenterType)
             .WithMany(t => t.WorkCenters)
             .HasForeignKey(w => w.WorkCenterTypeId)

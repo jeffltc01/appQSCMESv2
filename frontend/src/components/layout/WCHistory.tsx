@@ -3,19 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { FlagRegular, FlagFilled } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type { WCHistoryData, WCHistoryEntry } from '../../types/domain.ts';
-import { formatShortDateOnly, formatTimeOnly } from '../../utils/dateFormat.ts';
+import { formatDateForInput, formatShortDateOnly, formatTimeOnly } from '../../utils/dateFormat.ts';
 import { AnnotationDialog } from './AnnotationDialog.tsx';
 import styles from './WCHistory.module.css';
 
+interface WCHistoryLogCta {
+  label: string;
+  logType: string;
+}
+
 interface WCHistoryProps {
   data: WCHistoryData;
-  logType?: string;
+  logCta?: WCHistoryLogCta;
   operatorId?: string;
-  kioskMode?: boolean;
+  externalInput?: boolean;
   onAnnotationCreated?: () => void;
 }
 
-export function WCHistory({ data, logType, operatorId, kioskMode = false, onAnnotationCreated }: WCHistoryProps) {
+export function WCHistory({ data, logCta, operatorId, externalInput = false, onAnnotationCreated }: WCHistoryProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [dialogRecord, setDialogRecord] = useState<WCHistoryEntry | null>(null);
@@ -75,13 +80,18 @@ export function WCHistory({ data, logType, operatorId, kioskMode = false, onAnno
         )}
       </div>
 
-      {logType && !kioskMode && (
+      {logCta && !externalInput && (
         <button
           className={styles.viewFullLogBtn}
-          onClick={() => navigate(`/menu/production-logs?logType=${logType}`)}
+          onClick={() => {
+            const today = formatDateForInput(new Date());
+            navigate(
+              `/menu/production-logs?logType=${logCta.logType}&startDate=${today}&endDate=${today}`,
+            );
+          }}
           type="button"
         >
-          View Full Log
+          {logCta.label}
         </button>
       )}
 

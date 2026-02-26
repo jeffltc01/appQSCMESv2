@@ -6,6 +6,7 @@ public class WorkCenter
     public string Name { get; set; } = string.Empty;
     public Guid WorkCenterTypeId { get; set; }
     public int NumberOfWelders { get; set; }
+    public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
 

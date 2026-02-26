@@ -43,16 +43,19 @@ const NameplateScreen = namedLazy(() => import('../../features/nameplate/Namepla
 const HydroScreen = namedLazy(() => import('../../features/hydro/HydroScreen.tsx'), 'HydroScreen');
 const ChecklistScreen = namedLazy(() => import('../../features/checklists/ChecklistScreen.tsx'), 'ChecklistScreen');
 
-const DATA_ENTRY_TO_LOG_TYPE: Record<string, string> = {
-  Rolls: 'rolls',
-  Fitup: 'fitup',
-  Hydro: 'hydro',
-  'MatQueue-Shell': 'rt-xray',
-  Spot: 'spot-xray',
+type OperatorLogCta = {
+  label: string;
+  logType: string;
 };
 
-function dataEntryTypeToLogType(dataEntryType: string): string | undefined {
-  return DATA_ENTRY_TO_LOG_TYPE[dataEntryType];
+const DATA_ENTRY_TO_LOG_CTA: Record<string, OperatorLogCta> = {
+  Rolls: { label: 'View Rolls Log', logType: 'rolls' },
+  Fitup: { label: 'View Fitup Log', logType: 'fitup' },
+  Hydro: { label: 'View Hydro Log', logType: 'hydro' },
+};
+
+function dataEntryTypeToLogCta(dataEntryType: string): OperatorLogCta | undefined {
+  return DATA_ENTRY_TO_LOG_CTA[dataEntryType];
 }
 
 type HourlySummaryRow = {
@@ -166,9 +169,9 @@ export function OperatorLayout() {
   const AUTO_LOGOUT_MINUTES = 60;
   const dataEntryType = cache?.cachedDataEntryType ?? '';
   const isQueueScreen = dataEntryType === 'MatQueue-Material' || dataEntryType === 'MatQueue-Fitup';
-  const historyLogType = dataEntryType === 'MatQueue-Shell'
+  const historyLogCta = dataEntryType === 'MatQueue-Shell'
     ? undefined
-    : dataEntryTypeToLogType(dataEntryType);
+    : dataEntryTypeToLogCta(dataEntryType);
   const [plannedData, setPlannedData] = useState<{
     hourMap: Record<number, number | null>;
     defaultPlan: number | null;
@@ -719,9 +722,9 @@ export function OperatorLayout() {
             ) : (
               <WCHistory
                 data={historyData}
-                logType={historyLogType}
+                logCta={historyLogCta}
                 operatorId={user?.id}
-                kioskMode={kioskMode}
+                externalInput={externalInput}
                 onAnnotationCreated={refreshHistory}
               />
             )}

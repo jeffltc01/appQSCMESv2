@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MESv2.Api.Controllers;
@@ -18,7 +19,20 @@ public class AdminWorkCentersControllerTests
         var mockXrayService = new Mock<IXrayQueueService>();
         var mockDowntimeService = new Mock<IDowntimeService>();
         var mockLogger = new Mock<ILogger<WorkCentersController>>();
-        return new WorkCentersController(mockService.Object, mockXrayService.Object, mockDowntimeService.Object, adminService, mockLogger.Object);
+        var controller = new WorkCentersController(mockService.Object, mockXrayService.Object, mockDowntimeService.Object, adminService, mockLogger.Object)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+        SetRoleTier(controller, 1m);
+        return controller;
+    }
+
+    private static void SetRoleTier(ControllerBase controller, decimal roleTier)
+    {
+        controller.ControllerContext.HttpContext.Request.Headers["X-User-Role-Tier"] = roleTier.ToString();
     }
 
     [Fact]
@@ -106,6 +120,7 @@ public class AdminWorkCentersControllerTests
         var dto = new UpdateWorkCenterGroupDto
         {
             BaseName = "Modified Rolls",
+            ProductionSequence = 5.5m,
             DataEntryType = "Barcode-LongSeam",
         };
 
@@ -114,6 +129,7 @@ public class AdminWorkCentersControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var updated = Assert.IsType<AdminWorkCenterGroupDto>(ok.Value);
         Assert.Equal("Modified Rolls", updated.BaseName);
+        Assert.Equal(5.5m, updated.ProductionSequence);
         Assert.Equal("Barcode-LongSeam", updated.DataEntryType);
     }
 
@@ -136,12 +152,13 @@ public class AdminWorkCentersControllerTests
         var controller = CreateController(out var db);
         var wc = db.WorkCenters.First(w => w.Name == "Rolls");
 
-        var dto = new UpdateWorkCenterConfigDto { NumberOfWelders = 5, DataEntryType = "standard" };
+        var dto = new UpdateWorkCenterConfigDto { NumberOfWelders = 5, ProductionSequence = 6.5m, DataEntryType = "standard" };
         var result = await controller.UpdateConfig(wc.Id, dto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var updated = Assert.IsType<AdminWorkCenterDto>(ok.Value);
         Assert.Equal(5, updated.NumberOfWelders);
+        Assert.Equal(6.5m, updated.ProductionSequence);
         Assert.Equal("standard", updated.DataEntryType);
     }
 
@@ -176,6 +193,7 @@ public class AdminWorkCentersControllerTests
         {
             Name = "Test New WC",
             WorkCenterTypeId = TestHelpers.WorkCenterTypeRollsId,
+            ProductionSequence = 4.5m,
             DataEntryType = "Rolls",
         };
 
@@ -184,8 +202,55 @@ public class AdminWorkCentersControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var created = Assert.IsType<AdminWorkCenterGroupDto>(ok.Value);
         Assert.Equal("Test New WC", created.BaseName);
+        Assert.Equal(4.5m, created.ProductionSequence);
         Assert.Equal("Rolls", created.DataEntryType);
         Assert.NotEqual(Guid.Empty, created.GroupId);
+    }
+
+    [Fact]
+    public async Task CreateWorkCenter_ReturnsForbidden_WhenCallerNotAdmin()
+    {
+        var controller = CreateController(out _);
+        SetRoleTier(controller, 2m);
+
+        var dto = new CreateWorkCenterDto
+        {
+            Name = "Unauthorized WC",
+            WorkCenterTypeId = TestHelpers.WorkCenterTypeRollsId
+        };
+
+        var result = await controller.CreateWorkCenter(dto, CancellationToken.None);
+
+        Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)result.Result!).StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGroup_ReturnsForbidden_WhenCallerNotAdmin()
+    {
+        var controller = CreateController(out var db);
+        SetRoleTier(controller, 2m);
+        var firstWc = await db.WorkCenters.FirstAsync(w => w.Name == "Rolls");
+        var dto = new UpdateWorkCenterGroupDto { BaseName = "Nope", DataEntryType = "Rolls" };
+
+        var result = await controller.UpdateGroup(firstWc.Id, dto, CancellationToken.None);
+
+        Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)result.Result!).StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateConfig_ReturnsForbidden_WhenCallerNotAdmin()
+    {
+        var controller = CreateController(out var db);
+        SetRoleTier(controller, 2m);
+        var wc = db.WorkCenters.First(w => w.Name == "Rolls");
+        var dto = new UpdateWorkCenterConfigDto { NumberOfWelders = 1 };
+
+        var result = await controller.UpdateConfig(wc.Id, dto, CancellationToken.None);
+
+        Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)result.Result!).StatusCode);
     }
 
     [Fact]

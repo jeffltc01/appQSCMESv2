@@ -125,6 +125,18 @@ describe('ProductionLogsScreen', () => {
     expect(select).toHaveValue('rolls');
   });
 
+  it('uses URL date params when loading from operator navigation', async () => {
+    vi.mocked(logViewerApi.getRollsLog).mockResolvedValue(mockRollsEntries);
+    renderScreen(['/menu/production-logs?logType=rolls&startDate=2026-02-25&endDate=2026-02-25']);
+
+    await waitFor(() => {
+      expect(logViewerApi.getRollsLog).toHaveBeenCalledWith('s1', '2026-02-25', '2026-02-25');
+    });
+
+    const dateInputs = screen.getAllByDisplayValue('2026-02-25');
+    expect(dateInputs.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('loads rolls log data and renders correct columns', async () => {
     vi.mocked(logViewerApi.getRollsLog).mockResolvedValue(mockRollsEntries);
     renderScreen(['/menu/production-logs?logType=rolls']);

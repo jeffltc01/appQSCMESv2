@@ -37,6 +37,7 @@ const mockGroups = [
     groupId: 'g1',
     baseName: 'Rolls 1',
     workCenterTypeName: 'Rolls',
+    productionSequence: 4.5,
     dataEntryType: 'Rolls',
     siteConfigs: [
       {
@@ -79,6 +80,7 @@ describe('WorkCenterConfigScreen', () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getAllByText('Rolls 1').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('4.5')).toBeInTheDocument();
     });
   });
 
