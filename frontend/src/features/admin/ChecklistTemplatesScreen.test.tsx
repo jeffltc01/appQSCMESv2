@@ -117,7 +117,14 @@ describe('ChecklistTemplatesScreen', () => {
     fireEvent.change(topTextInputs[1], { target: { value: 'OPS-100' } });
 
     await user.click(within(addDialog).getByRole('button', { name: 'Import as PassFail Questions', hidden: true }));
-    const importDialog = await screen.findByRole('dialog', { name: 'Import PassFail Questions', hidden: true });
+    await screen.findByText('Import PassFail Questions');
+    const importDialog = Array.from(document.querySelectorAll('[role="dialog"]')).find((el) =>
+      (el.textContent ?? '').includes('Import PassFail Questions'),
+    ) as HTMLElement | undefined;
+    expect(importDialog).not.toBeUndefined();
+    if (!importDialog) {
+      throw new Error('Import dialog not found');
+    }
     const importTextarea = importDialog.querySelector('textarea');
     expect(importTextarea).not.toBeNull();
     fireEvent.change(importTextarea as HTMLTextAreaElement, { target: { value: 'First check\nSecond check' } });
@@ -146,7 +153,14 @@ describe('ChecklistTemplatesScreen', () => {
     fireEvent.change(topTextInputs[1], { target: { value: 'OPS-100' } });
 
     await user.click(within(addDialog).getByRole('button', { name: 'Import as PassFail Questions', hidden: true }));
-    const importDialog = await screen.findByRole('dialog', { name: 'Import PassFail Questions', hidden: true });
+    await screen.findByText('Import PassFail Questions');
+    const importDialog = Array.from(document.querySelectorAll('[role="dialog"]')).find((el) =>
+      (el.textContent ?? '').includes('Import PassFail Questions'),
+    ) as HTMLElement | undefined;
+    expect(importDialog).not.toBeUndefined();
+    if (!importDialog) {
+      throw new Error('Import dialog not found');
+    }
     const importTextarea = importDialog.querySelector('textarea');
     expect(importTextarea).not.toBeNull();
     fireEvent.change(importTextarea as HTMLTextAreaElement, { target: { value: 'First check\nSecond check' } });
