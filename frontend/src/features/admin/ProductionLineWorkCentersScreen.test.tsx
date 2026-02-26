@@ -181,7 +181,7 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
     });
 
-    const downtimeToggle = screen.getByRole('switch', { name: 'Enable Downtime Tracking' });
+    const downtimeToggle = screen.getByLabelText('Enable Downtime Tracking');
     await user.click(downtimeToggle);
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
