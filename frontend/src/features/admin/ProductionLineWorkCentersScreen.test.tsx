@@ -108,7 +108,9 @@ describe('ProductionLineWorkCentersScreen', () => {
 
   it('displays correct title', async () => {
     renderScreen();
-    expect(screen.getByText('Production Line Work Centers')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Production Line Work Centers')).toBeInTheDocument();
+    });
   });
 
   it('shows per-line config data from API', async () => {
@@ -153,5 +155,40 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
       expect(screen.getByText('Applicable Reason Codes')).toBeInTheDocument();
     });
+  });
+
+  it('blocks save when downtime tracking is enabled and no reasons are selected', async () => {
+    vi.mocked(downtimeConfigApi.get).mockResolvedValueOnce({
+      downtimeTrackingEnabled: false,
+      downtimeThresholdMinutes: 5,
+      applicableReasons: [],
+    });
+
+    renderScreen();
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
+    });
+
+    const lineLabel = await screen.findByText('Line 1 (Cleveland)');
+    const plRow = lineLabel.closest('div');
+    expect(plRow).not.toBeNull();
+    const plEditButton = within(plRow as HTMLElement).getAllByRole('button')[0];
+    await user.click(plEditButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
+    });
+
+    const downtimeToggle = screen.getByRole('switch', { name: 'Enable Downtime Tracking' });
+    await user.click(downtimeToggle);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Select at least one downtime reason when downtime tracking is enabled.')).toBeInTheDocument();
+    });
+    expect(vi.mocked(adminWorkCenterApi.updateProductionLineConfig)).not.toHaveBeenCalled();
+    expect(vi.mocked(downtimeConfigApi.setReasons)).not.toHaveBeenCalled();
   });
 });

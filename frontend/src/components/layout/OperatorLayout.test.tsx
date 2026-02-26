@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { reportTelemetry } from '../../telemetry/telemetryClient.ts';
@@ -77,12 +77,19 @@ vi.mock('../../hooks/useLocalStorage', () => ({
 }));
 
 const mockFocusLost = { value: false };
+const inactivityMock = {
+  onInactivityDetected: null as ((lastActivityTimestamp: number) => void) | null,
+  resetTimer: vi.fn(),
+};
 vi.mock('../../hooks/useBarcode', () => ({
   useBarcode: () => ({ inputRef: { current: null }, handleKeyDown: vi.fn(), focusLost: mockFocusLost.value }),
 }));
 vi.mock('../../hooks/useHeartbeat', () => ({ useHeartbeat: vi.fn() }));
 vi.mock('../../hooks/useInactivityTracker', () => ({
-  useInactivityTracker: () => ({ resetTimer: vi.fn() }),
+  useInactivityTracker: (options: { onInactivityDetected: (lastActivityTimestamp: number) => void }) => {
+    inactivityMock.onInactivityDetected = options.onInactivityDetected;
+    return { resetTimer: inactivityMock.resetTimer };
+  },
 }));
 vi.mock('../../help/useCurrentHelpArticle', () => ({
   useCurrentHelpArticle: () => null,
@@ -144,6 +151,7 @@ describe('OperatorLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRollsScreenBehavior.emitErrorOnMount = false;
+    inactivityMock.onInactivityDetected = null;
   });
 
   it('renders TopBar, BottomBar, and LeftPanel', async () => {
@@ -240,6 +248,27 @@ describe('OperatorLayout', () => {
           message: 'Mock scan error',
         }),
       );
+    });
+  });
+
+  it('re-fetches downtime config when inactivity is detected', async () => {
+    const { downtimeConfigApi } = await import('../../api/endpoints');
+    vi.mocked(downtimeConfigApi.get)
+      .mockResolvedValueOnce({ downtimeTrackingEnabled: true, downtimeThresholdMinutes: 5, applicableReasons: [] })
+      .mockResolvedValueOnce({ downtimeTrackingEnabled: true, downtimeThresholdMinutes: 10, applicableReasons: [] });
+
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(vi.mocked(downtimeConfigApi.get)).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      inactivityMock.onInactivityDetected?.(Date.now() - 60_000);
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(downtimeConfigApi.get)).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -120,6 +120,11 @@ export function ProductionLineWorkCentersScreen() {
   };
 
   const handlePlSave = async () => {
+    if (plDowntimeEnabled && plSelectedReasonIds.length === 0) {
+      setPlError('Select at least one downtime reason when downtime tracking is enabled.');
+      return;
+    }
+
     setPlSaving(true);
     setPlError('');
     try {

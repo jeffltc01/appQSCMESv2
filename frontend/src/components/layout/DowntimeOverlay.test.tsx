@@ -60,6 +60,19 @@ describe('DowntimeOverlay', () => {
     expect(screen.getByTestId('downtime-timer')).toBeInTheDocument();
   });
 
+  it('shows a configuration warning when no reasons exist', () => {
+    renderOverlay({ reasons: [] });
+    expect(screen.getByTestId('downtime-empty-state')).toBeInTheDocument();
+    expect(screen.getByText(/No downtime reason buttons are configured/)).toBeInTheDocument();
+    expect(screen.queryByText('Breakdown')).not.toBeInTheDocument();
+  });
+
+  it('dismisses when empty-state warning is clicked', () => {
+    const { props } = renderOverlay({ reasons: [] });
+    fireEvent.click(screen.getByTestId('downtime-empty-state'));
+    expect(props.onDismiss).toHaveBeenCalled();
+  });
+
   it('calls API and dismisses on reason click', async () => {
     const { downtimeEventApi } = await import('../../api/endpoints');
     const { props } = renderOverlay();

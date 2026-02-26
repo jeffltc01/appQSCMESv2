@@ -97,6 +97,19 @@ export function DowntimeOverlay({
         </div>
       )}
 
+      {grouped.length === 0 && (
+        <button
+          type="button"
+          className={styles.emptyState}
+          onClick={onDismiss}
+          data-testid="downtime-empty-state"
+        >
+          No downtime reason buttons are configured for this station.
+          <br />
+          Contact a Quality Manager to assign reasons, then tap here to close this screen.
+        </button>
+      )}
+
       {grouped.map(group => (
         <div key={group.categoryName} className={styles.categoryGroup}>
           <div className={styles.categoryTitle}>{group.categoryName}</div>
