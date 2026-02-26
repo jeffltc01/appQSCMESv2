@@ -54,6 +54,7 @@ Define mandatory automated tests and release gates for Lean maturity features be
 
 - Query performance under realistic daily record volumes.
 - API response latency p95 for supervisor dashboard under peak usage.
+- Validate endpoint and workflow performance against `SPEC_PERFORMANCE_SLO.md` targets.
 - Concurrency checks for card assignment and signal fulfillment actions.
 
 ## Rollout Gates
@@ -67,6 +68,7 @@ Define mandatory automated tests and release gates for Lean maturity features be
 ## Gate B: QA/UAT Ready
 
 - Integration tests green.
+- Performance validation green for critical SLO categories defined in `SPEC_PERFORMANCE_SLO.md`.
 - End-to-end smoke checks pass for at least:
   - one takt metrics retrieval,
   - one andon lifecycle run,
@@ -80,7 +82,8 @@ Define mandatory automated tests and release gates for Lean maturity features be
 - Monitoring alerts configured:
   - API error rate,
   - escalation job failures,
-  - stale open andon volume.
+  - stale open andon volume,
+  - SLO alert thresholds from `SPEC_PERFORMANCE_SLO.md`.
 - Runbook updated for plant support teams.
 
 ## Post-Release Success Metrics

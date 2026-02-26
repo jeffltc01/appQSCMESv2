@@ -237,6 +237,77 @@ public class ChecklistsController : ControllerBase
         return Ok(entries);
     }
 
+    [HttpGet("review/summary")]
+    public async Task<ActionResult<ChecklistReviewSummaryDto>> GetReviewSummary(
+        [FromQuery] Guid siteId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] string? checklistType,
+        CancellationToken ct)
+    {
+        if (!TryGetCallerSiteId(out var callerSiteId))
+        {
+            return BadRequest(new { message = "Missing X-User-Site-Id header." });
+        }
+        if (!TryGetCallerRoleTier(out var callerRoleTier))
+        {
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        }
+        var canCrossSite = callerRoleTier <= 2m;
+        if (!canCrossSite && siteId != callerSiteId)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var summary = await _checklistService.GetReviewSummaryAsync(siteId, fromUtc, toUtc, checklistType, ct);
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("review/question-responses")]
+    public async Task<ActionResult<ChecklistQuestionResponsesDto>> GetQuestionResponses(
+        [FromQuery] Guid siteId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] Guid checklistTemplateItemId,
+        [FromQuery] string? checklistType,
+        CancellationToken ct)
+    {
+        if (!TryGetCallerSiteId(out var callerSiteId))
+        {
+            return BadRequest(new { message = "Missing X-User-Site-Id header." });
+        }
+        if (!TryGetCallerRoleTier(out var callerRoleTier))
+        {
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        }
+        var canCrossSite = callerRoleTier <= 2m;
+        if (!canCrossSite && siteId != callerSiteId)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var details = await _checklistService.GetQuestionResponsesAsync(siteId, fromUtc, toUtc, checklistTemplateItemId, checklistType, ct);
+            return Ok(details);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("entries/{entryId:guid}")]
     public async Task<ActionResult<ChecklistEntryDto>> GetEntry(Guid entryId, CancellationToken ct)
     {

@@ -16,4 +16,6 @@ public interface IChecklistService
     Task<ChecklistEntryDto?> CompleteEntryAsync(Guid entryId, Guid callerSiteId, decimal callerRoleTier, CancellationToken ct = default);
     Task<IReadOnlyList<ChecklistEntryDto>> GetEntryHistoryAsync(Guid siteId, Guid? workCenterId, string? checklistType, CancellationToken ct = default);
     Task<ChecklistEntryDto?> GetEntryDetailAsync(Guid entryId, Guid callerSiteId, CancellationToken ct = default);
+    Task<ChecklistReviewSummaryDto> GetReviewSummaryAsync(Guid siteId, DateTime fromUtc, DateTime toUtc, string? checklistType, CancellationToken ct = default);
+    Task<ChecklistQuestionResponsesDto> GetQuestionResponsesAsync(Guid siteId, DateTime fromUtc, DateTime toUtc, Guid checklistTemplateItemId, string? checklistType, CancellationToken ct = default);
 }

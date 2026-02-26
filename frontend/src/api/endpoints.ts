@@ -88,6 +88,8 @@ import type {
   ResolveChecklistTemplateRequest,
   CreateChecklistEntryRequest,
   SubmitChecklistResponsesRequest,
+  GetChecklistReviewSummaryRequest,
+  GetChecklistQuestionResponsesRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -144,6 +146,8 @@ import type {
   SpotXrayIncrementDetail,
   SupervisorDashboardMetrics,
   SupervisorDashboardTrends,
+  DefectParetoResponse,
+  DowntimeParetoResponse,
   SupervisorRecord,
   PerformanceTableResponse,
   DowntimeReasonCategory,
@@ -167,6 +171,8 @@ import type {
   ChecklistTemplate,
   ScoreType,
   ChecklistEntry,
+  ChecklistReviewSummary,
+  ChecklistQuestionResponses,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -276,6 +282,25 @@ export const checklistApi = {
   },
   getEntry: (entryId: string) =>
     api.get<ChecklistEntry>(`/checklists/entries/${entryId}`),
+  getReviewSummary: (request: GetChecklistReviewSummaryRequest) => {
+    const params = new URLSearchParams({
+      siteId: request.siteId,
+      fromUtc: request.fromUtc,
+      toUtc: request.toUtc,
+    });
+    if (request.checklistType) params.set('checklistType', request.checklistType);
+    return api.get<ChecklistReviewSummary>(`/checklists/review/summary?${params.toString()}`);
+  },
+  getQuestionResponses: (request: GetChecklistQuestionResponsesRequest) => {
+    const params = new URLSearchParams({
+      siteId: request.siteId,
+      fromUtc: request.fromUtc,
+      toUtc: request.toUtc,
+      checklistTemplateItemId: request.checklistTemplateItemId,
+    });
+    if (request.checklistType) params.set('checklistType', request.checklistType);
+    return api.get<ChecklistQuestionResponses>(`/checklists/review/question-responses?${params.toString()}`);
+  },
 };
 
 export const assemblyApi = {
@@ -590,6 +615,16 @@ export const supervisorDashboardApi = {
     const params = new URLSearchParams({ plantId, view, date });
     if (operatorId) params.set('operatorId', operatorId);
     return api.get<PerformanceTableResponse>(`/supervisor-dashboard/${wcId}/performance-table?${params}`);
+  },
+  getDefectPareto: (wcId: string, plantId: string, view: string, date: string, operatorId?: string) => {
+    const params = new URLSearchParams({ plantId, view, date });
+    if (operatorId) params.set('operatorId', operatorId);
+    return api.get<DefectParetoResponse>(`/defect-analytics/${wcId}/pareto?${params}`);
+  },
+  getDowntimePareto: (wcId: string, plantId: string, view: string, date: string, operatorId?: string) => {
+    const params = new URLSearchParams({ plantId, view, date });
+    if (operatorId) params.set('operatorId', operatorId);
+    return api.get<DowntimeParetoResponse>(`/defect-analytics/${wcId}/downtime-pareto?${params}`);
   },
 };
 

@@ -134,3 +134,62 @@ public class ChecklistEntryDto
     public int ResolvedTemplateVersionNo { get; set; }
     public List<ChecklistResponseDto> Responses { get; set; } = [];
 }
+
+public class ChecklistReviewSummaryDto
+{
+    public Guid SiteId { get; set; }
+    public DateTime FromUtc { get; set; }
+    public DateTime ToUtc { get; set; }
+    public string? ChecklistType { get; set; }
+    public int TotalEntries { get; set; }
+    public int TotalResponses { get; set; }
+    public List<string> ChecklistTypesFound { get; set; } = [];
+    public List<ChecklistFilterOptionDto> ChecklistFiltersFound { get; set; } = [];
+    public List<ChecklistQuestionSummaryDto> Questions { get; set; } = [];
+}
+
+public class ChecklistFilterOptionDto
+{
+    public string ChecklistType { get; set; } = string.Empty;
+    public string ChecklistName { get; set; } = string.Empty;
+}
+
+public class ChecklistQuestionSummaryDto
+{
+    public Guid ChecklistTemplateItemId { get; set; }
+    public string Prompt { get; set; } = string.Empty;
+    public string? Section { get; set; }
+    public string ResponseType { get; set; } = string.Empty;
+    public int ResponseCount { get; set; }
+    public List<ChecklistResponseBucketDto> ResponseBuckets { get; set; } = [];
+}
+
+public class ChecklistResponseBucketDto
+{
+    public string Value { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int Count { get; set; }
+}
+
+public class ChecklistQuestionResponsesDto
+{
+    public Guid ChecklistTemplateItemId { get; set; }
+    public string Prompt { get; set; } = string.Empty;
+    public string? Section { get; set; }
+    public string ResponseType { get; set; } = string.Empty;
+    public int TotalResponses { get; set; }
+    public List<ChecklistResponseBucketDto> ResponseBuckets { get; set; } = [];
+    public List<ChecklistQuestionResponseRowDto> Rows { get; set; } = [];
+}
+
+public class ChecklistQuestionResponseRowDto
+{
+    public Guid ChecklistEntryId { get; set; }
+    public string ChecklistType { get; set; } = string.Empty;
+    public Guid OperatorUserId { get; set; }
+    public string OperatorDisplayName { get; set; } = string.Empty;
+    public DateTime RespondedAtUtc { get; set; }
+    public string ResponseValue { get; set; } = string.Empty;
+    public string ResponseLabel { get; set; } = string.Empty;
+    public string? Note { get; set; }
+}

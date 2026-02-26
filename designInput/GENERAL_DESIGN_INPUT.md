@@ -603,3 +603,4 @@ The following items are **out of scope** for the initial release but the archite
 | [SPEC_LEAN_PHASE3_RCA_CAPA.md](SPEC_LEAN_PHASE3_RCA_CAPA.md) | Phase 3 RCA/CAPA workflow, data model, closure governance |
 | [SPEC_LEAN_PHASE4_REPLENISHMENT_KANBAN.md](SPEC_LEAN_PHASE4_REPLENISHMENT_KANBAN.md) | Phase 4 replenishment-kanban policy and closed-loop card flow |
 | [SPEC_LEAN_TEST_AND_ROLLOUT_STRATEGY.md](SPEC_LEAN_TEST_AND_ROLLOUT_STRATEGY.md) | Automated test matrix and rollout gates for Lean phases |
+| [SPEC_PERFORMANCE_SLO.md](SPEC_PERFORMANCE_SLO.md) | Canonical performance SLOs, response-time targets, and alert thresholds |

@@ -480,6 +480,59 @@ export interface ChecklistEntry {
   responses: ChecklistResponse[];
 }
 
+export interface ChecklistResponseBucket {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface ChecklistQuestionSummary {
+  checklistTemplateItemId: string;
+  prompt: string;
+  section?: string;
+  responseType: string;
+  responseCount: number;
+  responseBuckets: ChecklistResponseBucket[];
+}
+
+export interface ChecklistFilterOption {
+  checklistType: string;
+  checklistName: string;
+}
+
+export interface ChecklistReviewSummary {
+  siteId: string;
+  fromUtc: string;
+  toUtc: string;
+  checklistType?: string;
+  totalEntries: number;
+  totalResponses: number;
+  checklistTypesFound: string[];
+  checklistFiltersFound?: ChecklistFilterOption[];
+  questions: ChecklistQuestionSummary[];
+}
+
+export interface ChecklistQuestionResponseRow {
+  checklistEntryId: string;
+  checklistType: string;
+  operatorUserId: string;
+  operatorDisplayName: string;
+  respondedAtUtc: string;
+  responseValue: string;
+  responseLabel: string;
+  note?: string;
+}
+
+export interface ChecklistQuestionResponses {
+  checklistTemplateItemId: string;
+  prompt: string;
+  section?: string;
+  responseType: string;
+  totalResponses: number;
+  responseBuckets: ChecklistResponseBucket[];
+  rows: ChecklistQuestionResponseRow[];
+}
+
 export interface AdminCharacteristic {
   id: string;
   code: string;
@@ -855,9 +908,9 @@ export interface SupervisorDashboardMetrics {
   dayDefects: number;
   weekDefects: number;
   monthDefects: number;
-  dayAvgTimeBetweenScans: number;
-  weekAvgTimeBetweenScans: number;
-  monthAvgTimeBetweenScans: number;
+  dayDowntimeMinutes: number;
+  weekDowntimeMinutes: number;
+  monthDowntimeMinutes: number;
   dayQtyPerHour: number;
   weekQtyPerHour: number;
   monthQtyPerHour: number;
@@ -883,11 +936,34 @@ export interface SupervisorDashboardTrends {
   fpy: KpiTrendPoint[];
   defects: KpiTrendPoint[];
   qtyPerHour: KpiTrendPoint[];
-  avgBetweenScans: KpiTrendPoint[];
+  downtimeMinutes: KpiTrendPoint[];
   oee: KpiTrendPoint[];
   availability: KpiTrendPoint[];
   performance: KpiTrendPoint[];
   quality: KpiTrendPoint[];
+}
+
+export interface DefectParetoItem {
+  defectCode: string;
+  defectName: string;
+  count: number;
+  cumulativePercent: number;
+}
+
+export interface DefectParetoResponse {
+  totalDefects: number;
+  items: DefectParetoItem[];
+}
+
+export interface DowntimeParetoItem {
+  reasonName: string;
+  minutes: number;
+  cumulativePercent: number;
+}
+
+export interface DowntimeParetoResponse {
+  totalDowntimeMinutes: number;
+  items: DowntimeParetoItem[];
 }
 
 export interface ExistingAnnotation {

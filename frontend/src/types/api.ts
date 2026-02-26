@@ -724,6 +724,21 @@ export interface SubmitChecklistResponsesRequest {
   responses: ChecklistResponseRequest[];
 }
 
+export interface GetChecklistReviewSummaryRequest {
+  siteId: string;
+  fromUtc: string;
+  toUtc: string;
+  checklistType?: string;
+}
+
+export interface GetChecklistQuestionResponsesRequest {
+  siteId: string;
+  fromUtc: string;
+  toUtc: string;
+  checklistTemplateItemId: string;
+  checklistType?: string;
+}
+
 // ---- Downtime ----
 export interface CreateDowntimeReasonCategoryRequest {
   plantId: string;

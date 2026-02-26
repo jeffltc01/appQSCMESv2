@@ -54,6 +54,12 @@ input, select, button, textarea {
   touch-action: manipulation;
 }
 
+html.kiosk-mode.help-scroll-open,
+body.kiosk-mode.help-scroll-open {
+  touch-action: auto;
+  overscroll-behavior: auto;
+}
+
 .kiosk-mode input,
 .kiosk-mode textarea {
   -webkit-user-select: text;

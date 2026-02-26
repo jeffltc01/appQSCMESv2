@@ -706,6 +706,287 @@ public class ChecklistServiceTests
             }, caller.Id, 1m));
     }
 
+    [Fact]
+    public async Task GetReviewSummary_ReturnsChecklistTypesAndQuestionBuckets()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var service = new ChecklistService(db);
+        var user = db.Users.First();
+
+        var template1Id = Guid.NewGuid();
+        var template2Id = Guid.NewGuid();
+        var item1Id = Guid.NewGuid();
+        var item2Id = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        db.ChecklistTemplates.AddRange(
+            new ChecklistTemplate
+            {
+                Id = template1Id,
+                TemplateCode = "SAFE-R1",
+                Title = "Safety",
+                ChecklistType = "SafetyPreShift",
+                ScopeLevel = ChecklistScopeLevels.PlantWorkCenter,
+                SiteId = TestHelpers.PlantPlt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                VersionNo = 1,
+                EffectiveFromUtc = now.AddDays(-7),
+                IsActive = true,
+                ResponseMode = ChecklistResponseModes.PassFail,
+                OwnerUserId = user.Id,
+                CreatedByUserId = user.Id,
+                Items = { new ChecklistTemplateItem { Id = item1Id, SortOrder = 1, Prompt = "Guard check" } }
+            },
+            new ChecklistTemplate
+            {
+                Id = template2Id,
+                TemplateCode = "OPS-R1",
+                Title = "Ops",
+                ChecklistType = "OpsPreShift",
+                ScopeLevel = ChecklistScopeLevels.PlantWorkCenter,
+                SiteId = TestHelpers.PlantPlt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                VersionNo = 1,
+                EffectiveFromUtc = now.AddDays(-7),
+                IsActive = true,
+                ResponseMode = ChecklistResponseModes.PassFail,
+                OwnerUserId = user.Id,
+                CreatedByUserId = user.Id,
+                Items = { new ChecklistTemplateItem { Id = item2Id, SortOrder = 1, Prompt = "Line check" } }
+            });
+
+        var entry1Id = Guid.NewGuid();
+        var entry2Id = Guid.NewGuid();
+        db.ChecklistEntries.AddRange(
+            new ChecklistEntry
+            {
+                Id = entry1Id,
+                ChecklistTemplateId = template1Id,
+                ChecklistType = "SafetyPreShift",
+                SiteId = TestHelpers.PlantPlt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                OperatorUserId = user.Id,
+                Status = ChecklistEntryStatuses.Completed,
+                StartedAtUtc = now.AddHours(-2),
+                CompletedAtUtc = now.AddHours(-1),
+                ResolvedFromScope = ChecklistScopeLevels.PlantWorkCenter,
+                ResolvedTemplateCode = "SAFE-R1",
+                ResolvedTemplateVersionNo = 1,
+            },
+            new ChecklistEntry
+            {
+                Id = entry2Id,
+                ChecklistTemplateId = template2Id,
+                ChecklistType = "OpsPreShift",
+                SiteId = TestHelpers.PlantPlt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                OperatorUserId = user.Id,
+                Status = ChecklistEntryStatuses.Completed,
+                StartedAtUtc = now.AddHours(-3),
+                CompletedAtUtc = now.AddHours(-2),
+                ResolvedFromScope = ChecklistScopeLevels.PlantWorkCenter,
+                ResolvedTemplateCode = "OPS-R1",
+                ResolvedTemplateVersionNo = 1,
+            });
+
+        db.ChecklistEntryItemResponses.AddRange(
+            new ChecklistEntryItemResponse
+            {
+                Id = Guid.NewGuid(),
+                ChecklistEntryId = entry1Id,
+                ChecklistTemplateItemId = item1Id,
+                ResponseValue = "true",
+                RespondedAtUtc = now.AddHours(-1)
+            },
+            new ChecklistEntryItemResponse
+            {
+                Id = Guid.NewGuid(),
+                ChecklistEntryId = entry2Id,
+                ChecklistTemplateItemId = item2Id,
+                ResponseValue = "false",
+                RespondedAtUtc = now.AddHours(-2)
+            });
+        await db.SaveChangesAsync();
+
+        var summary = await service.GetReviewSummaryAsync(
+            TestHelpers.PlantPlt1Id,
+            now.AddDays(-1),
+            now,
+            checklistType: null);
+
+        Assert.Equal(2, summary.TotalEntries);
+        Assert.Equal(2, summary.TotalResponses);
+        Assert.Equal(2, summary.ChecklistTypesFound.Count);
+        Assert.Contains("SafetyPreShift", summary.ChecklistTypesFound);
+        Assert.Contains("OpsPreShift", summary.ChecklistTypesFound);
+        Assert.Equal(2, summary.Questions.Count);
+        Assert.Contains(summary.Questions.SelectMany(q => q.ResponseBuckets), b => b.Label == "Pass" && b.Count == 1);
+        Assert.Contains(summary.Questions.SelectMany(q => q.ResponseBuckets), b => b.Label == "Fail" && b.Count == 1);
+    }
+
+    [Fact]
+    public async Task GetQuestionResponses_ReturnsRowsOrderedByRespondedAt()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var service = new ChecklistService(db);
+        var user = db.Users.First();
+        var now = DateTime.UtcNow;
+        var templateId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var entry1Id = Guid.NewGuid();
+        var entry2Id = Guid.NewGuid();
+
+        db.ChecklistTemplates.Add(new ChecklistTemplate
+        {
+            Id = templateId,
+            TemplateCode = "SAFE-R2",
+            Title = "Safety",
+            ChecklistType = "SafetyPreShift",
+            ScopeLevel = ChecklistScopeLevels.PlantWorkCenter,
+            SiteId = TestHelpers.PlantPlt1Id,
+            WorkCenterId = TestHelpers.wcRollsId,
+            VersionNo = 1,
+            EffectiveFromUtc = now.AddDays(-7),
+            IsActive = true,
+            ResponseMode = ChecklistResponseModes.PassFail,
+            OwnerUserId = user.Id,
+            CreatedByUserId = user.Id,
+            Items = { new ChecklistTemplateItem { Id = itemId, SortOrder = 1, Prompt = "Guard check" } }
+        });
+
+        db.ChecklistEntries.AddRange(
+            new ChecklistEntry
+            {
+                Id = entry1Id,
+                ChecklistTemplateId = templateId,
+                ChecklistType = "SafetyPreShift",
+                SiteId = TestHelpers.PlantPlt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                OperatorUserId = user.Id,
+                Status = ChecklistEntryStatuses.Completed,
+                StartedAtUtc = now.AddHours(-5),
+                CompletedAtUtc = now.AddHours(-4),
+                ResolvedFromScope = ChecklistScopeLevels.PlantWorkCenter,
+                ResolvedTemplateCode = "SAFE-R2",
+                ResolvedTemplateVersionNo = 1
+            },
+            new ChecklistEntry
+            {
+                Id = entry2Id,
+                ChecklistTemplateId = templateId,
+                ChecklistType = "SafetyPreShift",
+                SiteId = TestHelpers.PlantPlt1Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                OperatorUserId = user.Id,
+                Status = ChecklistEntryStatuses.Completed,
+                StartedAtUtc = now.AddHours(-3),
+                CompletedAtUtc = now.AddHours(-2),
+                ResolvedFromScope = ChecklistScopeLevels.PlantWorkCenter,
+                ResolvedTemplateCode = "SAFE-R2",
+                ResolvedTemplateVersionNo = 1
+            });
+
+        db.ChecklistEntryItemResponses.AddRange(
+            new ChecklistEntryItemResponse
+            {
+                Id = Guid.NewGuid(),
+                ChecklistEntryId = entry1Id,
+                ChecklistTemplateItemId = itemId,
+                ResponseValue = "false",
+                Note = "Issue found",
+                RespondedAtUtc = now.AddHours(-4)
+            },
+            new ChecklistEntryItemResponse
+            {
+                Id = Guid.NewGuid(),
+                ChecklistEntryId = entry2Id,
+                ChecklistTemplateItemId = itemId,
+                ResponseValue = "true",
+                RespondedAtUtc = now.AddHours(-2)
+            });
+        await db.SaveChangesAsync();
+
+        var detail = await service.GetQuestionResponsesAsync(
+            TestHelpers.PlantPlt1Id,
+            now.AddDays(-1),
+            now,
+            itemId,
+            "SafetyPreShift");
+
+        Assert.Equal(itemId, detail.ChecklistTemplateItemId);
+        Assert.Equal(2, detail.TotalResponses);
+        Assert.Equal("Pass", detail.Rows[0].ResponseLabel);
+        Assert.Equal("Fail", detail.Rows[1].ResponseLabel);
+        Assert.Equal("Issue found", detail.Rows[1].Note);
+    }
+
+    [Fact]
+    public async Task GetReviewSummary_UsesSiteLocalDateWindow_ForUtcFiltering()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var service = new ChecklistService(db);
+        var user = db.Users.First();
+        var templateId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        db.ChecklistTemplates.Add(new ChecklistTemplate
+        {
+            Id = templateId,
+            TemplateCode = "SAFE-TZ",
+            Title = "Safety TZ",
+            ChecklistType = "SafetyPreShift",
+            ScopeLevel = ChecklistScopeLevels.PlantWorkCenter,
+            SiteId = TestHelpers.PlantPlt3Id,
+            WorkCenterId = TestHelpers.wcRollsId,
+            VersionNo = 1,
+            EffectiveFromUtc = DateTime.UtcNow.AddDays(-5),
+            IsActive = true,
+            ResponseMode = ChecklistResponseModes.PassFail,
+            OwnerUserId = user.Id,
+            CreatedByUserId = user.Id,
+            Items = { new ChecklistTemplateItem { Id = itemId, SortOrder = 1, Prompt = "Guard check" } }
+        });
+
+        // 2026-02-27T02:49Z is still 2026-02-26 in America/Denver (West Jordan).
+        db.ChecklistEntries.Add(new ChecklistEntry
+        {
+            Id = entryId,
+            ChecklistTemplateId = templateId,
+            ChecklistType = "SafetyPreShift",
+            SiteId = TestHelpers.PlantPlt3Id,
+            WorkCenterId = TestHelpers.wcRollsId,
+            OperatorUserId = user.Id,
+            Status = ChecklistEntryStatuses.Completed,
+            StartedAtUtc = new DateTime(2026, 2, 27, 2, 40, 0, DateTimeKind.Utc),
+            CompletedAtUtc = new DateTime(2026, 2, 27, 2, 49, 0, DateTimeKind.Utc),
+            ResolvedFromScope = ChecklistScopeLevels.PlantWorkCenter,
+            ResolvedTemplateCode = "SAFE-TZ",
+            ResolvedTemplateVersionNo = 1
+        });
+
+        db.ChecklistEntryItemResponses.Add(new ChecklistEntryItemResponse
+        {
+            Id = Guid.NewGuid(),
+            ChecklistEntryId = entryId,
+            ChecklistTemplateItemId = itemId,
+            ResponseValue = "true",
+            RespondedAtUtc = new DateTime(2026, 2, 27, 2, 49, 0, DateTimeKind.Utc)
+        });
+        await db.SaveChangesAsync();
+
+        var summary = await service.GetReviewSummaryAsync(
+            TestHelpers.PlantPlt3Id,
+            // UI sends date-only as UTC timestamps; service should interpret as plant-local dates.
+            new DateTime(2026, 2, 26, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 2, 26, 23, 59, 59, DateTimeKind.Utc),
+            "SafetyPreShift");
+
+        Assert.Equal(1, summary.TotalEntries);
+        Assert.Single(summary.Questions);
+        Assert.Equal("Guard check", summary.Questions[0].Prompt);
+    }
+
     private static UpsertChecklistTemplateRequestDto BuildTemplateRequest(Guid ownerUserId) =>
         new()
         {

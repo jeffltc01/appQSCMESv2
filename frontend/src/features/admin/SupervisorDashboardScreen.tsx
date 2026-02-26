@@ -16,11 +16,15 @@ import { workCenterApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { Sparkline } from '../../components/charts/Sparkline.tsx';
 import { MetricTrendChart } from '../../components/charts/MetricTrendChart.tsx';
+import { DefectParetoChart } from '../../components/charts/DefectParetoChart.tsx';
+import { DowntimeParetoChart } from '../../components/charts/DowntimeParetoChart.tsx';
 import type {
   WorkCenter,
   KpiTrendPoint,
   SupervisorDashboardMetrics,
   SupervisorDashboardTrends,
+  DefectParetoResponse,
+  DowntimeParetoResponse,
   SupervisorRecord,
   PerformanceTableResponse,
 } from '../../types/domain.ts';
@@ -34,14 +38,14 @@ type MetricDrilldownId =
   | 'count'
   | 'fpy'
   | 'defects'
-  | 'avgBetweenScans'
+  | 'downtime'
   | 'qtyPerHour'
   | 'oee'
   | 'availability'
   | 'performance'
   | 'quality';
 
-type MetricFormatKind = 'integer' | 'decimal' | 'percent' | 'seconds';
+type MetricFormatKind = 'integer' | 'decimal' | 'percent' | 'minutes';
 type MetricDrilldownDescriptor = {
   id: MetricDrilldownId;
   title: string;
@@ -84,6 +88,10 @@ export function SupervisorDashboardScreen() {
   const [submitMessage, setSubmitMessage] = useState('');
   const [showDowntimeDialog, setShowDowntimeDialog] = useState(false);
   const [selectedMetricId, setSelectedMetricId] = useState<MetricDrilldownId | null>(null);
+  const [defectPareto, setDefectPareto] = useState<DefectParetoResponse | null>(null);
+  const [defectParetoLoading, setDefectParetoLoading] = useState(false);
+  const [downtimePareto, setDowntimePareto] = useState<DowntimeParetoResponse | null>(null);
+  const [downtimeParetoLoading, setDowntimeParetoLoading] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -195,18 +203,16 @@ export function SupervisorDashboardScreen() {
     }
   };
 
-  const formatSeconds = (s: number) => {
-    if (s === 0) return '--';
-    const min = Math.floor(s / 60);
-    const sec = Math.round(s % 60);
-    return min > 0 ? `${min}m ${sec}s` : `${sec}s`;
+  const formatMinutes = (minutes: number) => {
+    if (minutes === 0) return '--';
+    return `${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min`;
   };
 
   const formatNum = (v: number | null) => (v !== null ? String(v) : '--');
   const formatDelta = (v: number | null) => (v !== null ? (v >= 0 ? `+${v}` : String(v)) : '--');
   const formatTrendValue = (value: number | null, format: MetricFormatKind) => {
     if (value === null) return '--';
-    if (format === 'seconds') return formatSeconds(value);
+    if (format === 'minutes') return `${Number.isInteger(value) ? value : value.toFixed(1)} min`;
     if (format === 'percent') return `${value}%`;
     if (format === 'integer') return Number.isInteger(value) ? String(value) : value.toFixed(1);
     return Number.isInteger(value) ? String(value) : value.toFixed(2);
@@ -222,11 +228,11 @@ export function SupervisorDashboardScreen() {
   const selectedCount = metricView === 'day' ? metrics?.dayCount : metricView === 'week' ? metrics?.weekCount : metrics?.monthCount;
   const selectedFpy = metricView === 'day' ? metrics?.dayFPY : metricView === 'week' ? metrics?.weekFPY : metrics?.monthFPY;
   const selectedDefects = metricView === 'day' ? metrics?.dayDefects : metricView === 'week' ? metrics?.weekDefects : metrics?.monthDefects;
-  const selectedAvgScanSeconds = metricView === 'day'
-    ? metrics?.dayAvgTimeBetweenScans
+  const selectedDowntimeMinutes = metricView === 'day'
+    ? metrics?.dayDowntimeMinutes
     : metricView === 'week'
-      ? metrics?.weekAvgTimeBetweenScans
-      : metrics?.monthAvgTimeBetweenScans;
+      ? metrics?.weekDowntimeMinutes
+      : metrics?.monthDowntimeMinutes;
   const selectedQtyPerHour = metricView === 'day'
     ? metrics?.dayQtyPerHour
     : metricView === 'week'
@@ -236,7 +242,7 @@ export function SupervisorDashboardScreen() {
   const fpyTrendValues = trends?.fpy.map((point) => point.value) ?? [];
   const defectsTrendValues = trends?.defects.map((point) => point.value) ?? [];
   const qtyPerHourTrendValues = trends?.qtyPerHour.map((point) => point.value) ?? [];
-  const avgBetweenScansTrendValues = trends?.avgBetweenScans.map((point) => point.value) ?? [];
+  const downtimeTrendValues = trends?.downtimeMinutes.map((point) => point.value) ?? [];
   const oeeTrendValues = trends?.oee.map((point) => point.value) ?? [];
   const availabilityTrendValues = trends?.availability.map((point) => point.value) ?? [];
   const performanceTrendValues = trends?.performance.map((point) => point.value) ?? [];
@@ -249,12 +255,12 @@ export function SupervisorDashboardScreen() {
       points: trends?.count ?? [],
       format: 'integer',
     },
-    avgBetweenScans: {
-      id: 'avgBetweenScans',
-      title: 'Avg Between Scans',
-      cardValueText: formatSeconds(selectedAvgScanSeconds ?? 0),
-      points: trends?.avgBetweenScans ?? [],
-      format: 'seconds',
+    downtime: {
+      id: 'downtime',
+      title: 'Total Downtime',
+      cardValueText: formatMinutes(selectedDowntimeMinutes ?? 0),
+      points: trends?.downtimeMinutes ?? [],
+      format: 'minutes',
     },
     qtyPerHour: {
       id: 'qtyPerHour',
@@ -322,6 +328,59 @@ export function SupervisorDashboardScreen() {
   const openMetricDrilldown = (id: MetricDrilldownId) => {
     if (metricDrilldowns[id]) setSelectedMetricId(id);
   };
+
+  useEffect(() => {
+    if (
+      (selectedMetricId !== 'defects' && selectedMetricId !== 'downtime')
+      || !selectedWcId
+      || !user?.defaultSiteId
+    ) {
+      setDefectPareto(null);
+      setDefectParetoLoading(false);
+      setDowntimePareto(null);
+      setDowntimeParetoLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    if (selectedMetricId === 'defects') {
+      setDefectParetoLoading(true);
+      setDowntimePareto(null);
+      supervisorDashboardApi.getDefectPareto(
+        selectedWcId,
+        user.defaultSiteId,
+        metricView,
+        todayISOString(),
+        selectedOperatorId ?? undefined,
+      ).then((data) => {
+        if (!cancelled) setDefectPareto(data);
+      }).catch(() => {
+        if (!cancelled) setDefectPareto({ totalDefects: 0, items: [] });
+      }).finally(() => {
+        if (!cancelled) setDefectParetoLoading(false);
+      });
+    } else {
+      setDowntimeParetoLoading(true);
+      setDefectPareto(null);
+      supervisorDashboardApi.getDowntimePareto(
+        selectedWcId,
+        user.defaultSiteId,
+        metricView,
+        todayISOString(),
+        selectedOperatorId ?? undefined,
+      ).then((data) => {
+        if (!cancelled) setDowntimePareto(data);
+      }).catch(() => {
+        if (!cancelled) setDowntimePareto({ totalDowntimeMinutes: 0, items: [] });
+      }).finally(() => {
+        if (!cancelled) setDowntimeParetoLoading(false);
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMetricId, selectedWcId, user?.defaultSiteId, metricView, selectedOperatorId]);
 
   return (
     <AdminLayout
@@ -507,21 +566,21 @@ export function SupervisorDashboardScreen() {
             <button
               type="button"
               className={`${styles.kpiCard} ${styles.metricCardButton}`}
-              onClick={() => openMetricDrilldown('avgBetweenScans')}
-              aria-label="Open Avg Between Scans details"
+              onClick={() => openMetricDrilldown('downtime')}
+              aria-label="Open Total Downtime details"
             >
-              <div className={styles.kpiHeader}>Avg Between Scans</div>
+              <div className={styles.kpiHeader}>Total Downtime</div>
               <div className={styles.kpiBody}>
                 <div className={styles.kpiValues}>
                   <div className={styles.kpiValueGroup}>
                     <span className={styles.kpiNumber}>
-                      {formatSeconds(selectedAvgScanSeconds ?? 0)}
+                      {formatMinutes(selectedDowntimeMinutes ?? 0)}
                     </span>
                     <div className={styles.kpiSparkline}>
                       <Sparkline
-                        values={avgBetweenScansTrendValues}
-                        testId="sparkline-avg-between-scans"
-                        ariaLabel="Average time between scans trend for last 30 days"
+                        values={downtimeTrendValues}
+                        testId="sparkline-downtime"
+                        ariaLabel="Downtime minutes trend for last 30 days"
                       />
                     </div>
                   </div>
@@ -872,33 +931,70 @@ export function SupervisorDashboardScreen() {
                 Current {selectedPeriodLabel}: {selectedMetric.cardValueText}
               </div>
             </div>
-            <div className={styles.metricDialogChart}>
-              <MetricTrendChart
-                points={selectedMetric.points}
-                color={selectedMetric.color}
-                testId="metric-drilldown-chart"
-                ariaLabel={`${selectedMetric.title} trend for last 30 days`}
-              />
-            </div>
-            <div className={styles.metricDialogTableHeader}>Daily Values</div>
-            <div className={styles.metricDialogTableWrap}>
-              <table className={`${styles.table} ${styles.metricDialogTable}`} data-testid="metric-drilldown-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedMetricRows.map((point) => (
-                    <tr key={point.date}>
-                      <td>{point.date}</td>
-                      <td>{formatTrendValue(point.value, selectedMetric.format)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {selectedMetric.id === 'defects' || selectedMetric.id === 'downtime' ? (
+              <>
+                <div className={styles.metricDialogTableHeader}>
+                  {selectedMetric.id === 'defects'
+                    ? `Defect Pareto (${selectedPeriodLabel})`
+                    : `Downtime Reason Pareto (${selectedPeriodLabel})`}
+                </div>
+                <div className={styles.metricDialogChart}>
+                  {selectedMetric.id === 'defects' && defectParetoLoading ? (
+                    <Spinner size="small" label="Loading defect Pareto..." />
+                  ) : selectedMetric.id === 'downtime' && downtimeParetoLoading ? (
+                    <Spinner size="small" label="Loading downtime Pareto..." />
+                  ) : selectedMetric.id === 'defects' && defectPareto && defectPareto.items.length > 0 ? (
+                    <DefectParetoChart
+                      items={defectPareto.items}
+                      testId="defect-pareto-chart"
+                      ariaLabel={`Defect Pareto for selected ${selectedPeriodLabel.toLowerCase()}`}
+                    />
+                  ) : selectedMetric.id === 'downtime' && downtimePareto && downtimePareto.items.length > 0 ? (
+                    <DowntimeParetoChart
+                      items={downtimePareto.items}
+                      testId="downtime-pareto-chart"
+                      ariaLabel={`Downtime reason Pareto for selected ${selectedPeriodLabel.toLowerCase()}`}
+                    />
+                  ) : (
+                    <div className={styles.emptyState}>
+                      {selectedMetric.id === 'defects'
+                        ? 'No defect data for selected range.'
+                        : 'No downtime data for selected range.'}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.metricDialogChart}>
+                  <MetricTrendChart
+                    points={selectedMetric.points}
+                    color={selectedMetric.color}
+                    testId="metric-drilldown-chart"
+                    ariaLabel={`${selectedMetric.title} trend for last 30 days`}
+                  />
+                </div>
+                <div className={styles.metricDialogTableHeader}>Daily Values</div>
+                <div className={styles.metricDialogTableWrap}>
+                  <table className={`${styles.table} ${styles.metricDialogTable}`} data-testid="metric-drilldown-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedMetricRows.map((point) => (
+                        <tr key={point.date}>
+                          <td>{point.date}</td>
+                          <td>{formatTrendValue(point.value, selectedMetric.format)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </AdminModal>
       )}

@@ -2,16 +2,19 @@
   margin: 0 0 0 auto !important;
   width: min(84vw, 930px) !important;
   max-width: min(84vw, 930px) !important;
-  height: min(84vh, 700px);
-  height: min(84dvh, 700px);
-  max-height: min(84vh, 700px);
-  max-height: min(84dvh, 700px);
+  height: min(84vh, 700px) !important;
+  height: min(84dvh, 700px) !important;
+  max-height: min(84vh, 700px) !important;
+  max-height: min(84dvh, 700px) !important;
+  min-height: 420px !important;
   padding: 0 !important;
   border-radius: 4px !important;
   border: none !important;
   box-shadow: 0 18px 40px rgba(7, 14, 36, 0.35);
   transform: translateX(0);
   transform-origin: right center;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -30,8 +33,9 @@
 .body {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   height: 100%;
-  max-height: 100%;
+  min-height: 0;
   overflow: hidden;
   gap: 0 !important;
   padding: 0 !important;
@@ -41,6 +45,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  flex: 0 0 48px;
   height: 48px;
   min-height: 48px;
   padding: 0 52px 0 14px;
@@ -62,16 +67,25 @@
 
 .contentArea {
   display: flex;
-  flex: 1;
+  flex: 0 0 calc(100% - 48px);
+  height: calc(100% - 48px);
+  min-height: 0;
+  max-height: calc(100% - 48px);
   overflow: hidden;
   padding: 0 !important;
 }
 
 .toc {
+  flex: 0 0 230px;
   width: 230px;
   min-width: 230px;
+  min-height: 0;
   border-right: 1px solid #dfe2ed;
-  overflow-y: auto;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
   padding: 10px 0;
   background: #f4f6f9;
   display: flex;
@@ -192,8 +206,14 @@
 /* ── Article Content ── */
 
 .article {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
   padding: 20px 26px 24px;
   font-family: 'Roboto', Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -303,8 +323,8 @@
   .surface {
     width: min(96vw, 860px) !important;
     max-width: min(96vw, 860px) !important;
-    height: min(88dvh, 700px);
-    max-height: min(88dvh, 700px);
+    height: min(88dvh, 700px) !important;
+    max-height: min(88dvh, 700px) !important;
   }
 
   .toc {
@@ -341,6 +361,7 @@
   }
 
   .toc {
+    flex: 0 0 auto;
     width: 100%;
     min-width: 100%;
     max-height: 34%;

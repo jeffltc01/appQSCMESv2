@@ -556,6 +556,361 @@ public class ChecklistService : IChecklistService
         return MapEntry(entry);
     }
 
+    public async Task<ChecklistReviewSummaryDto> GetReviewSummaryAsync(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        string? checklistType,
+        CancellationToken ct = default)
+    {
+        var normalizedChecklistType = string.IsNullOrWhiteSpace(checklistType) ? null : checklistType.Trim();
+        var (from, to) = await ResolveSiteDateWindowToUtcAsync(siteId, fromUtc, toUtc, ct);
+
+        var rows = await BuildReviewResponseRowsQuery(siteId, from, to, normalizedChecklistType)
+            .ToListAsync(ct);
+
+        var scoreTypeIds = rows
+            .Where(r => string.Equals(r.ResponseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase) && r.ScoreTypeId.HasValue)
+            .Select(r => r.ScoreTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var scoreOptionsLookup = await GetScoreOptionsLookupAsync(scoreTypeIds, ct);
+
+        var questionSummaries = rows
+            .GroupBy(r => new { r.ChecklistTemplateItemId, r.Prompt, r.Section, r.ResponseType })
+            .Select(g =>
+            {
+                var responseBuckets = g
+                    .GroupBy(r => r.ResponseValue)
+                    .Select(bg =>
+                    {
+                        var firstRow = bg.First();
+                        return new ChecklistResponseBucketDto
+                        {
+                            Value = bg.Key,
+                            Label = ResolveResponseLabel(firstRow.ResponseType, firstRow.ScoreTypeId, bg.Key, scoreOptionsLookup),
+                            Count = bg.Count()
+                        };
+                    })
+                    .OrderByDescending(b => b.Count)
+                    .ThenBy(b => b.Label)
+                    .ToList();
+
+                return new ChecklistQuestionSummaryDto
+                {
+                    ChecklistTemplateItemId = g.Key.ChecklistTemplateItemId,
+                    Prompt = g.Key.Prompt,
+                    Section = g.Key.Section,
+                    ResponseType = g.Key.ResponseType,
+                    ResponseCount = g.Count(),
+                    ResponseBuckets = responseBuckets
+                };
+            })
+            .OrderBy(q => q.Section ?? string.Empty)
+            .ThenBy(q => q.Prompt)
+            .ToList();
+
+        var checklistTypesFound = rows
+            .Select(r => r.ChecklistType)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(v => v)
+            .ToList();
+
+        var checklistFiltersFound = rows
+            .GroupBy(r => r.ChecklistType, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var checklistName = g
+                    .Where(x => !string.IsNullOrWhiteSpace(x.ChecklistName))
+                    .GroupBy(x => x.ChecklistName!, StringComparer.Ordinal)
+                    .OrderByDescending(x => x.Count())
+                    .Select(x => x.Key)
+                    .FirstOrDefault();
+
+                return new ChecklistFilterOptionDto
+                {
+                    ChecklistType = g.Key,
+                    ChecklistName = checklistName ?? g.Key
+                };
+            })
+            .OrderBy(v => v.ChecklistName)
+            .ToList();
+
+        var totalEntries = rows
+            .Select(r => r.ChecklistEntryId)
+            .Distinct()
+            .Count();
+
+        return new ChecklistReviewSummaryDto
+        {
+            SiteId = siteId,
+            FromUtc = from,
+            ToUtc = to,
+            ChecklistType = normalizedChecklistType,
+            TotalEntries = totalEntries,
+            TotalResponses = rows.Count,
+            ChecklistTypesFound = checklistTypesFound,
+            ChecklistFiltersFound = checklistFiltersFound,
+            Questions = questionSummaries
+        };
+    }
+
+    public async Task<ChecklistQuestionResponsesDto> GetQuestionResponsesAsync(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        Guid checklistTemplateItemId,
+        string? checklistType,
+        CancellationToken ct = default)
+    {
+        var normalizedChecklistType = string.IsNullOrWhiteSpace(checklistType) ? null : checklistType.Trim();
+        var (from, to) = await ResolveSiteDateWindowToUtcAsync(siteId, fromUtc, toUtc, ct);
+
+        var rows = await BuildReviewResponseRowsQuery(siteId, from, to, normalizedChecklistType)
+            .Where(r => r.ChecklistTemplateItemId == checklistTemplateItemId)
+            .OrderByDescending(r => r.RespondedAtUtc)
+            .ToListAsync(ct);
+
+        if (rows.Count == 0)
+        {
+            var item = await _db.ChecklistTemplateItems
+                .AsNoTracking()
+                .Where(i => i.Id == checklistTemplateItemId)
+                .Select(i => new { i.Id, i.Prompt, i.Section, i.ResponseType })
+                .FirstOrDefaultAsync(ct);
+            if (item == null)
+            {
+                throw new KeyNotFoundException("Checklist question not found.");
+            }
+
+            return new ChecklistQuestionResponsesDto
+            {
+                ChecklistTemplateItemId = item.Id,
+                Prompt = item.Prompt,
+                Section = item.Section,
+                ResponseType = item.ResponseType,
+                TotalResponses = 0,
+                ResponseBuckets = [],
+                Rows = []
+            };
+        }
+
+        var scoreTypeIds = rows
+            .Where(r => string.Equals(r.ResponseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase) && r.ScoreTypeId.HasValue)
+            .Select(r => r.ScoreTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var scoreOptionsLookup = await GetScoreOptionsLookupAsync(scoreTypeIds, ct);
+
+        var responseBuckets = rows
+            .GroupBy(r => r.ResponseValue)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new ChecklistResponseBucketDto
+                {
+                    Value = g.Key,
+                    Label = ResolveResponseLabel(first.ResponseType, first.ScoreTypeId, g.Key, scoreOptionsLookup),
+                    Count = g.Count()
+                };
+            })
+            .OrderByDescending(v => v.Count)
+            .ThenBy(v => v.Label)
+            .ToList();
+
+        var firstRow = rows[0];
+        return new ChecklistQuestionResponsesDto
+        {
+            ChecklistTemplateItemId = firstRow.ChecklistTemplateItemId,
+            Prompt = firstRow.Prompt,
+            Section = firstRow.Section,
+            ResponseType = firstRow.ResponseType,
+            TotalResponses = rows.Count,
+            ResponseBuckets = responseBuckets,
+            Rows = rows
+                .Select(r => new ChecklistQuestionResponseRowDto
+                {
+                    ChecklistEntryId = r.ChecklistEntryId,
+                    ChecklistType = r.ChecklistType,
+                    OperatorUserId = r.OperatorUserId,
+                    OperatorDisplayName = r.OperatorDisplayName,
+                    RespondedAtUtc = r.RespondedAtUtc,
+                    ResponseValue = r.ResponseValue,
+                    ResponseLabel = ResolveResponseLabel(r.ResponseType, r.ScoreTypeId, r.ResponseValue, scoreOptionsLookup),
+                    Note = r.Note
+                })
+                .ToList()
+        };
+    }
+
+    private IQueryable<ReviewResponseRow> BuildReviewResponseRowsQuery(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        string? checklistType)
+    {
+        var query = _db.ChecklistEntryItemResponses
+            .AsNoTracking()
+            .Where(r =>
+                r.ChecklistEntry.SiteId == siteId &&
+                r.ChecklistEntry.CompletedAtUtc.HasValue &&
+                r.ChecklistEntry.CompletedAtUtc.Value >= fromUtc &&
+                r.ChecklistEntry.CompletedAtUtc.Value <= toUtc)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(checklistType))
+        {
+            query = query.Where(r => r.ChecklistEntry.ChecklistType == checklistType);
+        }
+
+        return query.Select(r => new ReviewResponseRow
+        {
+            ChecklistEntryId = r.ChecklistEntryId,
+            ChecklistType = r.ChecklistEntry.ChecklistType,
+            ChecklistName = r.ChecklistEntry.ChecklistTemplate.Title,
+            OperatorUserId = r.ChecklistEntry.OperatorUserId,
+            OperatorDisplayName = r.ChecklistEntry.OperatorUser.DisplayName,
+            ChecklistTemplateItemId = r.ChecklistTemplateItemId,
+            Prompt = r.ChecklistTemplateItem.Prompt,
+            Section = r.ChecklistTemplateItem.Section,
+            ResponseType = r.ChecklistTemplateItem.ResponseType,
+            ScoreTypeId = r.ChecklistTemplateItem.ScoreTypeId,
+            ResponseValue = r.ResponseValue,
+            Note = r.Note,
+            RespondedAtUtc = r.RespondedAtUtc
+        });
+    }
+
+    private async Task<Dictionary<Guid, Dictionary<Guid, ScoreTypeValue>>> GetScoreOptionsLookupAsync(
+        IReadOnlyCollection<Guid> scoreTypeIds,
+        CancellationToken ct)
+    {
+        if (scoreTypeIds.Count == 0)
+        {
+            return [];
+        }
+
+        var scoreOptions = await _db.ScoreTypeValues
+            .AsNoTracking()
+            .Where(v => scoreTypeIds.Contains(v.ScoreTypeId))
+            .ToListAsync(ct);
+
+        return scoreOptions
+            .GroupBy(v => v.ScoreTypeId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.ToDictionary(v => v.Id, v => v));
+    }
+
+    private static string ResolveResponseLabel(
+        string responseType,
+        Guid? scoreTypeId,
+        string rawValue,
+        IReadOnlyDictionary<Guid, Dictionary<Guid, ScoreTypeValue>> scoreOptionsLookup)
+    {
+        if (string.Equals(responseType, ChecklistQuestionResponseTypes.Checkbox, StringComparison.OrdinalIgnoreCase))
+        {
+            if (bool.TryParse(rawValue, out var boolValue))
+            {
+                return boolValue ? "Pass" : "Fail";
+            }
+
+            return rawValue;
+        }
+
+        if (string.Equals(responseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase)
+            && scoreTypeId.HasValue
+            && Guid.TryParse(rawValue, out var scoreValueId)
+            && scoreOptionsLookup.TryGetValue(scoreTypeId.Value, out var valuesById)
+            && valuesById.TryGetValue(scoreValueId, out var scoreValue))
+        {
+            return $"{scoreValue.Score.ToString(CultureInfo.InvariantCulture)} - {scoreValue.Description}";
+        }
+
+        return rawValue;
+    }
+
+    private static void ValidateReviewWindow(DateTime fromUtc, DateTime toUtc)
+    {
+        if (fromUtc > toUtc)
+        {
+            throw new InvalidOperationException("FromUtc must be less than or equal to ToUtc.");
+        }
+
+        if ((toUtc - fromUtc).TotalDays > 180)
+        {
+            throw new InvalidOperationException("Date range cannot exceed 180 days.");
+        }
+    }
+
+    private async Task<(DateTime FromUtc, DateTime ToUtc)> ResolveSiteDateWindowToUtcAsync(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        CancellationToken ct)
+    {
+        var fromDate = DateOnly.FromDateTime(fromUtc);
+        var toDate = DateOnly.FromDateTime(toUtc);
+        if (fromDate > toDate)
+        {
+            throw new InvalidOperationException("FromUtc must be less than or equal to ToUtc.");
+        }
+        if (toDate.DayNumber - fromDate.DayNumber > 180)
+        {
+            throw new InvalidOperationException("Date range cannot exceed 180 days.");
+        }
+
+        var timeZoneId = await _db.Plants
+            .AsNoTracking()
+            .Where(p => p.Id == siteId)
+            .Select(p => p.TimeZoneId)
+            .FirstOrDefaultAsync(ct);
+
+        var siteTimeZone = ResolveTimeZoneOrUtc(timeZoneId);
+        var localStart = new DateTime(fromDate.Year, fromDate.Month, fromDate.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        var localEnd = new DateTime(toDate.Year, toDate.Month, toDate.Day, 23, 59, 59, 999, DateTimeKind.Unspecified);
+        var resolvedFromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, siteTimeZone);
+        var resolvedToUtc = TimeZoneInfo.ConvertTimeToUtc(localEnd, siteTimeZone);
+        ValidateReviewWindow(resolvedFromUtc, resolvedToUtc);
+        return (resolvedFromUtc, resolvedToUtc);
+    }
+
+    private static TimeZoneInfo ResolveTimeZoneOrUtc(string? timeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
+    private sealed class ReviewResponseRow
+    {
+        public Guid ChecklistEntryId { get; init; }
+        public string ChecklistType { get; init; } = string.Empty;
+        public string? ChecklistName { get; init; }
+        public Guid OperatorUserId { get; init; }
+        public string OperatorDisplayName { get; init; } = string.Empty;
+        public Guid ChecklistTemplateItemId { get; init; }
+        public string Prompt { get; init; } = string.Empty;
+        public string? Section { get; init; }
+        public string ResponseType { get; init; } = string.Empty;
+        public Guid? ScoreTypeId { get; init; }
+        public string ResponseValue { get; init; } = string.Empty;
+        public string? Note { get; init; }
+        public DateTime RespondedAtUtc { get; init; }
+    }
+
     private async Task EnsureNoActiveOverlapAsync(UpsertChecklistTemplateRequestDto request, CancellationToken ct)
     {
         if (!request.IsActive)

@@ -25,7 +25,7 @@ vi.mock('../../api/endpoints', () => ({
       fpy: [],
       defects: [],
       qtyPerHour: [],
-      avgBetweenScans: [],
+      downtimeMinutes: [],
       oee: [],
       availability: [],
       performance: [],
@@ -33,6 +33,8 @@ vi.mock('../../api/endpoints', () => ({
     }),
     getRecords: vi.fn().mockResolvedValue([]),
     getPerformanceTable: vi.fn().mockResolvedValue({ rows: [], totalRow: null }),
+    getDefectPareto: vi.fn().mockResolvedValue({ totalDefects: 0, items: [] }),
+    getDowntimePareto: vi.fn().mockResolvedValue({ totalDowntimeMinutes: 0, items: [] }),
     submitAnnotation: vi.fn().mockResolvedValue({ annotationsCreated: 0 }),
   },
   siteApi: { getSites: vi.fn().mockResolvedValue([]) },
@@ -79,9 +81,9 @@ const mockMetrics: SupervisorDashboardMetrics = {
   dayDefects: 3,
   weekDefects: 12,
   monthDefects: 41,
-  dayAvgTimeBetweenScans: 135,
-  weekAvgTimeBetweenScans: 142,
-  monthAvgTimeBetweenScans: 139,
+  dayDowntimeMinutes: 45,
+  weekDowntimeMinutes: 180,
+  monthDowntimeMinutes: 525,
   dayQtyPerHour: 8.2,
   weekQtyPerHour: 7.6,
   monthQtyPerHour: 7.9,
@@ -128,11 +130,29 @@ const mockTrends: SupervisorDashboardTrends = {
   fpy: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 92 + (i % 5) })),
   defects: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: i % 3 })),
   qtyPerHour: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 6 + (i % 4) / 10 })),
-  avgBetweenScans: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 120 + (i % 6) })),
+  downtimeMinutes: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 30 + (i % 6) * 5 })),
   oee: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 75 + (i % 7) })),
   availability: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 88 + (i % 4) })),
   performance: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 84 + (i % 5) })),
   quality: Array.from({ length: 30 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, value: 95 + (i % 3) })),
+};
+
+const mockDefectPareto = {
+  totalDefects: 12,
+  items: [
+    { defectCode: 'D001', defectName: 'Undercut', count: 6, cumulativePercent: 50 },
+    { defectCode: 'D002', defectName: 'Burn Through', count: 4, cumulativePercent: 83.3 },
+    { defectCode: 'D003', defectName: 'Crack', count: 2, cumulativePercent: 100 },
+  ],
+};
+
+const mockDowntimePareto = {
+  totalDowntimeMinutes: 120,
+  items: [
+    { reasonName: 'Maintenance', minutes: 50, cumulativePercent: 41.7 },
+    { reasonName: 'Material', minutes: 40, cumulativePercent: 75.0 },
+    { reasonName: 'Changeover', minutes: 30, cumulativePercent: 100 },
+  ],
 };
 
 async function selectWorkCenter(user: ReturnType<typeof userEvent.setup>) {
@@ -147,6 +167,8 @@ describe('SupervisorDashboardScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(supervisorDashboardApi.getTrends).mockResolvedValue(mockTrends);
+    vi.mocked(supervisorDashboardApi.getDefectPareto).mockResolvedValue(mockDefectPareto);
+    vi.mocked(supervisorDashboardApi.getDowntimePareto).mockResolvedValue(mockDowntimePareto);
   });
 
   it('shows prompt to select a work center initially', async () => {
@@ -190,7 +212,7 @@ describe('SupervisorDashboardScreen', () => {
       expect(screen.getByTestId('sparkline-count')).toBeInTheDocument();
       expect(screen.getByTestId('sparkline-fpy')).toBeInTheDocument();
       expect(screen.getByTestId('sparkline-defects')).toBeInTheDocument();
-      expect(screen.getByTestId('sparkline-avg-between-scans')).toBeInTheDocument();
+      expect(screen.getByTestId('sparkline-downtime')).toBeInTheDocument();
       expect(screen.getByTestId('sparkline-qty-per-hour')).toBeInTheDocument();
       expect(screen.getByTestId('sparkline-oee')).toBeInTheDocument();
       expect(screen.getByTestId('sparkline-availability')).toBeInTheDocument();
@@ -274,6 +296,58 @@ describe('SupervisorDashboardScreen', () => {
       expect(screen.getByTestId('metric-drilldown-table')).toBeInTheDocument();
       expect(screen.getAllByText('--').length).toBeGreaterThan(0);
     });
+  });
+
+  it('opens total defects drilldown with Pareto chart instead of daily values', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open total defects details/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /open total defects details/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Defects Details')).toBeInTheDocument();
+      expect(screen.getByTestId('defect-pareto-chart')).toBeInTheDocument();
+      expect(screen.getByText('Quantity')).toBeInTheDocument();
+      expect(screen.getByText('Percentage')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Daily Values')).not.toBeInTheDocument();
+    expect(supervisorDashboardApi.getDefectPareto).toHaveBeenCalledWith(
+      'wc-1', 'site-1', 'day', expect.any(String), undefined,
+    );
+  });
+
+  it('opens total downtime drilldown with downtime pareto chart', async () => {
+    vi.mocked(supervisorDashboardApi.getMetrics).mockResolvedValue(mockMetrics);
+    vi.mocked(supervisorDashboardApi.getRecords).mockResolvedValue(mockRecords);
+    vi.mocked(supervisorDashboardApi.getPerformanceTable).mockResolvedValue(mockPerfTable);
+    const user = userEvent.setup();
+
+    renderScreen();
+    await selectWorkCenter(user);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open total downtime details/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /open total downtime details/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Downtime Details')).toBeInTheDocument();
+      expect(screen.getByTestId('downtime-pareto-chart')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Daily Values')).not.toBeInTheDocument();
+    expect(supervisorDashboardApi.getDowntimePareto).toHaveBeenCalledWith(
+      'wc-1', 'site-1', 'day', expect.any(String), undefined,
+    );
   });
 
   it('shows toggle buttons when work center is selected', async () => {

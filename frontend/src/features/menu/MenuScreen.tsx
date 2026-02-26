@@ -88,6 +88,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Plant Gear', icon: <TopSpeedRegular />, minRoleTier: 3, route: '/menu/plant-gear', implemented: true },
       { label: 'Production Line Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/production-line-workcenters', implemented: true },
       { label: 'Safety / Shift Checklists', icon: <ClipboardTextLtrRegular />, minRoleTier: 6, route: '/menu/checklists', implemented: true },
+      { label: 'Checklist Response Review', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/checklist-response-review', implemented: true },
       { label: 'Checklist Score Types', icon: <ClipboardTextLtrRegular />, minRoleTier: 2, route: '/menu/checklist-score-types', implemented: true },
       { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },
       { label: 'Downtime Log', icon: <TimerRegular />, minRoleTier: 5, route: '/menu/downtime-events', implemented: true },

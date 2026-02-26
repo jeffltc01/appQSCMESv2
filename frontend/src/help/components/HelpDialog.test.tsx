@@ -16,6 +16,8 @@ vi.mock('/src/help/articles/*.md?raw', () => ({}));
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  document.documentElement.classList.remove('help-scroll-open');
+  document.body.classList.remove('help-scroll-open');
 });
 
 function renderDialog(props: Partial<Parameters<typeof HelpDialog>[0]> = {}) {
@@ -33,6 +35,49 @@ function renderDialog(props: Partial<Parameters<typeof HelpDialog>[0]> = {}) {
 }
 
 describe('HelpDialog', () => {
+  it('renders explicit TOC and article scroll regions', () => {
+    renderDialog();
+    const tocRegion = screen.getByRole('navigation', { name: 'Help table of contents' });
+    const articleRegion = screen.getByRole('region', { name: 'Help article content' });
+    expect(tocRegion).toBeInTheDocument();
+    expect(articleRegion).toBeInTheDocument();
+    expect(tocRegion.className).toContain('toc');
+    expect(articleRegion.className).toContain('article');
+  });
+
+  it('renders an article content region for scrollable help text', () => {
+    renderDialog();
+    const articleRegion = screen.getByRole('region', { name: 'Help article content' });
+    expect(articleRegion).toBeInTheDocument();
+    expect(articleRegion.className).toContain('article');
+  });
+
+  it('applies and removes help scroll override classes through open-close lifecycle', () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    const { rerender } = renderDialog({ open: true, onClose });
+    expect(document.documentElement.classList.contains('help-scroll-open')).toBe(true);
+    expect(document.body.classList.contains('help-scroll-open')).toBe(true);
+
+    rerender(
+      <FluentProvider theme={webLightTheme}>
+        <HelpDialog open={false} onClose={onClose} initialSlug="overview" />
+      </FluentProvider>,
+    );
+
+    // During close animation the dialog remains mounted, so the class stays active.
+    expect(document.documentElement.classList.contains('help-scroll-open')).toBe(true);
+    expect(document.body.classList.contains('help-scroll-open')).toBe(true);
+
+    act(() => {
+      vi.advanceTimersByTime(260);
+    });
+
+    expect(document.documentElement.classList.contains('help-scroll-open')).toBe(false);
+    expect(document.body.classList.contains('help-scroll-open')).toBe(false);
+    vi.useRealTimers();
+  });
+
   it('keeps the dialog mounted while closing animation runs', () => {
     vi.useFakeTimers();
     const onClose = vi.fn();
