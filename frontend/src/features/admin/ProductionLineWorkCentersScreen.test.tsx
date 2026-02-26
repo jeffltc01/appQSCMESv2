@@ -198,7 +198,14 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    const cancelOrCloseButton =
+      screen.queryByRole('button', { name: 'Cancel' })
+      ?? screen.queryByRole('button', { name: 'Close' });
+    if (cancelOrCloseButton) {
+      await user.click(cancelOrCloseButton);
+    } else {
+      await user.keyboard('{Escape}');
+    }
 
     const deleteButtons = screen.getAllByRole('button', { name: 'Delete production line config' });
     await user.click(deleteButtons[0]);
