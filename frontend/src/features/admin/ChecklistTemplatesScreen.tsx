@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Checkbox, Dropdown, Input, Label, Option, Spinner, Textarea } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
@@ -78,7 +78,9 @@ export function ChecklistTemplatesScreen() {
   const [itemImportText, setItemImportText] = useState('');
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importError, setImportError] = useState('');
+  const [importSuccess, setImportSuccess] = useState('');
   const [questionEditorIndex, setQuestionEditorIndex] = useState<number | null>(null);
+  const questionListRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,6 +147,7 @@ export function ChecklistTemplatesScreen() {
     setDeletedItemIds([]);
     setItemImportText('');
     setImportError('');
+    setImportSuccess('');
     setImportModalOpen(false);
     setQuestionEditorIndex(null);
     setError('');
@@ -185,6 +188,7 @@ export function ChecklistTemplatesScreen() {
     setDeletedItemIds([]);
     setItemImportText('');
     setImportError('');
+    setImportSuccess('');
     setImportModalOpen(false);
     setQuestionEditorIndex(null);
     setError('');
@@ -195,20 +199,39 @@ export function ChecklistTemplatesScreen() {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
   };
 
+  const scrollQuestionsToBottom = () => {
+    requestAnimationFrame(() => {
+      const container = questionListRef.current;
+      if (!container) return;
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        return;
+      }
+      container.scrollTop = container.scrollHeight;
+    });
+  };
+
   const addItem = () => {
-    setItems((prev) => [
-      ...prev,
-      {
-        sortOrder: prev.length + 1,
-        prompt: '',
-        isRequired: true,
-        responseMode,
-        responseType: 'PassFail',
-        responseOptions: [],
-        helpText: '',
-        requireFailNote: false,
-      },
-    ]);
+    let nextIndex = 0;
+    setItems((prev) => {
+      nextIndex = prev.length;
+      return [
+        ...prev,
+        {
+          sortOrder: prev.length + 1,
+          prompt: '',
+          isRequired: true,
+          responseMode,
+          responseType: 'PassFail',
+          responseOptions: [],
+          helpText: '',
+          requireFailNote: false,
+        },
+      ];
+    });
+    setQuestionEditorIndex(nextIndex);
+    setImportSuccess('');
+    scrollQuestionsToBottom();
   };
 
   const removeItem = (index: number) => {
@@ -264,7 +287,9 @@ export function ChecklistTemplatesScreen() {
     });
     setItemImportText('');
     setImportError('');
+    setImportSuccess(`Imported ${prompts.length} question${prompts.length === 1 ? '' : 's'}.`);
     setImportModalOpen(false);
+    scrollQuestionsToBottom();
   };
 
   const handleSave = async () => {
@@ -584,6 +609,7 @@ export function ChecklistTemplatesScreen() {
             <Button
               onClick={() => {
                 setImportError('');
+                setImportSuccess('');
                 setImportModalOpen(true);
               }}
             >
@@ -592,7 +618,11 @@ export function ChecklistTemplatesScreen() {
             <Button onClick={addItem}>Add Question</Button>
           </div>
         </div>
-        <div style={{ maxHeight: '48vh', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, padding: 8 }}>
+        {importSuccess && <div style={{ color: '#107c10', fontSize: 13 }}>{importSuccess}</div>}
+        <div
+          ref={questionListRef}
+          style={{ maxHeight: '48vh', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, padding: 8 }}
+        >
           {items.map((item, index) => (
             <div key={item.id ?? `item-${index}`} style={{ border: '1px solid #d0d0d0', padding: 12, marginTop: 8, borderRadius: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>

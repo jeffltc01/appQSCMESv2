@@ -85,6 +85,50 @@ describe('ChecklistTemplatesScreen', () => {
     expect(screen.getByText('Fail Note Required')).toBeInTheDocument();
   });
 
+  it('adds a question and immediately opens the question editor', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Safety Pre-shift')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
+    expect(screen.queryByText('Question 1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Question 1')).toBeInTheDocument();
+      expect(screen.getByText('Edit Question 1')).toBeInTheDocument();
+    });
+  });
+
+  it('shows imported questions in the list immediately', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Safety Pre-shift')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
+    const allTextboxes = screen.getAllByRole('textbox');
+    const topTextInputs = allTextboxes.filter((el) => el.tagName === 'INPUT');
+    fireEvent.change(topTextInputs[0], { target: { value: 'Ops checks' } });
+    fireEvent.change(topTextInputs[1], { target: { value: 'OPS-100' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import as PassFail Questions' }));
+    await waitFor(() => {
+      expect(screen.getByText('Import PassFail Questions')).toBeInTheDocument();
+    });
+    const textareasAfterOpen = screen.getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
+    fireEvent.change(textareasAfterOpen[textareasAfterOpen.length - 1], { target: { value: 'First check\nSecond check' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Import Questions' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Imported 2 questions.')).toBeInTheDocument();
+      expect(screen.getByText('First check')).toBeInTheDocument();
+      expect(screen.getByText('Second check')).toBeInTheDocument();
+    });
+  });
+
   it('imports prompt lines as pass/fail items and sends typed payload', async () => {
     renderScreen();
     await waitFor(() => {
