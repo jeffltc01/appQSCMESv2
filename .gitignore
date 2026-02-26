@@ -38,6 +38,9 @@ Thumbs.db
 # Test results
 frontend/coverage/
 backend/TestResults/
+backend/MESv2.Api.Tests/TestResults/
+backend/.testbuild/
+backend/.testobj/
 e2e/playwright-report/
 e2e/test-results/
 e2e/artifacts/**/build/
