@@ -400,7 +400,7 @@ export function ChecklistTemplateEditorScreen() {
                 {(canAssignAnyOwner ? users : [{ id: user?.id ?? '', displayName: user?.displayName ?? '', employeeNumber: user?.employeeNumber ?? '' } as AdminUser])
                   .filter((item) => !!item.id)
                   .map((item) => (
-                    <Option key={item.id} value={item.id}>{item.displayName} ({item.employeeNumber})</Option>
+                    <Option key={item.id} value={item.id} text={`${item.displayName} (${item.employeeNumber})`}>{item.displayName} ({item.employeeNumber})</Option>
                   ))}
               </Dropdown>
             </div>
@@ -421,7 +421,7 @@ export function ChecklistTemplateEditorScreen() {
               <Dropdown value={siteNameById.get(siteId) ?? 'None'} selectedOptions={[siteId]} onOptionSelect={(_, data) => setSiteId(data.optionValue ?? '')} disabled={!canCrossSite && !!siteId}>
                 <Option value="">None</Option>
                 {sites.map((site) => (
-                  <Option key={site.id} value={site.id}>{site.name} ({site.code})</Option>
+                  <Option key={site.id} value={site.id} text={`${site.name} (${site.code})`}>{site.name} ({site.code})</Option>
                 ))}
               </Dropdown>
             </div>

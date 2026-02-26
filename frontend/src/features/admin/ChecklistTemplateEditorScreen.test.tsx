@@ -117,7 +117,7 @@ describe('ChecklistTemplateEditorScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Question' }));
 
     const responseTypeDropdown = document.querySelector('button[role="combobox"][value="Checkbox"]') as HTMLButtonElement | null;
-    expect(responseTypeDropdown).not.toBeNull();
+    if (!responseTypeDropdown) throw new Error('Response type dropdown not found');
     fireEvent.click(responseTypeDropdown);
     fireEvent.click(await screen.findByText('Score'));
     expect(await screen.findByText('Score Type')).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('ChecklistTemplateEditorScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Question' }));
 
     const responseTypeDropdown = document.querySelector('button[role="combobox"][value="Checkbox"]') as HTMLButtonElement | null;
-    expect(responseTypeDropdown).not.toBeNull();
+    if (!responseTypeDropdown) throw new Error('Response type dropdown not found');
     fireEvent.click(responseTypeDropdown);
     fireEvent.click(await screen.findByText('Dimension'));
     expect(await screen.findByText('Target')).toBeInTheDocument();

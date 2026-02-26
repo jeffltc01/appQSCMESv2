@@ -8,40 +8,48 @@ vi.mock('react-router-dom', () => ({
 
 import { useLocation } from 'react-router-dom';
 const mockUseLocation = vi.mocked(useLocation);
+const mockLocation = (pathname: string): ReturnType<typeof useLocation> => ({
+  pathname,
+  search: '',
+  hash: '',
+  state: null,
+  key: '',
+  unstable_mask: undefined,
+});
 
 describe('useCurrentHelpArticle', () => {
   it('returns operator article matching dataEntryType on /operator route', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/operator', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/operator'));
     const { result } = renderHook(() => useCurrentHelpArticle('Rolls'));
     expect(result.current.slug).toBe('rolls');
   });
 
   it('returns operator-layout when dataEntryType is unknown on /operator', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/operator', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/operator'));
     const { result } = renderHook(() => useCurrentHelpArticle('UnknownType'));
     expect(result.current.slug).toBe('operator-layout');
   });
 
   it('matches admin routes by path', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/menu/products', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/menu/products'));
     const { result } = renderHook(() => useCurrentHelpArticle());
     expect(result.current.slug).toBe('products');
   });
 
   it('matches the menu route', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/menu', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/menu'));
     const { result } = renderHook(() => useCurrentHelpArticle());
     expect(result.current.slug).toBe('menu');
   });
 
   it('matches login route', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/login', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/login'));
     const { result } = renderHook(() => useCurrentHelpArticle());
     expect(result.current.slug).toBe('login');
   });
 
   it('matches tablet-setup route', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/tablet-setup', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/tablet-setup'));
     const { result } = renderHook(() => useCurrentHelpArticle());
     expect(result.current.slug).toBe('tablet-setup');
   });
@@ -55,14 +63,14 @@ describe('useCurrentHelpArticle', () => {
     };
 
     for (const [pathname, expectedSlug] of Object.entries(routeToSlug)) {
-      mockUseLocation.mockReturnValue({ pathname, search: '', hash: '', state: null, key: '' });
+      mockUseLocation.mockReturnValue(mockLocation(pathname));
       const { result } = renderHook(() => useCurrentHelpArticle());
       expect(result.current.slug).toBe(expectedSlug);
     }
   });
 
   it('falls back to overview for unknown routes', () => {
-    mockUseLocation.mockReturnValue({ pathname: '/unknown', search: '', hash: '', state: null, key: '' });
+    mockUseLocation.mockReturnValue(mockLocation('/unknown'));
     const { result } = renderHook(() => useCurrentHelpArticle());
     expect(result.current.slug).toBe('overview');
   });
@@ -84,7 +92,7 @@ describe('useCurrentHelpArticle', () => {
     };
 
     for (const [dataEntryType, expectedSlug] of Object.entries(mappings)) {
-      mockUseLocation.mockReturnValue({ pathname: '/operator', search: '', hash: '', state: null, key: '' });
+      mockUseLocation.mockReturnValue(mockLocation('/operator'));
       const { result } = renderHook(() => useCurrentHelpArticle(dataEntryType));
       expect(result.current.slug).toBe(expectedSlug);
     }

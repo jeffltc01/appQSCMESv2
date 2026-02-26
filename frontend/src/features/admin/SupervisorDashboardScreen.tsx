@@ -238,7 +238,7 @@ export function SupervisorDashboardScreen() {
     : metricView === 'week'
       ? metrics?.weekQtyPerHour
       : metrics?.monthQtyPerHour;
-  const fpyBorderClass = selectedFpy === null
+  const fpyBorderClass = selectedFpy == null
     ? styles.metricBorderDefault
     : selectedFpy >= 95
       ? styles.metricBorderGreen
@@ -251,11 +251,13 @@ export function SupervisorDashboardScreen() {
       : metrics && metrics.oeeOverall < 60
         ? styles.metricBorderRed
         : styles.metricBorderDefault;
-  const availabilityBorderClass = metrics && metrics.oeeAvailability >= 90
-    ? styles.metricBorderGreen
-    : metrics && metrics.oeeAvailability < 70
-      ? styles.metricBorderRed
-      : styles.metricBorderDefault;
+  const availabilityBorderClass = metrics?.oeeAvailability == null
+    ? styles.metricBorderDefault
+    : metrics.oeeAvailability >= 90
+      ? styles.metricBorderGreen
+      : metrics.oeeAvailability < 70
+        ? styles.metricBorderRed
+        : styles.metricBorderDefault;
   const performanceBorderClass = metrics?.oeePerformance === null
     ? styles.metricBorderDefault
     : metrics && metrics.oeePerformance >= 95

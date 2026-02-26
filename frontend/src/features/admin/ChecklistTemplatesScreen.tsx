@@ -35,6 +35,7 @@ export function ChecklistTemplatesScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const siteIdQuery = canCrossSite ? (siteFilter || undefined) : user?.defaultSiteId;
       const [templatesData, siteData, wcData] = await Promise.all([
@@ -45,8 +46,8 @@ export function ChecklistTemplatesScreen() {
       setTemplates(templatesData);
       setSites(siteData);
       setWorkCenters(wcData);
-    } catch {
-      setError('Failed to load checklist templates.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to load checklist templates.'));
     } finally {
       setLoading(false);
     }
@@ -102,6 +103,7 @@ export function ChecklistTemplatesScreen() {
           </Dropdown>
         </div>
       )}
+      {error && <div style={{ color: '#c92a2a', marginBottom: 10 }}>{error}</div>}
 
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
