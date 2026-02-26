@@ -14,8 +14,7 @@ const mockLocation = (pathname: string): ReturnType<typeof useLocation> => ({
   hash: '',
   state: null,
   key: '',
-  unstable_mask: undefined,
-});
+} as unknown as ReturnType<typeof useLocation>);
 
 describe('useCurrentHelpArticle', () => {
   it('returns operator article matching dataEntryType on /operator route', () => {
