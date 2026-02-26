@@ -275,6 +275,63 @@ public class SellableTankStatusServiceTests
     }
 
     [Fact]
+    public async Task GetStatus_UsesDataEntryTypeForRealtimeClassification()
+    {
+        await using var db = CreateDbWithGateChecks();
+        var targetDate = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+        var tank = SeedTank(db, "TANK-DET-RT", 120, targetDate, TestHelpers.PlantPlt1Id);
+
+        var genericCharId = Guid.NewGuid();
+        var realtimeWcId = Guid.NewGuid();
+        var realtimeWcplId = Guid.NewGuid();
+        var realtimeCpId = Guid.NewGuid();
+        var xrayTypeId = db.WorkCenters
+            .Where(w => w.Id == TestHelpers.wcRtXrayQueueId)
+            .Select(w => w.WorkCenterTypeId)
+            .Single();
+
+        db.Characteristics.Add(new Characteristic
+        {
+            Id = genericCharId,
+            Code = "DET",
+            Name = "Generic Gate"
+        });
+        db.WorkCenters.Add(new WorkCenter
+        {
+            Id = realtimeWcId,
+            Name = "Gate Station 1",
+            WorkCenterTypeId = xrayTypeId,
+            NumberOfWelders = 0,
+            DataEntryType = "RealTimeXray"
+        });
+        db.WorkCenterProductionLines.Add(new WorkCenterProductionLine
+        {
+            Id = realtimeWcplId,
+            WorkCenterId = realtimeWcId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            DisplayName = "Gate Station 1"
+        });
+        db.ControlPlans.Add(new ControlPlan
+        {
+            Id = realtimeCpId,
+            CharacteristicId = genericCharId,
+            WorkCenterProductionLineId = realtimeWcplId,
+            IsEnabled = true,
+            IsGateCheck = true,
+            ResultType = "Pass/Fail"
+        });
+
+        SeedInspection(db, tank.Shell.Id, realtimeCpId, realtimeWcId, "Accept", targetDate.AddHours(-2));
+        await db.SaveChangesAsync();
+
+        var sut = new SellableTankStatusService(db);
+        var result = await sut.GetStatusAsync(TestHelpers.PlantPlt1Id, new DateOnly(2026, 2, 20));
+
+        var row = Assert.Single(result, r => r.SerialNumber == "TANK-DET-RT");
+        Assert.Equal("Accept", row.RtXrayResult);
+    }
+
+    [Fact]
     public async Task GetStatus_MigratedTraceabilityVariants_StillMapsAssemblyShellsAndGateChecks()
     {
         await using var db = CreateDbWithGateChecks();

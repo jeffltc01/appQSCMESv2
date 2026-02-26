@@ -26,7 +26,8 @@ public class SupervisorDashboardServiceTests
     {
         var oeeLogger = new Mock<ILogger<OeeService>>().Object;
         var oeeService = new OeeService(db, oeeLogger);
-        return new(db, new Mock<ILogger<SupervisorDashboardService>>().Object, oeeService);
+        var defectAnalyticsService = new DefectAnalyticsService(db);
+        return new(db, new Mock<ILogger<SupervisorDashboardService>>().Object, oeeService, defectAnalyticsService);
     }
 
     private static void SeedRecord(
@@ -84,7 +85,7 @@ public class SupervisorDashboardServiceTests
         Assert.NotNull(result.MonthFPY);
         Assert.Equal(100.0m, result.MonthFPY);
         Assert.Equal(0, result.MonthDefects);
-        Assert.True(result.MonthAvgTimeBetweenScans > 0);
+        Assert.Equal(0m, result.MonthDowntimeMinutes);
     }
 
     [Fact]
@@ -153,6 +154,76 @@ public class SupervisorDashboardServiceTests
     }
 
     [Fact]
+    public async Task GetMetrics_DefectCounts_MatchDefectAnalyticsServiceTotals()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = CreateService(db);
+        var analytics = new DefectAnalyticsService(db);
+
+        var snDay = Guid.NewGuid();
+        var snWeek = Guid.NewGuid();
+        var snMonth = Guid.NewGuid();
+        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-40), snId: snDay);
+        SeedRecord(db, TestHelpers.wcRollsId, EarlierInWeek, snId: snWeek);
+        SeedRecord(db, TestHelpers.wcRollsId, EarlierInMonth, snId: snMonth);
+        await db.SaveChangesAsync();
+
+        var recDay = db.ProductionRecords.Single(r => r.SerialNumberId == snDay).Id;
+        var recWeek = db.ProductionRecords.Single(r => r.SerialNumberId == snWeek).Id;
+        var recMonth = db.ProductionRecords.Single(r => r.SerialNumberId == snMonth).Id;
+
+        db.DefectLogs.AddRange(
+            new DefectLog
+            {
+                Id = Guid.NewGuid(),
+                ProductionRecordId = recDay,
+                SerialNumberId = snDay,
+                DefectCodeId = DefectCodeId,
+                CharacteristicId = CharLongSeamId,
+                LocationId = DefectLocationId,
+                Timestamp = MidDay.AddMinutes(-10),
+                CreatedAt = MidDay.AddMinutes(-10),
+            },
+            new DefectLog
+            {
+                Id = Guid.NewGuid(),
+                ProductionRecordId = recWeek,
+                SerialNumberId = snWeek,
+                DefectCodeId = DefectCodeId,
+                CharacteristicId = CharLongSeamId,
+                LocationId = DefectLocationId,
+                Timestamp = EarlierInWeek.AddMinutes(5),
+                CreatedAt = EarlierInWeek.AddMinutes(5),
+            },
+            new DefectLog
+            {
+                Id = Guid.NewGuid(),
+                ProductionRecordId = recMonth,
+                SerialNumberId = snMonth,
+                DefectCodeId = DefectCodeId,
+                CharacteristicId = CharLongSeamId,
+                LocationId = DefectLocationId,
+                Timestamp = EarlierInMonth.AddMinutes(5),
+                CreatedAt = EarlierInMonth.AddMinutes(5),
+            });
+        await db.SaveChangesAsync();
+
+        var metrics = await sut.GetMetricsAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate);
+
+        var dayPareto = await analytics.GetDefectParetoAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "day");
+        var weekPareto = await analytics.GetDefectParetoAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "week");
+        var monthPareto = await analytics.GetDefectParetoAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate, "month");
+
+        Assert.Equal(dayPareto.TotalDefects, metrics.DayDefects);
+        Assert.Equal(weekPareto.TotalDefects, metrics.WeekDefects);
+        Assert.Equal(monthPareto.TotalDefects, metrics.MonthDefects);
+    }
+
+    [Fact]
     public async Task GetMetrics_FpyNull_ForNonApplicableWorkCenter()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -190,20 +261,47 @@ public class SupervisorDashboardServiceTests
     }
 
     [Fact]
-    public async Task GetMetrics_AvgTimeBetweenScans_Calculated()
+    public async Task GetMetrics_DowntimeMinutes_Calculated()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var sut = CreateService(db);
 
-        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-60));
-        SeedRecord(db, TestHelpers.wcRollsId, MidDay.AddMinutes(-30));
-        SeedRecord(db, TestHelpers.wcRollsId, MidDay);
+        var reasonCategoryId = Guid.Parse("f4010001-0000-0000-0000-000000000001");
+        var reasonId = Guid.Parse("f4020001-0000-0000-0000-000000000001");
+        db.DowntimeReasonCategories.Add(new DowntimeReasonCategory
+        {
+            Id = reasonCategoryId,
+            PlantId = TestHelpers.PlantPlt1Id,
+            Name = "Stops",
+            SortOrder = 1,
+            IsActive = true,
+        });
+        db.DowntimeReasons.Add(new DowntimeReason
+        {
+            Id = reasonId,
+            DowntimeReasonCategoryId = reasonCategoryId,
+            Name = "Maintenance",
+            CountsAsDowntime = true,
+            SortOrder = 1,
+            IsActive = true,
+        });
+        db.DowntimeEvents.Add(new DowntimeEvent
+        {
+            Id = Guid.NewGuid(),
+            WorkCenterProductionLineId = TestHelpers.wcplRollsId,
+            OperatorUserId = TestHelpers.TestUserId,
+            DowntimeReasonId = reasonId,
+            StartedAt = MidDay.AddMinutes(-20),
+            EndedAt = MidDay.AddMinutes(-5),
+            DurationMinutes = 15m,
+            CreatedAt = MidDay.AddMinutes(-5),
+        });
         await db.SaveChangesAsync();
 
         var result = await sut.GetMetricsAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestDate);
 
-        Assert.True(result.DayAvgTimeBetweenScans > 0);
+        Assert.Equal(15m, result.DayDowntimeMinutes);
     }
 
     [Fact]
@@ -479,14 +577,14 @@ public class SupervisorDashboardServiceTests
         Assert.Equal(30, result.Fpy.Count);
         Assert.Equal(30, result.Defects.Count);
         Assert.Equal(30, result.QtyPerHour.Count);
-        Assert.Equal(30, result.AvgBetweenScans.Count);
+        Assert.Equal(30, result.DowntimeMinutes.Count);
         Assert.Equal(30, result.Oee.Count);
         Assert.Equal(30, result.Availability.Count);
         Assert.Equal(30, result.Performance.Count);
         Assert.Equal(30, result.Quality.Count);
         Assert.Equal("2026-05-12", result.Count.First().Date);
         Assert.Equal("2026-06-10", result.Count.Last().Date);
-        Assert.Equal("2026-05-12", result.AvgBetweenScans.First().Date);
+        Assert.Equal("2026-05-12", result.DowntimeMinutes.First().Date);
         Assert.Equal("2026-06-10", result.Quality.Last().Date);
     }
 

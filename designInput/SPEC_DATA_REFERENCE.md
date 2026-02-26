@@ -656,6 +656,8 @@ See [SPEC_WC_FITUP_QUEUE.md](SPEC_WC_FITUP_QUEUE.md) for full card lifecycle and
 | **Products** | Quality Manager (3.0)+ | Full CRUD |
 | **Kanban Cards** | Team Lead (5.0)+ | Add/remove |
 | **Who's On the Floor** | Team Lead (5.0)+ | Read-only view of active sessions per site |
+| **Checklist Templates** | Template Owner only | Edit/update specific owned template records |
+| **Score Types** | Administrator (1.0), Directors (2.0) | Create, edit, archive |
 
 ---
 
@@ -672,10 +674,58 @@ See [SPEC_WC_FITUP_QUEUE.md](SPEC_WC_FITUP_QUEUE.md) for full card lifecycle and
 
 ---
 
+## 20. Checklist Template Expansion (Addendum)
+
+This section captures reference-data-level updates introduced by checklist template expansion. Detailed workflow and UX requirements are defined in [SPEC_CHECKLIST_TEMPLATE_EXPANSION.md](SPEC_CHECKLIST_TEMPLATE_EXPANSION.md).
+
+### 20.1 Score Type
+
+| Field | Type | Description |
+|---|---|---|
+| **Id** | GUID (PK) | Unique identifier |
+| **Name** | string, NOT NULL | Score type name (unique among active records) |
+| **IsActive** | bit | Archive flag (`false` = archived) |
+| **CreatedByUserId** | GUID (FK), NOT NULL | User that created the score type |
+| **CreatedAtUtc** | datetime, NOT NULL | Created timestamp (UTC) |
+| **ModifiedByUserId** | GUID (FK, nullable) | Last user to modify |
+| **ModifiedAtUtc** | datetime (nullable) | Last modified timestamp (UTC) |
+
+### 20.2 Score Type Value
+
+| Field | Type | Description |
+|---|---|---|
+| **Id** | GUID (PK) | Unique identifier |
+| **ScoreTypeId** | GUID (FK), NOT NULL | Parent score type |
+| **Score** | decimal, NOT NULL | Numeric score value |
+| **Description** | string, NOT NULL | Label shown to users |
+| **SortOrder** | int, NOT NULL | Display ordering |
+
+Rules:
+- Every score type must contain one or more score values.
+- Score selection is single-choice at checklist response time.
+
+### 20.3 Checklist Template / Question Metadata Changes
+
+- Checklist Template requires an `OwnerUserId` (single user, required).
+- Checklist Template Item supports:
+  - optional `Section`,
+  - `ScoreTypeId` (required for `Score` response type),
+  - dimension fields (`Target`, `UpperLimit`, `LowerLimit`, `UnitOfMeasure`).
+- Checklist question response types are updated to:
+  - `Checkbox`, `Datetime`, `Number`, `Image`, `Dimension`, `Score`.
+- Legacy response types `PassFail` and `Select` are removed for checklist template questions.
+
+### 20.4 Rollout Note
+
+For checklist template expansion rollout, if checklist question and/or checklist response rows exist from legacy behavior, delete that legacy checklist question/response data before enabling the new response type contract.
+
+---
+
 ## References
 
 | Document | Relevance |
 |---|---|
+| [SPEC_CHECKLIST_TEMPLATE_EXPANSION.md](SPEC_CHECKLIST_TEMPLATE_EXPANSION.md) | Checklist template ownership, score types, sections, and expanded response type contract |
 | [SPEC_DATA_PRODUCTS.md](SPEC_DATA_PRODUCTS.md) | Product and Product Type definitions with full seed data tables |
 | [SPEC_WC_FITUP_QUEUE.md](SPEC_WC_FITUP_QUEUE.md) | BarcodeCard entity details and card lifecycle |
 | [SPEC_OPERATOR_WC_LAYOUT.md](SPEC_OPERATOR_WC_LAYOUT.md) | NoOfWelders enforcement, annotation flags, gear display |

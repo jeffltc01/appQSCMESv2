@@ -12,9 +12,9 @@ public class SupervisorDashboardMetricsDto
     public int DayDefects { get; set; }
     public int WeekDefects { get; set; }
     public int MonthDefects { get; set; }
-    public double DayAvgTimeBetweenScans { get; set; }
-    public double WeekAvgTimeBetweenScans { get; set; }
-    public double MonthAvgTimeBetweenScans { get; set; }
+    public decimal DayDowntimeMinutes { get; set; }
+    public decimal WeekDowntimeMinutes { get; set; }
+    public decimal MonthDowntimeMinutes { get; set; }
     public decimal DayQtyPerHour { get; set; }
     public decimal WeekQtyPerHour { get; set; }
     public decimal MonthQtyPerHour { get; set; }
@@ -44,11 +44,38 @@ public class SupervisorDashboardTrendsDto
     public List<KpiTrendPointDto> Fpy { get; set; } = new();
     public List<KpiTrendPointDto> Defects { get; set; } = new();
     public List<KpiTrendPointDto> QtyPerHour { get; set; } = new();
-    public List<KpiTrendPointDto> AvgBetweenScans { get; set; } = new();
+    public List<KpiTrendPointDto> DowntimeMinutes { get; set; } = new();
     public List<KpiTrendPointDto> Oee { get; set; } = new();
     public List<KpiTrendPointDto> Availability { get; set; } = new();
     public List<KpiTrendPointDto> Performance { get; set; } = new();
     public List<KpiTrendPointDto> Quality { get; set; } = new();
+}
+
+public class DefectParetoItemDto
+{
+    public string DefectCode { get; set; } = string.Empty;
+    public string DefectName { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public decimal CumulativePercent { get; set; }
+}
+
+public class DefectParetoResponseDto
+{
+    public int TotalDefects { get; set; }
+    public List<DefectParetoItemDto> Items { get; set; } = new();
+}
+
+public class DowntimeParetoItemDto
+{
+    public string ReasonName { get; set; } = string.Empty;
+    public decimal Minutes { get; set; }
+    public decimal CumulativePercent { get; set; }
+}
+
+public class DowntimeParetoResponseDto
+{
+    public decimal TotalDowntimeMinutes { get; set; }
+    public List<DowntimeParetoItemDto> Items { get; set; } = new();
 }
 
 public class HourlyCountDto

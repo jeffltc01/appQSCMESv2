@@ -15,6 +15,50 @@ public class ChecklistsController : ControllerBase
         _checklistService = checklistService;
     }
 
+    [HttpGet("score-types")]
+    public async Task<ActionResult<IEnumerable<ScoreTypeDto>>> GetScoreTypes(
+        [FromQuery] bool includeArchived,
+        CancellationToken ct)
+    {
+        var items = await _checklistService.GetScoreTypesAsync(includeArchived, ct);
+        return Ok(items);
+    }
+
+    [HttpGet("score-types/{scoreTypeId:guid}")]
+    public async Task<ActionResult<ScoreTypeDto>> GetScoreType(Guid scoreTypeId, CancellationToken ct)
+    {
+        var item = await _checklistService.GetScoreTypeAsync(scoreTypeId, ct);
+        if (item == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(item);
+    }
+
+    [HttpPost("score-types")]
+    public async Task<ActionResult<ScoreTypeDto>> UpsertScoreType([FromBody] UpsertScoreTypeRequestDto request, CancellationToken ct)
+    {
+        if (!TryGetCallerRoleTier(out var callerRoleTier))
+        {
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        }
+        if (!TryGetCallerUserId(out var userId))
+        {
+            return BadRequest(new { message = "Missing X-User-Id header." });
+        }
+
+        try
+        {
+            var scoreType = await _checklistService.UpsertScoreTypeAsync(request, userId, callerRoleTier, ct);
+            return Ok(scoreType);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("templates")]
     public async Task<ActionResult<IEnumerable<ChecklistTemplateDto>>> GetTemplates(
         [FromQuery] Guid? siteId,
@@ -191,6 +235,77 @@ public class ChecklistsController : ControllerBase
 
         var entries = await _checklistService.GetEntryHistoryAsync(siteId, workCenterId, checklistType, ct);
         return Ok(entries);
+    }
+
+    [HttpGet("review/summary")]
+    public async Task<ActionResult<ChecklistReviewSummaryDto>> GetReviewSummary(
+        [FromQuery] Guid siteId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] string? checklistType,
+        CancellationToken ct)
+    {
+        if (!TryGetCallerSiteId(out var callerSiteId))
+        {
+            return BadRequest(new { message = "Missing X-User-Site-Id header." });
+        }
+        if (!TryGetCallerRoleTier(out var callerRoleTier))
+        {
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        }
+        var canCrossSite = callerRoleTier <= 2m;
+        if (!canCrossSite && siteId != callerSiteId)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var summary = await _checklistService.GetReviewSummaryAsync(siteId, fromUtc, toUtc, checklistType, ct);
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("review/question-responses")]
+    public async Task<ActionResult<ChecklistQuestionResponsesDto>> GetQuestionResponses(
+        [FromQuery] Guid siteId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime toUtc,
+        [FromQuery] Guid checklistTemplateItemId,
+        [FromQuery] string? checklistType,
+        CancellationToken ct)
+    {
+        if (!TryGetCallerSiteId(out var callerSiteId))
+        {
+            return BadRequest(new { message = "Missing X-User-Site-Id header." });
+        }
+        if (!TryGetCallerRoleTier(out var callerRoleTier))
+        {
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        }
+        var canCrossSite = callerRoleTier <= 2m;
+        if (!canCrossSite && siteId != callerSiteId)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var details = await _checklistService.GetQuestionResponsesAsync(siteId, fromUtc, toUtc, checklistTemplateItemId, checklistType, ct);
+            return Ok(details);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("entries/{entryId:guid}")]

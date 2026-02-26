@@ -23,4 +23,5 @@ public interface ISupervisorDashboardService
     Task<SupervisorDashboardTrendsDto> GetTrendsAsync(
         Guid wcId, Guid plantId, string date, Guid? operatorId = null, int days = 30,
         CancellationToken cancellationToken = default);
+
 }

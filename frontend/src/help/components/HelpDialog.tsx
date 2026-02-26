@@ -26,6 +26,7 @@ interface HelpDialogProps {
 }
 
 const ANIMATION_DURATION_MS = 260;
+const HELP_OPEN_CLASS = 'help-scroll-open';
 
 type DialogPhase = 'hidden' | 'entering' | 'open' | 'closing';
 
@@ -66,6 +67,21 @@ export function HelpDialog({ open, onClose, initialSlug }: HelpDialogProps) {
       setActiveSlug(initialSlug);
     }
   }, [open, initialSlug]);
+
+  useEffect(() => {
+    const { documentElement, body } = document;
+    if (isMounted) {
+      documentElement.classList.add(HELP_OPEN_CLASS);
+      body.classList.add(HELP_OPEN_CLASS);
+      return () => {
+        documentElement.classList.remove(HELP_OPEN_CLASS);
+        body.classList.remove(HELP_OPEN_CLASS);
+      };
+    }
+    documentElement.classList.remove(HELP_OPEN_CLASS);
+    body.classList.remove(HELP_OPEN_CLASS);
+    return undefined;
+  }, [isMounted]);
 
   const loadArticle = useCallback(async (slug: string) => {
     const key = buildModuleKey(slug);
@@ -134,7 +150,7 @@ export function HelpDialog({ open, onClose, initialSlug }: HelpDialogProps) {
             </button>
           </div>
           <div className={styles.contentArea}>
-            <nav className={styles.toc}>
+            <nav className={styles.toc} aria-label="Help table of contents" data-testid="help-dialog-toc">
               {(['general', 'operator', 'admin'] as const).map((cat) => (
                 <div key={cat} className={styles.tocGroup}>
                   <div className={styles.tocGroupLabel}>{categoryLabels[cat]}</div>
@@ -160,7 +176,7 @@ export function HelpDialog({ open, onClose, initialSlug }: HelpDialogProps) {
                 </a>
               </div>
             </nav>
-            <div className={styles.article}>
+            <div className={styles.article} role="region" aria-label="Help article content" data-testid="help-dialog-article">
               {loading ? (
                 <div className={styles.loadingState}>
                   <Spinner size="medium" />

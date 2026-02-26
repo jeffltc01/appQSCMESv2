@@ -447,8 +447,8 @@ namespace MESv2.Api.Migrations
 
                     b.Property<string>("ResponseValue")
                         .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.HasKey("Id");
 
@@ -489,6 +489,9 @@ namespace MESv2.Api.Migrations
                     b.Property<bool>("IsSafetyProfile")
                         .HasColumnType("bit");
 
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("ProductionLineId")
                         .HasColumnType("uniqueidentifier");
 
@@ -528,6 +531,8 @@ namespace MESv2.Api.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
+                    b.HasIndex("OwnerUserId");
+
                     b.HasIndex("ProductionLineId");
 
                     b.HasIndex("SiteId");
@@ -551,6 +556,19 @@ namespace MESv2.Api.Migrations
 
                     b.Property<Guid>("ChecklistTemplateId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("DimensionLowerLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("DimensionTarget")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("DimensionUnitOfMeasure")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<decimal?>("DimensionUpperLimit")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("HelpText")
                         .HasMaxLength(500)
@@ -580,10 +598,19 @@ namespace MESv2.Api.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<Guid?>("ScoreTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Section")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ScoreTypeId");
 
                     b.HasIndex("ChecklistTemplateId", "SortOrder");
 
@@ -1535,6 +1562,73 @@ namespace MESv2.Api.Migrations
                     b.HasIndex("WorkCenterId", "CreatedAt");
 
                     b.ToTable("RoundSeamSetups");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ScoreType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ModifiedByUserId");
+
+                    b.HasIndex("Name");
+
+                    b.ToTable("ScoreTypes");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ScoreTypeValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<decimal>("Score")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("ScoreTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScoreTypeId", "SortOrder");
+
+                    b.HasIndex("ScoreTypeId", "Score", "Description")
+                        .IsUnique();
+
+                    b.ToTable("ScoreTypeValues");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.SerialNumber", b =>
@@ -2638,6 +2732,12 @@ namespace MESv2.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("MESv2.Api.Models.User", "OwnerUser")
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("MESv2.Api.Models.ProductionLine", "ProductionLine")
                         .WithMany()
                         .HasForeignKey("ProductionLineId")
@@ -2655,6 +2755,8 @@ namespace MESv2.Api.Migrations
 
                     b.Navigation("CreatedByUser");
 
+                    b.Navigation("OwnerUser");
+
                     b.Navigation("ProductionLine");
 
                     b.Navigation("Site");
@@ -2670,7 +2772,14 @@ namespace MESv2.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MESv2.Api.Models.ScoreType", "ScoreType")
+                        .WithMany()
+                        .HasForeignKey("ScoreTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("ChecklistTemplate");
+
+                    b.Navigation("ScoreType");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.ControlPlan", b =>
@@ -3164,6 +3273,35 @@ namespace MESv2.Api.Migrations
                     b.Navigation("Rs4Welder");
 
                     b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ScoreType", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MESv2.Api.Models.User", "ModifiedByUser")
+                        .WithMany()
+                        .HasForeignKey("ModifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("ModifiedByUser");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ScoreTypeValue", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.ScoreType", "ScoreType")
+                        .WithMany("Values")
+                        .HasForeignKey("ScoreTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ScoreType");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.SerialNumber", b =>
@@ -3666,6 +3804,11 @@ namespace MESv2.Api.Migrations
                     b.Navigation("DefectLogs");
 
                     b.Navigation("WelderLogs");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.ScoreType", b =>
+                {
+                    b.Navigation("Values");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.SerialNumber", b =>

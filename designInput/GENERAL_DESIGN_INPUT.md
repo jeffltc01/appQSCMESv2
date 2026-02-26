@@ -597,3 +597,10 @@ The following items are **out of scope** for the initial release but the archite
 | [SPEC_WC_RT_XRAY_QUEUE.md](SPEC_WC_RT_XRAY_QUEUE.md) | Real Time X-ray Queue — scan-to-add shell queue feeding the separate RT X-ray application; auto-refresh, FIFO |
 | [SPEC_DATA_PRODUCTS.md](SPEC_DATA_PRODUCTS.md) | Products & Product Types — reference data, site availability, tank sizes/types, seed data tables |
 | [SPEC_DATA_REFERENCE.md](SPEC_DATA_REFERENCE.md) | Reference Data & Entity Definitions — all supporting entities (Site, ProductionLine, PlantGear, WorkCenter, Asset, Vendor, Characteristic, ControlPlan, DefectCode, DefectLocation, AnnotationType, BarcodeCard, SiteSchedule), management screen access, v1 migration notes |
+| [SPEC_LEAN_GAP_PRIORITIZATION.md](SPEC_LEAN_GAP_PRIORITIZATION.md) | Lean maturity gap ranking and phased implementation sequence |
+| [SPEC_LEAN_PHASE1_METRICS.md](SPEC_LEAN_PHASE1_METRICS.md) | Phase 1 Lean metrics contract — takt, queue aging, lead-time decomposition |
+| [SPEC_LEAN_PHASE2_ANDON.md](SPEC_LEAN_PHASE2_ANDON.md) | Phase 2 andon lifecycle, escalation rules, API and UI integration |
+| [SPEC_LEAN_PHASE3_RCA_CAPA.md](SPEC_LEAN_PHASE3_RCA_CAPA.md) | Phase 3 RCA/CAPA workflow, data model, closure governance |
+| [SPEC_LEAN_PHASE4_REPLENISHMENT_KANBAN.md](SPEC_LEAN_PHASE4_REPLENISHMENT_KANBAN.md) | Phase 4 replenishment-kanban policy and closed-loop card flow |
+| [SPEC_LEAN_TEST_AND_ROLLOUT_STRATEGY.md](SPEC_LEAN_TEST_AND_ROLLOUT_STRATEGY.md) | Automated test matrix and rollout gates for Lean phases |
+| [SPEC_PERFORMANCE_SLO.md](SPEC_PERFORMANCE_SLO.md) | Canonical performance SLOs, response-time targets, and alert thresholds |

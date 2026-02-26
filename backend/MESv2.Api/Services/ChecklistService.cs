@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.Json;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
@@ -8,9 +9,22 @@ namespace MESv2.Api.Services;
 
 public class ChecklistService : IChecklistService
 {
-    private static readonly HashSet<string> AllowedResponses = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedChecklistTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Pass", "Fail", "N/A"
+        "SafetyPreShift",
+        "SafetyPeriodic",
+        "OpsPreShift",
+        "OpsChangeover"
+    };
+
+    private static readonly HashSet<string> AllowedQuestionResponseTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ChecklistQuestionResponseTypes.Checkbox,
+        ChecklistQuestionResponseTypes.Datetime,
+        ChecklistQuestionResponseTypes.Number,
+        ChecklistQuestionResponseTypes.Image,
+        ChecklistQuestionResponseTypes.Dimension,
+        ChecklistQuestionResponseTypes.Score
     };
 
     private readonly MesDbContext _db;
@@ -20,10 +34,122 @@ public class ChecklistService : IChecklistService
         _db = db;
     }
 
+    public async Task<IReadOnlyList<ScoreTypeDto>> GetScoreTypesAsync(bool includeArchived, CancellationToken ct = default)
+    {
+        var query = _db.ScoreTypes
+            .Include(s => s.Values.OrderBy(v => v.SortOrder))
+            .AsQueryable();
+
+        if (!includeArchived)
+        {
+            query = query.Where(s => s.IsActive);
+        }
+
+        var rows = await query
+            .OrderBy(s => s.Name)
+            .ToListAsync(ct);
+
+        return rows.Select(MapScoreType).ToList();
+    }
+
+    public async Task<ScoreTypeDto?> GetScoreTypeAsync(Guid scoreTypeId, CancellationToken ct = default)
+    {
+        var item = await _db.ScoreTypes
+            .Include(s => s.Values.OrderBy(v => v.SortOrder))
+            .FirstOrDefaultAsync(s => s.Id == scoreTypeId, ct);
+        return item == null ? null : MapScoreType(item);
+    }
+
+    public async Task<ScoreTypeDto> UpsertScoreTypeAsync(UpsertScoreTypeRequestDto request, Guid userId, decimal callerRoleTier, CancellationToken ct = default)
+    {
+        if (callerRoleTier > 2m)
+        {
+            throw new InvalidOperationException("Only administrator or director roles can manage score types.");
+        }
+
+        var name = request.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidOperationException("Score type name is required.");
+        }
+
+        var normalizedValues = NormalizeScoreTypeValues(request.Values);
+        if (normalizedValues.Count == 0)
+        {
+            throw new InvalidOperationException("At least one score value is required.");
+        }
+
+        var conflictExists = await _db.ScoreTypes
+            .Where(s => s.Id != request.Id)
+            .Where(s => s.IsActive)
+            .AnyAsync(s => s.Name.ToLower() == name.ToLower(), ct);
+        if (conflictExists)
+        {
+            throw new InvalidOperationException("An active score type with this name already exists.");
+        }
+
+        ScoreType scoreType;
+        if (request.Id.HasValue)
+        {
+            scoreType = await _db.ScoreTypes
+                .Include(s => s.Values)
+                .FirstOrDefaultAsync(s => s.Id == request.Id.Value, ct)
+                ?? throw new KeyNotFoundException("Score type not found.");
+            scoreType.ModifiedByUserId = userId;
+            scoreType.ModifiedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            scoreType = new ScoreType
+            {
+                Id = Guid.NewGuid(),
+                CreatedByUserId = userId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            _db.ScoreTypes.Add(scoreType);
+        }
+
+        scoreType.Name = name;
+        scoreType.IsActive = request.IsActive;
+
+        var incomingById = normalizedValues.Where(v => v.Id.HasValue).ToDictionary(v => v.Id!.Value, v => v);
+        var removeValues = scoreType.Values.Where(v => !incomingById.ContainsKey(v.Id)).ToList();
+        foreach (var remove in removeValues)
+        {
+            scoreType.Values.Remove(remove);
+        }
+
+        foreach (var valueDto in normalizedValues)
+        {
+            ScoreTypeValue valueRow;
+            if (valueDto.Id.HasValue)
+            {
+                valueRow = scoreType.Values.FirstOrDefault(v => v.Id == valueDto.Id.Value)
+                    ?? new ScoreTypeValue { Id = valueDto.Id.Value, ScoreTypeId = scoreType.Id };
+                if (!scoreType.Values.Contains(valueRow))
+                {
+                    scoreType.Values.Add(valueRow);
+                }
+            }
+            else
+            {
+                valueRow = new ScoreTypeValue { Id = Guid.NewGuid(), ScoreTypeId = scoreType.Id };
+                scoreType.Values.Add(valueRow);
+            }
+
+            valueRow.Score = valueDto.Score;
+            valueRow.Description = valueDto.Description;
+            valueRow.SortOrder = valueDto.SortOrder;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return await GetScoreTypeAsync(scoreType.Id, ct) ?? throw new InvalidOperationException("Score type save failed.");
+    }
+
     public async Task<IReadOnlyList<ChecklistTemplateDto>> GetTemplatesAsync(Guid? siteId, string? checklistType, CancellationToken ct = default)
     {
         var query = _db.ChecklistTemplates
-            .Include(t => t.Items.OrderBy(i => i.SortOrder))
+            .Include(t => t.Items.OrderBy(i => i.SortOrder)).ThenInclude(i => i.ScoreType).ThenInclude(s => s!.Values.OrderBy(v => v.SortOrder))
             .AsQueryable();
 
         if (siteId.HasValue)
@@ -48,7 +174,7 @@ public class ChecklistService : IChecklistService
     public async Task<ChecklistTemplateDto?> GetTemplateAsync(Guid templateId, CancellationToken ct = default)
     {
         var template = await _db.ChecklistTemplates
-            .Include(t => t.Items.OrderBy(i => i.SortOrder))
+            .Include(t => t.Items.OrderBy(i => i.SortOrder)).ThenInclude(i => i.ScoreType).ThenInclude(s => s!.Values.OrderBy(v => v.SortOrder))
             .FirstOrDefaultAsync(t => t.Id == templateId, ct);
         return template == null ? null : MapTemplate(template);
     }
@@ -66,13 +192,12 @@ public class ChecklistService : IChecklistService
         bool retryOnConcurrency,
         CancellationToken ct)
     {
-        if (callerRoleTier > 4m)
-        {
-            throw new InvalidOperationException("Supervisor or above required for checklist template management.");
-        }
-
+        var normalizedChecklistType = NormalizeChecklistType(request.ChecklistType);
+        ValidateOwner(request.OwnerUserId);
         ValidateScope(request.ScopeLevel, request.SiteId, request.WorkCenterId);
-        ValidateItems(request.Items, request.ResponseMode, request.RequireFailNote || request.IsSafetyProfile);
+        ValidateItems(request.Items);
+        await ValidateReferencedScoreTypesAsync(request.Items, ct);
+        await ValidateOwnerExistsAsync(request.OwnerUserId!.Value, ct);
 
         if (request.SiteId.HasValue && callerRoleTier > 2m && request.SiteId.Value != callerSiteId)
         {
@@ -88,9 +213,19 @@ public class ChecklistService : IChecklistService
                 .Include(t => t.Items)
                 .FirstOrDefaultAsync(t => t.Id == request.Id!.Value, ct)
                 ?? throw new KeyNotFoundException("Checklist template not found.");
+
+            if (template.OwnerUserId != userId)
+            {
+                throw new InvalidOperationException("Only the template owner can edit this checklist template.");
+            }
         }
         else
         {
+            if (request.OwnerUserId!.Value != userId && callerRoleTier > 2m)
+            {
+                throw new InvalidOperationException("Only administrator or director roles can assign a different checklist owner.");
+            }
+
             template = new ChecklistTemplate
             {
                 Id = Guid.NewGuid(),
@@ -102,7 +237,7 @@ public class ChecklistService : IChecklistService
 
         template.TemplateCode = request.TemplateCode.Trim();
         template.Title = request.Title.Trim();
-        template.ChecklistType = request.ChecklistType.Trim();
+        template.ChecklistType = normalizedChecklistType;
         template.ScopeLevel = request.ScopeLevel.Trim();
         template.SiteId = request.SiteId;
         template.WorkCenterId = request.WorkCenterId;
@@ -116,6 +251,7 @@ public class ChecklistService : IChecklistService
         template.ResponseMode = request.ResponseMode;
         template.RequireFailNote = request.RequireFailNote;
         template.IsSafetyProfile = request.IsSafetyProfile;
+        template.OwnerUserId = request.OwnerUserId!.Value;
 
         var existingById = template.Items.ToDictionary(i => i.Id, i => i);
         var explicitDeleteIds = request.DeletedItemIds.ToHashSet();
@@ -152,7 +288,7 @@ public class ChecklistService : IChecklistService
             ChecklistTemplateItem item;
             if (itemDto.Id.HasValue && existingById.TryGetValue(itemDto.Id.Value, out var existing))
             {
-                var isUnchanged = IsSameItemDefinition(existing, itemDto, request.ResponseMode);
+                var isUnchanged = IsSameItemDefinition(existing, itemDto);
                 if (isUnchanged)
                 {
                     continue;
@@ -160,7 +296,7 @@ public class ChecklistService : IChecklistService
 
                 if (referencedExistingIds.Contains(existing.Id))
                 {
-                    EnsureReferencedItemUnchanged(existing, itemDto, request.ResponseMode);
+                    EnsureReferencedItemUnchanged(existing, itemDto);
                     continue;
                 }
 
@@ -179,9 +315,15 @@ public class ChecklistService : IChecklistService
             item.SortOrder = itemDto.SortOrder;
             item.Prompt = itemDto.Prompt.Trim();
             item.IsRequired = itemDto.IsRequired;
+            item.Section = string.IsNullOrWhiteSpace(itemDto.Section) ? null : itemDto.Section.Trim();
             item.ResponseMode = string.IsNullOrWhiteSpace(itemDto.ResponseMode) ? null : itemDto.ResponseMode.Trim();
-            item.ResponseType = ResolveResponseType(itemDto.ResponseType, itemDto.ResponseMode, request.ResponseMode);
+            item.ResponseType = ResolveResponseType(itemDto.ResponseType);
             item.ResponseOptionsJson = SerializeResponseOptions(itemDto.ResponseOptions);
+            item.ScoreTypeId = itemDto.ScoreTypeId;
+            item.DimensionTarget = itemDto.DimensionTarget;
+            item.DimensionUpperLimit = itemDto.DimensionUpperLimit;
+            item.DimensionLowerLimit = itemDto.DimensionLowerLimit;
+            item.DimensionUnitOfMeasure = string.IsNullOrWhiteSpace(itemDto.DimensionUnitOfMeasure) ? null : itemDto.DimensionUnitOfMeasure.Trim();
             item.HelpText = string.IsNullOrWhiteSpace(itemDto.HelpText) ? null : itemDto.HelpText.Trim();
             item.RequireFailNote = itemDto.RequireFailNote;
         }
@@ -207,6 +349,7 @@ public class ChecklistService : IChecklistService
 
     public async Task<ChecklistTemplateDto?> ResolveTemplateAsync(ResolveChecklistTemplateRequestDto request, Guid callerSiteId, CancellationToken ct = default)
     {
+        var normalizedChecklistType = NormalizeChecklistType(request.ChecklistType);
         if (request.SiteId != callerSiteId)
         {
             throw new InvalidOperationException("Site access denied.");
@@ -215,9 +358,11 @@ public class ChecklistService : IChecklistService
         var now = DateTime.UtcNow;
         var candidates = await _db.ChecklistTemplates
             .Include(t => t.Items.OrderBy(i => i.SortOrder))
+            .ThenInclude(i => i.ScoreType)
+            .ThenInclude(s => s!.Values.OrderBy(v => v.SortOrder))
             .Where(t =>
                 t.IsActive &&
-                t.ChecklistType == request.ChecklistType &&
+                t.ChecklistType == normalizedChecklistType &&
                 t.EffectiveFromUtc <= now &&
                 (t.EffectiveToUtc == null || t.EffectiveToUtc >= now))
             .ToListAsync(ct);
@@ -228,19 +373,20 @@ public class ChecklistService : IChecklistService
 
     public async Task<ChecklistEntryDto> CreateEntryAsync(CreateChecklistEntryRequestDto request, Guid callerSiteId, decimal callerRoleTier, CancellationToken ct = default)
     {
+        var normalizedChecklistType = NormalizeChecklistType(request.ChecklistType);
         if (request.SiteId != callerSiteId)
         {
             throw new InvalidOperationException("Site access denied.");
         }
 
-        if (request.ChecklistType.Equals("SafetyPeriodic", StringComparison.OrdinalIgnoreCase) && callerRoleTier > 4m)
+        if (normalizedChecklistType.Equals("SafetyPeriodic", StringComparison.OrdinalIgnoreCase) && callerRoleTier > 4m)
         {
             throw new InvalidOperationException("Supervisor or above required for periodic safety audits.");
         }
 
         var resolved = await ResolveTemplateAsync(new ResolveChecklistTemplateRequestDto
         {
-            ChecklistType = request.ChecklistType,
+            ChecklistType = normalizedChecklistType,
             SiteId = request.SiteId,
             WorkCenterId = request.WorkCenterId,
             ProductionLineId = request.ProductionLineId
@@ -250,7 +396,7 @@ public class ChecklistService : IChecklistService
         {
             Id = Guid.NewGuid(),
             ChecklistTemplateId = resolved.Id,
-            ChecklistType = request.ChecklistType,
+            ChecklistType = normalizedChecklistType,
             SiteId = request.SiteId,
             WorkCenterId = request.WorkCenterId,
             ProductionLineId = request.ProductionLineId,
@@ -290,36 +436,30 @@ public class ChecklistService : IChecklistService
         }
 
         var templateItemMap = entry.ChecklistTemplate.Items.ToDictionary(i => i.Id, i => i);
+        var scoreTypeIds = entry.ChecklistTemplate.Items
+            .Where(i => string.Equals(i.ResponseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase) && i.ScoreTypeId.HasValue)
+            .Select(i => i.ScoreTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var scoreOptionsByType = await _db.ScoreTypeValues
+            .Where(v => scoreTypeIds.Contains(v.ScoreTypeId))
+            .ToListAsync(ct);
+        var scoreOptionsLookup = scoreOptionsByType
+            .GroupBy(v => v.ScoreTypeId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         foreach (var response in request.Responses)
         {
             if (!templateItemMap.ContainsKey(response.ChecklistTemplateItemId))
             {
                 throw new InvalidOperationException("Response references an invalid template item.");
             }
-
-            if (!AllowedResponses.Contains(response.ResponseValue))
-            {
-                throw new InvalidOperationException("Invalid response value.");
-            }
         }
 
         foreach (var response in request.Responses)
         {
             var templateItem = templateItemMap[response.ChecklistTemplateItemId];
-            if (!string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.PassFail, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("Only PassFail checklist questions are currently supported during checklist execution.");
-            }
-            var normalizedResponse = NormalizeResponse(response.ResponseValue);
-            ValidateResponseForMode(normalizedResponse, templateItem.ResponseMode ?? entry.ChecklistTemplate.ResponseMode);
-
-            var failNeedsNote =
-                normalizedResponse == "Fail" &&
-                (templateItem.RequireFailNote || entry.ChecklistTemplate.RequireFailNote || entry.ChecklistTemplate.IsSafetyProfile);
-            if (failNeedsNote && string.IsNullOrWhiteSpace(response.Note))
-            {
-                throw new InvalidOperationException("Failure note is required for failed checklist items.");
-            }
+            var normalizedResponse = NormalizeExecutionResponse(templateItem, response.ResponseValue, scoreOptionsLookup);
 
             var existing = entry.Responses.FirstOrDefault(r => r.ChecklistTemplateItemId == response.ChecklistTemplateItemId);
             if (existing == null)
@@ -416,6 +556,361 @@ public class ChecklistService : IChecklistService
         return MapEntry(entry);
     }
 
+    public async Task<ChecklistReviewSummaryDto> GetReviewSummaryAsync(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        string? checklistType,
+        CancellationToken ct = default)
+    {
+        var normalizedChecklistType = string.IsNullOrWhiteSpace(checklistType) ? null : checklistType.Trim();
+        var (from, to) = await ResolveSiteDateWindowToUtcAsync(siteId, fromUtc, toUtc, ct);
+
+        var rows = await BuildReviewResponseRowsQuery(siteId, from, to, normalizedChecklistType)
+            .ToListAsync(ct);
+
+        var scoreTypeIds = rows
+            .Where(r => string.Equals(r.ResponseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase) && r.ScoreTypeId.HasValue)
+            .Select(r => r.ScoreTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var scoreOptionsLookup = await GetScoreOptionsLookupAsync(scoreTypeIds, ct);
+
+        var questionSummaries = rows
+            .GroupBy(r => new { r.ChecklistTemplateItemId, r.Prompt, r.Section, r.ResponseType })
+            .Select(g =>
+            {
+                var responseBuckets = g
+                    .GroupBy(r => r.ResponseValue)
+                    .Select(bg =>
+                    {
+                        var firstRow = bg.First();
+                        return new ChecklistResponseBucketDto
+                        {
+                            Value = bg.Key,
+                            Label = ResolveResponseLabel(firstRow.ResponseType, firstRow.ScoreTypeId, bg.Key, scoreOptionsLookup),
+                            Count = bg.Count()
+                        };
+                    })
+                    .OrderByDescending(b => b.Count)
+                    .ThenBy(b => b.Label)
+                    .ToList();
+
+                return new ChecklistQuestionSummaryDto
+                {
+                    ChecklistTemplateItemId = g.Key.ChecklistTemplateItemId,
+                    Prompt = g.Key.Prompt,
+                    Section = g.Key.Section,
+                    ResponseType = g.Key.ResponseType,
+                    ResponseCount = g.Count(),
+                    ResponseBuckets = responseBuckets
+                };
+            })
+            .OrderBy(q => q.Section ?? string.Empty)
+            .ThenBy(q => q.Prompt)
+            .ToList();
+
+        var checklistTypesFound = rows
+            .Select(r => r.ChecklistType)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(v => v)
+            .ToList();
+
+        var checklistFiltersFound = rows
+            .GroupBy(r => r.ChecklistType, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var checklistName = g
+                    .Where(x => !string.IsNullOrWhiteSpace(x.ChecklistName))
+                    .GroupBy(x => x.ChecklistName!, StringComparer.Ordinal)
+                    .OrderByDescending(x => x.Count())
+                    .Select(x => x.Key)
+                    .FirstOrDefault();
+
+                return new ChecklistFilterOptionDto
+                {
+                    ChecklistType = g.Key,
+                    ChecklistName = checklistName ?? g.Key
+                };
+            })
+            .OrderBy(v => v.ChecklistName)
+            .ToList();
+
+        var totalEntries = rows
+            .Select(r => r.ChecklistEntryId)
+            .Distinct()
+            .Count();
+
+        return new ChecklistReviewSummaryDto
+        {
+            SiteId = siteId,
+            FromUtc = from,
+            ToUtc = to,
+            ChecklistType = normalizedChecklistType,
+            TotalEntries = totalEntries,
+            TotalResponses = rows.Count,
+            ChecklistTypesFound = checklistTypesFound,
+            ChecklistFiltersFound = checklistFiltersFound,
+            Questions = questionSummaries
+        };
+    }
+
+    public async Task<ChecklistQuestionResponsesDto> GetQuestionResponsesAsync(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        Guid checklistTemplateItemId,
+        string? checklistType,
+        CancellationToken ct = default)
+    {
+        var normalizedChecklistType = string.IsNullOrWhiteSpace(checklistType) ? null : checklistType.Trim();
+        var (from, to) = await ResolveSiteDateWindowToUtcAsync(siteId, fromUtc, toUtc, ct);
+
+        var rows = await BuildReviewResponseRowsQuery(siteId, from, to, normalizedChecklistType)
+            .Where(r => r.ChecklistTemplateItemId == checklistTemplateItemId)
+            .OrderByDescending(r => r.RespondedAtUtc)
+            .ToListAsync(ct);
+
+        if (rows.Count == 0)
+        {
+            var item = await _db.ChecklistTemplateItems
+                .AsNoTracking()
+                .Where(i => i.Id == checklistTemplateItemId)
+                .Select(i => new { i.Id, i.Prompt, i.Section, i.ResponseType })
+                .FirstOrDefaultAsync(ct);
+            if (item == null)
+            {
+                throw new KeyNotFoundException("Checklist question not found.");
+            }
+
+            return new ChecklistQuestionResponsesDto
+            {
+                ChecklistTemplateItemId = item.Id,
+                Prompt = item.Prompt,
+                Section = item.Section,
+                ResponseType = item.ResponseType,
+                TotalResponses = 0,
+                ResponseBuckets = [],
+                Rows = []
+            };
+        }
+
+        var scoreTypeIds = rows
+            .Where(r => string.Equals(r.ResponseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase) && r.ScoreTypeId.HasValue)
+            .Select(r => r.ScoreTypeId!.Value)
+            .Distinct()
+            .ToList();
+        var scoreOptionsLookup = await GetScoreOptionsLookupAsync(scoreTypeIds, ct);
+
+        var responseBuckets = rows
+            .GroupBy(r => r.ResponseValue)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new ChecklistResponseBucketDto
+                {
+                    Value = g.Key,
+                    Label = ResolveResponseLabel(first.ResponseType, first.ScoreTypeId, g.Key, scoreOptionsLookup),
+                    Count = g.Count()
+                };
+            })
+            .OrderByDescending(v => v.Count)
+            .ThenBy(v => v.Label)
+            .ToList();
+
+        var firstRow = rows[0];
+        return new ChecklistQuestionResponsesDto
+        {
+            ChecklistTemplateItemId = firstRow.ChecklistTemplateItemId,
+            Prompt = firstRow.Prompt,
+            Section = firstRow.Section,
+            ResponseType = firstRow.ResponseType,
+            TotalResponses = rows.Count,
+            ResponseBuckets = responseBuckets,
+            Rows = rows
+                .Select(r => new ChecklistQuestionResponseRowDto
+                {
+                    ChecklistEntryId = r.ChecklistEntryId,
+                    ChecklistType = r.ChecklistType,
+                    OperatorUserId = r.OperatorUserId,
+                    OperatorDisplayName = r.OperatorDisplayName,
+                    RespondedAtUtc = r.RespondedAtUtc,
+                    ResponseValue = r.ResponseValue,
+                    ResponseLabel = ResolveResponseLabel(r.ResponseType, r.ScoreTypeId, r.ResponseValue, scoreOptionsLookup),
+                    Note = r.Note
+                })
+                .ToList()
+        };
+    }
+
+    private IQueryable<ReviewResponseRow> BuildReviewResponseRowsQuery(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        string? checklistType)
+    {
+        var query = _db.ChecklistEntryItemResponses
+            .AsNoTracking()
+            .Where(r =>
+                r.ChecklistEntry.SiteId == siteId &&
+                r.ChecklistEntry.CompletedAtUtc.HasValue &&
+                r.ChecklistEntry.CompletedAtUtc.Value >= fromUtc &&
+                r.ChecklistEntry.CompletedAtUtc.Value <= toUtc)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(checklistType))
+        {
+            query = query.Where(r => r.ChecklistEntry.ChecklistType == checklistType);
+        }
+
+        return query.Select(r => new ReviewResponseRow
+        {
+            ChecklistEntryId = r.ChecklistEntryId,
+            ChecklistType = r.ChecklistEntry.ChecklistType,
+            ChecklistName = r.ChecklistEntry.ChecklistTemplate.Title,
+            OperatorUserId = r.ChecklistEntry.OperatorUserId,
+            OperatorDisplayName = r.ChecklistEntry.OperatorUser.DisplayName,
+            ChecklistTemplateItemId = r.ChecklistTemplateItemId,
+            Prompt = r.ChecklistTemplateItem.Prompt,
+            Section = r.ChecklistTemplateItem.Section,
+            ResponseType = r.ChecklistTemplateItem.ResponseType,
+            ScoreTypeId = r.ChecklistTemplateItem.ScoreTypeId,
+            ResponseValue = r.ResponseValue,
+            Note = r.Note,
+            RespondedAtUtc = r.RespondedAtUtc
+        });
+    }
+
+    private async Task<Dictionary<Guid, Dictionary<Guid, ScoreTypeValue>>> GetScoreOptionsLookupAsync(
+        IReadOnlyCollection<Guid> scoreTypeIds,
+        CancellationToken ct)
+    {
+        if (scoreTypeIds.Count == 0)
+        {
+            return [];
+        }
+
+        var scoreOptions = await _db.ScoreTypeValues
+            .AsNoTracking()
+            .Where(v => scoreTypeIds.Contains(v.ScoreTypeId))
+            .ToListAsync(ct);
+
+        return scoreOptions
+            .GroupBy(v => v.ScoreTypeId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.ToDictionary(v => v.Id, v => v));
+    }
+
+    private static string ResolveResponseLabel(
+        string responseType,
+        Guid? scoreTypeId,
+        string rawValue,
+        IReadOnlyDictionary<Guid, Dictionary<Guid, ScoreTypeValue>> scoreOptionsLookup)
+    {
+        if (string.Equals(responseType, ChecklistQuestionResponseTypes.Checkbox, StringComparison.OrdinalIgnoreCase))
+        {
+            if (bool.TryParse(rawValue, out var boolValue))
+            {
+                return boolValue ? "Pass" : "Fail";
+            }
+
+            return rawValue;
+        }
+
+        if (string.Equals(responseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase)
+            && scoreTypeId.HasValue
+            && Guid.TryParse(rawValue, out var scoreValueId)
+            && scoreOptionsLookup.TryGetValue(scoreTypeId.Value, out var valuesById)
+            && valuesById.TryGetValue(scoreValueId, out var scoreValue))
+        {
+            return $"{scoreValue.Score.ToString(CultureInfo.InvariantCulture)} - {scoreValue.Description}";
+        }
+
+        return rawValue;
+    }
+
+    private static void ValidateReviewWindow(DateTime fromUtc, DateTime toUtc)
+    {
+        if (fromUtc > toUtc)
+        {
+            throw new InvalidOperationException("FromUtc must be less than or equal to ToUtc.");
+        }
+
+        if ((toUtc - fromUtc).TotalDays > 180)
+        {
+            throw new InvalidOperationException("Date range cannot exceed 180 days.");
+        }
+    }
+
+    private async Task<(DateTime FromUtc, DateTime ToUtc)> ResolveSiteDateWindowToUtcAsync(
+        Guid siteId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        CancellationToken ct)
+    {
+        var fromDate = DateOnly.FromDateTime(fromUtc);
+        var toDate = DateOnly.FromDateTime(toUtc);
+        if (fromDate > toDate)
+        {
+            throw new InvalidOperationException("FromUtc must be less than or equal to ToUtc.");
+        }
+        if (toDate.DayNumber - fromDate.DayNumber > 180)
+        {
+            throw new InvalidOperationException("Date range cannot exceed 180 days.");
+        }
+
+        var timeZoneId = await _db.Plants
+            .AsNoTracking()
+            .Where(p => p.Id == siteId)
+            .Select(p => p.TimeZoneId)
+            .FirstOrDefaultAsync(ct);
+
+        var siteTimeZone = ResolveTimeZoneOrUtc(timeZoneId);
+        var localStart = new DateTime(fromDate.Year, fromDate.Month, fromDate.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        var localEnd = new DateTime(toDate.Year, toDate.Month, toDate.Day, 23, 59, 59, 999, DateTimeKind.Unspecified);
+        var resolvedFromUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, siteTimeZone);
+        var resolvedToUtc = TimeZoneInfo.ConvertTimeToUtc(localEnd, siteTimeZone);
+        ValidateReviewWindow(resolvedFromUtc, resolvedToUtc);
+        return (resolvedFromUtc, resolvedToUtc);
+    }
+
+    private static TimeZoneInfo ResolveTimeZoneOrUtc(string? timeZoneId)
+    {
+        if (!string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
+    private sealed class ReviewResponseRow
+    {
+        public Guid ChecklistEntryId { get; init; }
+        public string ChecklistType { get; init; } = string.Empty;
+        public string? ChecklistName { get; init; }
+        public Guid OperatorUserId { get; init; }
+        public string OperatorDisplayName { get; init; } = string.Empty;
+        public Guid ChecklistTemplateItemId { get; init; }
+        public string Prompt { get; init; } = string.Empty;
+        public string? Section { get; init; }
+        public string ResponseType { get; init; } = string.Empty;
+        public Guid? ScoreTypeId { get; init; }
+        public string ResponseValue { get; init; } = string.Empty;
+        public string? Note { get; init; }
+        public DateTime RespondedAtUtc { get; init; }
+    }
+
     private async Task EnsureNoActiveOverlapAsync(UpsertChecklistTemplateRequestDto request, CancellationToken ct)
     {
         if (!request.IsActive)
@@ -492,7 +987,24 @@ public class ChecklistService : IChecklistService
         }
     }
 
-    private static void ValidateItems(IReadOnlyList<ChecklistTemplateItemDto> items, string templateResponseMode, bool templateFailNoteRequired)
+    private static void ValidateOwner(Guid? ownerUserId)
+    {
+        if (!ownerUserId.HasValue || ownerUserId.Value == Guid.Empty)
+        {
+            throw new InvalidOperationException("Checklist template owner is required.");
+        }
+    }
+
+    private async Task ValidateOwnerExistsAsync(Guid ownerUserId, CancellationToken ct)
+    {
+        var ownerExists = await _db.Users.AnyAsync(u => u.Id == ownerUserId, ct);
+        if (!ownerExists)
+        {
+            throw new InvalidOperationException("Checklist template owner must reference an existing user.");
+        }
+    }
+
+    private static void ValidateItems(IReadOnlyList<ChecklistTemplateItemDto> items)
     {
         if (items.Count == 0)
         {
@@ -506,54 +1018,112 @@ public class ChecklistService : IChecklistService
                 throw new InvalidOperationException("Checklist item prompt is required.");
             }
 
-            var mode = item.ResponseMode ?? templateResponseMode;
-            if (mode != ChecklistResponseModes.PassFail && mode != ChecklistResponseModes.PassFailNa)
-            {
-                throw new InvalidOperationException("Unsupported checklist response mode.");
-            }
-
-            var responseType = ResolveResponseType(item.ResponseType, item.ResponseMode, templateResponseMode);
-            var responseOptions = NormalizeResponseOptions(item.ResponseOptions);
-            if (responseType == ChecklistQuestionResponseTypes.Select)
-            {
-                if (responseOptions.Count < 2)
-                {
-                    throw new InvalidOperationException("Select checklist questions require at least two options.");
-                }
-            }
-            else if (responseOptions.Count > 0)
-            {
-                throw new InvalidOperationException("Only Select checklist questions can define response options.");
-            }
-
-            if ((item.RequireFailNote || templateFailNoteRequired) && mode != ChecklistResponseModes.PassFail)
-            {
-                throw new InvalidOperationException("Fail-note enforcement requires PF response mode.");
-            }
-        }
-    }
-
-    private static string ResolveResponseType(string? explicitResponseType, string? itemResponseMode, string templateResponseMode)
-    {
-        if (!string.IsNullOrWhiteSpace(explicitResponseType))
-        {
-            var normalizedType = explicitResponseType.Trim();
-            if (normalizedType != ChecklistQuestionResponseTypes.PassFail &&
-                normalizedType != ChecklistQuestionResponseTypes.Text &&
-                normalizedType != ChecklistQuestionResponseTypes.Select &&
-                normalizedType != ChecklistQuestionResponseTypes.Date)
+            var responseType = ResolveResponseType(item.ResponseType);
+            if (!AllowedQuestionResponseTypes.Contains(responseType))
             {
                 throw new InvalidOperationException("Unsupported checklist response type.");
             }
 
-            return normalizedType;
+            var responseOptions = NormalizeResponseOptions(item.ResponseOptions);
+            if (responseOptions.Count > 0)
+            {
+                throw new InvalidOperationException("Checklist response options are not supported for the current response type contract.");
+            }
+
+            if (responseType == ChecklistQuestionResponseTypes.Score && !item.ScoreTypeId.HasValue)
+            {
+                throw new InvalidOperationException("Score checklist questions require a score type.");
+            }
+
+            if (responseType != ChecklistQuestionResponseTypes.Score && item.ScoreTypeId.HasValue)
+            {
+                throw new InvalidOperationException("Score type can only be set for Score response type questions.");
+            }
+
+            var isDimension = responseType == ChecklistQuestionResponseTypes.Dimension;
+            if (isDimension)
+            {
+                if (!item.DimensionTarget.HasValue ||
+                    !item.DimensionUpperLimit.HasValue ||
+                    !item.DimensionLowerLimit.HasValue ||
+                    string.IsNullOrWhiteSpace(item.DimensionUnitOfMeasure))
+                {
+                    throw new InvalidOperationException("Dimension checklist questions require target, upper/lower limits, and unit of measure.");
+                }
+
+                if (!string.Equals(item.DimensionUnitOfMeasure.Trim(), "inches", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Dimension unit of measure must be inches.");
+                }
+
+                if (!(item.DimensionLowerLimit.Value <= item.DimensionTarget.Value && item.DimensionTarget.Value <= item.DimensionUpperLimit.Value))
+                {
+                    throw new InvalidOperationException("Dimension checklist question limits are invalid.");
+                }
+            }
+            else if (item.DimensionTarget.HasValue || item.DimensionUpperLimit.HasValue || item.DimensionLowerLimit.HasValue || !string.IsNullOrWhiteSpace(item.DimensionUnitOfMeasure))
+            {
+                throw new InvalidOperationException("Dimension metadata can only be set for Dimension response type questions.");
+            }
+        }
+    }
+
+    private async Task ValidateReferencedScoreTypesAsync(IReadOnlyList<ChecklistTemplateItemDto> items, CancellationToken ct)
+    {
+        var scoreTypeIds = items
+            .Where(i => string.Equals(ResolveResponseType(i.ResponseType), ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase) && i.ScoreTypeId.HasValue)
+            .Select(i => i.ScoreTypeId!.Value)
+            .Distinct()
+            .ToList();
+        if (scoreTypeIds.Count == 0)
+        {
+            return;
         }
 
-        // Backward compatibility: legacy templates imply pass/fail via response mode fields.
-        var mode = itemResponseMode ?? templateResponseMode;
-        return mode == ChecklistResponseModes.PassFail || mode == ChecklistResponseModes.PassFailNa
-            ? ChecklistQuestionResponseTypes.PassFail
-            : ChecklistQuestionResponseTypes.PassFail;
+        var activeScoreTypeIds = await _db.ScoreTypes
+            .Where(s => s.IsActive && scoreTypeIds.Contains(s.Id))
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
+        if (activeScoreTypeIds.Count != scoreTypeIds.Count)
+        {
+            throw new InvalidOperationException("One or more referenced score types are missing or archived.");
+        }
+    }
+
+    private static string ResolveResponseType(string? explicitResponseType)
+    {
+        if (string.IsNullOrWhiteSpace(explicitResponseType))
+        {
+            return ChecklistQuestionResponseTypes.Checkbox;
+        }
+
+        var normalizedType = explicitResponseType.Trim();
+        if (!AllowedQuestionResponseTypes.Contains(normalizedType))
+        {
+            throw new InvalidOperationException("Unsupported checklist response type.");
+        }
+
+        return normalizedType;
+    }
+
+    private static string NormalizeChecklistType(string? checklistType)
+    {
+        if (string.IsNullOrWhiteSpace(checklistType))
+        {
+            throw new InvalidOperationException("Checklist type is required.");
+        }
+
+        var normalized = checklistType.Trim();
+        if (!AllowedChecklistTypes.Contains(normalized))
+        {
+            throw new InvalidOperationException("Unsupported checklist type.");
+        }
+
+        if (normalized.Equals("SafetyPreShift", StringComparison.OrdinalIgnoreCase)) return "SafetyPreShift";
+        if (normalized.Equals("SafetyPeriodic", StringComparison.OrdinalIgnoreCase)) return "SafetyPeriodic";
+        if (normalized.Equals("OpsPreShift", StringComparison.OrdinalIgnoreCase)) return "OpsPreShift";
+        return "OpsChangeover";
     }
 
     private static List<string> NormalizeResponseOptions(IEnumerable<string>? options) =>
@@ -586,50 +1156,118 @@ public class ChecklistService : IChecklistService
         }
     }
 
-    private static void EnsureReferencedItemUnchanged(ChecklistTemplateItem existing, ChecklistTemplateItemDto incoming, string templateResponseMode)
+    private static void EnsureReferencedItemUnchanged(ChecklistTemplateItem existing, ChecklistTemplateItemDto incoming)
     {
-        if (!IsSameItemDefinition(existing, incoming, templateResponseMode))
+        if (!IsSameItemDefinition(existing, incoming))
         {
             throw new InvalidOperationException("Checklist questions with captured responses cannot be edited. Create a new template version to change answered questions.");
         }
     }
 
-    private static bool IsSameItemDefinition(ChecklistTemplateItem existing, ChecklistTemplateItemDto incoming, string templateResponseMode)
+    private static bool IsSameItemDefinition(ChecklistTemplateItem existing, ChecklistTemplateItemDto incoming)
     {
         var incomingPrompt = incoming.Prompt.Trim();
+        var incomingSection = string.IsNullOrWhiteSpace(incoming.Section) ? null : incoming.Section.Trim();
         var incomingResponseMode = string.IsNullOrWhiteSpace(incoming.ResponseMode) ? null : incoming.ResponseMode.Trim();
-        var incomingResponseType = ResolveResponseType(incoming.ResponseType, incoming.ResponseMode, templateResponseMode);
+        var incomingResponseType = ResolveResponseType(incoming.ResponseType);
         var incomingOptions = NormalizeResponseOptions(incoming.ResponseOptions);
         var existingOptions = NormalizeResponseOptions(DeserializeResponseOptions(existing.ResponseOptionsJson));
+        var incomingUnit = string.IsNullOrWhiteSpace(incoming.DimensionUnitOfMeasure) ? null : incoming.DimensionUnitOfMeasure.Trim();
         var incomingHelpText = string.IsNullOrWhiteSpace(incoming.HelpText) ? null : incoming.HelpText.Trim();
 
         return
             existing.SortOrder == incoming.SortOrder &&
             string.Equals(existing.Prompt, incomingPrompt, StringComparison.Ordinal) &&
             existing.IsRequired == incoming.IsRequired &&
+            string.Equals(existing.Section, incomingSection, StringComparison.Ordinal) &&
             string.Equals(existing.ResponseMode, incomingResponseMode, StringComparison.Ordinal) &&
             string.Equals(existing.ResponseType, incomingResponseType, StringComparison.Ordinal) &&
+            existing.ScoreTypeId == incoming.ScoreTypeId &&
+            existing.DimensionTarget == incoming.DimensionTarget &&
+            existing.DimensionUpperLimit == incoming.DimensionUpperLimit &&
+            existing.DimensionLowerLimit == incoming.DimensionLowerLimit &&
+            string.Equals(existing.DimensionUnitOfMeasure, incomingUnit, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(existing.HelpText, incomingHelpText, StringComparison.Ordinal) &&
             existing.RequireFailNote == incoming.RequireFailNote &&
             existingOptions.SequenceEqual(incomingOptions);
     }
 
-    private static string NormalizeResponse(string response) =>
-        response.Equals("N/A", StringComparison.OrdinalIgnoreCase) ? "N/A" :
-        response.Equals("Pass", StringComparison.OrdinalIgnoreCase) ? "Pass" :
-        "Fail";
-
-    private static void ValidateResponseForMode(string response, string mode)
+    private static string NormalizeExecutionResponse(
+        ChecklistTemplateItem templateItem,
+        string rawResponse,
+        IReadOnlyDictionary<Guid, List<ScoreTypeValue>> scoreOptionsByType)
     {
-        if (mode == ChecklistResponseModes.PassFailNa)
+        var response = rawResponse?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(response))
         {
-            return;
+            throw new InvalidOperationException("Checklist response value is required.");
         }
 
-        if (mode == ChecklistResponseModes.PassFail && response == "N/A")
+        if (string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.Checkbox, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("N/A is not allowed for this checklist item.");
+            if (!bool.TryParse(response, out var boolValue))
+            {
+                throw new InvalidOperationException("Checkbox response must be true or false.");
+            }
+
+            return boolValue ? "true" : "false";
         }
+
+        if (string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.Datetime, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!DateTime.TryParse(response, null, DateTimeStyles.RoundtripKind, out var dateTime))
+            {
+                throw new InvalidOperationException("Datetime response is invalid.");
+            }
+
+            return dateTime.ToUniversalTime().ToString("O");
+        }
+
+        if (string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.Number, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!decimal.TryParse(response, NumberStyles.Number, CultureInfo.InvariantCulture, out var numberValue))
+            {
+                throw new InvalidOperationException("Number response is invalid.");
+            }
+
+            return numberValue.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.Dimension, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!decimal.TryParse(response, NumberStyles.Number, CultureInfo.InvariantCulture, out var dimensionValue))
+            {
+                throw new InvalidOperationException("Dimension response must be numeric.");
+            }
+
+            return dimensionValue.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.Image, StringComparison.OrdinalIgnoreCase))
+        {
+            return response;
+        }
+
+        if (string.Equals(templateItem.ResponseType, ChecklistQuestionResponseTypes.Score, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!templateItem.ScoreTypeId.HasValue || !scoreOptionsByType.TryGetValue(templateItem.ScoreTypeId.Value, out var scoreValues) || scoreValues.Count == 0)
+            {
+                throw new InvalidOperationException("Score question has no configured score options.");
+            }
+
+            var scoreMatch = scoreValues.FirstOrDefault(v =>
+                string.Equals(v.Id.ToString(), response, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(v.Description, response, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(v.Score.ToString(CultureInfo.InvariantCulture), response, StringComparison.OrdinalIgnoreCase));
+            if (scoreMatch == null)
+            {
+                throw new InvalidOperationException("Score response is not a valid option for this question.");
+            }
+
+            return scoreMatch.Id.ToString();
+        }
+
+        throw new InvalidOperationException("Unsupported checklist response type.");
     }
 
     private static ChecklistTemplateDto MapTemplate(ChecklistTemplate template) =>
@@ -650,6 +1288,7 @@ public class ChecklistService : IChecklistService
             ResponseMode = template.ResponseMode,
             RequireFailNote = template.RequireFailNote,
             IsSafetyProfile = template.IsSafetyProfile,
+            OwnerUserId = template.OwnerUserId,
             Items = template.Items
                 .OrderBy(i => i.SortOrder)
                 .Select(i => new ChecklistTemplateItemDto
@@ -658,9 +1297,25 @@ public class ChecklistService : IChecklistService
                     SortOrder = i.SortOrder,
                     Prompt = i.Prompt,
                     IsRequired = i.IsRequired,
+                    Section = i.Section,
                     ResponseMode = i.ResponseMode,
-                    ResponseType = ResolveResponseType(i.ResponseType, i.ResponseMode, template.ResponseMode),
+                    ResponseType = ResolveResponseType(i.ResponseType),
                     ResponseOptions = DeserializeResponseOptions(i.ResponseOptionsJson),
+                    ScoreTypeId = i.ScoreTypeId,
+                    ScoreOptions = i.ScoreType?.Values
+                        .OrderBy(v => v.SortOrder)
+                        .Select(v => new ScoreTypeValueDto
+                        {
+                            Id = v.Id,
+                            Score = v.Score,
+                            Description = v.Description,
+                            SortOrder = v.SortOrder
+                        })
+                        .ToList() ?? [],
+                    DimensionTarget = i.DimensionTarget,
+                    DimensionUpperLimit = i.DimensionUpperLimit,
+                    DimensionLowerLimit = i.DimensionLowerLimit,
+                    DimensionUnitOfMeasure = i.DimensionUnitOfMeasure,
                     HelpText = i.HelpText,
                     RequireFailNote = i.RequireFailNote
                 })
@@ -694,4 +1349,52 @@ public class ChecklistService : IChecklistService
                 })
                 .ToList()
         };
+
+    private static ScoreTypeDto MapScoreType(ScoreType scoreType) =>
+        new()
+        {
+            Id = scoreType.Id,
+            Name = scoreType.Name,
+            IsActive = scoreType.IsActive,
+            Values = scoreType.Values
+                .OrderBy(v => v.SortOrder)
+                .Select(v => new ScoreTypeValueDto
+                {
+                    Id = v.Id,
+                    Score = v.Score,
+                    Description = v.Description,
+                    SortOrder = v.SortOrder
+                })
+                .ToList()
+        };
+
+    private static List<ScoreTypeValueDto> NormalizeScoreTypeValues(IEnumerable<ScoreTypeValueDto>? values)
+    {
+        var normalized = (values ?? [])
+            .Select((v, index) => new ScoreTypeValueDto
+            {
+                Id = v.Id,
+                Score = v.Score,
+                Description = v.Description?.Trim() ?? string.Empty,
+                SortOrder = v.SortOrder <= 0 ? index + 1 : v.SortOrder
+            })
+            .Where(v => !string.IsNullOrWhiteSpace(v.Description))
+            .OrderBy(v => v.SortOrder)
+            .ToList();
+
+        var duplicatePair = normalized
+            .GroupBy(v => $"{v.Score.ToString(CultureInfo.InvariantCulture)}|{v.Description.ToLowerInvariant()}")
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicatePair != null)
+        {
+            throw new InvalidOperationException("Score values must be unique by score and description.");
+        }
+
+        for (var i = 0; i < normalized.Count; i++)
+        {
+            normalized[i].SortOrder = i + 1;
+        }
+
+        return normalized;
+    }
 }
