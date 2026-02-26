@@ -157,7 +157,8 @@ public class SellableTankStatusService : ISellableTankStatusService
             {
                 var charName = insp.ControlPlan.Characteristic?.Name?.ToLower() ?? "";
                 var workCenterName = insp.WorkCenter?.Name?.ToLower();
-                ClassifyGateResult(charName, workCenterName, insp.ResultText, insp.ResultNumeric, ref rtXray, ref spotXray, ref hydro);
+                var workCenterDataEntryType = insp.WorkCenter?.DataEntryType;
+                ClassifyGateResult(charName, workCenterName, workCenterDataEntryType, insp.ResultText, insp.ResultNumeric, ref rtXray, ref spotXray, ref hydro);
             }
 
             if (hasAssembly && spotResultByAssembly.TryGetValue(assemblyId, out var spotRes))
@@ -214,7 +215,7 @@ public class SellableTankStatusService : ISellableTankStatusService
         return null;
     }
 
-    private static void ClassifyGateResult(string charName, string? workCenterName, string? resultText, decimal? resultNumeric,
+    private static void ClassifyGateResult(string charName, string? workCenterName, string? workCenterDataEntryType, string? resultText, decimal? resultNumeric,
         ref string? rtXray, ref string? spotXray, ref string? hydro)
     {
         var effectiveResult = resultText;
@@ -223,17 +224,42 @@ public class SellableTankStatusService : ISellableTankStatusService
         if (string.IsNullOrWhiteSpace(effectiveResult))
             return;
 
+        // Prefer stable configured DataEntryType over fragile name-based text matching.
+        var dataEntryType = NormalizeMatchToken(workCenterDataEntryType);
+        if (dataEntryType == "spot")
+        {
+            spotXray ??= effectiveResult;
+            return;
+        }
+        if (dataEntryType == "hydro")
+        {
+            hydro ??= effectiveResult;
+            return;
+        }
+        if (dataEntryType == "realtimexray")
+        {
+            rtXray ??= effectiveResult;
+            return;
+        }
+
+        var normalizedCharName = NormalizeMatchToken(charName);
+        var normalizedWorkCenterName = NormalizeMatchToken(workCenterName);
         var isSpot = charName.Contains("spot")
             || (!string.IsNullOrWhiteSpace(workCenterName) && workCenterName.Contains("spot"));
         var isHydro = charName.Contains("hydro")
             || (!string.IsNullOrWhiteSpace(workCenterName) && workCenterName.Contains("hydro"));
         var isRt = charName.Contains("rt")
             || charName.Contains("real")
+            || charName.Contains("xray")
             || (charName.Contains("x-ray") && !charName.Contains("spot"))
             || (!string.IsNullOrWhiteSpace(workCenterName)
                 && (workCenterName.Contains("real time x-ray")
                     || workCenterName.Contains("rt x-ray")
-                    || workCenterName.Contains("rt xray")));
+                    || workCenterName.Contains("rt xray")
+                    || workCenterName.Contains("xray")))
+            || (normalizedCharName.Contains("xray") && !normalizedCharName.Contains("spot"))
+            || normalizedWorkCenterName.Contains("realtimexray")
+            || normalizedWorkCenterName.Contains("rtxray");
 
         if (isSpot)
             spotXray ??= effectiveResult;
@@ -241,6 +267,16 @@ public class SellableTankStatusService : ISellableTankStatusService
             hydro ??= effectiveResult;
         else if (isRt)
             rtXray ??= effectiveResult;
+    }
+
+    private static string NormalizeMatchToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+        return new string(value
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
     }
 
     private async Task<TimeZoneInfo> GetPlantTimeZoneAsync(Guid plantId, CancellationToken ct)
