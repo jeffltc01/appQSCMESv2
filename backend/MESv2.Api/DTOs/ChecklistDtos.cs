@@ -6,9 +6,16 @@ public class ChecklistTemplateItemDto
     public int SortOrder { get; set; }
     public string Prompt { get; set; } = string.Empty;
     public bool IsRequired { get; set; } = true;
+    public string? Section { get; set; }
     public string? ResponseMode { get; set; }
     public string? ResponseType { get; set; }
     public List<string> ResponseOptions { get; set; } = [];
+    public Guid? ScoreTypeId { get; set; }
+    public List<ScoreTypeValueDto> ScoreOptions { get; set; } = [];
+    public decimal? DimensionTarget { get; set; }
+    public decimal? DimensionUpperLimit { get; set; }
+    public decimal? DimensionLowerLimit { get; set; }
+    public string? DimensionUnitOfMeasure { get; set; }
     public string? HelpText { get; set; }
     public bool RequireFailNote { get; set; }
 }
@@ -30,6 +37,7 @@ public class ChecklistTemplateDto
     public string ResponseMode { get; set; } = string.Empty;
     public bool RequireFailNote { get; set; }
     public bool IsSafetyProfile { get; set; }
+    public Guid OwnerUserId { get; set; }
     public List<ChecklistTemplateItemDto> Items { get; set; } = [];
 }
 
@@ -50,6 +58,7 @@ public class UpsertChecklistTemplateRequestDto
     public string ResponseMode { get; set; } = string.Empty;
     public bool RequireFailNote { get; set; }
     public bool IsSafetyProfile { get; set; }
+    public Guid? OwnerUserId { get; set; }
     public List<Guid> DeletedItemIds { get; set; } = [];
     public List<ChecklistTemplateItemDto> Items { get; set; } = [];
 }
@@ -68,6 +77,30 @@ public class ChecklistResponseDto
     public Guid ChecklistTemplateItemId { get; set; }
     public string ResponseValue { get; set; } = string.Empty;
     public string? Note { get; set; }
+}
+
+public class ScoreTypeValueDto
+{
+    public Guid? Id { get; set; }
+    public decimal Score { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+}
+
+public class ScoreTypeDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public List<ScoreTypeValueDto> Values { get; set; } = [];
+}
+
+public class UpsertScoreTypeRequestDto
+{
+    public Guid? Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+    public List<ScoreTypeValueDto> Values { get; set; } = [];
 }
 
 public class CreateChecklistEntryRequestDto

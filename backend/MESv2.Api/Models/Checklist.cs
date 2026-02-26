@@ -15,10 +15,12 @@ public static class ChecklistResponseModes
 
 public static class ChecklistQuestionResponseTypes
 {
-    public const string PassFail = "PassFail";
-    public const string Text = "Text";
-    public const string Select = "Select";
-    public const string Date = "Date";
+    public const string Checkbox = "Checkbox";
+    public const string Datetime = "Datetime";
+    public const string Number = "Number";
+    public const string Image = "Image";
+    public const string Dimension = "Dimension";
+    public const string Score = "Score";
 }
 
 public static class ChecklistEntryStatuses
@@ -44,12 +46,14 @@ public class ChecklistTemplate
     public string ResponseMode { get; set; } = ChecklistResponseModes.PassFailNa;
     public bool RequireFailNote { get; set; }
     public bool IsSafetyProfile { get; set; }
+    public Guid OwnerUserId { get; set; }
     public Guid CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public Plant? Site { get; set; }
     public WorkCenter? WorkCenter { get; set; }
     public ProductionLine? ProductionLine { get; set; }
+    public User OwnerUser { get; set; } = null!;
     public User CreatedByUser { get; set; } = null!;
     public ICollection<ChecklistTemplateItem> Items { get; set; } = new List<ChecklistTemplateItem>();
 }
@@ -61,13 +65,20 @@ public class ChecklistTemplateItem
     public int SortOrder { get; set; }
     public string Prompt { get; set; } = string.Empty;
     public bool IsRequired { get; set; } = true;
+    public string? Section { get; set; }
     public string? ResponseMode { get; set; }
-    public string ResponseType { get; set; } = ChecklistQuestionResponseTypes.PassFail;
+    public string ResponseType { get; set; } = ChecklistQuestionResponseTypes.Checkbox;
     public string? ResponseOptionsJson { get; set; }
+    public Guid? ScoreTypeId { get; set; }
+    public decimal? DimensionTarget { get; set; }
+    public decimal? DimensionUpperLimit { get; set; }
+    public decimal? DimensionLowerLimit { get; set; }
+    public string? DimensionUnitOfMeasure { get; set; }
     public string? HelpText { get; set; }
     public bool RequireFailNote { get; set; }
 
     public ChecklistTemplate ChecklistTemplate { get; set; } = null!;
+    public ScoreType? ScoreType { get; set; }
 }
 
 public class ChecklistEntry
@@ -105,4 +116,30 @@ public class ChecklistEntryItemResponse
 
     public ChecklistEntry ChecklistEntry { get; set; } = null!;
     public ChecklistTemplateItem ChecklistTemplateItem { get; set; } = null!;
+}
+
+public class ScoreType
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+    public Guid CreatedByUserId { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public Guid? ModifiedByUserId { get; set; }
+    public DateTime? ModifiedAtUtc { get; set; }
+
+    public User CreatedByUser { get; set; } = null!;
+    public User? ModifiedByUser { get; set; }
+    public ICollection<ScoreTypeValue> Values { get; set; } = new List<ScoreTypeValue>();
+}
+
+public class ScoreTypeValue
+{
+    public Guid Id { get; set; }
+    public Guid ScoreTypeId { get; set; }
+    public decimal Score { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+
+    public ScoreType ScoreType { get; set; } = null!;
 }

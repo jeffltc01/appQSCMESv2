@@ -34,6 +34,11 @@ public class ChecklistTemplateConfiguration : IEntityTypeConfiguration<Checklist
             .HasForeignKey(t => t.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(t => t.OwnerUser)
+            .WithMany()
+            .HasForeignKey(t => t.OwnerUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(t => new
         {
             t.ChecklistType,
@@ -59,15 +64,22 @@ public class ChecklistTemplateItemConfiguration : IEntityTypeConfiguration<Check
     public void Configure(EntityTypeBuilder<ChecklistTemplateItem> builder)
     {
         builder.Property(i => i.Prompt).HasMaxLength(500);
+        builder.Property(i => i.Section).HasMaxLength(200);
         builder.Property(i => i.ResponseMode).HasMaxLength(16);
         builder.Property(i => i.ResponseType).HasMaxLength(32);
         builder.Property(i => i.ResponseOptionsJson).HasMaxLength(4000);
+        builder.Property(i => i.DimensionUnitOfMeasure).HasMaxLength(32);
         builder.Property(i => i.HelpText).HasMaxLength(500);
 
         builder.HasOne(i => i.ChecklistTemplate)
             .WithMany(t => t.Items)
             .HasForeignKey(i => i.ChecklistTemplateId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(i => i.ScoreType)
+            .WithMany()
+            .HasForeignKey(i => i.ScoreTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(i => new { i.ChecklistTemplateId, i.SortOrder });
     }
@@ -116,7 +128,7 @@ public class ChecklistEntryItemResponseConfiguration : IEntityTypeConfiguration<
 {
     public void Configure(EntityTypeBuilder<ChecklistEntryItemResponse> builder)
     {
-        builder.Property(r => r.ResponseValue).HasMaxLength(16);
+        builder.Property(r => r.ResponseValue).HasMaxLength(4000);
         builder.Property(r => r.Note).HasMaxLength(1000);
 
         builder.HasOne(r => r.ChecklistEntry)
@@ -131,5 +143,41 @@ public class ChecklistEntryItemResponseConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(r => new { r.ChecklistEntryId, r.ChecklistTemplateItemId })
             .IsUnique();
+    }
+}
+
+public class ScoreTypeConfiguration : IEntityTypeConfiguration<ScoreType>
+{
+    public void Configure(EntityTypeBuilder<ScoreType> builder)
+    {
+        builder.Property(s => s.Name).HasMaxLength(120);
+
+        builder.HasOne(s => s.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(s => s.ModifiedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.ModifiedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(s => s.Name);
+    }
+}
+
+public class ScoreTypeValueConfiguration : IEntityTypeConfiguration<ScoreTypeValue>
+{
+    public void Configure(EntityTypeBuilder<ScoreTypeValue> builder)
+    {
+        builder.Property(v => v.Description).HasMaxLength(240);
+
+        builder.HasOne(v => v.ScoreType)
+            .WithMany(s => s.Values)
+            .HasForeignKey(v => v.ScoreTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(v => new { v.ScoreTypeId, v.SortOrder });
+        builder.HasIndex(v => new { v.ScoreTypeId, v.Score, v.Description }).IsUnique();
     }
 }

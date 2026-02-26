@@ -73,6 +73,7 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Log Viewer')).toBeInTheDocument();
     expect(screen.getByText('AI Review')).toBeInTheDocument();
     expect(screen.getByText('Operator View')).toBeInTheDocument();
+    expect(screen.getByText('Checklist Score Types')).toBeInTheDocument();
   });
 
   it('operator (roleTier 7) sees only Log Viewer from Dashboards & Insights', () => {

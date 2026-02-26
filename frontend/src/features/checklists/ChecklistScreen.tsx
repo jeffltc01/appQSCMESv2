@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, CardHeader, Spinner, Textarea } from '@fluentui/react-components';
+import { Button, Card, CardHeader, Input, Spinner, Textarea } from '@fluentui/react-components';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { checklistApi } from '../../api/endpoints.ts';
 import type { ChecklistEntry, ChecklistTemplate } from '../../types/domain.ts';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import styles from './ChecklistScreen.module.css';
 
-type ResponseValue = 'Pass' | 'Fail' | 'N/A';
-
 type ChecklistScreenProps = WorkCenterProps & {
   checklistType?: string;
   onChecklistCompleted?: () => void;
 };
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return '';
+}
 
 function getChecklistTypeCandidates(selectedType: string): string[] {
   switch (selectedType) {
@@ -30,8 +36,7 @@ export function ChecklistScreen(props: ChecklistScreenProps) {
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<ChecklistTemplate | null>(null);
   const [entry, setEntry] = useState<ChecklistEntry | null>(null);
-  const [responses, setResponses] = useState<Record<string, ResponseValue>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [responses, setResponses] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const selectedChecklistType = props.checklistType ?? 'SafetyPreShift';
@@ -73,8 +78,13 @@ export function ChecklistScreen(props: ChecklistScreenProps) {
       if (!loaded) {
         throw new Error('No checklist template found for selected type.');
       }
-    } catch {
-      setError('Unable to load checklist template for this work center.');
+    } catch (err) {
+      const message = getErrorMessage(err).toLowerCase();
+      if (message.includes('no checklist template found')) {
+        setError(`Unable to load checklist template for this work center. No active ${selectedChecklistType} template is effective for this site/work center. Check checklist type, scope, effective dates, and active status.`);
+      } else {
+        setError('Unable to load checklist template for this work center.');
+      }
     } finally {
       setLoading(false);
     }
@@ -97,45 +107,54 @@ export function ChecklistScreen(props: ChecklistScreenProps) {
     });
   }, [props]);
 
-  const requiresFailNote = useCallback((itemId: string) => {
-    const item = template?.items.find((i) => i.id === itemId);
-    if (!item) return false;
-    return item.requireFailNote || template?.requireFailNote || template?.isSafetyProfile;
-  }, [template]);
-
-  const canUseNa = useCallback((itemId: string) => {
-    const item = template?.items.find((i) => i.id === itemId);
-    if (item?.responseType && item.responseType !== 'PassFail') {
-      return false;
-    }
-    const mode = item?.responseMode ?? template?.responseMode ?? 'PFNA';
-    return mode === 'PFNA';
-  }, [template]);
-
-  const isPassFailQuestion = useCallback((itemId: string) => {
-    const item = template?.items.find((i) => i.id === itemId);
-    return !item?.responseType || item.responseType === 'PassFail';
-  }, [template]);
-
   const validationError = useMemo(() => {
     if (!template) return '';
     for (const item of template.items) {
       if (!item.id) continue;
-      if (!isPassFailQuestion(item.id)) {
-        return 'This checklist includes response types not yet supported in operator capture.';
-      }
-      const answer = responses[item.id];
-      if (!answer) {
+      const answer = responses[item.id]?.trim();
+      if (!answer && item.isRequired) {
         return 'All checklist items must be answered.';
       }
-      if (answer === 'Fail' && requiresFailNote(item.id) && !notes[item.id]?.trim()) {
-        return 'A note is required for failed checklist items.';
+
+      if (!answer) continue;
+      if (item.responseType === 'Checkbox' && answer !== 'true' && answer !== 'false') {
+        return 'Checkbox responses must be yes or no.';
+      }
+      if (item.responseType === 'Number' || item.responseType === 'Dimension') {
+        if (Number.isNaN(Number(answer))) {
+          return 'Number and Dimension responses must be numeric.';
+        }
+      }
+      if (item.responseType === 'Datetime') {
+        const date = new Date(answer);
+        if (Number.isNaN(date.getTime())) {
+          return 'Datetime responses must be valid date/time values.';
+        }
       }
     }
     return '';
-  }, [isPassFailQuestion, notes, requiresFailNote, responses, template]);
+  }, [responses, template]);
 
-  const setResponse = (itemId: string, value: ResponseValue) => {
+  const groupedItems = useMemo(() => {
+    if (!template) return [];
+    const map = new Map<string, ChecklistTemplate['items']>();
+    template.items.forEach((item) => {
+      const key = (item.section ?? '').trim();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    });
+    const keys = Array.from(map.keys()).sort((a, b) => {
+      if (!a) return -1;
+      if (!b) return 1;
+      return a.localeCompare(b);
+    });
+    return keys.map((key) => ({
+      section: key,
+      items: map.get(key)!,
+    }));
+  }, [template]);
+
+  const setResponse = (itemId: string, value: string) => {
     setResponses((prev) => ({ ...prev, [itemId]: value }));
   };
 
@@ -154,7 +173,6 @@ export function ChecklistScreen(props: ChecklistScreenProps) {
         .map((item) => ({
           checklistTemplateItemId: item.id,
           responseValue: responses[item.id],
-          note: notes[item.id]?.trim() || undefined,
         }));
 
       await checklistApi.submitResponses(entry.id, { responses: payload });
@@ -166,14 +184,13 @@ export function ChecklistScreen(props: ChecklistScreenProps) {
       } else {
         await loadChecklist();
         setResponses({});
-        setNotes({});
       }
     } catch {
       setError('Failed to submit checklist.');
     } finally {
       setSaving(false);
     }
-  }, [entry, loadChecklist, notes, props, responses, template, validationError]);
+  }, [entry, loadChecklist, props, responses, template, validationError]);
 
   if (loading) {
     return <div className={styles.loading}><Spinner label="Loading checklist..." /></div>;
@@ -194,51 +211,86 @@ export function ChecklistScreen(props: ChecklistScreenProps) {
         </div>
       </div>
 
-      {template.items.map((item) => (
-        <Card key={item.id} className={styles.itemCard}>
-          <CardHeader header={<div className={styles.prompt}>{item.prompt}</div>} />
-          {isPassFailQuestion(item.id!) ? (
-            <>
-              <div className={styles.responses}>
-                <Button
-                  className={responses[item.id!] === 'Pass' ? styles.selectedPass : ''}
-                  appearance="secondary"
-                  onClick={() => setResponse(item.id!, 'Pass')}
-                >
-                  Pass
-                </Button>
-                <Button
-                  className={responses[item.id!] === 'Fail' ? styles.selectedFail : ''}
-                  appearance="secondary"
-                  onClick={() => setResponse(item.id!, 'Fail')}
-                >
-                  Fail
-                </Button>
-                {canUseNa(item.id!) && (
+      {groupedItems.map((group) => (
+        <div key={group.section || 'unsectioned'}>
+          <h3>{group.section || 'Unsectioned'}</h3>
+          {group.items.map((item) => (
+            <Card key={item.id} className={styles.itemCard}>
+              <CardHeader header={<div className={styles.prompt}>{item.prompt}</div>} />
+              {item.responseType === 'Checkbox' && (
+                <div className={styles.responses}>
                   <Button
-                    className={responses[item.id!] === 'N/A' ? styles.selectedNa : ''}
+                    className={responses[item.id!] === 'true' ? styles.selectedPass : ''}
                     appearance="secondary"
-                    onClick={() => setResponse(item.id!, 'N/A')}
+                    onClick={() => setResponse(item.id!, 'true')}
                   >
-                    N/A
+                    Yes
                   </Button>
-                )}
-              </div>
-              {responses[item.id!] === 'Fail' && (
-                <div className={styles.noteWrap}>
-                  <Textarea
-                    value={notes[item.id!] ?? ''}
-                    onChange={(_, data) => setNotes((prev) => ({ ...prev, [item.id!]: data.value }))}
-                    placeholder={requiresFailNote(item.id!) ? 'Failure note required' : 'Optional note'}
-                    rows={2}
-                  />
+                  <Button
+                    className={responses[item.id!] === 'false' ? styles.selectedFail : ''}
+                    appearance="secondary"
+                    onClick={() => setResponse(item.id!, 'false')}
+                  >
+                    No
+                  </Button>
                 </div>
               )}
-            </>
-          ) : (
-            <div className={styles.error}>Unsupported response type: {item.responseType}</div>
-          )}
-        </Card>
+              {item.responseType === 'Datetime' && (
+                <Input
+                  type="datetime-local"
+                  value={responses[item.id!] ?? ''}
+                  onChange={(_, data) => setResponse(item.id!, data.value)}
+                />
+              )}
+              {item.responseType === 'Number' && (
+                <Input
+                  type="number"
+                  value={responses[item.id!] ?? ''}
+                  onChange={(_, data) => setResponse(item.id!, data.value)}
+                />
+              )}
+              {item.responseType === 'Image' && (
+                <Textarea
+                  value={responses[item.id!] ?? ''}
+                  onChange={(_, data) => setResponse(item.id!, data.value)}
+                  rows={2}
+                  placeholder="Enter image attachment reference"
+                />
+              )}
+              {item.responseType === 'Dimension' && (
+                <div>
+                  <Input
+                    type="number"
+                    value={responses[item.id!] ?? ''}
+                    onChange={(_, data) => setResponse(item.id!, data.value)}
+                  />
+                  <div className={styles.meta}>
+                    Target: {item.dimensionTarget} | Lower: {item.dimensionLowerLimit} | Upper: {item.dimensionUpperLimit} | Unit: {item.dimensionUnitOfMeasure}
+                  </div>
+                </div>
+              )}
+              {item.responseType === 'Score' && (
+                <div className={`${styles.responses} ${styles.scoreResponses}`}>
+                  {(item.scoreOptions ?? []).map((option) => {
+                    const optionValue = option.id ?? option.description;
+                    const isSelected = responses[item.id!] === optionValue;
+                    return (
+                      <Button
+                        key={option.id ?? `${option.sortOrder}-${option.score}`}
+                        className={`${styles.scoreResponseButton} ${isSelected ? styles.selectedScore : ''}`.trim()}
+                        appearance={isSelected ? 'primary' : 'secondary'}
+                        onClick={() => setResponse(item.id!, optionValue)}
+                      >
+                        {option.description}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+              {!item.responseType && <div className={styles.error}>Missing response type.</div>}
+            </Card>
+          ))}
+        </div>
       ))}
 
       {error && <div className={styles.error}>{error}</div>}

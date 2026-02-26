@@ -21,3 +21,17 @@ This document defines the security roles for the application at a high level.  T
   - **Authorized Inspector**: The Authroized Inspector (AI) is a special case.  This person doesn't not actually work for Quality Steel but is a representative of an outside company that is required to be onsite and ensure the plants are conforming to the ASME standards for making Propane Tanks.  We want this person to have some access to view logs and things, but we need to be careful that they cannot see too much.
 - **6.0**
   - **Operator**: Everyone else that does the actually manufacturing work on the plant floor.  This would include work center operators, material handling, etc.  
+
+## Feature-Specific Authorization Addendum
+
+This addendum captures checklist template expansion permissions that are not fully represented by tier-only rules.
+
+### Checklist Template Expansion
+
+- **Score Type management (create/edit/archive)**:
+  - Allowed: **Administrator (1.0)** and **Directors (2.0)**.
+  - Denied: all other roles.
+- **Checklist Template editing**:
+  - Allowed: **template owner only**.
+  - Owner authorization overrides role-tier checks for that template.
+  - Non-owners cannot edit the template.

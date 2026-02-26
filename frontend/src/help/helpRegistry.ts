@@ -43,6 +43,7 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'characteristics', title: 'Characteristics', category: 'admin', routeMatch: '/menu/characteristics' },
   { slug: 'control-plans', title: 'Control Plans', category: 'admin', routeMatch: '/menu/control-plans' },
   { slug: 'checklists', title: 'Checklist Templates', category: 'admin', routeMatch: '/menu/checklists' },
+  { slug: 'checklist-score-types', title: 'Checklist Score Types', category: 'admin', routeMatch: '/menu/checklist-score-types' },
   { slug: 'plant-gear', title: 'Plant Gear', category: 'admin', routeMatch: '/menu/plant-gear' },
   { slug: 'whos-on-floor', title: "Who's On the Floor", category: 'admin', routeMatch: '/menu/whos-on-floor' },
   { slug: 'production-lines', title: 'Production Lines', category: 'admin', routeMatch: '/menu/production-lines' },

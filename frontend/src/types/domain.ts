@@ -408,9 +408,16 @@ export interface ChecklistTemplateItem {
   sortOrder: number;
   prompt: string;
   isRequired: boolean;
+  section?: string;
   responseMode?: string;
-  responseType?: 'PassFail' | 'Text' | 'Select' | 'Date';
+  responseType?: 'Checkbox' | 'Datetime' | 'Number' | 'Image' | 'Dimension' | 'Score';
   responseOptions?: string[];
+  scoreTypeId?: string;
+  scoreOptions?: ScoreTypeValue[];
+  dimensionTarget?: number;
+  dimensionUpperLimit?: number;
+  dimensionLowerLimit?: number;
+  dimensionUnitOfMeasure?: string;
   helpText?: string;
   requireFailNote: boolean;
 }
@@ -431,7 +438,22 @@ export interface ChecklistTemplate {
   responseMode: string;
   requireFailNote: boolean;
   isSafetyProfile: boolean;
+  ownerUserId: string;
   items: ChecklistTemplateItem[];
+}
+
+export interface ScoreTypeValue {
+  id?: string;
+  score: number;
+  description: string;
+  sortOrder: number;
+}
+
+export interface ScoreType {
+  id: string;
+  name: string;
+  isActive: boolean;
+  values: ScoreTypeValue[];
 }
 
 export interface ChecklistResponse {

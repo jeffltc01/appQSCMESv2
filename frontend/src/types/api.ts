@@ -650,9 +650,15 @@ export interface ChecklistTemplateItemRequest {
   sortOrder: number;
   prompt: string;
   isRequired: boolean;
+  section?: string;
   responseMode?: string;
-  responseType?: 'PassFail' | 'Text' | 'Select' | 'Date';
+  responseType?: 'Checkbox' | 'Datetime' | 'Number' | 'Image' | 'Dimension' | 'Score';
   responseOptions?: string[];
+  scoreTypeId?: string;
+  dimensionTarget?: number;
+  dimensionUpperLimit?: number;
+  dimensionLowerLimit?: number;
+  dimensionUnitOfMeasure?: string;
   helpText?: string;
   requireFailNote: boolean;
 }
@@ -673,8 +679,23 @@ export interface UpsertChecklistTemplateRequest {
   responseMode: string;
   requireFailNote: boolean;
   isSafetyProfile: boolean;
+  ownerUserId: string;
   deletedItemIds?: string[];
   items: ChecklistTemplateItemRequest[];
+}
+
+export interface ScoreTypeValueRequest {
+  id?: string;
+  score: number;
+  description: string;
+  sortOrder: number;
+}
+
+export interface UpsertScoreTypeRequest {
+  id?: string;
+  name: string;
+  isActive: boolean;
+  values: ScoreTypeValueRequest[];
 }
 
 export interface ResolveChecklistTemplateRequest {

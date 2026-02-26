@@ -20,6 +20,8 @@ const KanbanCardScreen = named(() => import('./KanbanCardScreen.tsx'), 'KanbanCa
 const CharacteristicsScreen = named(() => import('./CharacteristicsScreen.tsx'), 'CharacteristicsScreen');
 const ControlPlansScreen = named(() => import('./ControlPlansScreen.tsx'), 'ControlPlansScreen');
 const ChecklistTemplatesScreen = named(() => import('./ChecklistTemplatesScreen.tsx'), 'ChecklistTemplatesScreen');
+const ChecklistTemplateEditorScreen = named(() => import('./ChecklistTemplateEditorScreen.tsx'), 'ChecklistTemplateEditorScreen');
+const ScoreTypesScreen = named(() => import('./ScoreTypesScreen.tsx'), 'ScoreTypesScreen');
 const PlantGearScreen = named(() => import('./PlantGearScreen.tsx'), 'PlantGearScreen');
 const WhosOnFloorScreen = named(() => import('./WhosOnFloorScreen.tsx'), 'WhosOnFloorScreen');
 const ProductionLineMaintenanceScreen = named(() => import('./ProductionLineMaintenanceScreen.tsx'), 'ProductionLineMaintenanceScreen');
@@ -71,6 +73,9 @@ export function AdminRoutes() {
         <Route path="characteristics" element={<CharacteristicsScreen />} />
         <Route path="control-plans" element={<ControlPlansScreen />} />
         <Route path="checklists" element={<ChecklistTemplatesScreen />} />
+        <Route path="checklists/new" element={<ChecklistTemplateEditorScreen />} />
+        <Route path="checklists/:templateId" element={<ChecklistTemplateEditorScreen />} />
+        <Route path="checklist-score-types" element={<ScoreTypesScreen />} />
         <Route path="plant-gear" element={<PlantGearScreen />} />
         <Route path="whos-on-floor" element={<WhosOnFloorScreen />} />
         <Route path="production-lines" element={<ProductionLineMaintenanceScreen />} />

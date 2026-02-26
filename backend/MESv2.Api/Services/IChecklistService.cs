@@ -4,6 +4,9 @@ namespace MESv2.Api.Services;
 
 public interface IChecklistService
 {
+    Task<IReadOnlyList<ScoreTypeDto>> GetScoreTypesAsync(bool includeArchived, CancellationToken ct = default);
+    Task<ScoreTypeDto?> GetScoreTypeAsync(Guid scoreTypeId, CancellationToken ct = default);
+    Task<ScoreTypeDto> UpsertScoreTypeAsync(UpsertScoreTypeRequestDto request, Guid userId, decimal callerRoleTier, CancellationToken ct = default);
     Task<IReadOnlyList<ChecklistTemplateDto>> GetTemplatesAsync(Guid? siteId, string? checklistType, CancellationToken ct = default);
     Task<ChecklistTemplateDto?> GetTemplateAsync(Guid templateId, CancellationToken ct = default);
     Task<ChecklistTemplateDto> UpsertTemplateAsync(UpsertChecklistTemplateRequestDto request, Guid userId, decimal callerRoleTier, Guid callerSiteId, CancellationToken ct = default);

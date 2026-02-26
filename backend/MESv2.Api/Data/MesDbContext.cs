@@ -61,6 +61,8 @@ public class MesDbContext : DbContext
     public DbSet<ChecklistTemplateItem> ChecklistTemplateItems => Set<ChecklistTemplateItem>();
     public DbSet<ChecklistEntry> ChecklistEntries => Set<ChecklistEntry>();
     public DbSet<ChecklistEntryItemResponse> ChecklistEntryItemResponses => Set<ChecklistEntryItemResponse>();
+    public DbSet<ScoreType> ScoreTypes => Set<ScoreType>();
+    public DbSet<ScoreTypeValue> ScoreTypeValues => Set<ScoreTypeValue>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

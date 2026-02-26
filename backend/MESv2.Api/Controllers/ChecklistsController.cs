@@ -15,6 +15,50 @@ public class ChecklistsController : ControllerBase
         _checklistService = checklistService;
     }
 
+    [HttpGet("score-types")]
+    public async Task<ActionResult<IEnumerable<ScoreTypeDto>>> GetScoreTypes(
+        [FromQuery] bool includeArchived,
+        CancellationToken ct)
+    {
+        var items = await _checklistService.GetScoreTypesAsync(includeArchived, ct);
+        return Ok(items);
+    }
+
+    [HttpGet("score-types/{scoreTypeId:guid}")]
+    public async Task<ActionResult<ScoreTypeDto>> GetScoreType(Guid scoreTypeId, CancellationToken ct)
+    {
+        var item = await _checklistService.GetScoreTypeAsync(scoreTypeId, ct);
+        if (item == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(item);
+    }
+
+    [HttpPost("score-types")]
+    public async Task<ActionResult<ScoreTypeDto>> UpsertScoreType([FromBody] UpsertScoreTypeRequestDto request, CancellationToken ct)
+    {
+        if (!TryGetCallerRoleTier(out var callerRoleTier))
+        {
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        }
+        if (!TryGetCallerUserId(out var userId))
+        {
+            return BadRequest(new { message = "Missing X-User-Id header." });
+        }
+
+        try
+        {
+            var scoreType = await _checklistService.UpsertScoreTypeAsync(request, userId, callerRoleTier, ct);
+            return Ok(scoreType);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("templates")]
     public async Task<ActionResult<IEnumerable<ChecklistTemplateDto>>> GetTemplates(
         [FromQuery] Guid? siteId,

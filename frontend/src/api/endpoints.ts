@@ -84,6 +84,7 @@ import type {
   DemoDataResetSeedResponse,
   DemoDataRefreshDatesResponse,
   UpsertChecklistTemplateRequest,
+  UpsertScoreTypeRequest,
   ResolveChecklistTemplateRequest,
   CreateChecklistEntryRequest,
   SubmitChecklistResponsesRequest,
@@ -164,6 +165,7 @@ import type {
   DemoDataResetSeedResult,
   DemoDataRefreshDatesResult,
   ChecklistTemplate,
+  ScoreType,
   ChecklistEntry,
 } from '../types/domain.ts';
 
@@ -241,6 +243,12 @@ export const controlPlanApi = {
 };
 
 export const checklistApi = {
+  getScoreTypes: (includeArchived = false) =>
+    api.get<ScoreType[]>(`/checklists/score-types?includeArchived=${includeArchived ? 'true' : 'false'}`),
+  getScoreType: (scoreTypeId: string) =>
+    api.get<ScoreType>(`/checklists/score-types/${scoreTypeId}`),
+  upsertScoreType: (request: UpsertScoreTypeRequest) =>
+    api.post<ScoreType>('/checklists/score-types', request),
   getTemplates: (siteId?: string, checklistType?: string) => {
     const params = new URLSearchParams();
     if (siteId) params.set('siteId', siteId);

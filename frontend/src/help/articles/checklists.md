@@ -1,29 +1,49 @@
 # Checklist Templates
 
-Checklist Templates is the admin screen for creating and maintaining reusable checklist definitions used by safety and operations workflows.
+Checklist Templates manages reusable safety and operations checklists. The flow now uses a dedicated editor route instead of editing in a modal.
 
-## How It Works
+## Screen Flow
 
-1. **Filter templates.** Use Site and Type filters to narrow the list.
-2. **Create or edit.** Click **Add Template** to create a new one, or use the edit icon on an existing card.
-3. **Define template scope.** Choose `PlantWorkCenter`, `SiteDefault`, or `GlobalDefault`, then set Site/Work Center/Line as needed.
-4. **Set behavior.** Configure response mode (`PFNA` or `PF`), active status, fail-note requirement, and safety profile.
-5. **Build questions.** Add questions one at a time, reorder them, or bulk import pass/fail prompts.
+1. Open `Menu -> Safety / Shift Checklists`.
+2. Filter by Site and Type on the list page.
+3. Click **Add Template** (goes to `/menu/checklists/new`) or use the edit icon (goes to `/menu/checklists/:id`).
+4. Complete fields and question definitions, then save.
 
-## Fields & Controls
+## Ownership Rules
 
-| Element | Description |
-|---|---|
-| **Title / Template Code** | Required identity fields for each template version. |
-| **Checklist Type** | Template category (`SafetyPreShift`, `SafetyPeriodic`, `OpsPreShift`, `OpsChangeover`). |
-| **Scope Level** | Where template applies: line-specific, site default, or global default. |
-| **Version / Effective Dates** | Controls rollout/version timing for template variants. |
-| **Response Mode** | Default pass/fail mode behavior for pass/fail questions. |
-| **Checklist Questions** | Question list with prompt, response type, options, and required/fail-note flags. |
-| **Import as PassFail Questions** | Bulk-adds questions from pasted lines (one prompt per line). |
+- **Template owner is required** for every template.
+- **Administrators and Directors** can assign any user as owner when creating or updating.
+- **Only the owner** can edit an existing template after creation.
 
-## Tips
+## Supported Question Response Types
 
-- Use `SiteDefault` when most lines at a site share the same checklist.
-- Use `PlantWorkCenter` when line-level differences are important.
-- For `Select` response type, include at least two distinct options.
+Allowed response types are:
+
+- `Checkbox`
+- `Datetime`
+- `Number`
+- `Image`
+- `Dimension`
+- `Score`
+
+Legacy response types like `PassFail` and `Select` are not allowed.
+
+## Response-Type Specific Rules
+
+- **Score**: a Score Type must be selected.
+- **Dimension**:
+  - target, upper limit, lower limit, and unit are required
+  - unit must be `inches`
+  - limits must satisfy `Lower <= Target <= Upper`
+
+## Sections
+
+- Each question can be unsectioned or assigned to a section.
+- Section picker supports both:
+  - selecting an existing section
+  - creating a new section inline
+- Section groups display alphabetically, with unsectioned items first.
+
+## Rollout Note
+
+- No legacy checklist data migration/reset is required in this environment because legacy data is already empty.
