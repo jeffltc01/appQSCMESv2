@@ -150,6 +150,7 @@ export function OperatorLayout() {
   const welderGateDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const [downtimeConfig, setDowntimeConfig] = useState<DowntimeConfig | null>(null);
+  const [downtimeConfigError, setDowntimeConfigError] = useState<string | null>(null);
   const [showDowntimeOverlay, setShowDowntimeOverlay] = useState(false);
   const [showDemoScanOverlay, setShowDemoScanOverlay] = useState(false);
   const [hideDemoScanOverlayTemporarily, setHideDemoScanOverlayTemporarily] = useState(false);
@@ -167,6 +168,7 @@ export function OperatorLayout() {
   const autoLogoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const AUTO_LOGOUT_MINUTES = 60;
+  const DOWNTIME_CONFIG_FETCH_ERROR = 'Unable to load downtime reasons for this station. Check the connection and try again, then contact a Quality Manager if it persists.';
   const dataEntryType = cache?.cachedDataEntryType ?? '';
   const isQueueScreen = dataEntryType === 'MatQueue-Material' || dataEntryType === 'MatQueue-Fitup';
   const historyLogCta = dataEntryType === 'MatQueue-Shell'
@@ -398,17 +400,20 @@ export function OperatorLayout() {
   const refreshDowntimeConfig = useCallback(async () => {
     if (!cache?.cachedWorkCenterId || !cache?.cachedProductionLineId) {
       setDowntimeConfig(null);
-      return null;
+      setDowntimeConfigError(null);
+      return { config: null, fetchFailed: false };
     }
     try {
       const config = await downtimeConfigApi.get(cache.cachedWorkCenterId, cache.cachedProductionLineId);
       setDowntimeConfig(config);
-      return config;
+      setDowntimeConfigError(null);
+      return { config, fetchFailed: false };
     } catch {
       setDowntimeConfig(null);
-      return null;
+      setDowntimeConfigError(DOWNTIME_CONFIG_FETCH_ERROR);
+      return { config: null, fetchFailed: true };
     }
-  }, [cache?.cachedWorkCenterId, cache?.cachedProductionLineId]);
+  }, [cache?.cachedWorkCenterId, cache?.cachedProductionLineId, DOWNTIME_CONFIG_FETCH_ERROR]);
 
   useEffect(() => {
     void refreshDowntimeConfig();
@@ -417,8 +422,13 @@ export function OperatorLayout() {
   const handleInactivityDetected = useCallback((lastActivityTimestamp: number) => {
     void (async () => {
       setDowntimeLastActivity(lastActivityTimestamp);
-      const latestConfig = await refreshDowntimeConfig();
+      const { config: latestConfig, fetchFailed } = await refreshDowntimeConfig();
       const effectiveConfig = latestConfig ?? downtimeConfig;
+
+      if (fetchFailed) {
+        setShowDowntimeOverlay(true);
+        return;
+      }
 
       if (effectiveConfig && !effectiveConfig.downtimeTrackingEnabled) return;
 
@@ -456,6 +466,7 @@ export function OperatorLayout() {
 
   const handleDowntimeDismiss = useCallback(() => {
     setShowDowntimeOverlay(false);
+    setDowntimeConfigError(null);
     if (autoLogoutTimerRef.current) {
       clearTimeout(autoLogoutTimerRef.current);
       autoLogoutTimerRef.current = null;
@@ -809,12 +820,13 @@ export function OperatorLayout() {
         />
       )}
 
-      {showDowntimeOverlay && downtimeConfig && wcplId && (
+      {showDowntimeOverlay && (
         <DowntimeOverlay
           lastActivityTimestamp={downtimeLastActivity}
-          reasons={downtimeConfig.applicableReasons}
+          reasons={downtimeConfig?.applicableReasons ?? []}
           workCenterProductionLineId={wcplId}
           operatorUserId={user?.id ?? ''}
+          configurationError={downtimeConfigError ?? undefined}
           onDismiss={handleDowntimeDismiss}
         />
       )}

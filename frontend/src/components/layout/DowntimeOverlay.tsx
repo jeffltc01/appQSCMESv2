@@ -8,6 +8,7 @@ interface DowntimeOverlayProps {
   reasons: DowntimeReason[];
   workCenterProductionLineId: string;
   operatorUserId: string;
+  configurationError?: string;
   onDismiss: () => void;
 }
 
@@ -24,6 +25,7 @@ export function DowntimeOverlay({
   reasons,
   workCenterProductionLineId,
   operatorUserId,
+  configurationError,
   onDismiss,
 }: DowntimeOverlayProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -53,6 +55,10 @@ export function DowntimeOverlay({
 
   const handleSelectReason = async (reasonId: string) => {
     if (submitting) return;
+    if (!workCenterProductionLineId || !operatorUserId) {
+      setError('Downtime is missing station or operator context. Close and retry.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -97,7 +103,20 @@ export function DowntimeOverlay({
         </div>
       )}
 
-      {grouped.length === 0 && (
+      {configurationError && (
+        <button
+          type="button"
+          className={styles.emptyState}
+          onClick={onDismiss}
+          data-testid="downtime-config-error"
+        >
+          {configurationError}
+          <br />
+          Tap here to close this screen and try again.
+        </button>
+      )}
+
+      {!configurationError && grouped.length === 0 && (
         <button
           type="button"
           className={styles.emptyState}
@@ -110,7 +129,7 @@ export function DowntimeOverlay({
         </button>
       )}
 
-      {grouped.map(group => (
+      {!configurationError && grouped.map(group => (
         <div key={group.categoryName} className={styles.categoryGroup}>
           <div className={styles.categoryTitle}>{group.categoryName}</div>
           <div className={styles.reasonGrid}>

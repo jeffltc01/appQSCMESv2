@@ -105,7 +105,6 @@ vi.mock('./LeftPanel', () => ({ LeftPanel: () => <div data-testid="left-panel" /
 vi.mock('./WCHistory', () => ({ WCHistory: () => <div data-testid="wc-history" /> }));
 vi.mock('./QueueHistory', () => ({ QueueHistory: () => <div data-testid="queue-history" /> }));
 vi.mock('./ScanOverlay.tsx', () => ({ ScanOverlay: () => null }));
-vi.mock('./DowntimeOverlay', () => ({ DowntimeOverlay: () => null }));
 
 const mockRollsScreenBehavior = { emitErrorOnMount: false };
 vi.mock('../../features/rolls/RollsScreen.tsx', async () => {
@@ -269,6 +268,72 @@ describe('OperatorLayout', () => {
 
     await waitFor(() => {
       expect(vi.mocked(downtimeConfigApi.get)).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('shows downtime overlay with assigned reasons when inactivity is detected', async () => {
+    const { downtimeConfigApi, adminWorkCenterApi } = await import('../../api/endpoints');
+    vi.mocked(downtimeConfigApi.get).mockResolvedValue({
+      downtimeTrackingEnabled: true,
+      downtimeThresholdMinutes: 5,
+      applicableReasons: [
+        {
+          id: 'reason-1',
+          downtimeReasonCategoryId: 'category-1',
+          categoryName: 'Equipment',
+          name: 'Breakdown',
+          isActive: true,
+          countsAsDowntime: true,
+          sortOrder: 0,
+        },
+      ],
+    });
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue([
+      { id: 'wcpl-1', productionLineId: 'pl1' } as never,
+    ]);
+
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(vi.mocked(downtimeConfigApi.get)).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      inactivityMock.onInactivityDetected?.(Date.now() - 60_000);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Looks like there was some downtime')).toBeInTheDocument();
+      expect(screen.getByText('Breakdown')).toBeInTheDocument();
+    });
+  });
+
+  it('shows a visible error state when downtime config fetch fails during inactivity', async () => {
+    const { downtimeConfigApi, adminWorkCenterApi } = await import('../../api/endpoints');
+    vi.mocked(downtimeConfigApi.get)
+      .mockResolvedValueOnce({
+        downtimeTrackingEnabled: true,
+        downtimeThresholdMinutes: 5,
+        applicableReasons: [],
+      })
+      .mockRejectedValueOnce(new Error('Network failed'));
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue([
+      { id: 'wcpl-1', productionLineId: 'pl1' } as never,
+    ]);
+
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(vi.mocked(downtimeConfigApi.get)).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      inactivityMock.onInactivityDetected?.(Date.now() - 60_000);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('downtime-config-error')).toBeInTheDocument();
+      expect(screen.getByText(/Unable to load downtime reasons for this station/)).toBeInTheDocument();
     });
   });
 });

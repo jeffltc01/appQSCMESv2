@@ -73,6 +73,19 @@ describe('DowntimeOverlay', () => {
     expect(props.onDismiss).toHaveBeenCalled();
   });
 
+  it('shows a config-fetch error state and dismisses when tapped', () => {
+    const { props } = renderOverlay({
+      reasons: [],
+      configurationError: 'Unable to load downtime reasons for this station.',
+    });
+
+    expect(screen.getByTestId('downtime-config-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('downtime-empty-state')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('downtime-config-error'));
+    expect(props.onDismiss).toHaveBeenCalled();
+  });
+
   it('calls API and dismisses on reason click', async () => {
     const { downtimeEventApi } = await import('../../api/endpoints');
     const { props } = renderOverlay();

@@ -172,6 +172,105 @@ public class DowntimeServiceTests
     }
 
     [Fact]
+    public async Task GetDowntimeConfig_ReturnsNull_WhenWorkCenterProductionLineNotFound()
+    {
+        var (_, sut, _, _, _) = SetupWithReasons();
+
+        var config = await sut.GetDowntimeConfigAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Null(config);
+    }
+
+    [Fact]
+    public async Task GetDowntimeConfig_ReturnsEmptyApplicableReasons_WhenNoReasonsAssigned()
+    {
+        var (db, sut, _, reasonId, wcplId) = SetupWithReasons();
+        var wcpl = await db.WorkCenterProductionLines.FindAsync(wcplId);
+        var assignment = await db.WorkCenterProductionLineDowntimeReasons
+            .FirstAsync(x => x.WorkCenterProductionLineId == wcplId && x.DowntimeReasonId == reasonId);
+
+        db.WorkCenterProductionLineDowntimeReasons.Remove(assignment);
+        await db.SaveChangesAsync();
+
+        var config = await sut.GetDowntimeConfigAsync(wcpl!.WorkCenterId, wcpl.ProductionLineId);
+
+        Assert.NotNull(config);
+        Assert.Empty(config!.ApplicableReasons);
+    }
+
+    [Fact]
+    public async Task GetDowntimeConfig_ExcludesInactiveAssignedReasons()
+    {
+        var (db, sut, _, reasonId, wcplId) = SetupWithReasons();
+        var wcpl = await db.WorkCenterProductionLines.FindAsync(wcplId);
+        var reason = await db.DowntimeReasons.FindAsync(reasonId);
+        reason!.IsActive = false;
+        await db.SaveChangesAsync();
+
+        var config = await sut.GetDowntimeConfigAsync(wcpl!.WorkCenterId, wcpl.ProductionLineId);
+
+        Assert.NotNull(config);
+        Assert.Empty(config!.ApplicableReasons);
+    }
+
+    [Fact]
+    public async Task GetDowntimeConfig_ReturnsAssignedReasonsInCategoryAndReasonSortOrder()
+    {
+        var (db, sut, categoryId, _, wcplId) = SetupWithReasons();
+        var wcpl = await db.WorkCenterProductionLines.FindAsync(wcplId);
+
+        var secondCategory = new DowntimeReasonCategory
+        {
+            Id = Guid.NewGuid(),
+            PlantId = TestHelpers.PlantPlt1Id,
+            Name = "Personnel",
+            IsActive = true,
+            SortOrder = 1
+        };
+        db.DowntimeReasonCategories.Add(secondCategory);
+
+        var earlyEquipmentReason = new DowntimeReason
+        {
+            Id = Guid.NewGuid(),
+            DowntimeReasonCategoryId = categoryId,
+            Name = "Alignment",
+            IsActive = true,
+            SortOrder = -1
+        };
+        var personnelReason = new DowntimeReason
+        {
+            Id = Guid.NewGuid(),
+            DowntimeReasonCategoryId = secondCategory.Id,
+            Name = "Break",
+            IsActive = true,
+            SortOrder = 0
+        };
+        db.DowntimeReasons.AddRange(earlyEquipmentReason, personnelReason);
+        await db.SaveChangesAsync();
+
+        db.WorkCenterProductionLineDowntimeReasons.AddRange(
+            new WorkCenterProductionLineDowntimeReason
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterProductionLineId = wcplId,
+                DowntimeReasonId = earlyEquipmentReason.Id
+            },
+            new WorkCenterProductionLineDowntimeReason
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterProductionLineId = wcplId,
+                DowntimeReasonId = personnelReason.Id
+            });
+        await db.SaveChangesAsync();
+
+        var config = await sut.GetDowntimeConfigAsync(wcpl!.WorkCenterId, wcpl.ProductionLineId);
+
+        Assert.NotNull(config);
+        Assert.Equal(3, config!.ApplicableReasons.Count);
+        Assert.Equal(new[] { "Alignment", "Breakdown", "Break" }, config.ApplicableReasons.Select(x => x.Name).ToArray());
+    }
+
+    [Fact]
     public async Task UpdateDowntimeConfig_ChangesThreshold()
     {
         var (db, sut, _, _, wcplId) = SetupWithReasons();
