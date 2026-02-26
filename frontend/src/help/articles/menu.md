@@ -16,7 +16,7 @@ Tile-based navigation grid for supervisory and administrative functions. Visible
 | Tile | Min Role | Description |
 |---|---|---|
 | Supervisor / Team Lead Dashboard | 5.0 | Real-time production counts and metrics |
-| Digital Twin | 4.0 | Visual production line status |
+| Plant Dashboard | 4.0 | Visual production line status |
 | AI Review | 5.5 | AI-assisted quality review of inspection data |
 | Who's On the Floor | 5.0 | See which operators and welders are currently signed in |
 | Serial Number Lookup | 5.0 | Search for a serial number and view its full traceability chain |
@@ -40,7 +40,7 @@ Tile-based navigation grid for supervisory and administrative functions. Visible
 |---|---|---|
 | Plant Gear | 3.0 | Configure plant production gear levels |
 | Production Line Work Centers | 2.0 | Configure per-line overrides such as display name, welder count, checklist toggles, and downtime settings |
-| Safety / Shift Checklists | 4.0 | Manage checklist templates used for safety and shift workflows |
+| Checklist Templates | 4.0 | Manage checklist templates used for safety and shift workflows |
 | Downtime Reasons | 3.0 | Manage downtime reason codes |
 | Downtime Log | 5.0 | Review, add, edit, and delete downtime events by work center/date |
 | Shift Schedule | 3.0 | Define shift times and patterns |

@@ -105,7 +105,7 @@ export function DigitalTwinScreen() {
 
   return (
     <AdminLayout
-      title={`Digital Twin${selectedLine ? ` — ${selectedLine.name}` : ''}`}
+      title={`Plant Dashboard${selectedLine ? ` — ${selectedLine.name}` : ''}`}
       nlqContext={{
         productionLineId: selectedLineId || undefined,
         screenKey: 'digital-twin',
@@ -159,7 +159,7 @@ export function DigitalTwinScreen() {
           </div>
         ) : !snapshot ? (
           <div className={styles.emptyState}>
-            Select a plant and production line to view the Digital Twin.
+            Select a plant and production line to view the Plant Dashboard.
           </div>
         ) : (
           <>

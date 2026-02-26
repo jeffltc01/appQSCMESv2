@@ -238,6 +238,38 @@ export function SupervisorDashboardScreen() {
     : metricView === 'week'
       ? metrics?.weekQtyPerHour
       : metrics?.monthQtyPerHour;
+  const fpyBorderClass = selectedFpy === null
+    ? styles.metricBorderDefault
+    : selectedFpy >= 95
+      ? styles.metricBorderGreen
+      : styles.metricBorderRed;
+  const defectsBorderClass = selectedDefects === 0 ? styles.metricBorderGreen : styles.metricBorderRed;
+  const oeeOverallBorderClass = metrics?.oeeOverall === null
+    ? styles.metricBorderDefault
+    : metrics && metrics.oeeOverall >= 85
+      ? styles.metricBorderGreen
+      : metrics && metrics.oeeOverall < 60
+        ? styles.metricBorderRed
+        : styles.metricBorderDefault;
+  const availabilityBorderClass = metrics && metrics.oeeAvailability >= 90
+    ? styles.metricBorderGreen
+    : metrics && metrics.oeeAvailability < 70
+      ? styles.metricBorderRed
+      : styles.metricBorderDefault;
+  const performanceBorderClass = metrics?.oeePerformance === null
+    ? styles.metricBorderDefault
+    : metrics && metrics.oeePerformance >= 95
+      ? styles.metricBorderGreen
+      : metrics && metrics.oeePerformance < 70
+        ? styles.metricBorderRed
+        : styles.metricBorderDefault;
+  const qualityBorderClass = metrics?.oeeQuality === null
+    ? styles.metricBorderDefault
+    : metrics && metrics.oeeQuality >= 99
+      ? styles.metricBorderGreen
+      : metrics && metrics.oeeQuality < 95
+        ? styles.metricBorderRed
+        : styles.metricBorderDefault;
   const countTrendValues = trends?.count.map((point) => point.value) ?? [];
   const fpyTrendValues = trends?.fpy.map((point) => point.value) ?? [];
   const defectsTrendValues = trends?.defects.map((point) => point.value) ?? [];
@@ -502,7 +534,7 @@ export function SupervisorDashboardScreen() {
             {metrics.supportsFirstPassYield && (
               <button
                 type="button"
-                className={`${styles.kpiCard} ${styles.kpiCardFpy} ${styles.metricCardButton}`}
+                className={`${styles.kpiCard} ${fpyBorderClass} ${styles.metricCardButton}`}
                 onClick={() => openMetricDrilldown('fpy')}
                 aria-label="Open First Pass Yield details"
               >
@@ -534,7 +566,7 @@ export function SupervisorDashboardScreen() {
             {metrics.supportsFirstPassYield && (
               <button
                 type="button"
-                className={`${styles.kpiCard} ${styles.kpiCardDefects} ${styles.metricCardButton}`}
+                className={`${styles.kpiCard} ${defectsBorderClass} ${styles.metricCardButton}`}
                 onClick={() => openMetricDrilldown('defects')}
                 aria-label="Open Total Defects details"
               >
@@ -614,7 +646,7 @@ export function SupervisorDashboardScreen() {
             {metrics.oeeAvailability != null && (
               <button
                 type="button"
-                className={`${styles.oeeCard} ${styles.oeeCardOverall} ${styles.metricCardButton}`}
+                className={`${styles.oeeCard} ${oeeOverallBorderClass} ${styles.metricCardButton}`}
                 onClick={() => openMetricDrilldown('oee')}
                 aria-label="Open OEE details"
               >
@@ -643,7 +675,7 @@ export function SupervisorDashboardScreen() {
             {metrics.oeeAvailability != null && (
               <button
                 type="button"
-                className={`${styles.oeeCard} ${styles.oeeCardAvailability} ${styles.metricCardButton}`}
+                className={`${styles.oeeCard} ${availabilityBorderClass} ${styles.metricCardButton}`}
                 onClick={() => openMetricDrilldown('availability')}
                 aria-label="Open Availability details"
               >
@@ -670,7 +702,7 @@ export function SupervisorDashboardScreen() {
             {metrics.oeeAvailability != null && (
               <button
                 type="button"
-                className={`${styles.oeeCard} ${styles.oeeCardPerformance} ${styles.metricCardButton}`}
+                className={`${styles.oeeCard} ${performanceBorderClass} ${styles.metricCardButton}`}
                 onClick={() => openMetricDrilldown('performance')}
                 aria-label="Open Performance details"
               >
@@ -699,7 +731,7 @@ export function SupervisorDashboardScreen() {
             {metrics.oeeAvailability != null && (
               <button
                 type="button"
-                className={`${styles.oeeCard} ${styles.oeeCardQuality} ${styles.metricCardButton}`}
+                className={`${styles.oeeCard} ${qualityBorderClass} ${styles.metricCardButton}`}
                 onClick={() => openMetricDrilldown('quality')}
                 aria-label="Open Quality details"
               >

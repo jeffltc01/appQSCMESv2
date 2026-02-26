@@ -61,7 +61,7 @@ const MENU_GROUPS: MenuGroup[] = [
     accentColor: '#343a40',
     tiles: [
       { label: 'Supervisor / Team Lead Dashboard', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/supervisor-dashboard', implemented: true },
-      { label: 'Digital Twin', icon: <BranchRegular />, minRoleTier: 4, route: '/menu/digital-twin', implemented: true },
+      { label: 'Plant Dashboard', icon: <BranchRegular />, minRoleTier: 4, route: '/menu/digital-twin', implemented: true },
       { label: 'AI Review', icon: <ShieldCheckmarkRegular />, minRoleTier: 2, canAccess: (t) => t <= 2 || t === 5.5, route: '/menu/ai-review', implemented: true },
       { label: "Who's On the Floor", icon: <PeopleAudienceRegular />, minRoleTier: 5, route: '/menu/whos-on-floor', implemented: true },
       { label: 'Serial Number Lookup', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/serial-lookup', implemented: true },
@@ -87,7 +87,7 @@ const MENU_GROUPS: MenuGroup[] = [
     tiles: [
       { label: 'Plant Gear', icon: <TopSpeedRegular />, minRoleTier: 3, route: '/menu/plant-gear', implemented: true },
       { label: 'Production Line Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/production-line-workcenters', implemented: true },
-      { label: 'Safety / Shift Checklists', icon: <ClipboardTextLtrRegular />, minRoleTier: 6, route: '/menu/checklists', implemented: true },
+      { label: 'Checklist Templates', icon: <ClipboardTextLtrRegular />, minRoleTier: 6, route: '/menu/checklists', implemented: true },
       { label: 'Checklist Response Review', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/checklist-response-review', implemented: true },
       { label: 'Checklist Score Types', icon: <ClipboardTextLtrRegular />, minRoleTier: 2, route: '/menu/checklist-score-types', implemented: true },
       { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },

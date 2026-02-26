@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
@@ -66,11 +66,23 @@ const mockPlConfigs = [
     downtimeTrackingEnabled: false,
     downtimeThresholdMinutes: 5,
   },
+  {
+    id: 'wcpl2',
+    workCenterId: 'g1',
+    productionLineId: 'pl2',
+    productionLineName: 'Line 2',
+    plantName: 'Springfield',
+    displayName: 'Rolls Station B',
+    numberOfWelders: 2,
+    downtimeTrackingEnabled: true,
+    downtimeThresholdMinutes: 5,
+  },
 ];
 
 const mockProductionLines = [
   { id: 'pl1', name: 'Line 1', plantId: 'p1', plantName: 'Cleveland' },
-  { id: 'pl2', name: 'Line 2', plantId: 'p1', plantName: 'Cleveland' },
+  { id: 'pl2', name: 'Line 2', plantId: 'p2', plantName: 'Springfield' },
+  { id: 'pl3', name: 'Line 3', plantId: 'p3', plantName: 'Toledo' },
 ];
 
 const mockReasonCategories = [
@@ -116,9 +128,85 @@ describe('ProductionLineWorkCentersScreen', () => {
   it('shows per-line config data from API', async () => {
     renderScreen();
     await waitFor(() => {
+      expect(screen.getByText('Line 1 / Rolls 1')).toBeInTheDocument();
+      expect(screen.getByText('Line 2 / Rolls 1')).toBeInTheDocument();
       expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
-      expect(screen.getByText('Welders: 3')).toBeInTheDocument();
-      expect(screen.getByText('Line 1 (Cleveland)')).toBeInTheDocument();
+      expect(screen.getByText('Rolls Station B')).toBeInTheDocument();
+      expect(screen.getByText('Cleveland')).toBeInTheDocument();
+      expect(screen.getByText('Springfield')).toBeInTheDocument();
+      expect(screen.getAllByText('Downtime Tracking').length).toBeGreaterThan(0);
+      expect(screen.getByText('Enabled')).toBeInTheDocument();
+      expect(screen.getByText('Disabled')).toBeInTheDocument();
+    });
+  });
+
+  it('does not render work center Type on cards', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.queryByText(/^Type$/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('filters cards by selected plant', async () => {
+    renderScreen();
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
+      expect(screen.getByText('Rolls Station B')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('combobox', { name: 'Plant' }));
+    await user.click(await screen.findByRole('option', { name: 'Springfield' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Rolls Station A')).not.toBeInTheDocument();
+      expect(screen.getByText('Rolls Station B')).toBeInTheDocument();
+    });
+  });
+
+  it('shows empty state when plant filter has no matching cards', async () => {
+    renderScreen();
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('combobox', { name: 'Plant' }));
+    await user.click(await screen.findByRole('option', { name: 'Toledo' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No production line work centers match the selected plant.')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps edit and delete actions functional', async () => {
+    vi.mocked(adminWorkCenterApi.deleteProductionLineConfig).mockResolvedValue(undefined as never);
+    renderScreen();
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
+      expect(screen.getByText('Rolls Station B')).toBeInTheDocument();
+    });
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit production line config' });
+    await user.click(editButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete production line config' });
+    await user.click(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(adminWorkCenterApi.deleteProductionLineConfig).toHaveBeenCalledWith('g1', 'pl1');
+      expect(screen.queryByText('Rolls Station A')).not.toBeInTheDocument();
+      expect(screen.getByText('Rolls Station B')).toBeInTheDocument();
     });
   });
 
@@ -145,11 +233,8 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
     });
 
-    const lineLabel = await screen.findByText('Line 1 (Cleveland)');
-    const plRow = lineLabel.closest('div');
-    expect(plRow).not.toBeNull();
-    const plEditButton = within(plRow as HTMLElement).getAllByRole('button')[0];
-    await user.click(plEditButton);
+    const editButtons = screen.getAllByRole('button', { name: 'Edit production line config' });
+    await user.click(editButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();
@@ -171,11 +256,8 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('Rolls Station A')).toBeInTheDocument();
     });
 
-    const lineLabel = await screen.findByText('Line 1 (Cleveland)');
-    const plRow = lineLabel.closest('div');
-    expect(plRow).not.toBeNull();
-    const plEditButton = within(plRow as HTMLElement).getAllByRole('button')[0];
-    await user.click(plEditButton);
+    const editButtons = screen.getAllByRole('button', { name: 'Edit production line config' });
+    await user.click(editButtons[0]);
 
     await waitFor(() => {
       expect(screen.getByText('Edit Production Line Config')).toBeInTheDocument();

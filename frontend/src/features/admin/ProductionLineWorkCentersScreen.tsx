@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Input, Label, Dropdown, Option, Spinner, Switch, Checkbox } from '@fluentui/react-components';
 import { EditRegular, AddRegular, DeleteRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
@@ -15,6 +15,7 @@ export function ProductionLineWorkCentersScreen() {
   const [groups, setGroups] = useState<AdminWorkCenterGroup[]>([]);
   const [plConfigs, setPlConfigs] = useState<Record<string, WorkCenterProductionLine[]>>({});
   const [allProductionLines, setAllProductionLines] = useState<ProductionLineAdmin[]>([]);
+  const [selectedPlantId, setSelectedPlantId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -192,6 +193,41 @@ export function ProductionLineWorkCentersScreen() {
 
   const existingPlIdsForWc = (wcId: string) => (plConfigs[wcId] ?? []).map((c) => c.productionLineId);
 
+  const productionLineById = useMemo(
+    () => new Map(allProductionLines.map((pl) => [pl.id, pl])),
+    [allProductionLines],
+  );
+
+  const plantOptions = useMemo(
+    () =>
+      Array.from(new Map(allProductionLines.map((pl) => [pl.plantId, pl.plantName])).entries()).map(
+        ([id, name]) => ({ id, name }),
+      ),
+    [allProductionLines],
+  );
+
+  const configuredCards = useMemo(
+    () =>
+      groups.flatMap((group) =>
+        (plConfigs[group.groupId] ?? []).map((plConfig) => {
+          const productionLine = productionLineById.get(plConfig.productionLineId);
+          return {
+            groupId: group.groupId,
+            baseName: group.baseName,
+            config: plConfig,
+            plantId: productionLine?.plantId ?? '',
+            plantName: plConfig.plantName || productionLine?.plantName || 'Unknown Plant',
+          };
+        }),
+      ),
+    [groups, plConfigs, productionLineById],
+  );
+
+  const visibleCards = useMemo(
+    () => (selectedPlantId ? configuredCards.filter((card) => card.plantId === selectedPlantId) : configuredCards),
+    [configuredCards, selectedPlantId],
+  );
+
   return (
     <AdminLayout title="Production Line Work Centers">
       {loading ? (
@@ -199,44 +235,87 @@ export function ProductionLineWorkCentersScreen() {
       ) : (
         <>
           {error && <div style={{ color: '#dc3545', marginBottom: 12 }}>{error}</div>}
+          <div className={styles.filterBar}>
+            <Label htmlFor="plant-filter">Plant</Label>
+            <Dropdown
+              id="plant-filter"
+              value={selectedPlantId ? (plantOptions.find((p) => p.id === selectedPlantId)?.name ?? '') : 'All Plants'}
+              selectedOptions={[selectedPlantId || '__all__']}
+              onOptionSelect={(_, data) => setSelectedPlantId(data.optionValue === '__all__' ? '' : (data.optionValue ?? ''))}
+            >
+              <Option value="__all__" text="All Plants">
+                All Plants
+              </Option>
+              {plantOptions.map((plant) => (
+                <Option key={plant.id} value={plant.id} text={plant.name}>
+                  {plant.name}
+                </Option>
+              ))}
+            </Dropdown>
+          </div>
           <div className={styles.grid}>
-            {groups.map((group) => (
-              <div key={group.groupId} className={styles.card}>
+            {visibleCards.length === 0 ? (
+              <div className={styles.emptyState}>
+                {selectedPlantId
+                  ? 'No production line work centers match the selected plant.'
+                  : 'No per-line overrides configured.'}
+              </div>
+            ) : (
+              visibleCards.map((card) => (
+              <div key={card.config.id} className={styles.card}>
                 <div className={styles.cardHeader}>
-                  <span className={styles.cardTitle}>{group.baseName}</span>
-                </div>
-                <div className={styles.cardField}>
-                  <span className={styles.cardFieldLabel}>Type</span>
-                  <span className={styles.cardFieldValue}>{group.workCenterTypeName}</span>
-                </div>
-
-                <div style={{ marginTop: 12, borderTop: '1px solid #e5e5e5', paddingTop: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>Per-Production Line</span>
-                    {isQualityManagerOrAbove && (
-                      <Button appearance="subtle" icon={<AddRegular />} size="small" onClick={() => openPlAdd(group.groupId)} />
-                    )}
-                  </div>
-                  {(plConfigs[group.groupId] ?? []).length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#868686' }}>No per-line overrides configured.</div>
-                  ) : (
-                    (plConfigs[group.groupId] ?? []).map((plc) => (
-                      <div key={plc.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '2px 0' }}>
-                        <span style={{ color: '#868686', minWidth: 100 }}>{plc.productionLineName} ({plc.plantName})</span>
-                        <span style={{ flex: 1 }}>{plc.displayName}</span>
-                        <span style={{ color: '#868686' }}>Welders: {plc.numberOfWelders}</span>
-                        {isQualityManagerOrAbove && (
-                          <>
-                            <Button appearance="subtle" icon={<EditRegular />} size="small" onClick={() => openPlEdit(group.groupId, plc)} />
-                            <Button appearance="subtle" icon={<DeleteRegular />} size="small" onClick={() => handlePlDelete(group.groupId, plc.productionLineId)} />
-                          </>
-                        )}
-                      </div>
-                    ))
+                  <span className={styles.cardTitle}>{card.config.productionLineName} / {card.baseName}</span>
+                  {isQualityManagerOrAbove && (
+                    <div className={styles.cardActions}>
+                      <Button
+                        appearance="subtle"
+                        icon={<AddRegular />}
+                        size="small"
+                        aria-label="Add production line config"
+                        onClick={() => openPlAdd(card.groupId)}
+                      />
+                      <Button
+                        appearance="subtle"
+                        icon={<EditRegular />}
+                        size="small"
+                        aria-label="Edit production line config"
+                        onClick={() => openPlEdit(card.groupId, card.config)}
+                      />
+                      <Button
+                        appearance="subtle"
+                        icon={<DeleteRegular />}
+                        size="small"
+                        aria-label="Delete production line config"
+                        onClick={() => handlePlDelete(card.groupId, card.config.productionLineId)}
+                      />
+                    </div>
                   )}
                 </div>
+                <div className={styles.cardField}>
+                  <span className={styles.cardFieldLabel}>Plant</span>
+                  <span className={styles.cardFieldValue}>{card.plantName}</span>
+                </div>
+                <div className={styles.cardField}>
+                  <span className={styles.cardFieldLabel}>Display Name</span>
+                  <span className={styles.cardFieldValue}>{card.config.displayName}</span>
+                </div>
+                <div className={styles.cardField}>
+                  <span className={styles.cardFieldLabel}>No. of Required Welders</span>
+                  <span className={styles.cardFieldValue}>{card.config.numberOfWelders}</span>
+                </div>
+                <div className={styles.cardField}>
+                  <span className={styles.cardFieldLabel}>Downtime Tracking</span>
+                  <span
+                    className={`${styles.badge} ${
+                      card.config.downtimeTrackingEnabled ? styles.badgeGreen : styles.badgeGray
+                    }`}
+                  >
+                    {card.config.downtimeTrackingEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </>
       )}
@@ -286,7 +365,7 @@ export function ProductionLineWorkCentersScreen() {
         )}
         <Label>Display Name</Label>
         <Input value={plDisplayName} onChange={(_, d) => setPlDisplayName(d.value)} />
-        <Label>Number of Welders</Label>
+        <Label>No. of Required Welders</Label>
         <Input type="number" value={plNumberOfWelders} onChange={(_, d) => setPlNumberOfWelders(d.value)} />
 
         <div style={{ borderTop: '1px solid #dee2e6', marginTop: 12, paddingTop: 12 }}>

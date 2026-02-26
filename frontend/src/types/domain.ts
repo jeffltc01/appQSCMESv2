@@ -1088,6 +1088,7 @@ export interface DowntimeEvent {
   downtimeReasonId?: string;
   downtimeReasonName?: string;
   downtimeReasonCategoryName?: string;
+  countsAsDowntime?: boolean;
   startedAt: string;
   endedAt: string;
   durationMinutes: number;

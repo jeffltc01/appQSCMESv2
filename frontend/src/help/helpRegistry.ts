@@ -59,7 +59,7 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'supervisor-dashboard', title: 'Supervisor / Team Lead Dashboard', category: 'admin', routeMatch: '/menu/supervisor-dashboard' },
   { slug: 'downtime-reasons', title: 'Downtime Reasons', category: 'admin', routeMatch: '/menu/downtime-reasons' },
   { slug: 'downtime-events', title: 'Downtime Log', category: 'admin', routeMatch: '/menu/downtime-events' },
-  { slug: 'digital-twin', title: 'Digital Twin', category: 'admin', routeMatch: '/menu/digital-twin' },
+  { slug: 'digital-twin', title: 'Plant Dashboard', category: 'admin', routeMatch: '/menu/digital-twin' },
   { slug: 'shift-schedule', title: 'Shift Schedule', category: 'admin', routeMatch: '/menu/shift-schedule' },
   { slug: 'capacity-targets', title: 'Capacity Targets', category: 'admin', routeMatch: '/menu/capacity-targets' },
   { slug: 'audit-log', title: 'Audit Log', category: 'admin', routeMatch: '/menu/audit-log' },

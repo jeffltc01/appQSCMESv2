@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using MESv2.Api.Models;
 using MESv2.Api.Services;
 
 namespace MESv2.Api.Tests;
@@ -176,6 +177,68 @@ public class DemoDataAdminServiceTests
         Assert.True(after > before);
         Assert.InRange(Math.Abs((DateTime.UtcNow - after).TotalMinutes), 0, 5);
         Assert.NotEmpty(refresh.Updated);
+    }
+
+    [Fact]
+    public async Task RefreshDatesAsync_UsesDigitalTwinTrackedStationsForAnchor()
+    {
+        var db = TestHelpers.CreateInMemoryContext();
+        var sut = new DemoDataAdminService(
+            db,
+            Options.Create(new DemoDataAdminOptions { Enabled = true }),
+            new FakeHostEnvironment(),
+            NullLogger<DemoDataAdminService>.Instance);
+
+        await sut.ResetAndSeedAsync();
+
+        var trackedTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Rolls",
+            "Barcode-LongSeam",
+            "Barcode-LongSeamInsp",
+            "MatQueue-Shell",
+            "Fitup",
+            "Barcode-RoundSeam",
+            "Barcode-RoundSeamInsp",
+            "Spot",
+            "Hydro",
+        };
+
+        var baselineTrackedMax = db.ProductionRecords
+            .Join(db.WorkCenters, r => r.WorkCenterId, w => w.Id, (r, w) => new { r.Timestamp, w.DataEntryType })
+            .Where(x => x.DataEntryType != null && trackedTypes.Contains(x.DataEntryType))
+            .Max(x => x.Timestamp);
+
+        var nonTrackedWcId = db.WorkCenters
+            .Where(w => w.DataEntryType != null && !trackedTypes.Contains(w.DataEntryType))
+            .Select(w => w.Id)
+            .First();
+
+        var sourceRecord = db.ProductionRecords.First();
+        var nonTrackedFutureRecord = new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = sourceRecord.SerialNumberId,
+            WorkCenterId = nonTrackedWcId,
+            AssetId = sourceRecord.AssetId,
+            ProductionLineId = sourceRecord.ProductionLineId,
+            OperatorId = sourceRecord.OperatorId,
+            Timestamp = baselineTrackedMax.AddHours(3),
+            PlantGearId = sourceRecord.PlantGearId,
+        };
+
+        // Simulate a newer non-tracked feed that should not drive refresh anchoring.
+        db.ProductionRecords.Add(nonTrackedFutureRecord);
+        await db.SaveChangesAsync();
+
+        await sut.RefreshDatesAsync();
+
+        var trackedMaxAfter = db.ProductionRecords
+            .Join(db.WorkCenters, r => r.WorkCenterId, w => w.Id, (r, w) => new { r.Timestamp, w.DataEntryType })
+            .Where(x => x.DataEntryType != null && trackedTypes.Contains(x.DataEntryType))
+            .Max(x => x.Timestamp);
+
+        Assert.InRange(Math.Abs((DateTime.UtcNow - trackedMaxAfter).TotalMinutes), 0, 5);
     }
 
     [Fact]

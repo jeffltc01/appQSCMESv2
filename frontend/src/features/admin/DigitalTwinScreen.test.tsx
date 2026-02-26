@@ -210,7 +210,7 @@ describe('DigitalTwinScreen', () => {
     await waitFor(() => {
       expect(screen.queryByText('Loading production line data...')).not.toBeInTheDocument();
     });
-    expect(screen.getByText('Digital Twin')).toBeInTheDocument();
+    expect(screen.getByText('Plant Dashboard')).toBeInTheDocument();
   });
 
   it('shows loading spinner during snapshot fetch', async () => {

@@ -4,7 +4,7 @@ Checklist Templates manages reusable safety and operations checklists. The flow 
 
 ## Screen Flow
 
-1. Open `Menu -> Safety / Shift Checklists`.
+1. Open `Menu -> Checklist Templates`.
 2. Filter by Site and Type on the list page.
 3. Click **Add Template** (goes to `/menu/checklists/new`) or use the edit icon (goes to `/menu/checklists/:id`).
 4. Complete fields and question definitions, then save.

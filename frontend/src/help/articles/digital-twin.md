@@ -1,6 +1,6 @@
-# Digital Twin
+# Plant Dashboard
 
-The Digital Twin is a live, read-only visualization of a production line. It displays a pipeline diagram of stations with real-time status coloring, work-in-progress counts, and gate-check icons. KPI cards and a station detail table provide additional context for supervisors monitoring line performance. Data auto-refreshes every 30 seconds.
+The Plant Dashboard is a live, read-only visualization of a production line. It displays a pipeline diagram of stations with real-time status coloring, work-in-progress counts, and gate-check icons. KPI cards and a station detail table provide additional context for supervisors monitoring line performance. Data auto-refreshes every 30 seconds.
 
 **Access:** All roles with admin menu access. This is a read-only monitoring screen.
 
@@ -42,7 +42,7 @@ The Digital Twin is a live, read-only visualization of a production line. It dis
 
 ## Data Sources
 
-All data on the Digital Twin comes from the MES database, scoped to the selected production line. The snapshot is recalculated from scratch on every 30-second refresh.
+All data on the Plant Dashboard comes from the MES database, scoped to the selected production line. The snapshot is recalculated from scratch on every 30-second refresh.
 
 | Data | Source Table(s) | Scope |
 |---|---|---|

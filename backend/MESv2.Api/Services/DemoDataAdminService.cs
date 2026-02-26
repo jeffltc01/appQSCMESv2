@@ -8,6 +8,20 @@ namespace MESv2.Api.Services;
 
 public class DemoDataAdminService : IDemoDataAdminService
 {
+    // Keep this aligned with DigitalTwinService.ProductionSequence keys.
+    private static readonly HashSet<string> DigitalTwinTrackedDataEntryTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Rolls",
+        "Barcode-LongSeam",
+        "Barcode-LongSeamInsp",
+        "MatQueue-Shell",
+        "Fitup",
+        "Barcode-RoundSeam",
+        "Barcode-RoundSeamInsp",
+        "Spot",
+        "Hydro",
+    };
+
     private readonly MesDbContext _db;
     private readonly DemoDataAdminOptions _options;
     private readonly IHostEnvironment _environment;
@@ -152,8 +166,20 @@ public class DemoDataAdminService : IDemoDataAdminService
         EnsureDemoOperationsAllowed();
 
         var latestProduction = await _db.ProductionRecords
+            .Join(
+                _db.WorkCenters.Where(w => w.DataEntryType != null && DigitalTwinTrackedDataEntryTypes.Contains(w.DataEntryType)),
+                r => r.WorkCenterId,
+                w => w.Id,
+                (r, _) => (DateTime?)r.Timestamp)
+            .MaxAsync(ct);
+
+        // Fallback for environments where tracked stations may not be present yet.
+        if (!latestProduction.HasValue)
+        {
+            latestProduction = await _db.ProductionRecords
             .Select(r => (DateTime?)r.Timestamp)
             .MaxAsync(ct);
+        }
 
         if (!latestProduction.HasValue)
             throw new InvalidOperationException("No production records found. Run reset + seed first.");

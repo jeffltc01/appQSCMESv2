@@ -84,6 +84,7 @@ public class DowntimeEventDto
     public Guid? DowntimeReasonId { get; set; }
     public string? DowntimeReasonName { get; set; }
     public string? DowntimeReasonCategoryName { get; set; }
+    public bool? CountsAsDowntime { get; set; }
     public DateTime StartedAt { get; set; }
     public DateTime EndedAt { get; set; }
     public decimal DurationMinutes { get; set; }

@@ -90,11 +90,15 @@
   outline-offset: 2px;
 }
 
-.kpiCardFpy {
+.metricBorderDefault {
+  border-color: #2b64ca;
+}
+
+.metricBorderGreen {
   border-color: #58d85f;
 }
 
-.kpiCardDefects {
+.metricBorderRed {
   border-color: #ea4e58;
 }
 
@@ -183,22 +187,6 @@
   min-height: 92px;
 }
 
-.oeeCardOverall {
-  border-color: #5ddf64;
-}
-
-.oeeCardAvailability {
-  border-color: #2e70e7;
-}
-
-.oeeCardPerformance {
-  border-color: #f0b93a;
-}
-
-.oeeCardQuality {
-  border-color: #2f75e8;
-}
-
 .oeeHeader {
   background: #13254b;
   border-bottom: 1px solid rgb(255 255 255 / 14%);
@@ -235,7 +223,7 @@
   font-size: 18px;
   line-height: 0.94;
   font-weight: 900;
-  color: #ffffff;
+  color: #6ce36f;
   font-family: 'Roboto', sans-serif;
 }
 
@@ -243,7 +231,7 @@
   font-size: 18px;
   line-height: 0.94;
   font-weight: 900;
-  color: #ffffff;
+  color: #f0b93a;
   font-family: 'Roboto', sans-serif;
 }
 
@@ -251,7 +239,7 @@
   font-size: 18px;
   line-height: 0.94;
   font-weight: 900;
-  color: #ffffff;
+  color: #ff5762;
   font-family: 'Roboto', sans-serif;
 }
 

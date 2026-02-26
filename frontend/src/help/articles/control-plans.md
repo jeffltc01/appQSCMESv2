@@ -9,7 +9,7 @@ Configure which inspections for characteristics are enforced as control plan che
 3. **Add a control plan.** Click **Add** to open the create form. Select a characteristic and a work center / production line, then configure result type, enabled state, and gate check. When a site filter is active, the work center dropdown is scoped to that site.
 4. **Edit a control plan.** Click a card to open the edit form. Toggle the enabled state, change the result type, or enable/disable the gate check and click **Save**.
 5. **Enable or disable.** Use the **Enabled** checkbox to activate or deactivate the control plan. Disabled plans are skipped during inspection.  NOTE: Code Required control plans cannot be disabled.
-6. **Gate check.** Enable the **Gate Check** checkbox to flag this control plan as a mandatory quality gate. Gate check results feed into the **Sellable Tank Status** screen and the **Digital Twin** visualization, making it easy to see which serials have passed or failed critical inspections.
+6. **Gate check.** Enable the **Gate Check** checkbox to flag this control plan as a mandatory quality gate. Gate check results feed into the **Sellable Tank Status** screen and the **Plant Dashboard** visualization, making it easy to see which serials have passed or failed critical inspections.
 
 ## Fields & Controls
 
@@ -22,7 +22,7 @@ Configure which inspections for characteristics are enforced as control plan che
 | **Site**               | The plant this control plan belongs to (derived from the production line). Displayed on each card.                                                                                               |
 | **Enabled**            | Checkbox. When checked, this plan is active and inspectors are prompted for the result.                                                                                                          |
 | **Result Type**        | The type of result collected: PassFail, AcceptReject, GoNoGo, NumericInt, NumericDecimal, or Text.                                                                                               |
-| **Gate Check**         | Checkbox. When checked, this plan is treated as a critical quality gate. Gate check results are shown on the Sellable Tank Status screen and the Digital Twin. Displayed as a badge on the card. |
+| **Gate Check**         | Checkbox. When checked, this plan is treated as a critical quality gate. Gate check results are shown on the Sellable Tank Status screen and the Plant Dashboard. Displayed as a badge on the card. |
 | **Code Required**      | Checkbox. When checked, marks this as an ASME code-required inspection. Code Required plans must also be gate checks.                                                                            |
 
 
