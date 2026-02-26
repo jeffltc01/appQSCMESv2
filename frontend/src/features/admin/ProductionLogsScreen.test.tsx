@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { ProductionLogsScreen } from './ProductionLogsScreen.tsx';
 import { logViewerApi, siteApi, adminAnnotationTypeApi } from '../../api/endpoints.ts';
@@ -293,6 +293,31 @@ describe('ProductionLogsScreen', () => {
           initiatedByUserId: 'u1',
         }),
       );
+    });
+  });
+
+  it('back button returns to previous route', async () => {
+    vi.mocked(logViewerApi.getRollsLog).mockResolvedValue(mockRollsEntries);
+    const user = userEvent.setup();
+
+    render(
+      <FluentProvider theme={webLightTheme}>
+        <MemoryRouter initialEntries={['/operator', '/menu/production-logs?logType=rolls']} initialIndex={1}>
+          <Routes>
+            <Route path="/operator" element={<div>Operator Screen</div>} />
+            <Route path="/menu/production-logs" element={<ProductionLogsScreen />} />
+          </Routes>
+        </MemoryRouter>
+      </FluentProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('020401')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => {
+      expect(screen.getByText('Operator Screen')).toBeInTheDocument();
     });
   });
 });

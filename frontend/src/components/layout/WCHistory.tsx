@@ -50,7 +50,7 @@ export function WCHistory({ data, logCta, operatorId, externalInput = false, onA
         <span className={styles.colSize}>Size</span>
       </div>
 
-      <div className={styles.tableBody}>
+      <div className={`${styles.tableBody} ${styles.historyTableBody}`}>
         {data.recentRecords.length === 0 ? (
           <div className={styles.noRecords}>No History Found</div>
         ) : (

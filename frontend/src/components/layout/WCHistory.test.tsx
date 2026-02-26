@@ -126,6 +126,23 @@ describe('WCHistory', () => {
     expect(screen.queryByText('View Rolls Log')).not.toBeInTheDocument();
   });
 
+  it('renders log CTA after history list content', () => {
+    renderWCHistory({
+      data: {
+        dayCount: 1,
+        recentRecords: [
+          makeRecord({ id: '1', serialOrIdentifier: 'SH001', tankSize: 120 }),
+        ],
+      },
+      logCta: { label: 'View Rolls Log', logType: 'rolls' },
+      externalInput: false,
+    });
+
+    const lastHistoryItem = screen.getByText('SH001');
+    const logButton = screen.getByRole('button', { name: 'View Rolls Log' });
+    expect(lastHistoryItem.compareDocumentPosition(logButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('renders flag as a clickable button with aria-label', () => {
     renderWCHistory({
       data: {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
   Dialog,
@@ -100,6 +100,7 @@ function AnnotationBadges({
 
 export function ProductionLogsScreen() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [sites, setSites] = useState<Plant[]>([]);
@@ -229,10 +230,15 @@ export function ProductionLogsScreen() {
   };
 
   const operatorCreatableTypes = annotationTypes.filter((t) => t.operatorCanCreate);
+  const handleBack = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
 
   return (
     <AdminLayout
       title="Log Viewer"
+      backLabel="Back"
+      onBack={handleBack}
       nlqContext={{
         screenKey: 'log-viewer',
         activeFilterTotalCount: entries.length,
