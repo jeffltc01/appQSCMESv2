@@ -3,6 +3,10 @@ name: Build & Deploy to Dev
 on:
   workflow_dispatch:
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   validate-deploy-inputs:
     name: Validate dev deploy inputs
@@ -27,20 +31,54 @@ jobs:
             fi
           done
 
-  build-release:
-    name: Build release artifacts
+  resolve-verified-build:
+    name: Resolve verified artifacts
     needs: [validate-deploy-inputs]
-    uses: ./.github/workflows/build-test-package.yml
-    with:
-      release_ref: ${{ github.sha }}
-      backend_url: ${{ vars.BACKEND_URL }}
-      run_e2e: false
-      coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    outputs:
+      verify_run_id: ${{ steps.verify.outputs.run_id }}
+      release_sha: ${{ steps.verify.outputs.release_sha }}
+      backend_artifact_name: ${{ steps.verify.outputs.backend_artifact_name }}
+      frontend_artifact_name: ${{ steps.verify.outputs.frontend_artifact_name }}
+      manifest_artifact_name: ${{ steps.verify.outputs.manifest_artifact_name }}
+    steps:
+      - name: Find successful Verify Dev Build run for this commit
+        id: verify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = context.sha;
+            const shortSha = headSha.substring(0, 7);
+
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: "verify-dev-build.yml",
+              head_sha: headSha,
+              status: "completed",
+              per_page: 50,
+            });
+
+            const run = response.data.workflow_runs.find((wfRun) => wfRun.conclusion === "success");
+            if (!run) {
+              core.setFailed(
+                `No successful Verify Dev Build run found for ${headSha}. ` +
+                `Push to dev (or run Verify Dev Build manually) and wait for green before deploying.`
+              );
+              return;
+            }
+
+            core.setOutput("run_id", String(run.id));
+            core.setOutput("release_sha", headSha);
+            core.setOutput("backend_artifact_name", `backend-${shortSha}`);
+            core.setOutput("frontend_artifact_name", `frontend-${shortSha}`);
+            core.setOutput("manifest_artifact_name", `release-manifest-${shortSha}`);
 
   deploy-dev:
     name: Deploy to Dev
-    needs: [build-release]
+    needs: [resolve-verified-build]
     runs-on: ubuntu-latest
     environment: dev
     concurrency:
@@ -51,20 +89,26 @@ jobs:
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build-release.outputs.backend_artifact_name }}
+          name: ${{ needs.resolve-verified-build.outputs.backend_artifact_name }}
           path: ./backend
+          run-id: ${{ needs.resolve-verified-build.outputs.verify_run_id }}
+          github-token: ${{ github.token }}
 
       - name: Download frontend artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build-release.outputs.frontend_artifact_name }}
+          name: ${{ needs.resolve-verified-build.outputs.frontend_artifact_name }}
           path: ./frontend
+          run-id: ${{ needs.resolve-verified-build.outputs.verify_run_id }}
+          github-token: ${{ github.token }}
 
       - name: Download release manifest
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build-release.outputs.manifest_artifact_name }}
+          name: ${{ needs.resolve-verified-build.outputs.manifest_artifact_name }}
           path: ./release
+          run-id: ${{ needs.resolve-verified-build.outputs.verify_run_id }}
+          github-token: ${{ github.token }}
 
       - name: Azure Login
         uses: azure/login@v2
@@ -85,13 +129,35 @@ jobs:
           app_location: ./frontend
           skip_app_build: true
 
+      - name: Re-upload backend artifact for promotions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.resolve-verified-build.outputs.backend_artifact_name }}
+          path: ./backend
+          retention-days: 30
+
+      - name: Re-upload frontend artifact for promotions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.resolve-verified-build.outputs.frontend_artifact_name }}
+          path: ./frontend
+          retention-days: 30
+
+      - name: Re-upload release manifest for promotions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.resolve-verified-build.outputs.manifest_artifact_name }}
+          path: ./release/manifest.json
+          retention-days: 30
+
       - name: Release summary
         run: |
           echo "## Dev deployment complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Release SHA: \`${{ needs.build-release.outputs.release_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Backend artifact: \`${{ needs.build-release.outputs.backend_artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Frontend artifact: \`${{ needs.build-release.outputs.frontend_artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release SHA: \`${{ needs.resolve-verified-build.outputs.release_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Verified run ID: \`${{ needs.resolve-verified-build.outputs.verify_run_id }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Backend artifact: \`${{ needs.resolve-verified-build.outputs.backend_artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Frontend artifact: \`${{ needs.resolve-verified-build.outputs.frontend_artifact_name }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           cat ./release/manifest.json >> "$GITHUB_STEP_SUMMARY"
 

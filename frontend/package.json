@@ -3,6 +3,9 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
@@ -11,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "ci:verify": "npm run build && npm run test:coverage",
     "build:help-pdf": "node scripts/build-help-pdf.mjs"
   },
   "devDependencies": {

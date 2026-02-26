@@ -1,0 +1,35 @@
+name: Verify Dev Build
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  validate-verify-inputs:
+    name: Validate verify inputs
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Validate required variables
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BACKEND_URL:-}" ]]; then
+            echo "Missing required value: BACKEND_URL" >&2
+            exit 1
+          fi
+
+  build-test-package:
+    name: Build, test, and package dev commit
+    needs: [validate-verify-inputs]
+    uses: ./.github/workflows/build-test-package.yml
+    with:
+      release_ref: ${{ github.sha }}
+      backend_url: ${{ vars.BACKEND_URL }}
+      run_e2e: false
+      coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
+    secrets: inherit

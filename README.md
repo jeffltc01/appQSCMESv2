@@ -82,18 +82,18 @@ The application uses three Azure environments plus local development:
 | Environment | Hosting | Database | How it's deployed |
 |---|---|---|---|
 | **Local** | `localhost:5001` / `:5173` | Local SQL Server (`MESv2Dev`) | `dotnet run` / `npm run dev` |
-| **Dev** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Dev`) | Auto on push to `main` |
+| **Dev** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Dev`) | Verify on push to `dev`, then manual deploy workflow |
 | **Test** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Test`) | Manual — "Promote to Test" workflow |
 | **Production** | Azure App Service + Static Web App | Azure SQL (`QSCMES-Prod`) | Manual — "Promote to Production" workflow |
 
 ### Promotion Flow
 
 ```
-Local dev ──push to main──> GitHub Actions
+Local dev ──push to dev──> GitHub Actions
                                │
                [build once + tests + package artifacts]
                                │
-                        Auto-deploy to DEV
+                     Manual deploy to DEV
                                │
                       [required post-deploy smoke]
                                │
@@ -120,7 +120,8 @@ Local dev ──push to main──> GitHub Actions
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `build-test-package.yml` | Reusable (`workflow_call`) | Builds backend/frontend once, runs tests, publishes immutable artifacts + release manifest |
-| `deploy.yml` | Push to `main` | Validates config, builds release artifacts, deploys to **Dev**, runs required smoke checks |
+| `verify-dev-build.yml` | Push to `dev` + manual | Runs CI-equivalent build/test/package for the commit and publishes release artifacts |
+| `deploy.yml` | Manual (`workflow_dispatch`) | Validates config, requires a successful `verify-dev-build.yml` run for the selected commit, deploys to **Dev**, runs required smoke checks |
 | `promote-to-test.yml` | Manual (`confirm=yes`, `source_run_id`) | Copies Prod DB to Test, deploys the exact artifact pair from `source_run_id`, runs required smoke checks |
 | `promote-to-prod.yml` | Manual (`confirm=yes`, `source_run_id`) | Backs up Prod DB, deploys the exact artifact pair from `source_run_id`, runs required smoke checks |
 
@@ -154,10 +155,26 @@ Each environment (`dev`, `test`, `production`) needs these configured in GitHub 
 The `test` and `production` environments should have **required reviewers** configured for an approval gate.
 `BACKEND_URL` is required at build time and is injected into `VITE_API_URL`; CI now fails fast if missing.
 
+## Local Preflight Before Deploy
+
+Run the CI-aligned preflight before dispatching a Dev deploy:
+
+```powershell
+./scripts/preflight-dev.ps1
+```
+
+On bash-compatible shells:
+
+```bash
+./scripts/preflight-dev.sh
+```
+
+This runs backend restore/publish/tests and frontend build/coverage tests, matching what Dev verification expects.
+
 ## Local Git Hook: TypeScript + Optional Deploy Prompt
 
 To fail fast before pushing code to GitHub, this repo includes a versioned pre-push hook at `.githooks/pre-push` that runs frontend TypeScript validation.
-When pushing `origin/main` from an interactive terminal, the hook also asks whether to trigger the Azure Dev deploy workflow.
+When pushing `origin/dev` from an interactive terminal, the hook can be used to trigger the Azure Dev deploy workflow.
 
 One-time setup:
 
@@ -172,7 +189,7 @@ What it runs:
 npm --prefix frontend run typecheck
 ```
 
-Behavior on `origin/main` push:
+Behavior on `origin/dev` push:
 
 - If you answer `No` (default), push continues and no deploy is triggered.
 - If you answer `Yes`, push continues and the hook triggers `Build & Deploy to Dev` via GitHub CLI (`gh workflow run`).
