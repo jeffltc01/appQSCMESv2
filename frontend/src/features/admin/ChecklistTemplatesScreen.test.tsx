@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { ChecklistTemplatesScreen } from './ChecklistTemplatesScreen.tsx';
@@ -103,24 +104,26 @@ describe('ChecklistTemplatesScreen', () => {
   });
 
   it('shows imported questions in the list immediately', async () => {
+    const user = userEvent.setup();
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Safety Pre-shift')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
-    const allTextboxes = screen.getAllByRole('textbox');
-    const topTextInputs = allTextboxes.filter((el) => el.tagName === 'INPUT');
+    const addDialog = await screen.findByRole('dialog', { name: 'Add Checklist Template', hidden: true });
+    const topTextInputs = within(addDialog).getAllByRole('textbox', { hidden: true });
     fireEvent.change(topTextInputs[0], { target: { value: 'Ops checks' } });
     fireEvent.change(topTextInputs[1], { target: { value: 'OPS-100' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import as PassFail Questions' }));
-    await waitFor(() => {
-      expect(screen.getByText('Import PassFail Questions')).toBeInTheDocument();
-    });
-    const textareasAfterOpen = screen.getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
-    fireEvent.change(textareasAfterOpen[textareasAfterOpen.length - 1], { target: { value: 'First check\nSecond check' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Import Questions' }));
+    await user.click(within(addDialog).getByRole('button', { name: 'Import as PassFail Questions', hidden: true }));
+    const importDialog = await screen.findByRole('dialog', { name: 'Import PassFail Questions', hidden: true });
+    const importTextarea = importDialog.querySelector('textarea');
+    expect(importTextarea).not.toBeNull();
+    fireEvent.change(importTextarea as HTMLTextAreaElement, { target: { value: 'First check\nSecond check' } });
+    const importConfirm = Array.from(importDialog.querySelectorAll('button')).find((btn) => btn.textContent?.includes('Import Questions'));
+    expect(importConfirm).not.toBeUndefined();
+    await user.click(importConfirm as HTMLButtonElement);
 
     await waitFor(() => {
       expect(screen.getByText('Imported 2 questions.')).toBeInTheDocument();
@@ -130,25 +133,27 @@ describe('ChecklistTemplatesScreen', () => {
   });
 
   it('imports prompt lines as pass/fail items and sends typed payload', async () => {
+    const user = userEvent.setup();
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('Safety Pre-shift')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
-    const allTextboxes = screen.getAllByRole('textbox');
-    const topTextInputs = allTextboxes.filter((el) => el.tagName === 'INPUT');
+    const addDialog = await screen.findByRole('dialog', { name: 'Add Checklist Template', hidden: true });
+    const topTextInputs = within(addDialog).getAllByRole('textbox', { hidden: true });
     fireEvent.change(topTextInputs[0], { target: { value: 'Ops checks' } });
     fireEvent.change(topTextInputs[1], { target: { value: 'OPS-100' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import as PassFail Questions' }));
-    await waitFor(() => {
-      expect(screen.getByText('Import PassFail Questions')).toBeInTheDocument();
-    });
-    const textareasAfterOpen = screen.getAllByRole('textbox').filter((el) => el.tagName === 'TEXTAREA');
-    fireEvent.change(textareasAfterOpen[textareasAfterOpen.length - 1], { target: { value: 'First check\nSecond check' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Import Questions' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(within(addDialog).getByRole('button', { name: 'Import as PassFail Questions', hidden: true }));
+    const importDialog = await screen.findByRole('dialog', { name: 'Import PassFail Questions', hidden: true });
+    const importTextarea = importDialog.querySelector('textarea');
+    expect(importTextarea).not.toBeNull();
+    fireEvent.change(importTextarea as HTMLTextAreaElement, { target: { value: 'First check\nSecond check' } });
+    const importConfirm = Array.from(importDialog.querySelectorAll('button')).find((btn) => btn.textContent?.includes('Import Questions'));
+    expect(importConfirm).not.toBeUndefined();
+    await user.click(importConfirm as HTMLButtonElement);
+    await user.click(within(addDialog).getByRole('button', { name: 'Save', hidden: true }));
 
     await waitFor(() => {
       expect(checklistApi.upsertTemplate).toHaveBeenCalled();
