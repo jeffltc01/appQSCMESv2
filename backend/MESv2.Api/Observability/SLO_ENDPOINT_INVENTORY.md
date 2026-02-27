@@ -20,6 +20,17 @@ This inventory defines the canonical backend endpoint map used for SLO tagging (
 
 - `GET /api/workcenters/{id}/history` -> `EndpointCategory=WorkCenterRead`, `Feature=GetWorkCenterHistory`
 - `GET /api/workcenters/{id}/material-queue` -> `EndpointCategory=WorkCenterRead`, `Feature=GetMaterialQueue`
+- `GET /api/workcenters/{id}/queue-transactions` -> `EndpointCategory=WorkCenterRead`, `Feature=GetQueueTransactions`
+- `GET /api/workcenters/{id}/xray-queue` -> `EndpointCategory=WorkCenterRead`, `Feature=GetXrayQueue`
+- `GET /api/workcenters/{id}/defect-codes` -> `EndpointCategory=WorkCenterRead`, `Feature=GetDefectCodes`
+- `GET /api/workcenters/{id}/defect-locations` -> `EndpointCategory=WorkCenterRead`, `Feature=GetDefectLocations`
+
+## Supervisor Dashboard Reads
+
+- `GET /api/supervisor-dashboard/{wcId}/metrics` -> `EndpointCategory=SupervisorDashboardRead`, `Feature=GetSupervisorMetrics`
+- `GET /api/supervisor-dashboard/{wcId}/trends` -> `EndpointCategory=SupervisorDashboardRead`, `Feature=GetSupervisorTrends`
+- `GET /api/supervisor-dashboard/{wcId}/records` -> `EndpointCategory=SupervisorDashboardRead`, `Feature=GetSupervisorRecords`
+- `GET /api/supervisor-dashboard/{wcId}/performance-table` -> `EndpointCategory=SupervisorDashboardRead`, `Feature=GetSupervisorPerformanceTable`
 
 ## Notes
 

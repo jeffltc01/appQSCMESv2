@@ -97,4 +97,18 @@ describe('RtXrayQueueScreen', () => {
       expect(xrayQueueApi.removeItem).toHaveBeenCalledWith('wc-xray', 'x-1');
     });
   });
+
+  it('preserves manual serial when add fails', async () => {
+    vi.mocked(xrayQueueApi.addItem).mockRejectedValueOnce(new Error('Save failed'));
+    const { props } = renderScreen({ externalInput: false });
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    fireEvent.change(input, { target: { value: 'SN-FAIL' } });
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+
+    await waitFor(() => {
+      expect(props.showScanResult).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+    });
+    expect((input as HTMLInputElement).value).toBe('SN-FAIL');
+  });
 });

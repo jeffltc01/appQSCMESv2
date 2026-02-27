@@ -7,6 +7,7 @@ const backendUrl = (process.env.BACKEND_URL ?? '').replace(/\/+$/, '');
 const empNo = process.env.PERF_EMP_NO ?? 'EMP001';
 const pin = process.env.PERF_PIN ?? '1234';
 const siteId = process.env.PERF_SITE_ID ?? '';
+const workCenterId = process.env.PERF_WC_ID ?? '';
 const outDir = path.resolve(process.env.PERF_OUT_DIR ?? 'perf/artifacts');
 const requestTimeoutMs = Number(process.env.PERF_REQUEST_TIMEOUT_MS ?? 15_000);
 
@@ -93,8 +94,50 @@ async function runScenario(name, { durationSec, concurrency, executeRequest }) {
   };
 }
 
+function utcDateIso() {
+  const now = new Date();
+  const month = `${now.getUTCMonth() + 1}`.padStart(2, '0');
+  const day = `${now.getUTCDate()}`.padStart(2, '0');
+  return `${now.getUTCFullYear()}-${month}-${day}`;
+}
+
+async function authenticate() {
+  const loginResponse = await fetch(`${backendUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      employeeNumber: empNo,
+      pin,
+      siteId: siteId || null,
+      isWelder: false,
+    }),
+  });
+
+  if (!loginResponse.ok) {
+    throw new Error(`Auth failed with status ${loginResponse.status}`);
+  }
+
+  const payload = await loginResponse.json();
+  const token = payload?.token;
+  if (!token) {
+    throw new Error('Auth response missing token');
+  }
+  return {
+    token,
+    roleTier: Number(payload?.user?.roleTier ?? process.env.PERF_ROLE_TIER ?? 5),
+    effectiveSiteId: siteId || payload?.user?.defaultSiteId || '',
+  };
+}
+
 async function main() {
   const scenarios = [];
+  const auth = await authenticate();
+  const authHeaders = {
+    Authorization: `Bearer ${auth.token}`,
+    'X-User-Role-Tier': String(auth.roleTier),
+    ...(auth.effectiveSiteId ? { 'X-User-Site-Id': auth.effectiveSiteId } : {}),
+  };
+  const dateIso = utcDateIso();
 
   scenarios.push(await runScenario('login_config_baseline', {
     durationSec: 30,
@@ -128,10 +171,50 @@ async function main() {
     executeRequest: () => timedFetch(`/api/users/login-config?empNo=${encodeURIComponent(empNo)}`, { method: 'GET' }),
   }));
 
+  if (workCenterId && auth.effectiveSiteId) {
+    scenarios.push(await runScenario('wc_history_read_baseline', {
+      durationSec: 30,
+      concurrency: 12,
+      executeRequest: () => timedFetch(
+        `/api/workcenters/${encodeURIComponent(workCenterId)}/history?plantId=${encodeURIComponent(auth.effectiveSiteId)}&date=&limit=5`,
+        { method: 'GET', headers: authHeaders },
+      ),
+    }));
+
+    scenarios.push(await runScenario('wc_material_queue_read_baseline', {
+      durationSec: 30,
+      concurrency: 12,
+      executeRequest: () => timedFetch(
+        `/api/workcenters/${encodeURIComponent(workCenterId)}/material-queue`,
+        { method: 'GET', headers: authHeaders },
+      ),
+    }));
+
+    scenarios.push(await runScenario('supervisor_metrics_baseline', {
+      durationSec: 30,
+      concurrency: 8,
+      executeRequest: () => timedFetch(
+        `/api/supervisor-dashboard/${encodeURIComponent(workCenterId)}/metrics?plantId=${encodeURIComponent(auth.effectiveSiteId)}&date=${encodeURIComponent(dateIso)}`,
+        { method: 'GET', headers: authHeaders },
+      ),
+    }));
+
+    scenarios.push(await runScenario('supervisor_performance_table_baseline', {
+      durationSec: 30,
+      concurrency: 8,
+      executeRequest: () => timedFetch(
+        `/api/supervisor-dashboard/${encodeURIComponent(workCenterId)}/performance-table?plantId=${encodeURIComponent(auth.effectiveSiteId)}&date=${encodeURIComponent(dateIso)}&view=day`,
+        { method: 'GET', headers: authHeaders },
+      ),
+    }));
+  }
+
   const summary = {
     generatedAtUtc: new Date().toISOString(),
     backendUrl,
     requestTimeoutMs,
+    workCenterId: workCenterId || null,
+    siteId: auth.effectiveSiteId || null,
     scenarios,
   };
 

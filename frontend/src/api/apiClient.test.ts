@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { api, setAuthToken, setRoleTier, setSiteId } from './apiClient.ts';
+import { api, setApiRequestObserver, setAuthToken, setRoleTier, setSiteId } from './apiClient.ts';
 
 function mockFetch(status: number, body?: unknown, json = true) {
   return vi.fn().mockResolvedValue({
@@ -14,6 +14,7 @@ beforeEach(() => {
   setAuthToken(null);
   setRoleTier(null);
   setSiteId(null);
+  setApiRequestObserver(null);
   vi.restoreAllMocks();
 });
 
@@ -93,6 +94,38 @@ describe('HTTP methods', () => {
     await api.delete('/items/1');
     expect(fetch.mock.calls[0][1].method).toBe('DELETE');
     expect(fetch.mock.calls[0][1].body).toBeUndefined();
+  });
+});
+
+describe('request observer', () => {
+  it('emits request timing for successful calls', async () => {
+    const observer = vi.fn();
+    setApiRequestObserver(observer);
+    vi.stubGlobal('fetch', mockFetch(200, { ok: true }));
+
+    await api.get('/observer-success');
+
+    expect(observer).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'GET',
+      path: '/observer-success',
+      status: 200,
+      ok: true,
+    }));
+  });
+
+  it('emits request timing for network failures', async () => {
+    const observer = vi.fn();
+    setApiRequestObserver(observer);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
+
+    await expect(api.get('/observer-fail')).rejects.toEqual({ message: 'Network error' });
+    expect(observer).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'GET',
+      path: '/observer-fail',
+      status: 0,
+      ok: false,
+      networkError: true,
+    }));
   });
 });
 

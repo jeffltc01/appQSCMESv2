@@ -8,6 +8,11 @@ import { useAuth } from '../../auth/AuthContext.tsx';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import { reportQueueFlowTelemetry } from '../../telemetry/telemetryClient.ts';
 import { clearRetryContext, loadRetryContext, saveRetryContext } from '../shared/queueRetryContext.ts';
+import {
+  idleActionFeedbackState,
+  runActionWithSloFeedback,
+  type ActionFeedbackState,
+} from '../shared/actionSloFeedback.ts';
 import styles from './FitupQueueScreen.module.css';
 
 interface FormData {
@@ -42,6 +47,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
   const [selectingField, setSelectingField] = useState<'product' | 'vendor' | null>(null);
   const [selectedVendorType, setSelectedVendorType] = useState<'cmf' | 'compco' | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [saveFeedback, setSaveFeedback] = useState<ActionFeedbackState>(idleActionFeedbackState);
   const isQueueFull = queue.length >= MAX_QUEUE_ITEMS;
 
   const loadQueue = useCallback(async () => {
@@ -128,34 +134,43 @@ export function FitupQueueScreen(props: WorkCenterProps) {
       showScanResult({ type: 'error', message: 'Please fill all required fields' });
       return;
     }
+    const sequenceId = Date.now();
     try {
-      if (editingId) {
-        await materialQueueApi.updateFitupItem(targetWCId, editingId, {
-          productId: form.productId,
-          vendorHeadId: form.vendorHeadId,
-          lotNumber: form.lotNumber || undefined,
-          heatNumber: form.heatNumber || undefined,
-          coilSlabNumber: form.coilSlabNumber || undefined,
-          cardCode: form.cardCode,
-        });
-        showScanResult({ type: 'success', message: 'Queue item updated' });
-      } else {
-        await materialQueueApi.addFitupItem(targetWCId, {
-          productId: form.productId,
-          vendorHeadId: form.vendorHeadId,
-          lotNumber: form.lotNumber || undefined,
-          heatNumber: form.heatNumber || undefined,
-          coilSlabNumber: form.coilSlabNumber || undefined,
-          cardCode: form.cardCode,
-          productionLineId: productionLineId || undefined,
-        });
-        showScanResult({ type: 'success', message: 'Head material added to queue' });
-      }
+      await runActionWithSloFeedback(
+        editingId ? 'fitup_queue_update' : 'fitup_queue_create',
+        { screen: 'FitupQueue', workCenterId: targetWCId, mode: editingId ? 'edit' : 'create' },
+        setSaveFeedback,
+        async () => {
+          if (editingId) {
+            await materialQueueApi.updateFitupItem(targetWCId, editingId, {
+              productId: form.productId,
+              vendorHeadId: form.vendorHeadId,
+              lotNumber: form.lotNumber || undefined,
+              heatNumber: form.heatNumber || undefined,
+              coilSlabNumber: form.coilSlabNumber || undefined,
+              cardCode: form.cardCode,
+            });
+            showScanResult({ type: 'success', message: 'Queue item updated' });
+            return;
+          }
+          await materialQueueApi.addFitupItem(targetWCId, {
+            productId: form.productId,
+            vendorHeadId: form.vendorHeadId,
+            lotNumber: form.lotNumber || undefined,
+            heatNumber: form.heatNumber || undefined,
+            coilSlabNumber: form.coilSlabNumber || undefined,
+            cardCode: form.cardCode,
+            productionLineId: productionLineId || undefined,
+          });
+          showScanResult({ type: 'success', message: 'Head material added to queue' });
+        },
+      );
       clearRetryContext(RETRY_SCOPE);
       reportQueueFlowTelemetry('queue_submit_success', {
         screen: 'FitupQueue',
         workCenterId: targetWCId,
         mode: editingId ? 'edit' : 'create',
+        sequenceId,
       });
       setShowForm(false);
       loadQueue();
@@ -176,6 +191,7 @@ export function FitupQueueScreen(props: WorkCenterProps) {
         mode: editingId ? 'edit' : 'create',
         error: err?.message ?? 'Failed to save',
         hasContext: true,
+        sequenceId,
       });
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save' });
     }
@@ -285,8 +301,16 @@ export function FitupQueueScreen(props: WorkCenterProps) {
             </div>
             <div className={styles.formActions}>
               <Button appearance="secondary" size="large" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button appearance="primary" size="large" onClick={handleSave}>Save</Button>
+              <Button appearance="primary" size="large" onClick={handleSave} disabled={saveFeedback.isPending}>Save</Button>
             </div>
+            {saveFeedback.showProcessing && (
+              <div className={styles.emptyQueue}>Processing takes longer than expected...</div>
+            )}
+            {saveFeedback.showRetryGuidance && (
+              <div className={styles.emptyQueue}>
+                Still working. If this fails, retry with your current values preserved.
+              </div>
+            )}
           </div>
         </div>
       )}

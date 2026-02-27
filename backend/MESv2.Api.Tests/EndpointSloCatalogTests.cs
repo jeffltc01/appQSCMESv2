@@ -31,6 +31,32 @@ public class EndpointSloCatalogTests
         Assert.Null(metadata);
     }
 
+    [Fact]
+    public void Resolve_WorkCenterQueueTransactionsRoute_ReturnsWorkCenterReadMetadata()
+    {
+        var catalog = new EndpointSloCatalog();
+        var context = CreateContext("GET", "/api/workcenters/{id:guid}/queue-transactions");
+
+        var metadata = catalog.Resolve(context);
+
+        Assert.NotNull(metadata);
+        Assert.Equal("WorkCenterRead", metadata!.EndpointCategory);
+        Assert.Equal("GetQueueTransactions", metadata.Feature);
+    }
+
+    [Fact]
+    public void Resolve_SupervisorMetricsRoute_ReturnsSupervisorReadMetadata()
+    {
+        var catalog = new EndpointSloCatalog();
+        var context = CreateContext("GET", "/api/supervisor-dashboard/{wcId:guid}/metrics");
+
+        var metadata = catalog.Resolve(context);
+
+        Assert.NotNull(metadata);
+        Assert.Equal("SupervisorDashboardRead", metadata!.EndpointCategory);
+        Assert.Equal("GetSupervisorMetrics", metadata.Feature);
+    }
+
     private static DefaultHttpContext CreateContext(string method, string path)
     {
         var context = new DefaultHttpContext();

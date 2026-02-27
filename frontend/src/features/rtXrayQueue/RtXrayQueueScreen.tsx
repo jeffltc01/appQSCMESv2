@@ -7,6 +7,11 @@ import type { XrayQueueItem } from '../../types/domain.ts';
 import { xrayQueueApi } from '../../api/endpoints.ts';
 import { reportQueueFlowTelemetry } from '../../telemetry/telemetryClient.ts';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
+import {
+  idleActionFeedbackState,
+  runActionWithSloFeedback,
+  type ActionFeedbackState,
+} from '../shared/actionSloFeedback.ts';
 import styles from './RtXrayQueueScreen.module.css';
 
 const MAX_QUEUE_ITEMS = 5;
@@ -17,6 +22,7 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
   const [queue, setQueue] = useState<XrayQueueItem[]>([]);
   const [manualSerial, setManualSerial] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [submitFeedback, setSubmitFeedback] = useState<ActionFeedbackState>(idleActionFeedbackState);
   const isQueueFull = queue.length >= MAX_QUEUE_ITEMS;
 
   useEffect(() => {
@@ -30,30 +36,40 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
     } catch { /* keep stale */ }
   }, [workCenterId]);
 
-  const addToQueue = useCallback(async (serial: string) => {
+  const addToQueue = useCallback(async (serial: string): Promise<boolean> => {
     if (isQueueFull) {
       showScanResult({ type: 'error', message: `Queue is full (max ${MAX_QUEUE_ITEMS} items)` });
-      return;
+      return false;
     }
 
+    const sequenceId = Date.now();
     try {
-      await xrayQueueApi.addItem(workCenterId, { serialNumber: serial, operatorId });
+      await runActionWithSloFeedback(
+        'rt_xray_queue_create',
+        { screen: 'RtXrayQueue', workCenterId, serial, mode: 'create' },
+        setSubmitFeedback,
+        () => xrayQueueApi.addItem(workCenterId, { serialNumber: serial, operatorId }),
+      );
       reportQueueFlowTelemetry('queue_submit_success', {
         screen: 'RtXrayQueue',
         workCenterId,
         serial,
         mode: 'create',
+        sequenceId,
       });
       showScanResult({ type: 'success', message: `Shell ${serial} added to queue` });
       loadQueue();
+      return true;
     } catch (err: any) {
       reportQueueFlowTelemetry('queue_submit_failed', {
         screen: 'RtXrayQueue',
         workCenterId,
         serial,
         error: err?.message ?? 'Failed to add to queue',
+        sequenceId,
       });
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to add to queue' });
+      return false;
     }
   }, [isQueueFull, workCenterId, operatorId, showScanResult, loadQueue]);
 
@@ -98,9 +114,13 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
     registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
   }, [registerBarcodeHandler]);
 
-  const handleManualSubmit = useCallback(() => {
-    if (manualSerial.trim()) {
-      addToQueue(manualSerial.trim());
+  const handleManualSubmit = useCallback(async () => {
+    const trimmed = manualSerial.trim();
+    if (!trimmed) {
+      return;
+    }
+    const success = await addToQueue(trimmed);
+    if (success) {
       setManualSerial('');
     }
   }, [manualSerial, addToQueue]);
@@ -129,6 +149,14 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
               Add
             </Button>
           </div>
+          {submitFeedback.showProcessing && (
+            <div className={styles.emptyQueue}>Processing takes longer than expected...</div>
+          )}
+          {submitFeedback.showRetryGuidance && (
+            <div className={styles.emptyQueue}>
+              Still working. If this fails, retry with your serial preserved.
+            </div>
+          )}
         </div>
       )}
 

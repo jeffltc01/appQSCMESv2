@@ -1,7 +1,7 @@
 let lookback = 24h;
 requests
 | where timestamp > ago(lookback)
-| where tostring(customDimensions.EndpointCategory) in ("OperatorCriticalWrite", "WorkCenterRead", "Login")
+| where tostring(customDimensions.EndpointCategory) in ("OperatorCriticalWrite", "WorkCenterRead", "SupervisorDashboardRead", "Login")
 | summarize
     p50_ms = percentile(duration, 50) / 1ms,
     p95_ms = percentile(duration, 95) / 1ms,

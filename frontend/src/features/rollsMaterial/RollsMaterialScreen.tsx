@@ -7,6 +7,11 @@ import { useAuth } from '../../auth/AuthContext.tsx';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import { reportQueueFlowTelemetry } from '../../telemetry/telemetryClient.ts';
 import { clearRetryContext, loadRetryContext, saveRetryContext } from '../shared/queueRetryContext.ts';
+import {
+  idleActionFeedbackState,
+  runActionWithSloFeedback,
+  type ActionFeedbackState,
+} from '../shared/actionSloFeedback.ts';
 import styles from './RollsMaterialScreen.module.css';
 
 interface FormData {
@@ -41,6 +46,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
   const [processors, setProcessors] = useState<Vendor[]>([]);
   const [selectingField, setSelectingField] = useState<'product' | 'mill' | 'processor' | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [saveFeedback, setSaveFeedback] = useState<ActionFeedbackState>(idleActionFeedbackState);
   const isQueueFull = queue.length >= MAX_QUEUE_ITEMS;
 
   const loadQueue = useCallback(async () => {
@@ -122,36 +128,46 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
       showScanResult({ type: 'error', message: 'Please fill all required fields' });
       return;
     }
+    const sequenceId = Date.now();
     try {
-      if (editingId) {
-        await materialQueueApi.updateItem(targetWCId, editingId, {
-          productId: form.productId,
-          vendorMillId: form.vendorMillId || undefined,
-          vendorProcessorId: form.vendorProcessorId || undefined,
-          heatNumber: form.heatNumber,
-          coilNumber: form.coilNumber,
-          lotNumber: form.lotNumber || undefined,
-          quantity: parseInt(form.quantity, 10),
-        });
-        showScanResult({ type: 'success', message: 'Queue item updated' });
-      } else {
-        await materialQueueApi.addItem(targetWCId, {
-          productId: form.productId,
-          vendorMillId: form.vendorMillId || undefined,
-          vendorProcessorId: form.vendorProcessorId || undefined,
-          heatNumber: form.heatNumber,
-          coilNumber: form.coilNumber,
-          lotNumber: form.lotNumber || undefined,
-          quantity: parseInt(form.quantity, 10),
-          productionLineId: productionLineId || undefined,
-        });
-        showScanResult({ type: 'success', message: 'Material added to queue' });
-      }
+      await runActionWithSloFeedback(
+        editingId ? 'rolls_queue_update' : 'rolls_queue_create',
+        { screen: 'RollsMaterial', workCenterId: targetWCId, mode: editingId ? 'edit' : 'create' },
+        setSaveFeedback,
+        async () => {
+          if (editingId) {
+            await materialQueueApi.updateItem(targetWCId, editingId, {
+              productId: form.productId,
+              vendorMillId: form.vendorMillId || undefined,
+              vendorProcessorId: form.vendorProcessorId || undefined,
+              heatNumber: form.heatNumber,
+              coilNumber: form.coilNumber,
+              lotNumber: form.lotNumber || undefined,
+              quantity: parseInt(form.quantity, 10),
+            });
+            showScanResult({ type: 'success', message: 'Queue item updated' });
+            return;
+          }
+
+          await materialQueueApi.addItem(targetWCId, {
+            productId: form.productId,
+            vendorMillId: form.vendorMillId || undefined,
+            vendorProcessorId: form.vendorProcessorId || undefined,
+            heatNumber: form.heatNumber,
+            coilNumber: form.coilNumber,
+            lotNumber: form.lotNumber || undefined,
+            quantity: parseInt(form.quantity, 10),
+            productionLineId: productionLineId || undefined,
+          });
+          showScanResult({ type: 'success', message: 'Material added to queue' });
+        },
+      );
       clearRetryContext(RETRY_SCOPE);
       reportQueueFlowTelemetry('queue_submit_success', {
         screen: 'RollsMaterial',
         workCenterId: targetWCId,
         mode: editingId ? 'edit' : 'create',
+        sequenceId,
       });
       setShowForm(false);
       loadQueue();
@@ -173,6 +189,7 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
         mode: editingId ? 'edit' : 'create',
         error: msg,
         hasContext: true,
+        sequenceId,
       });
       showScanResult({ type: 'error', message: msg });
     }
@@ -272,8 +289,16 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
             </div>
             <div className={styles.formActions}>
               <Button appearance="secondary" size="large" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button appearance="primary" size="large" onClick={handleSave}>Save</Button>
+              <Button appearance="primary" size="large" onClick={handleSave} disabled={saveFeedback.isPending}>Save</Button>
             </div>
+            {saveFeedback.showProcessing && (
+              <div className={styles.emptyQueue}>Processing takes longer than expected...</div>
+            )}
+            {saveFeedback.showRetryGuidance && (
+              <div className={styles.emptyQueue}>
+                Still working. If this fails, retry with your current values preserved.
+              </div>
+            )}
           </div>
         </div>
       )}

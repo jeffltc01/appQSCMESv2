@@ -1,4 +1,9 @@
-import { buildAuthHeaders, getApiBaseUrl, setApiErrorObserver } from '../api/apiClient.ts';
+import {
+  buildAuthHeaders,
+  getApiBaseUrl,
+  setApiErrorObserver,
+  setApiRequestObserver,
+} from '../api/apiClient.ts';
 import type { FrontendTelemetryIngestRequest } from '../types/api.ts';
 import { getTabletCache } from '../hooks/useLocalStorage.ts';
 import { generateSessionId } from './sessionId.ts';
@@ -20,6 +25,7 @@ let windowStart = Date.now();
 let sentInWindow = 0;
 let lastNetworkState: 'online' | 'offline' = navigator.onLine ? 'online' : 'offline';
 const SESSION_ID_KEY = 'mes_session_id';
+const QUEUE_SEQ_PREFIX = 'mes_queue_seq_';
 
 function trim(value: string | undefined, max: number): string | undefined {
   if (!value) return value;
@@ -64,6 +70,18 @@ function ensureSessionId(): void {
     sessionStorage.setItem(SESSION_ID_KEY, generateSessionId());
   } catch {
     // Some managed browsers can block Storage access.
+  }
+}
+
+function nextQueueSequence(scope: string, workCenterId: string): number {
+  const key = `${QUEUE_SEQ_PREFIX}${scope}_${workCenterId}`;
+  try {
+    const current = Number.parseInt(sessionStorage.getItem(key) ?? '0', 10);
+    const next = Number.isFinite(current) ? current + 1 : 1;
+    sessionStorage.setItem(key, String(next));
+    return next;
+  } catch {
+    return Math.floor(Date.now() % 1_000_000_000);
   }
 }
 
@@ -119,6 +137,7 @@ async function flushQueue() {
   const startedAt = performance.now();
   const initialCount = queue.length;
   let sentCount = 0;
+  let failedCount = 0;
   try {
     while (queue.length > 0) {
       const event = queue[0];
@@ -133,24 +152,30 @@ async function flushQueue() {
       });
 
       if (!response.ok) {
+        failedCount = queue.length;
         break;
       }
       queue.shift();
       sentCount += 1;
     }
   } catch {
+    failedCount = queue.length;
     // Best effort only. Keep queue for next retry tick.
   } finally {
-    if (sentCount > 0) {
+    if (sentCount > 0 || failedCount > 0) {
+      const totalAttempted = sentCount + failedCount;
       reportTelemetry({
         category: 'queue_resync',
         source: 'telemetry_client',
-        severity: 'info',
+        severity: failedCount > 0 ? 'warning' : 'info',
         isReactRuntimeOverlayCandidate: false,
-        message: 'Telemetry queue replay completed',
+        message: failedCount > 0 ? 'telemetry_queue_replay_partial' : 'telemetry_queue_replay_completed',
         metadataJson: JSON.stringify({
           initialCount,
           sentCount,
+          failedCount,
+          totalAttempted,
+          failureRatePct: totalAttempted > 0 ? Math.round((failedCount / totalAttempted) * 10_000) / 100 : 0,
           remainingCount: queue.length,
           flushDurationMs: Math.round(performance.now() - startedAt),
         }),
@@ -203,15 +228,45 @@ export function reportException(error: unknown, context: Partial<TelemetryEvent>
 
 export function reportQueueFlowTelemetry(
   eventName: string,
-  metadata: Record<string, unknown>,
+  metadata: Record<string, unknown> & { workCenterId?: string; screen?: string; sequenceId?: number },
 ): void {
+  const scope = String(metadata.screen ?? 'queue');
+  const workCenterId = String(metadata.workCenterId ?? 'unknown');
+  const sequenceId = typeof metadata.sequenceId === 'number'
+    ? metadata.sequenceId
+    : nextQueueSequence(scope, workCenterId);
+
   reportTelemetry({
     category: 'queue_resync',
     source: 'operator_queue',
     severity: 'info',
     isReactRuntimeOverlayCandidate: false,
     message: eventName,
-    metadataJson: JSON.stringify(metadata),
+    metadataJson: JSON.stringify({
+      ...metadata,
+      sequenceId,
+      requestId: `${scope}:${workCenterId}:${sequenceId}`,
+    }),
+  });
+}
+
+export function reportActionTimingTelemetry(
+  actionName: string,
+  metadata: Record<string, unknown>,
+  durationMs: number,
+  ackLatencyMs: number,
+): void {
+  reportTelemetry({
+    category: 'ux_timing',
+    source: 'operator_action',
+    severity: 'info',
+    isReactRuntimeOverlayCandidate: false,
+    message: actionName,
+    metadataJson: JSON.stringify({
+      ...metadata,
+      durationMs: Math.round(durationMs),
+      ackLatencyMs: Math.round(ackLatencyMs),
+    }),
   });
 }
 
@@ -263,6 +318,24 @@ export function initializeTelemetry() {
       metadataJson: JSON.stringify({ code: payload.code, networkError: payload.networkError === true }),
     });
   });
+  setApiRequestObserver((payload) => {
+    if (payload.path.includes('/frontend-telemetry')) return;
+    reportTelemetry({
+      category: 'api_timing',
+      source: 'api_client',
+      severity: payload.ok ? 'info' : 'warning',
+      isReactRuntimeOverlayCandidate: false,
+      message: `${payload.method} ${payload.path}`,
+      apiPath: payload.path,
+      httpMethod: payload.method,
+      httpStatus: payload.status,
+      metadataJson: JSON.stringify({
+        elapsedMs: payload.elapsedMs,
+        ok: payload.ok,
+        networkError: payload.networkError === true,
+      }),
+    });
+  });
 
   window.addEventListener('error', (event) => {
     reportTelemetry({
@@ -308,5 +381,6 @@ export function shutdownTelemetry() {
   window.removeEventListener('online', onOnline);
   window.removeEventListener('offline', onOffline);
   setApiErrorObserver(null);
+  setApiRequestObserver(null);
   initialized = false;
 }

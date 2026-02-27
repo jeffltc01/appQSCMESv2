@@ -19,7 +19,15 @@ public sealed class EndpointSloCatalog
             ["POST:api/workcenters/{id:guid}/xray-queue"] = new("OperatorCriticalWrite", "AddXrayQueueItem", "operator-workflow", true),
             ["POST:api/workcenters/{id:guid}/queue/advance"] = new("OperatorCriticalWrite", "AdvanceQueue", "operator-workflow", true),
             ["GET:api/workcenters/{id:guid}/history"] = new("WorkCenterRead", "GetWorkCenterHistory", "operator-workflow", true),
-            ["GET:api/workcenters/{id:guid}/material-queue"] = new("WorkCenterRead", "GetMaterialQueue", "operator-workflow", true)
+            ["GET:api/workcenters/{id:guid}/material-queue"] = new("WorkCenterRead", "GetMaterialQueue", "operator-workflow", true),
+            ["GET:api/workcenters/{id:guid}/queue-transactions"] = new("WorkCenterRead", "GetQueueTransactions", "operator-workflow", true),
+            ["GET:api/workcenters/{id:guid}/xray-queue"] = new("WorkCenterRead", "GetXrayQueue", "operator-workflow", true),
+            ["GET:api/workcenters/{id:guid}/defect-codes"] = new("WorkCenterRead", "GetDefectCodes", "operator-workflow", true),
+            ["GET:api/workcenters/{id:guid}/defect-locations"] = new("WorkCenterRead", "GetDefectLocations", "operator-workflow", true),
+            ["GET:api/supervisor-dashboard/{wcId:guid}/metrics"] = new("SupervisorDashboardRead", "GetSupervisorMetrics", "supervisor-dashboard", false),
+            ["GET:api/supervisor-dashboard/{wcId:guid}/trends"] = new("SupervisorDashboardRead", "GetSupervisorTrends", "supervisor-dashboard", false),
+            ["GET:api/supervisor-dashboard/{wcId:guid}/records"] = new("SupervisorDashboardRead", "GetSupervisorRecords", "supervisor-dashboard", false),
+            ["GET:api/supervisor-dashboard/{wcId:guid}/performance-table"] = new("SupervisorDashboardRead", "GetSupervisorPerformanceTable", "supervisor-dashboard", false)
         };
     }
 

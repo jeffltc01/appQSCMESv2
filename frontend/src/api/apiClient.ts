@@ -36,7 +36,16 @@ type ApiErrorObserverPayload = {
   code?: string;
   networkError?: boolean;
 };
+type ApiRequestObserverPayload = {
+  method: string;
+  path: string;
+  status: number;
+  elapsedMs: number;
+  ok: boolean;
+  networkError?: boolean;
+};
 let apiErrorObserver: ((payload: ApiErrorObserverPayload) => void) | null = null;
+let apiRequestObserver: ((payload: ApiRequestObserverPayload) => void) | null = null;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -83,11 +92,16 @@ export function setApiErrorObserver(observer: ((payload: ApiErrorObserverPayload
   apiErrorObserver = observer;
 }
 
+export function setApiRequestObserver(observer: ((payload: ApiRequestObserverPayload) => void) | null) {
+  apiRequestObserver = observer;
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
 ): Promise<T> {
+  const startedAt = performance.now();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -112,6 +126,15 @@ async function request<T>(
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    apiRequestObserver?.({
+      method,
+      path,
+      status: 0,
+      elapsedMs,
+      ok: false,
+      networkError: true,
+    });
     apiErrorObserver?.({
       method,
       path,
@@ -122,6 +145,14 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    apiRequestObserver?.({
+      method,
+      path,
+      status: response.status,
+      elapsedMs,
+      ok: false,
+    });
     let error: ApiError;
     try {
       const body = await response.json();
@@ -144,11 +175,20 @@ async function request<T>(
     throw error;
   }
 
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  apiRequestObserver?.({
+    method,
+    path,
+    status: response.status,
+    elapsedMs,
+    ok: true,
+  });
   if (response.status === 204) return undefined as T;
   return response.json();
 }
 
 async function requestText(path: string): Promise<string> {
+  const startedAt = performance.now();
   const headers: Record<string, string> = {};
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
@@ -157,6 +197,14 @@ async function requestText(path: string): Promise<string> {
   const response = await fetch(`${BASE_URL}${path}`, { method: 'GET', headers });
 
   if (!response.ok) {
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    apiRequestObserver?.({
+      method: 'GET',
+      path,
+      status: response.status,
+      elapsedMs,
+      ok: false,
+    });
     apiErrorObserver?.({
       method: 'GET',
       path,
@@ -166,6 +214,14 @@ async function requestText(path: string): Promise<string> {
     throw { message: `Request failed with status ${response.status}` } as ApiError;
   }
 
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  apiRequestObserver?.({
+    method: 'GET',
+    path,
+    status: response.status,
+    elapsedMs,
+    ok: true,
+  });
   return response.text();
 }
 
