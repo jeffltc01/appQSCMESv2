@@ -682,4 +682,58 @@ public class WorkCenterServiceTests
 
         Assert.Contains("Queue is full", ex.Message);
     }
+
+    [Fact]
+    public async Task AddMaterialQueueItem_DuplicateSubmit_ReturnsExistingItem()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "plate");
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var first = await sut.AddMaterialQueueItemAsync(TestHelpers.wcRollsId, new DTOs.CreateMaterialQueueItemDto
+        {
+            ProductId = product.Id,
+            HeatNumber = "H-IDEMP",
+            CoilNumber = "C-IDEMP",
+            Quantity = 3
+        });
+
+        var second = await sut.AddMaterialQueueItemAsync(TestHelpers.wcRollsId, new DTOs.CreateMaterialQueueItemDto
+        {
+            ProductId = product.Id,
+            HeatNumber = "H-IDEMP",
+            CoilNumber = "C-IDEMP",
+            Quantity = 3
+        });
+
+        Assert.Equal(first.Id, second.Id);
+        Assert.Equal(1, db.MaterialQueueItems.Count(m => m.WorkCenterId == TestHelpers.wcRollsId && m.QueueType == "rolls"));
+    }
+
+    [Fact]
+    public async Task AddFitupQueueItem_DuplicateSubmit_ReturnsExistingItem()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var first = await sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+        {
+            ProductId = product.Id,
+            VendorHeadId = Guid.NewGuid(),
+            LotNumber = "LOT-IDEMP",
+            CardCode = "03"
+        });
+
+        var second = await sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+        {
+            ProductId = product.Id,
+            VendorHeadId = Guid.NewGuid(),
+            LotNumber = "LOT-IDEMP",
+            CardCode = "03"
+        });
+
+        Assert.Equal(first.Id, second.Id);
+        Assert.Equal(1, db.MaterialQueueItems.Count(m => m.WorkCenterId == TestHelpers.wcFitupId && m.QueueType == "fitup"));
+    }
 }

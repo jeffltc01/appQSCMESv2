@@ -2,9 +2,11 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MESv2.Api.Data;
+using MESv2.Api.Observability;
 using MESv2.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +18,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<AuditInterceptor>();
+builder.Services.AddSingleton<EndpointSloCatalog>();
+builder.Services.AddSingleton<ITelemetryInitializer, SloTelemetryInitializer>();
 
 builder.Services.AddDbContext<MesDbContext>((sp, options) =>
 {
@@ -200,6 +204,7 @@ app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<SloTelemetryEnrichmentMiddleware>();
 app.MapControllers();
 app.MapHealthChecks("/healthz");
 

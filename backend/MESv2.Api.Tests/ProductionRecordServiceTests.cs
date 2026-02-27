@@ -130,7 +130,7 @@ public class ProductionRecordServiceTests
     }
 
     [Fact]
-    public async Task Create_DetectsDuplicate_Within5Minutes()
+    public async Task Create_DetectsDuplicate_Within5Minutes_ReturnsExistingRecord()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var serial = new MESv2.Api.Models.SerialNumber
@@ -141,9 +141,10 @@ public class ProductionRecordServiceTests
             CreatedAt = DateTime.UtcNow
         };
         db.SerialNumbers.Add(serial);
+        var existingId = Guid.NewGuid();
         db.ProductionRecords.Add(new MESv2.Api.Models.ProductionRecord
         {
-            Id = Guid.NewGuid(),
+            Id = existingId,
             SerialNumberId = serial.Id,
             WorkCenterId = TestHelpers.wcRollsId,
             AssetId = TestHelpers.TestAssetId,
@@ -167,7 +168,9 @@ public class ProductionRecordServiceTests
         var result = await sut.CreateAsync(dto);
 
         Assert.NotNull(result.Warning);
-        Assert.Contains("Duplicate", result.Warning, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ignored", result.Warning, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(existingId, result.Id);
+        Assert.Equal(1, await db.ProductionRecords.CountAsync(r => r.SerialNumberId == serial.Id && r.WorkCenterId == TestHelpers.wcRollsId));
     }
 
     [Fact]

@@ -481,6 +481,23 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<MaterialQueueItemDto> AddMaterialQueueItemAsync(Guid wcId, CreateMaterialQueueItemDto dto, CancellationToken cancellationToken = default)
     {
+        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
+        var serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilNumber}";
+        var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
+            dto.VendorMillId, dto.VendorProcessorId, null,
+            dto.HeatNumber, dto.CoilNumber, dto.LotNumber, cancellationToken);
+
+        var existing = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
+            .Where(m => m.WorkCenterId == wcId
+                        && m.QueueType == "rolls"
+                        && (m.Status == "queued" || m.Status == "active")
+                        && m.SerialNumberId == serial.Id)
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing != null)
+            return MapQueueItem(existing);
+
         var currentQueueCount = await _db.MaterialQueueItems
             .CountAsync(
                 m => m.WorkCenterId == wcId &&
@@ -495,12 +512,6 @@ public class WorkCenterService : IWorkCenterService
             .MaxAsync(cancellationToken) ?? 0;
 
         var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
-
-        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
-        var serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilNumber}";
-        var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
-            dto.VendorMillId, dto.VendorProcessorId, null,
-            dto.HeatNumber, dto.CoilNumber, dto.LotNumber, cancellationToken);
 
         var item = new MaterialQueueItem
         {
@@ -600,6 +611,29 @@ public class WorkCenterService : IWorkCenterService
 
     public async Task<MaterialQueueItemDto> AddFitupQueueItemAsync(Guid wcId, CreateFitupQueueItemDto dto, CancellationToken cancellationToken = default)
     {
+        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
+        string serialString;
+        if (!string.IsNullOrEmpty(dto.LotNumber))
+            serialString = $"Lot {dto.LotNumber}";
+        else
+            serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilSlabNumber}";
+
+        var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
+            null, null, dto.VendorHeadId,
+            dto.HeatNumber, dto.CoilSlabNumber, dto.LotNumber, cancellationToken);
+
+        var existing = await _db.MaterialQueueItems
+            .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
+            .Where(m => m.WorkCenterId == wcId
+                        && m.QueueType == "fitup"
+                        && (m.Status == "queued" || m.Status == "active")
+                        && m.SerialNumberId == serial.Id
+                        && m.CardId == dto.CardCode)
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing != null)
+            return MapQueueItem(existing);
+
         var currentQueueCount = await _db.MaterialQueueItems
             .CountAsync(
                 m => m.WorkCenterId == wcId &&
@@ -622,17 +656,6 @@ public class WorkCenterService : IWorkCenterService
             .MaxAsync(cancellationToken) ?? 0;
 
         var product = await _db.Products.FindAsync(new object[] { dto.ProductId }, cancellationToken);
-
-        var plantId = await GetPlantIdForWorkCenter(wcId, cancellationToken);
-        string serialString;
-        if (!string.IsNullOrEmpty(dto.LotNumber))
-            serialString = $"Lot {dto.LotNumber}";
-        else
-            serialString = $"Heat {dto.HeatNumber} Coil {dto.CoilSlabNumber}";
-
-        var serial = await FindOrCreateSerialAsync(serialString, plantId, dto.ProductId,
-            null, null, dto.VendorHeadId,
-            dto.HeatNumber, dto.CoilSlabNumber, dto.LotNumber, cancellationToken);
 
         var item = new MaterialQueueItem
         {

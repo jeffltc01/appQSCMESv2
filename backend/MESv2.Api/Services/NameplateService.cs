@@ -20,10 +20,24 @@ public class NameplateService : INameplateService
 
     public async Task<NameplateRecordResponseDto> CreateAsync(CreateNameplateRecordDto dto, CancellationToken cancellationToken = default)
     {
-        var duplicate = await _db.SerialNumbers
-            .AnyAsync(s => s.Serial == dto.SerialNumber && s.Product!.ProductType!.SystemTypeName == "sellable", cancellationToken);
-        if (duplicate)
-            throw new InvalidOperationException("This serial number already exists");
+        var existing = await _db.SerialNumbers
+            .Include(s => s.Product)
+            .Where(s => s.Serial == dto.SerialNumber && s.Product!.ProductType!.SystemTypeName == "sellable")
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing != null)
+        {
+            return new NameplateRecordResponseDto
+            {
+                Id = existing.Id,
+                SerialNumber = existing.Serial,
+                ProductId = existing.ProductId ?? dto.ProductId,
+                TankSize = existing.Product?.TankSize,
+                Timestamp = existing.CreatedAt,
+                PrintSucceeded = false,
+                PrintMessage = "Duplicate submit ignored; existing nameplate record returned."
+            };
+        }
 
         var operator_ = await _db.Users
             .FirstOrDefaultAsync(u => u.Id == dto.OperatorId, cancellationToken);

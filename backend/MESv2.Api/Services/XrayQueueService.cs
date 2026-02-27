@@ -44,9 +44,18 @@ public class XrayQueueService : IXrayQueueService
             throw new InvalidOperationException("Serial number not found");
 
         var duplicate = await _db.XrayQueueItems
-            .AnyAsync(x => x.WorkCenterId == wcId && x.SerialNumberId == sn.Id, cancellationToken);
-        if (duplicate)
-            throw new InvalidOperationException("Serial is already in queue");
+            .Where(x => x.WorkCenterId == wcId && x.SerialNumberId == sn.Id)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (duplicate != null)
+        {
+            return new XrayQueueItemDto
+            {
+                Id = duplicate.Id,
+                SerialNumber = sn.Serial,
+                CreatedAt = duplicate.CreatedAt
+            };
+        }
 
         var item = new XrayQueueItem
         {

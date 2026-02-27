@@ -39,7 +39,7 @@ public class NameplateServiceTests
     }
 
     [Fact]
-    public async Task Create_DuplicateSerial_Throws()
+    public async Task Create_DuplicateSerial_ReturnsExistingRecord()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
@@ -56,15 +56,19 @@ public class NameplateServiceTests
 
         var sut = CreateService(db);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.CreateAsync(new CreateNameplateRecordDto
-            {
-                SerialNumber = "W00100002",
-                ProductId = product.Id,
-                WorkCenterId = TestHelpers.wcNameplateId,
-                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
-                OperatorId = TestHelpers.TestUserId
-            }));
+        var result = await sut.CreateAsync(new CreateNameplateRecordDto
+        {
+            SerialNumber = "W00100002",
+            ProductId = product.Id,
+            WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId
+        });
+
+        Assert.Equal("W00100002", result.SerialNumber);
+        Assert.False(result.PrintSucceeded);
+        Assert.Contains("ignored", result.PrintMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, db.SerialNumbers.Count(s => s.Serial == "W00100002"));
     }
 
     [Fact]

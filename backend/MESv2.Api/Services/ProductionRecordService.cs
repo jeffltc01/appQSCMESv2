@@ -98,11 +98,26 @@ public class ProductionRecordService : IProductionRecordService
                 serial.HeatNumber = dto.HeatNumber;
         }
 
-        var duplicate = await _db.ProductionRecords
-            .AnyAsync(r => r.SerialNumberId == serial.Id && r.WorkCenterId == dto.WorkCenterId
-                && r.Timestamp > DateTime.UtcNow.AddMinutes(-5), cancellationToken);
-        if (duplicate)
-            warning = (warning != null ? warning + " " : "") + "Duplicate production record detected.";
+        var duplicateRecord = await _db.ProductionRecords
+            .Where(r => r.SerialNumberId == serial.Id
+                        && r.WorkCenterId == dto.WorkCenterId
+                        && r.Timestamp > DateTime.UtcNow.AddMinutes(-5))
+            .OrderByDescending(r => r.Timestamp)
+            .Select(r => new { r.Id, r.Timestamp })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (duplicateRecord != null)
+        {
+            warning = (warning != null ? warning + " " : "")
+                + "Duplicate production record ignored; existing record returned.";
+
+            return new CreateProductionRecordResponseDto
+            {
+                Id = duplicateRecord.Id,
+                SerialNumber = serial.Serial,
+                Timestamp = duplicateRecord.Timestamp,
+                Warning = warning
+            };
+        }
 
         var plantGearId = await _db.ProductionLines
             .Where(pl => pl.Id == dto.ProductionLineId)

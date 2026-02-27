@@ -62,7 +62,7 @@ public class XrayQueueServiceTests
     }
 
     [Fact]
-    public async Task AddAsync_Duplicate_Throws()
+    public async Task AddAsync_Duplicate_ReturnsExistingItem()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var snId = Guid.NewGuid();
@@ -79,12 +79,14 @@ public class XrayQueueServiceTests
 
         var sut = new XrayQueueService(db);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.AddAsync(TestHelpers.wcRtXrayQueueId, new AddXrayQueueItemDto
-            {
-                SerialNumber = "SH003",
-                OperatorId = TestHelpers.TestUserId
-            }));
+        var result = await sut.AddAsync(TestHelpers.wcRtXrayQueueId, new AddXrayQueueItemDto
+        {
+            SerialNumber = "SH003",
+            OperatorId = TestHelpers.TestUserId
+        });
+
+        Assert.Equal("SH003", result.SerialNumber);
+        Assert.Equal(1, db.XrayQueueItems.Count(x => x.WorkCenterId == TestHelpers.wcRtXrayQueueId && x.SerialNumberId == snId));
     }
 
     [Fact]
