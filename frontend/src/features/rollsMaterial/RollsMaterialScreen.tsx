@@ -5,6 +5,8 @@ import type { MaterialQueueItem, ProductListItem, Vendor } from '../../types/dom
 import { workCenterApi, materialQueueApi, productApi, vendorApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
+import { reportQueueFlowTelemetry } from '../../telemetry/telemetryClient.ts';
+import { clearRetryContext, loadRetryContext, saveRetryContext } from '../shared/queueRetryContext.ts';
 import styles from './RollsMaterialScreen.module.css';
 
 interface FormData {
@@ -18,6 +20,7 @@ interface FormData {
 }
 
 const MAX_QUEUE_ITEMS = 5;
+const RETRY_SCOPE = 'rolls_material';
 
 const emptyForm: FormData = {
   productId: '', vendorMillId: '', vendorProcessorId: '',
@@ -65,6 +68,25 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
     loadQueue();
     loadLookups();
   }, [workCenterId, loadQueue, loadLookups]);
+
+  useEffect(() => {
+    const restored = loadRetryContext(RETRY_SCOPE, targetWCId);
+    if (!restored) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      productId: restored.productId ?? prev.productId,
+      vendorMillId: restored.vendorMillId ?? prev.vendorMillId,
+      vendorProcessorId: restored.vendorProcessorId ?? prev.vendorProcessorId,
+      heatNumber: restored.heatNumber ?? prev.heatNumber,
+      coilNumber: restored.coilNumber ?? prev.coilNumber,
+      lotNumber: restored.lotNumber ?? prev.lotNumber,
+      quantity: restored.quantity ?? prev.quantity,
+    }));
+    setShowForm(true);
+  }, [targetWCId]);
 
   const openAdd = useCallback(() => {
     if (isQueueFull) {
@@ -125,11 +147,33 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
         });
         showScanResult({ type: 'success', message: 'Material added to queue' });
       }
+      clearRetryContext(RETRY_SCOPE);
+      reportQueueFlowTelemetry('queue_submit_success', {
+        screen: 'RollsMaterial',
+        workCenterId: targetWCId,
+        mode: editingId ? 'edit' : 'create',
+      });
       setShowForm(false);
       loadQueue();
       props.refreshHistory();
     } catch (err: unknown) {
       const msg = (err && typeof err === 'object' && 'message' in err) ? String((err as { message: string }).message) : 'Failed to save queue item';
+      saveRetryContext(RETRY_SCOPE, targetWCId, {
+        productId: form.productId,
+        vendorMillId: form.vendorMillId,
+        vendorProcessorId: form.vendorProcessorId,
+        heatNumber: form.heatNumber,
+        coilNumber: form.coilNumber,
+        lotNumber: form.lotNumber,
+        quantity: form.quantity,
+      });
+      reportQueueFlowTelemetry('queue_submit_failed_context_preserved', {
+        screen: 'RollsMaterial',
+        workCenterId: targetWCId,
+        mode: editingId ? 'edit' : 'create',
+        error: msg,
+        hasContext: true,
+      });
       showScanResult({ type: 'error', message: msg });
     }
   }, [form, editingId, isQueueFull, targetWCId, showScanResult, loadQueue, props.refreshHistory]);

@@ -18,6 +18,7 @@ let flushInProgress = false;
 let initialized = false;
 let windowStart = Date.now();
 let sentInWindow = 0;
+let lastNetworkState: 'online' | 'offline' = navigator.onLine ? 'online' : 'offline';
 const SESSION_ID_KEY = 'mes_session_id';
 
 function trim(value: string | undefined, max: number): string | undefined {
@@ -115,6 +116,9 @@ function queueEvent(event: TelemetryEvent) {
 async function flushQueue() {
   if (flushInProgress || queue.length === 0) return;
   flushInProgress = true;
+  const startedAt = performance.now();
+  const initialCount = queue.length;
+  let sentCount = 0;
   try {
     while (queue.length > 0) {
       const event = queue[0];
@@ -132,10 +136,26 @@ async function flushQueue() {
         break;
       }
       queue.shift();
+      sentCount += 1;
     }
   } catch {
     // Best effort only. Keep queue for next retry tick.
   } finally {
+    if (sentCount > 0) {
+      reportTelemetry({
+        category: 'queue_resync',
+        source: 'telemetry_client',
+        severity: 'info',
+        isReactRuntimeOverlayCandidate: false,
+        message: 'Telemetry queue replay completed',
+        metadataJson: JSON.stringify({
+          initialCount,
+          sentCount,
+          remainingCount: queue.length,
+          flushDurationMs: Math.round(performance.now() - startedAt),
+        }),
+      });
+    }
     flushInProgress = false;
   }
 }
@@ -179,6 +199,48 @@ export function reportException(error: unknown, context: Partial<TelemetryEvent>
     plantId: context.plantId,
     fingerprint: context.fingerprint,
   });
+}
+
+export function reportQueueFlowTelemetry(
+  eventName: string,
+  metadata: Record<string, unknown>,
+): void {
+  reportTelemetry({
+    category: 'queue_resync',
+    source: 'operator_queue',
+    severity: 'info',
+    isReactRuntimeOverlayCandidate: false,
+    message: eventName,
+    metadataJson: JSON.stringify(metadata),
+  });
+}
+
+function handleNetworkState(nextState: 'online' | 'offline'): void {
+  if (lastNetworkState === nextState) {
+    return;
+  }
+
+  lastNetworkState = nextState;
+  reportTelemetry({
+    category: 'network_state',
+    source: 'telemetry_client',
+    severity: nextState === 'offline' ? 'warning' : 'info',
+    isReactRuntimeOverlayCandidate: false,
+    message: nextState === 'offline' ? 'Browser went offline' : 'Browser reconnected',
+    metadataJson: JSON.stringify({ state: nextState }),
+  });
+
+  if (nextState === 'online') {
+    void flushQueue();
+  }
+}
+
+function onOnline(): void {
+  handleNetworkState('online');
+}
+
+function onOffline(): void {
+  handleNetworkState('offline');
 }
 
 export function initializeTelemetry() {
@@ -230,6 +292,9 @@ export function initializeTelemetry() {
     });
   });
 
+  window.addEventListener('online', onOnline);
+  window.addEventListener('offline', onOffline);
+
   flushTimer = window.setInterval(() => {
     void flushQueue();
   }, FLUSH_INTERVAL_MS);
@@ -240,6 +305,8 @@ export function shutdownTelemetry() {
     window.clearInterval(flushTimer);
     flushTimer = null;
   }
+  window.removeEventListener('online', onOnline);
+  window.removeEventListener('offline', onOffline);
   setApiErrorObserver(null);
   initialized = false;
 }

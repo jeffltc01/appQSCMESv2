@@ -5,6 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { XrayQueueItem } from '../../types/domain.ts';
 import { xrayQueueApi } from '../../api/endpoints.ts';
+import { reportQueueFlowTelemetry } from '../../telemetry/telemetryClient.ts';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
 import styles from './RtXrayQueueScreen.module.css';
 
@@ -37,9 +38,21 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
 
     try {
       await xrayQueueApi.addItem(workCenterId, { serialNumber: serial, operatorId });
+      reportQueueFlowTelemetry('queue_submit_success', {
+        screen: 'RtXrayQueue',
+        workCenterId,
+        serial,
+        mode: 'create',
+      });
       showScanResult({ type: 'success', message: `Shell ${serial} added to queue` });
       loadQueue();
     } catch (err: any) {
+      reportQueueFlowTelemetry('queue_submit_failed', {
+        screen: 'RtXrayQueue',
+        workCenterId,
+        serial,
+        error: err?.message ?? 'Failed to add to queue',
+      });
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to add to queue' });
     }
   }, [isQueueFull, workCenterId, operatorId, showScanResult, loadQueue]);
@@ -48,9 +61,17 @@ export function RtXrayQueueScreen(props: WorkCenterProps) {
     if (!pendingDeleteId) return;
     try {
       await xrayQueueApi.removeItem(workCenterId, pendingDeleteId);
+      reportQueueFlowTelemetry('queue_delete_success', {
+        screen: 'RtXrayQueue',
+        workCenterId,
+      });
       showScanResult({ type: 'success', message: 'Removed from queue' });
       loadQueue();
     } catch {
+      reportQueueFlowTelemetry('queue_delete_failed', {
+        screen: 'RtXrayQueue',
+        workCenterId,
+      });
       showScanResult({ type: 'error', message: 'Failed to remove' });
     } finally {
       setPendingDeleteId(null);

@@ -6,6 +6,8 @@ import type { MaterialQueueItem, ProductListItem, Vendor } from '../../types/dom
 import { workCenterApi, materialQueueApi, productApi, vendorApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { formatTimeOnly } from '../../utils/dateFormat.ts';
+import { reportQueueFlowTelemetry } from '../../telemetry/telemetryClient.ts';
+import { clearRetryContext, loadRetryContext, saveRetryContext } from '../shared/queueRetryContext.ts';
 import styles from './FitupQueueScreen.module.css';
 
 interface FormData {
@@ -19,6 +21,7 @@ interface FormData {
 }
 
 const MAX_QUEUE_ITEMS = 5;
+const RETRY_SCOPE = 'fitup_queue';
 
 const emptyForm: FormData = {
   productId: '', vendorHeadId: '', lotNumber: '',
@@ -64,6 +67,25 @@ export function FitupQueueScreen(props: WorkCenterProps) {
     loadQueue();
     loadLookups();
   }, [workCenterId, loadQueue, loadLookups]);
+
+  useEffect(() => {
+    const restored = loadRetryContext(RETRY_SCOPE, targetWCId);
+    if (!restored) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      productId: restored.productId ?? prev.productId,
+      vendorHeadId: restored.vendorHeadId ?? prev.vendorHeadId,
+      lotNumber: restored.lotNumber ?? prev.lotNumber,
+      heatNumber: restored.heatNumber ?? prev.heatNumber,
+      coilSlabNumber: restored.coilSlabNumber ?? prev.coilSlabNumber,
+      cardCode: restored.cardCode ?? prev.cardCode,
+      cardColor: restored.cardColor ?? prev.cardColor,
+    }));
+    setShowForm(true);
+  }, [targetWCId]);
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
@@ -129,10 +151,32 @@ export function FitupQueueScreen(props: WorkCenterProps) {
         });
         showScanResult({ type: 'success', message: 'Head material added to queue' });
       }
+      clearRetryContext(RETRY_SCOPE);
+      reportQueueFlowTelemetry('queue_submit_success', {
+        screen: 'FitupQueue',
+        workCenterId: targetWCId,
+        mode: editingId ? 'edit' : 'create',
+      });
       setShowForm(false);
       loadQueue();
       props.refreshHistory();
     } catch (err: any) {
+      saveRetryContext(RETRY_SCOPE, targetWCId, {
+        productId: form.productId,
+        vendorHeadId: form.vendorHeadId,
+        lotNumber: form.lotNumber,
+        heatNumber: form.heatNumber,
+        coilSlabNumber: form.coilSlabNumber,
+        cardCode: form.cardCode,
+        cardColor: form.cardColor,
+      });
+      reportQueueFlowTelemetry('queue_submit_failed_context_preserved', {
+        screen: 'FitupQueue',
+        workCenterId: targetWCId,
+        mode: editingId ? 'edit' : 'create',
+        error: err?.message ?? 'Failed to save',
+        hasContext: true,
+      });
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save' });
     }
   }, [form, editingId, isQueueFull, targetWCId, showScanResult, loadQueue, props.refreshHistory]);
