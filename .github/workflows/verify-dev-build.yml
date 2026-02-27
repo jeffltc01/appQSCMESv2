@@ -23,13 +23,51 @@ jobs:
             exit 1
           fi
 
+  detect-operator-impact:
+    name: Detect operator-impacting changes
+    needs: [validate-verify-inputs]
+    runs-on: ubuntu-latest
+    outputs:
+      run_operator_smoke: ${{ steps.filter.outputs.operator_impact }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            operator_impact:
+              - 'backend/**'
+              - 'frontend/src/components/layout/**'
+              - 'frontend/src/components/login/**'
+              - 'frontend/src/components/tabletSetup/**'
+              - 'frontend/src/features/rolls/**'
+              - 'frontend/src/features/rollsMaterial/**'
+              - 'frontend/src/features/longSeam/**'
+              - 'frontend/src/features/longSeamInsp/**'
+              - 'frontend/src/features/fitup/**'
+              - 'frontend/src/features/fitupQueue/**'
+              - 'frontend/src/features/roundSeam/**'
+              - 'frontend/src/features/roundSeamInsp/**'
+              - 'frontend/src/features/nameplate/**'
+              - 'frontend/src/features/hydro/**'
+              - 'frontend/src/features/spotXray/**'
+              - 'frontend/src/features/rtXrayQueue/**'
+              - 'frontend/src/api/**'
+              - 'frontend/src/types/**'
+              - '.github/workflows/**'
+
   build-test-package:
     name: Build, test, and package dev commit
-    needs: [validate-verify-inputs]
+    needs: [validate-verify-inputs, detect-operator-impact]
     uses: ./.github/workflows/build-test-package.yml
     with:
       release_ref: ${{ github.sha }}
       backend_url: ${{ vars.BACKEND_URL }}
-      run_e2e: false
+      run_e2e: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' }}
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit

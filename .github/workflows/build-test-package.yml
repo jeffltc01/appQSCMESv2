@@ -161,10 +161,10 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Run operator smoke E2E tests
         if: ${{ inputs.run_e2e }}
         working-directory: e2e
-        run: npx playwright test
+        run: npm run test:operator-smoke
 
       - name: Upload Playwright report
         if: ${{ always() && inputs.run_e2e }}
