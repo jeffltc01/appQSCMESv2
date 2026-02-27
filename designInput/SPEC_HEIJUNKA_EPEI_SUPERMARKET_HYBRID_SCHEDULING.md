@@ -67,6 +67,45 @@ Optional but recommended:
 - Order hold/release state.
 - Last update timestamp and source system audit metadata.
 
+### ERP Raw Landing Contract (Ingestion)
+
+To support legacy ERP integration where APIs are unavailable, this spec standardizes a single raw landing dataset and table shape for ERP-to-MES ingestion.
+
+Raw ingestion table (MES-owned):
+
+- `ErpSalesOrderDemandRaw`
+
+One row per ERP sales-order line demand record with minimal transformation at ingestion time.
+
+Required fields in the inbound ERP extract:
+
+- `ErpSalesOrderId` (business order key, not an internal surrogate database id)
+- `ErpSalesOrderLineId` (business line key within the order)
+- `ErpSkuCode`
+- `SiteCode`
+- `ErpLoadNumberRaw`
+- `DispatchDateLocal`
+- `RequiredQty`
+- `OrderStatus`
+- `SourceExtractedAtUtc`
+
+Optional but recommended fields:
+
+- `ErpLastChangedAtUtc`
+- `SourceBatchId`
+
+Ingestion behavior:
+
+1. ADF (or equivalent ETL) should transport ERP rows to MES raw landing with no planning/business-rule logic.
+2. Preferred pattern is incremental pull using `ErpLastChangedAtUtc` when available.
+3. If no reliable ERP "last changed" field exists, full scheduled extracts are acceptable; MES downstream processing must deduplicate and detect effective changes.
+4. MES normalization/mapping logic runs after raw ingestion and populates canonical planning data structures.
+
+Scheduling cadence guidance:
+
+- Start with every 15 minutes during operating hours.
+- Use hourly cadence during off-hours unless dispatch risk requires higher frequency.
+
 ### Canonical ERP-MES Fields
 
 The planning service should map ERP payloads to canonical fields:
