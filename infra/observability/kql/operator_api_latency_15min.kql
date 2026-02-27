@@ -1,0 +1,15 @@
+let lookback = 24h;
+requests
+| where timestamp > ago(lookback)
+| where tostring(customDimensions.EndpointCategory) in ("OperatorCriticalWrite", "WorkCenterRead", "Login")
+| summarize
+    p50_ms = percentile(duration, 50) / 1ms,
+    p95_ms = percentile(duration, 95) / 1ms,
+    p99_ms = percentile(duration, 99) / 1ms,
+    request_count = count()
+  by
+    bin(timestamp, 15m),
+    endpoint_category = tostring(customDimensions.EndpointCategory),
+    feature = tostring(customDimensions.Feature),
+    plant_id = tostring(customDimensions.PlantId)
+| order by timestamp desc

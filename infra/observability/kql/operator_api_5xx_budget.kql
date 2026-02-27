@@ -1,0 +1,14 @@
+let lookback = 24h;
+requests
+| where timestamp > ago(lookback)
+| where tostring(customDimensions.IsOperatorCritical) == "true"
+| summarize
+    total = count(),
+    five_xx = countif(resultCode startswith "5")
+  by
+    bin(timestamp, 5m),
+    endpoint_category = tostring(customDimensions.EndpointCategory),
+    feature = tostring(customDimensions.Feature),
+    plant_id = tostring(customDimensions.PlantId)
+| extend five_xx_pct = iff(total == 0, 0.0, todouble(five_xx) * 100.0 / todouble(total))
+| order by timestamp desc

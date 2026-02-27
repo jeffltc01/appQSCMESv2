@@ -1,0 +1,14 @@
+{
+  "name": "slo-operator-api-p95-latency",
+  "description": "Alert when operator API p95 exceeds 1200ms over 10 minutes.",
+  "type": "scheduledQuery",
+  "severity": 2,
+  "evaluationFrequency": "PT5M",
+  "windowSize": "PT10M",
+  "queryFile": "../kql/operator_api_latency_15min.kql",
+  "condition": {
+    "metricColumn": "p95_ms",
+    "operator": "GreaterThan",
+    "threshold": 1200
+  }
+}

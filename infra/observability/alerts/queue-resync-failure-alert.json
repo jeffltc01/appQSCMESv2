@@ -1,0 +1,14 @@
+{
+  "name": "slo-queue-resync-failures",
+  "description": "Alert when queue resync failure rate exceeds 0.5% over 10 minutes.",
+  "type": "scheduledQuery",
+  "severity": 2,
+  "evaluationFrequency": "PT5M",
+  "windowSize": "PT10M",
+  "query": "customEvents | where name == 'queue_resync' | extend payload=todynamic(customDimensions.metadataJson) | summarize total=count(), failed=countif(tostring(payload.error) != '') by bin(timestamp, 10m) | extend failure_pct=iff(total==0, 0.0, todouble(failed) * 100.0 / todouble(total))",
+  "condition": {
+    "metricColumn": "failure_pct",
+    "operator": "GreaterThan",
+    "threshold": 0.5
+  }
+}
