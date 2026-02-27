@@ -45,6 +45,7 @@ e2e/playwright-report/
 e2e/test-results/
 e2e/artifacts/**/build/
 e2e/artifacts/**/screenshots/
+perf/artifacts/
 
 # E2E
 e2e/node_modules/

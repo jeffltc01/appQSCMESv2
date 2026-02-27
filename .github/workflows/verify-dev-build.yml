@@ -16,12 +16,17 @@ jobs:
         shell: bash
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL }}
+          PERF_EMP_NO: ${{ secrets.PERF_EMP_NO }}
+          PERF_PIN: ${{ secrets.PERF_PIN }}
+          PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
         run: |
           set -euo pipefail
-          if [[ -z "${BACKEND_URL:-}" ]]; then
-            echo "Missing required value: BACKEND_URL" >&2
-            exit 1
-          fi
+          for name in BACKEND_URL PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required value: ${name}" >&2
+              exit 1
+            fi
+          done
 
   detect-operator-impact:
     name: Detect operator-impacting changes

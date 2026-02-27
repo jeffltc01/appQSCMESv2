@@ -86,6 +86,9 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
@@ -109,6 +112,20 @@ jobs:
           path: ./release
           run-id: ${{ needs.resolve-verified-build.outputs.verify_run_id }}
           github-token: ${{ github.token }}
+
+      - name: Download SLO perf artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: perf-artifacts
+          path: ./perf/artifacts
+          run-id: ${{ needs.resolve-verified-build.outputs.verify_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Enforce SLO gate before deploy
+        run: python3 .github/scripts/evaluate-slo-gates.py
+        env:
+          SLO_PERF_SUMMARY_PATH: ./perf/artifacts/perf-summary.json
+          SLO_RECON_SUMMARY_PATH: ./perf/artifacts/queue-reconciliation-summary.json
 
       - name: Azure Login
         uses: azure/login@v2

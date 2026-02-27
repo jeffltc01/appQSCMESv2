@@ -174,6 +174,48 @@ jobs:
           path: e2e/playwright-report/
           retention-days: 14
 
+      - name: Validate SLO perf credentials
+        shell: bash
+        env:
+          PERF_EMP_NO: ${{ secrets.PERF_EMP_NO }}
+          PERF_PIN: ${{ secrets.PERF_PIN }}
+          PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
+        run: |
+          set -euo pipefail
+          for name in PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required value: ${name}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Run SLO perf scenarios
+        env:
+          BACKEND_URL: ${{ inputs.backend_url }}
+          PERF_EMP_NO: ${{ secrets.PERF_EMP_NO }}
+          PERF_PIN: ${{ secrets.PERF_PIN }}
+          PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
+        run: node perf/run-slo-scenarios.mjs
+
+      - name: Run queue reconciliation summary
+        run: node perf/reconcile-queue-results.mjs
+
+      - name: Upload perf and reconciliation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-artifacts
+          path: perf/artifacts/
+          retention-days: 30
+
+      - name: Append SLO gate summary
+        if: ${{ always() }}
+        run: |
+          echo "## SLO Evidence Artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Perf artifact: \`perf-artifacts\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Includes: \`perf-summary.json\`, \`perf-summary.md\`, \`queue-reconciliation-summary.json\`, \`queue-reconciliation-summary.md\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Gate script: \`.github/scripts/evaluate-slo-gates.py\`" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Capture release metadata
         id: meta
         run: |

@@ -1,0 +1,14 @@
+[
+  {
+    "workCenterId": "f1111111-1111-1111-1111-111111111111",
+    "serialNumber": "012744",
+    "action": "queue_add",
+    "clientRequestId": "req-001"
+  },
+  {
+    "workCenterId": "f1111111-1111-1111-1111-111111111111",
+    "serialNumber": "012745",
+    "action": "queue_add",
+    "clientRequestId": "req-002"
+  }
+]
