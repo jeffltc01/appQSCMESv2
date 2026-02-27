@@ -171,6 +171,7 @@ Add and maintain telemetry segmentation for operator workflows:
 - `designInput/SPEC_OPERATOR_WC_LAYOUT.md`
 - `designInput/SPEC_DATA_REFERENCE.md`
 - `designInput/SPEC_PERFORMANCE_SLO.md`
+- `designInput/OPERATOR_PERFORMANCE_PLAYBOOK.md`
 - `designInput/SPEC_LEAN_TEST_AND_ROLLOUT_STRATEGY.md`
 - `designInput/SECURITY_ROLES.md`
 
