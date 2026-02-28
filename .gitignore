@@ -57,3 +57,44 @@ frontend/test-*.json
 
 # Generated scripts
 generate_spec_pdf.py
+
+# Frontend/dev caches
+frontend/.vite/
+frontend/.cache/
+e2e/.playwright/
+e2e/blob-report/
+
+# Package manager caches
+**/.nuget/packages/
+**/.npm/
+**/.pnpm-store/
+**/.yarn/cache/
+
+# Additional test/build artifacts
+**/*.trx
+**/*.coverage
+**/*.coveragexml
+**/coverage-html/
+**/lcov-report/
+**/.nyc_output/
+e2e/artifacts/**/videos/
+e2e/artifacts/**/traces/
+e2e/artifacts/**/downloads/
+
+# Publish/output bundles
+**/publish/
+**/out/
+*.nupkg
+*.snupkg
+
+# Generic temp/cache files
+*.cache
+*.tmp
+*.temp
+
+# Archive artifacts
+*.zip
+*.7z
+*.tar
+*.tgz
+*.rar
