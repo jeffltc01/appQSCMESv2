@@ -70,21 +70,16 @@
 .diagramPane {
   flex: 1 1 0%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: visible;
-  scrollbar-width: thin;
-  scrollbar-color: #c4c9d4 transparent;
+  min-height: 560px;
 }
 
-.diagramPane::-webkit-scrollbar {
-  height: 6px;
-}
-.diagramPane::-webkit-scrollbar-track {
-  background: transparent;
-}
-.diagramPane::-webkit-scrollbar-thumb {
-  background: #c4c9d4;
-  border-radius: 3px;
+.graphSurface {
+  width: 100%;
+  height: 560px;
+  border-radius: 10px;
+  border: 1px solid #dfe2ed;
+  overflow: hidden;
+  background: #f7f8fb;
 }
 
 .eventsPane {
@@ -119,6 +114,19 @@
   letter-spacing: 1.2px;
   color: #2b3b84;
   margin-bottom: 16px;
+}
+
+.graphToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.graphHint {
+  font-size: 12px;
+  color: #6c757d;
 }
 
 /* ── Legend ── */
@@ -161,162 +169,6 @@
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
 }
 
-/* ── Main horizontal flow ── */
-.flowRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 48px;
-  padding: 12px 0 200px;
-}
-
-/* ── Flow column: one main card + its sub-components ── */
-.flowColumn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  flex-shrink: 0;
-}
-
-/* Horizontal connector line: card right edge → arrowhead base */
-.flowColumnWithArrow::after {
-  content: '';
-  position: absolute;
-  top: 73px;
-  left: 100%;
-  width: 36px;
-  height: 3px;
-  background: #343a40;
-}
-
-/* Arrowhead: 12px wide triangle, tip touches next card's left edge */
-.flowColumnWithArrow::before {
-  content: '';
-  position: absolute;
-  top: 74px;
-  left: calc(100% + 36px);
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-left: 12px solid #343a40;
-  border-top: 7px solid transparent;
-  border-bottom: 7px solid transparent;
-  z-index: 2;
-}
-
-/* Last shell before fitup gets a longer arrow */
-.flowColumnWithArrow[data-last-shell]::after {
-  width: 136px;
-}
-.flowColumnWithArrow[data-last-shell]::before {
-  left: calc(100% + 136px);
-}
-.flowColumnWithArrow[data-last-shell] {
-  margin-right: 100px;
-}
-
-/* ── Nameplate right-side attachment on the Fitup column ── */
-.flowColumn[data-has-nameplate] {
-  margin-right: 220px;
-}
-
-.flowColumnWithArrow[data-has-nameplate]::after {
-  left: calc(100% + 220px);
-  width: 36px;
-}
-.flowColumnWithArrow[data-has-nameplate]::before {
-  left: calc(100% + 220px + 36px);
-}
-
-.nameplateAttachment {
-  position: absolute;
-  top: 0;
-  left: calc(100% + 16px);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nameplateArrowLine {
-  width: 28px;
-  height: 3px;
-  background: #343a40;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.nameplateArrowLine::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-right: 10px solid #343a40;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-}
-
-/* ── Sub-components area (absolute so they don't widen the column) ── */
-.subComponentsArea {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 12px;
-}
-
-/* Each sub-component item: arrow on top, card below */
-.subItem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* Vertical arrow pointing UP from sub-component toward parent */
-.subArrow {
-  display: flex;
-  justify-content: center;
-  height: 54px;
-  position: relative;
-  width: 100%;
-}
-
-.subArrowLine {
-  width: 3px;
-  height: 100%;
-  background: #343a40;
-  position: relative;
-}
-
-/* Upward-pointing arrowhead */
-.subArrowLine::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 12px solid #343a40;
-}
-
-/* Shift left-most sub-item arrow inward (toward parent center) */
-.subItem:first-child:not(:only-child) .subArrow {
-  justify-content: flex-end;
-  padding-right: 20px;
-}
-
-/* Shift right-most sub-item arrow inward (toward parent center) */
-.subItem:last-child:not(:only-child) .subArrow {
-  justify-content: flex-start;
-  padding-left: 20px;
-}
-
 /* ── Hero cards — unified white style ── */
 .heroCard {
   background: #ffffff;
@@ -338,20 +190,6 @@
 .heroCard:hover {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
-}
-
-/* ── Small / sub-component cards ── */
-.heroCardSmall {
-  min-height: auto;
-  padding: 12px 14px 10px;
-}
-
-.heroCardSmall .cardSerial {
-  font-size: 13px;
-}
-
-.heroCardSmall .cardTypeBadge {
-  font-size: 9px;
 }
 
 /* ── Node-type colored left accent — all cards ── */
@@ -478,6 +316,41 @@
 
 .gateNone {
   color: #adb5bd;
+}
+
+.operationNode {
+  width: 168px;
+  min-height: 64px;
+  background: #f1f3f5;
+  border: 1px dashed #6c757d;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.operationTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #495057;
+}
+
+.operationSummary {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #343a40;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.hiddenHandle {
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  background: transparent;
 }
 
 /* ── Events panel (Box R) ── */
@@ -629,99 +502,15 @@
     flex-direction: column;
   }
 
+  .diagramPane,
+  .graphSurface {
+    min-height: 420px;
+    height: 420px;
+  }
+
   .eventsPane {
     flex: none;
     max-height: 50vh;
-  }
-
-  .flowRow {
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-    padding-bottom: 12px;
-  }
-
-  .flowColumnWithArrow::after {
-    top: auto;
-    left: 50%;
-    bottom: -44px;
-    width: 3px;
-    height: 40px;
-    transform: translateX(-50%);
-  }
-
-  .flowColumnWithArrow::before {
-    top: auto;
-    left: 50%;
-    bottom: -56px;
-    transform: translateX(-50%);
-    border-left: 7px solid transparent;
-    border-right: 7px solid transparent;
-    border-top: 12px solid #343a40;
-    border-bottom: none;
-  }
-
-  .flowColumn {
-    margin-bottom: 60px;
-  }
-
-  .flowColumnWithArrow {
-    margin-bottom: 60px;
-  }
-
-  .heroCard {
-    width: 100%;
-    max-width: 300px;
-  }
-
-  .heroCardSmall {
-    width: 100%;
-    max-width: 300px;
-  }
-
-  .subComponentsArea {
-    position: static;
-    transform: none;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .subItem:first-child:not(:only-child) .subArrow,
-  .subItem:last-child:not(:only-child) .subArrow {
-    justify-content: center;
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  .subArrow {
-    height: 24px;
-  }
-
-  .flowColumn[data-has-nameplate] {
-    margin-right: 0;
-  }
-
-  .nameplateAttachment {
-    position: static;
-    margin-top: 12px;
-    flex-direction: row;
-    justify-content: center;
-  }
-
-  .flowColumnWithArrow[data-has-nameplate]::after {
-    left: 50%;
-    width: 3px;
-    height: 40px;
-    transform: translateX(-50%);
-  }
-
-  .flowColumnWithArrow[data-has-nameplate]::before {
-    left: 50%;
-    transform: translateX(-50%);
-    border-left: 7px solid transparent;
-    border-right: 7px solid transparent;
-    border-top: 12px solid #343a40;
-    border-bottom: none;
   }
 
   .controls {

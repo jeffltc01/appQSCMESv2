@@ -30,13 +30,14 @@ public class DefectLocationsControllerTests
         var controller = CreateController(out var db);
         var charId = db.Characteristics.First().Id;
 
-        var dto = new CreateDefectLocationDto { Code = "99", Name = "New Loc", CharacteristicId = charId };
+        var dto = new CreateDefectLocationDto { Code = "99", Name = "New Loc", CharacteristicIds = new List<Guid> { charId } };
         var result = await controller.Create(dto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var created = Assert.IsType<AdminDefectLocationDto>(ok.Value);
         Assert.Equal("New Loc", created.Name);
-        Assert.NotNull(created.CharacteristicName);
+        Assert.Contains(charId, created.CharacteristicIds);
+        Assert.NotEmpty(created.CharacteristicNames);
         Assert.True(db.DefectLocations.Any(d => d.Code == "99"));
     }
 
@@ -45,8 +46,12 @@ public class DefectLocationsControllerTests
     {
         var controller = CreateController(out var db);
         var loc = db.DefectLocations.First();
+        var charIds = db.DefectLocationCharacteristics
+            .Where(link => link.DefectLocationId == loc.Id)
+            .Select(link => link.CharacteristicId)
+            .ToList();
 
-        var dto = new UpdateDefectLocationDto { Code = loc.Code, Name = "Updated Name", CharacteristicId = loc.CharacteristicId };
+        var dto = new UpdateDefectLocationDto { Code = loc.Code, Name = "Updated Name", CharacteristicIds = charIds };
         var result = await controller.Update(loc.Id, dto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
@@ -73,7 +78,10 @@ public class DefectLocationsControllerTests
         {
             Code = loc.Code,
             Name = loc.Name,
-            CharacteristicId = loc.CharacteristicId,
+            CharacteristicIds = db.DefectLocationCharacteristics
+                .Where(link => link.DefectLocationId == loc.Id)
+                .Select(link => link.CharacteristicId)
+                .ToList(),
             IsActive = false
         };
 

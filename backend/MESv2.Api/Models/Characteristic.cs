@@ -16,4 +16,5 @@ public class Characteristic
     public ICollection<WelderLog> WelderLogs { get; set; } = new List<WelderLog>();
     public ICollection<DefectLog> DefectLogs { get; set; } = new List<DefectLog>();
     public ICollection<DefectLocation> DefectLocations { get; set; } = new List<DefectLocation>();
+    public ICollection<DefectLocationCharacteristic> DefectLocationCharacteristics { get; set; } = new List<DefectLocationCharacteristic>();
 }

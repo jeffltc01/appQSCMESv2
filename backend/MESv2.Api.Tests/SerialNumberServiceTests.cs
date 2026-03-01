@@ -759,6 +759,119 @@ public class SerialNumberServiceTests
         Assert.DoesNotContain(shellNode.Children, c => c.Serial == "NJ" && c.NodeType == "plate");
     }
 
+    [Fact]
+    public async Task GetLookup_LineageAssembly_IncludesItsMaterialSubtree()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var plateProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "plate" && p.TankSize == 500);
+
+        var oldAssembly = new SerialNumber { Id = Guid.NewGuid(), Serial = "OLD-LIN", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-20), IsObsolete = true };
+        var newAssembly = new SerialNumber { Id = Guid.NewGuid(), Serial = "NEW-LIN", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var shell = new SerialNumber { Id = Guid.NewGuid(), Serial = "SH-LIN-01", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-30) };
+        var plate = new SerialNumber { Id = Guid.NewGuid(), Serial = "PL-LIN-01", ProductId = plateProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-35), HeatNumber = "H-LIN", CoilNumber = "C-LIN" };
+        db.SerialNumbers.AddRange(oldAssembly, newAssembly, shell, plate);
+
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = shell.Id, ToSerialNumberId = oldAssembly.Id, Relationship = "shell", TankLocation = "Shell 1", Timestamp = DateTime.UtcNow.AddMinutes(-19) },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = plate.Id, ToSerialNumberId = shell.Id, Relationship = "plate", Timestamp = DateTime.UtcNow.AddMinutes(-18) },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = oldAssembly.Id, ToSerialNumberId = newAssembly.Id, Relationship = "ReassembledTo", Timestamp = DateTime.UtcNow.AddMinutes(-10) }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("NEW-LIN");
+
+        Assert.NotNull(result);
+        var rootAssembly = result.TreeNodes.Single();
+        Assert.Equal("assembled", rootAssembly.NodeType);
+
+        var lineageNode = rootAssembly.Children.Single(c => c.NodeType == "lineage" && c.Serial == "OLD-LIN");
+        Assert.NotEmpty(lineageNode.Children);
+
+        var lineageShell = lineageNode.Children.Single(c => c.NodeType == "shell" && c.Serial == "SH-LIN-01");
+        Assert.Contains(lineageShell.Children, c => c.NodeType == "plate" && c.Serial == "PL-LIN-01");
+    }
+
+    [Fact]
+    public async Task GetLookup_LineageAssembly_WithSharedShell_StillIncludesPlateTrace()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var plateProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "plate" && p.TankSize == 500);
+
+        var oldAssembly = new SerialNumber { Id = Guid.NewGuid(), Serial = "OLD-SHARED", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-30), IsObsolete = true };
+        var newAssembly = new SerialNumber { Id = Guid.NewGuid(), Serial = "NEW-SHARED", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var sharedShell = new SerialNumber { Id = Guid.NewGuid(), Serial = "SH-SHARED-01", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-40) };
+        var plate = new SerialNumber { Id = Guid.NewGuid(), Serial = "PL-SHARED-01", ProductId = plateProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-45), HeatNumber = "H-SH", CoilNumber = "C-SH" };
+        db.SerialNumbers.AddRange(oldAssembly, newAssembly, sharedShell, plate);
+
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = sharedShell.Id, ToSerialNumberId = oldAssembly.Id, Relationship = "shell", TankLocation = "Shell 1", Timestamp = DateTime.UtcNow.AddMinutes(-29) },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = sharedShell.Id, ToSerialNumberId = newAssembly.Id, Relationship = "shell", TankLocation = "Shell 1", Timestamp = DateTime.UtcNow.AddMinutes(-5) },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = plate.Id, ToSerialNumberId = sharedShell.Id, Relationship = "plate", Timestamp = DateTime.UtcNow.AddMinutes(-28) },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = oldAssembly.Id, ToSerialNumberId = newAssembly.Id, Relationship = "ReassembledTo", Timestamp = DateTime.UtcNow.AddMinutes(-4) }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("NEW-SHARED");
+
+        Assert.NotNull(result);
+        var rootAssembly = result.TreeNodes.Single();
+        var rootShell = rootAssembly.Children.Single(c => c.NodeType == "shell" && c.Serial == "SH-SHARED-01");
+        Assert.Contains(rootShell.Children, c => c.NodeType == "plate" && c.Serial == "PL-SHARED-01");
+
+        var lineageNode = rootAssembly.Children.Single(c => c.NodeType == "lineage" && c.Serial == "OLD-SHARED");
+        var lineageShell = lineageNode.Children.Single(c => c.NodeType == "shell" && c.Serial == "SH-SHARED-01");
+        Assert.Contains(lineageShell.Children, c => c.NodeType == "plate" && c.Serial == "PL-SHARED-01");
+    }
+
+    [Fact]
+    public async Task GetLookup_SourceAssembly_DoesNotShowOutgoingLineageAsInput()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+
+        var sourceAssembly = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SRC-LIN",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-20),
+            IsObsolete = true
+        };
+        var newAssembly = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "NEW-LIN-ONLY",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.AddRange(sourceAssembly, newAssembly);
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = sourceAssembly.Id,
+            ToSerialNumberId = newAssembly.Id,
+            Relationship = "ReassembledTo",
+            Timestamp = DateTime.UtcNow.AddMinutes(-5)
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetLookupAsync("SRC-LIN");
+
+        Assert.NotNull(result);
+        var root = result.TreeNodes.Single();
+        Assert.Equal("assembled", root.NodeType);
+        Assert.DoesNotContain(root.Children, c => c.NodeType == "lineage" && c.Serial == "NEW-LIN-ONLY");
+    }
+
     #region NormalizeRelationship Direct Tests
 
     [Theory]

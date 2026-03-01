@@ -78,9 +78,9 @@ function buildCardLabel(cardValue: string, colorName?: string, color?: string): 
 }
 
 export function FitupQueueScreen(props: WorkCenterProps) {
-  const { workCenterId, showScanResult, registerBarcodeHandler, productionLineId } = props;
+  const { workCenterId, showScanResult, registerBarcodeHandler, productionLineId, materialQueueForWCId } = props;
   const { user } = useAuth();
-  const queueWCId = workCenterId;
+  const queueWCId = materialQueueForWCId ?? workCenterId;
 
   const [queue, setQueue] = useState<MaterialQueueItem[]>([]);
   const [showForm, setShowForm] = useState(false);

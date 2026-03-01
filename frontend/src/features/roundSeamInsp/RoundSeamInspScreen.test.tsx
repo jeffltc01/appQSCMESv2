@@ -7,8 +7,8 @@ import type { ParsedBarcode } from '../../types/barcode';
 
 const mockGetAssemblyByShell = vi.fn();
 const mockGetDefectCodes = vi.fn().mockResolvedValue([{ id: 'dc1', code: 'DC1', name: 'Defect 1', severity: 'Low' }]);
-const mockGetDefectLocations = vi.fn().mockResolvedValue([{ id: 'loc1', code: 'L1', name: 'Location 1' }]);
-const mockGetCharacteristics = vi.fn().mockResolvedValue([{ id: 'char1', name: 'Round Seam' }]);
+const mockGetDefectLocations = vi.fn().mockResolvedValue([{ id: 'loc1', code: 'L1', name: 'Location 1', characteristicIds: [] }]);
+const mockGetCharacteristics = vi.fn().mockResolvedValue([{ id: 'char1', code: 'RS1', name: 'Round Seam' }]);
 const mockCreate = vi.fn().mockResolvedValue({ id: 'ir-1', serialNumber: 'AA', defects: [] });
 
 vi.mock('../../api/endpoints', () => ({
@@ -44,7 +44,7 @@ describe('RoundSeamInspScreen', () => {
 
   it('renders waiting state', () => {
     renderScreen();
-    expect(screen.getByText(/scan serial number to begin/i)).toBeInTheDocument();
+    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
   });
 
   it('registers barcode handler', () => {
@@ -57,9 +57,10 @@ describe('RoundSeamInspScreen', () => {
     expect(screen.getByPlaceholderText(/enter serial number/i)).toBeInTheDocument();
   });
 
-  it('disables input in external mode', () => {
+  it('hides serial input area in external mode', () => {
     renderScreen({ externalInput: true });
-    expect(screen.getByPlaceholderText(/enter serial number/i)).toBeDisabled();
+    expect(screen.queryByPlaceholderText(/enter serial number/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
   });
 
   it('rejects save when pending defect is incomplete (has code but no location)', async () => {
@@ -71,7 +72,7 @@ describe('RoundSeamInspScreen', () => {
     await act(async () => {
       capturedHandler!({ prefix: 'SC', value: '022101', raw: 'SC;022101' }, 'SC;022101');
     });
-    await waitFor(() => expect(screen.getByText(/AwaitingDefects/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/tank size/i)).toBeInTheDocument());
 
     // Scan a defect code (creates a pending entry with only defectCodeId set)
     act(() => {
@@ -92,16 +93,22 @@ describe('RoundSeamInspScreen', () => {
   it('loads characteristics with tankSize after assembly lookup', async () => {
     mockGetAssemblyByShell.mockResolvedValue({ alphaCode: 'BB', tankSize: 500, roundSeamCount: 2 });
     mockGetCharacteristics.mockResolvedValue([
-      { id: 'rs1', name: 'RS1', minTankSize: 0 },
-      { id: 'rs2', name: 'RS2', minTankSize: 0 },
+      { id: 'rs1', code: 'RS1', name: 'RS1', minTankSize: 0 },
+      { id: 'rs2', code: 'RS2', name: 'RS2', minTankSize: 0 },
     ]);
     renderScreen();
 
     await act(async () => {
       capturedHandler!({ prefix: 'SC', value: '022102', raw: 'SC;022102' }, 'SC;022102');
     });
-    await waitFor(() => expect(screen.getByText(/AwaitingDefects/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/tank size/i)).toBeInTheDocument());
 
     expect(mockGetCharacteristics).toHaveBeenCalledWith('wc-rsi', 500);
+    expect(screen.getByText(/next: scan defect \+ characteristic \+ location, or scan save/i)).toBeInTheDocument();
+  });
+
+  it('shows external-input NEXT guidance while waiting', () => {
+    renderScreen({ externalInput: true });
+    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
   });
 });

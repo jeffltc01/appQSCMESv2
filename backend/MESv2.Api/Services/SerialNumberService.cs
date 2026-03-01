@@ -279,7 +279,7 @@ public class SerialNumberService : ISerialNumberService
     }
 
     private async Task<TraceabilityNodeDto> BuildAssemblyNode(
-        SerialNumber assemblySn, HashSet<Guid> allSnIds, CancellationToken ct)
+        SerialNumber assemblySn, HashSet<Guid> allSnIds, CancellationToken ct, bool includeLineageLinks = true)
     {
         var assemblyNode = BuildNodeDto(assemblySn, "assembled");
         assemblyNode.Label = $"{assemblySn.Serial} (Assembled)";
@@ -308,10 +308,21 @@ public class SerialNumberService : ISerialNumberService
                     var resolvedNodeType = nodeType == "component"
                         ? InferNodeTypeFromProduct(childSn, log.TankLocation)
                         : nodeType;
-                    var childNode = BuildNodeDto(childSn, resolvedNodeType);
-
-                    if (resolvedNodeType == "shell")
-                        await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
+                    TraceabilityNodeDto childNode;
+                    if (resolvedNodeType == "lineage"
+                        && NormalizeSystemType(childSn.Product?.ProductType?.SystemTypeName) == "assembled")
+                    {
+                        // Build lineage subtree with local visited set so shared shells/plates still render.
+                        childNode = await BuildAssemblyNode(childSn, new HashSet<Guid> { childSn.Id }, ct, includeLineageLinks: false);
+                        childNode.NodeType = "lineage";
+                        childNode.Label = $"{childSn.Serial} (Lineage)";
+                    }
+                    else
+                    {
+                        childNode = BuildNodeDto(childSn, resolvedNodeType);
+                        if (resolvedNodeType == "shell")
+                            await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
+                    }
 
                     assemblyNode.Children.Add(childNode);
                 }
@@ -347,10 +358,28 @@ public class SerialNumberService : ISerialNumberService
                     var resolvedNodeType = nodeType == "component"
                         ? InferNodeTypeFromProduct(childSn, log.TankLocation)
                         : nodeType;
-                    var childNode = BuildNodeDto(childSn, resolvedNodeType);
-
-                    if (resolvedNodeType == "shell")
-                        await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
+                    // Lineage is directional (old assembly -> new assembly).
+                    // For the current genealogy view, don't treat "outgoing" lineage links
+                    // as assembly inputs/components.
+                    if (resolvedNodeType == "lineage")
+                        continue;
+                    if (!includeLineageLinks && resolvedNodeType == "lineage")
+                        continue;
+                    TraceabilityNodeDto childNode;
+                    if (resolvedNodeType == "lineage"
+                        && NormalizeSystemType(childSn.Product?.ProductType?.SystemTypeName) == "assembled")
+                    {
+                        // Build lineage subtree with local visited set so shared shells/plates still render.
+                        childNode = await BuildAssemblyNode(childSn, new HashSet<Guid> { childSn.Id }, ct, includeLineageLinks: false);
+                        childNode.NodeType = "lineage";
+                        childNode.Label = $"{childSn.Serial} (Lineage)";
+                    }
+                    else
+                    {
+                        childNode = BuildNodeDto(childSn, resolvedNodeType);
+                        if (resolvedNodeType == "shell")
+                            await AddPlateChildren(childNode, childSn.Id, allSnIds, ct);
+                    }
 
                     assemblyNode.Children.Add(childNode);
                 }

@@ -333,6 +333,74 @@ public class WorkCenterServiceHistoryTests
     }
 
     /// <summary>
+    /// For Round Seam Inspection, history should include shell code(s) with the
+    /// assembly alpha code, because the station records at assembly level.
+    /// </summary>
+    [Fact]
+    public async Task RoundSeamInspection_ShowsAlphaCodeWithShellList()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+
+        var assemblySnId = Guid.NewGuid();
+        var shellSnId = Guid.NewGuid();
+        db.SerialNumbers.AddRange(
+            new SerialNumber
+            {
+                Id = assemblySnId,
+                Serial = "RSA1",
+                ProductId = assembledProduct.Id,
+                PlantId = TestHelpers.PlantPlt1Id,
+                CreatedAt = DateTime.UtcNow
+            },
+            new SerialNumber
+            {
+                Id = shellSnId,
+                Serial = "RS-SHELL-001",
+                ProductId = shellProduct.Id,
+                PlantId = TestHelpers.PlantPlt1Id,
+                CreatedAt = DateTime.UtcNow
+            }
+        );
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shellSnId,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "ShellToAssembly",
+            Quantity = 1,
+            Timestamp = DateTime.UtcNow
+        });
+
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = assemblySnId,
+            WorkCenterId = TestHelpers.wcRoundSeamInspId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcRoundSeamInspId,
+            TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null,
+            limit: 10);
+
+        Assert.Single(result.RecentRecords);
+        var entry = result.RecentRecords[0];
+        Assert.StartsWith("RSA1 (", entry.SerialOrIdentifier);
+        Assert.Contains("RS-SHELL-001", entry.SerialOrIdentifier);
+        Assert.Equal(500, entry.TankSize);
+    }
+
+    /// <summary>
     /// When no traceability data exists, the serial string is displayed as-is.
     /// </summary>
     [Fact]

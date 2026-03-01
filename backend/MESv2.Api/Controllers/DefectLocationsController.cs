@@ -21,18 +21,11 @@ public class DefectLocationsController : ControllerBase
     public async Task<ActionResult<IEnumerable<AdminDefectLocationDto>>> GetAll(CancellationToken cancellationToken)
     {
         var list = await _db.DefectLocations
+            .Include(d => d.DefectLocationCharacteristics)
+            .ThenInclude(link => link.Characteristic)
             .Include(d => d.Characteristic)
             .OrderBy(d => d.Code)
-            .Select(d => new AdminDefectLocationDto
-            {
-                Id = d.Id,
-                Code = d.Code,
-                Name = d.Name,
-                DefaultLocationDetail = d.DefaultLocationDetail,
-                CharacteristicId = d.CharacteristicId,
-                CharacteristicName = d.Characteristic != null ? d.Characteristic.Name : null,
-                IsActive = d.IsActive
-            })
+            .Select(d => MapDto(d))
             .ToListAsync(cancellationToken);
         return Ok(list);
     }
@@ -40,29 +33,36 @@ public class DefectLocationsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<AdminDefectLocationDto>> Create([FromBody] CreateDefectLocationDto dto, CancellationToken cancellationToken)
     {
+        var characteristicIds = dto.CharacteristicIds.Distinct().ToList();
+
         var loc = new DefectLocation
         {
             Id = Guid.NewGuid(),
             Code = dto.Code,
             Name = dto.Name,
-            DefaultLocationDetail = dto.DefaultLocationDetail,
-            CharacteristicId = dto.CharacteristicId
+            DefaultLocationDetail = dto.DefaultLocationDetail
         };
         _db.DefectLocations.Add(loc);
+
+        if (characteristicIds.Count > 0)
+        {
+            _db.DefectLocationCharacteristics.AddRange(characteristicIds.Select(charId => new DefectLocationCharacteristic
+            {
+                Id = Guid.NewGuid(),
+                DefectLocationId = loc.Id,
+                CharacteristicId = charId
+            }));
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
-        var charName = dto.CharacteristicId.HasValue
-            ? (await _db.Characteristics.FindAsync(new object[] { dto.CharacteristicId.Value }, cancellationToken))?.Name
-            : null;
+        var created = await _db.DefectLocations
+            .Include(d => d.DefectLocationCharacteristics)
+            .ThenInclude(link => link.Characteristic)
+            .Include(d => d.Characteristic)
+            .SingleAsync(d => d.Id == loc.Id, cancellationToken);
 
-        return Ok(new AdminDefectLocationDto
-        {
-            Id = loc.Id, Code = loc.Code, Name = loc.Name,
-            DefaultLocationDetail = loc.DefaultLocationDetail,
-            CharacteristicId = loc.CharacteristicId,
-            CharacteristicName = charName,
-            IsActive = loc.IsActive
-        });
+        return Ok(MapDto(created));
     }
 
     [HttpPut("{id:guid}")]
@@ -74,22 +74,33 @@ public class DefectLocationsController : ControllerBase
         loc.Code = dto.Code;
         loc.Name = dto.Name;
         loc.DefaultLocationDetail = dto.DefaultLocationDetail;
-        loc.CharacteristicId = dto.CharacteristicId;
         loc.IsActive = dto.IsActive;
+
+        var desiredCharacteristicIds = dto.CharacteristicIds.Distinct().ToHashSet();
+        var existingLinks = await _db.DefectLocationCharacteristics
+            .Where(link => link.DefectLocationId == id)
+            .ToListAsync(cancellationToken);
+
+        _db.DefectLocationCharacteristics.RemoveRange(existingLinks);
+        if (desiredCharacteristicIds.Count > 0)
+        {
+            _db.DefectLocationCharacteristics.AddRange(desiredCharacteristicIds.Select(charId => new DefectLocationCharacteristic
+            {
+                Id = Guid.NewGuid(),
+                DefectLocationId = loc.Id,
+                CharacteristicId = charId
+            }));
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
-        var charName = dto.CharacteristicId.HasValue
-            ? (await _db.Characteristics.FindAsync(new object[] { dto.CharacteristicId.Value }, cancellationToken))?.Name
-            : null;
+        var updated = await _db.DefectLocations
+            .Include(d => d.DefectLocationCharacteristics)
+            .ThenInclude(link => link.Characteristic)
+            .Include(d => d.Characteristic)
+            .SingleAsync(d => d.Id == id, cancellationToken);
 
-        return Ok(new AdminDefectLocationDto
-        {
-            Id = loc.Id, Code = loc.Code, Name = loc.Name,
-            DefaultLocationDetail = loc.DefaultLocationDetail,
-            CharacteristicId = loc.CharacteristicId,
-            CharacteristicName = charName,
-            IsActive = loc.IsActive
-        });
+        return Ok(MapDto(updated));
     }
 
     [HttpDelete("{id:guid}")]
@@ -101,17 +112,36 @@ public class DefectLocationsController : ControllerBase
         loc.IsActive = false;
         await _db.SaveChangesAsync(cancellationToken);
 
-        var charName = loc.CharacteristicId.HasValue
-            ? (await _db.Characteristics.FindAsync(new object[] { loc.CharacteristicId.Value }, cancellationToken))?.Name
-            : null;
+        var updated = await _db.DefectLocations
+            .Include(d => d.DefectLocationCharacteristics)
+            .ThenInclude(link => link.Characteristic)
+            .Include(d => d.Characteristic)
+            .SingleAsync(d => d.Id == id, cancellationToken);
 
-        return Ok(new AdminDefectLocationDto
+        return Ok(MapDto(updated));
+    }
+
+    private static AdminDefectLocationDto MapDto(DefectLocation loc)
+    {
+        var links = loc.DefectLocationCharacteristics
+            .OrderBy(link => link.Characteristic.Name)
+            .ToList();
+        var fallbackCharacteristicIds = !links.Any() && loc.CharacteristicId.HasValue
+            ? new List<Guid> { loc.CharacteristicId.Value }
+            : new List<Guid>();
+        var fallbackCharacteristicNames = !links.Any() && loc.Characteristic != null
+            ? new List<string> { loc.Characteristic.Name }
+            : new List<string>();
+
+        return new AdminDefectLocationDto
         {
-            Id = loc.Id, Code = loc.Code, Name = loc.Name,
+            Id = loc.Id,
+            Code = loc.Code,
+            Name = loc.Name,
             DefaultLocationDetail = loc.DefaultLocationDetail,
-            CharacteristicId = loc.CharacteristicId,
-            CharacteristicName = charName,
+            CharacteristicIds = links.Any() ? links.Select(link => link.CharacteristicId).ToList() : fallbackCharacteristicIds,
+            CharacteristicNames = links.Any() ? links.Select(link => link.Characteristic.Name).ToList() : fallbackCharacteristicNames,
             IsActive = loc.IsActive
-        });
+        };
     }
 }

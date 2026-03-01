@@ -106,6 +106,12 @@
   color: #2b3b84;
 }
 
+.reassemblyGuidance {
+  font-size: 13px;
+  color: #343a40;
+  margin-bottom: 8px;
+}
+
 .promptButtons {
   display: flex;
   gap: 10px;
@@ -136,6 +142,18 @@
   font-weight: 600;
   color: #868686;
   text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.changedTag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2b3b84;
+  background: #e9eefb;
+  border: 1px solid #2b3b84;
+  padding: 1px 4px;
 }
 
 .slotBox {
@@ -155,8 +173,8 @@
 }
 
 .selectedSlot {
-  border-color: #e41e2f;
-  box-shadow: 0 0 0 3px rgba(228, 30, 47, 0.28);
+  border-color: #2b3b84;
+  box-shadow: 0 0 0 3px rgba(43, 59, 132, 0.28);
 }
 
 .slotBox.filled {
@@ -165,8 +183,21 @@
 }
 
 .slotBox.selectedSlot {
-  border: 3px solid #e41e2f;
-  background: #fff3cd;
+  border: 3px solid #2b3b84;
+  background: #e9eefb;
+}
+
+.slotBox.selectedSlot::before {
+  content: 'SELECTED';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #2b3b84;
+  background: #ffffff;
+  border: 1px solid #2b3b84;
+  padding: 1px 4px;
 }
 
 .slotBox.headMismatch {
@@ -238,6 +269,35 @@
 
 .serialInput {
   flex: 1;
+}
+
+.reassemblyHeadPicker {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reassemblyHeadOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reassemblySelectedHead {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #343a40;
+}
+
+.optionColorSwatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #212529;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .queueSection {

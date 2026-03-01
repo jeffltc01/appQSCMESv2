@@ -34,14 +34,45 @@ function renderScreen(overrides: Partial<WorkCenterProps> = {}) {
 describe('RoundSeamScreen', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
+  it('does not show warning before setup load completes', async () => {
+    let resolveSetup!: (value: { isComplete: boolean; tankSize: number }) => void;
+    mockGetSetup.mockImplementationOnce(
+      () => new Promise<{ isComplete: boolean; tankSize: number }>((resolve) => { resolveSetup = resolve; }),
+    );
+
+    renderScreen();
+    expect(screen.queryByText(/roundseam setup hasn't been completed/i)).not.toBeInTheDocument();
+
+    resolveSetup({ isComplete: false, tankSize: 0 });
+    expect(await screen.findByText(/roundseam setup hasn't been completed/i)).toBeInTheDocument();
+  });
+
   it('shows warning when setup not complete', async () => {
     renderScreen();
     expect(await screen.findByText(/roundseam setup hasn't been completed/i)).toBeInTheDocument();
   });
 
+  it('shows NEXT guidance to complete setup when setup is incomplete', async () => {
+    renderScreen();
+    expect(await screen.findByText(/next: complete roundseam setup/i)).toBeInTheDocument();
+  });
+
+  it('renders NEXT guidance above setup button', async () => {
+    renderScreen();
+    const nextGuidance = await screen.findByText(/next: complete roundseam setup/i);
+    const setupButton = screen.getByRole('button', { name: /roundseam setup/i });
+    const relation = nextGuidance.compareDocumentPosition(setupButton);
+    expect((relation & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
+  });
+
   it('shows setup button', () => {
     renderScreen();
     expect(screen.getByRole('button', { name: /roundseam setup/i })).toBeInTheDocument();
+  });
+
+  it('hides setup button in external input mode', () => {
+    renderScreen({ externalInput: true });
+    expect(screen.queryByRole('button', { name: /roundseam setup/i })).not.toBeInTheDocument();
   });
 
   it('registers barcode handler', () => {
@@ -73,12 +104,60 @@ describe('RoundSeamScreen', () => {
   it('does not auto-open dialog when setup is complete', async () => {
     mockGetSetup.mockResolvedValueOnce({
       isComplete: true, tankSize: 500,
-      rs1WelderId: 'w1', rs2WelderId: 'w2',
+      rs1WelderId: 'w1', rs2WelderId: 'w1',
     });
     renderScreen();
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /save setup/i })).not.toBeInTheDocument();
     });
+  });
+
+  it('treats setup welder ids as case-insensitive', async () => {
+    mockGetSetup.mockResolvedValueOnce({
+      isComplete: true,
+      tankSize: 500,
+      rs1WelderId: 'W1',
+      rs2WelderId: 'W1',
+    });
+    renderScreen({
+      welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/setup welders are not all active/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /save setup/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows NEXT guidance to scan shell when setup is complete', async () => {
+    mockGetSetup.mockResolvedValueOnce({
+      isComplete: true,
+      tankSize: 1000,
+      rs1WelderId: 'w1',
+      rs2WelderId: 'w1',
+      rs3WelderId: 'w1',
+    });
+    renderScreen();
+    expect(await screen.findByText(/next: scan shell barcode/i)).toBeInTheDocument();
+  });
+
+  it('shows tank size and seam assignments directly under NEXT area', async () => {
+    mockGetSetup.mockResolvedValueOnce({
+      isComplete: true,
+      tankSize: 500,
+      rs1WelderId: 'w1',
+      rs2WelderId: 'w1',
+    });
+    renderScreen();
+
+    const nextGuidance = await screen.findByText(/next: scan shell barcode/i);
+    expect(screen.getByText(/tank size:/i)).toBeInTheDocument();
+    expect(screen.getByText(/seams:/i)).toBeInTheDocument();
+    expect(screen.getByText(/seam 1 =/i)).toBeInTheDocument();
+    expect(screen.getByText(/seam 2 =/i)).toBeInTheDocument();
+
+    const tankSize = screen.getByText(/tank size:/i);
+    const relation = nextGuidance.compareDocumentPosition(tankSize);
+    expect((relation & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
   });
 
   it('reopens setup when logged-in welders change', async () => {
@@ -110,6 +189,23 @@ describe('RoundSeamScreen', () => {
 
     expect(await screen.findByText(/logged-in welders changed/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save setup/i })).toBeInTheDocument();
+  });
+
+  it('forces re-setup when saved setup uses welders not currently active', async () => {
+    mockGetSetup.mockResolvedValueOnce({
+      isComplete: true,
+      tankSize: 500,
+      rs1WelderId: 'w1',
+      rs2WelderId: 'w2',
+    });
+
+    renderScreen({
+      welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
+    });
+
+    expect(await screen.findByText(/setup welders are not all active/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save setup/i })).toBeInTheDocument();
+    expect(screen.getByText(/roundseam setup hasn't been completed/i)).toBeInTheDocument();
   });
 
   it('does not auto-open setup dialog until welder count is loaded', async () => {

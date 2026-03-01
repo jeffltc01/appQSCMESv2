@@ -16,7 +16,7 @@ vi.mock('../../api/endpoints', () => ({
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
     workCenterId: 'wc-np', assetId: 'asset-1', productionLineId: 'pl-1', operatorId: 'op-1',
-    plantId: 'plant-1',
+    plantId: 'plant-1', plantCode: '000',
     welders: [], numberOfWelders: 0, welderCountLoaded: true, externalInput: false, setExternalInput: vi.fn(),
     showScanResult: vi.fn(), refreshHistory: vi.fn(), registerBarcodeHandler: vi.fn(),
     ...overrides,
@@ -133,5 +133,66 @@ describe('NameplateScreen', () => {
         expect.objectContaining({ type: 'warning', message: expect.stringContaining('Printer offline') }),
       );
     });
+  });
+
+  it('blocks save for Fremont when serial does not start with F', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+
+    const { props } = renderScreen({ plantCode: '600' });
+    const combobox = await waitFor(() => screen.getByRole('combobox'));
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-120AG' }).click(); });
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    await userEvent.type(input, 'W00100004');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(props.showScanResult).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', message: expect.stringContaining('Fremont (600)') }),
+    );
+  });
+
+  it('blocks save for West Jordan when serial does not start with W', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+
+    const { props } = renderScreen({ plantCode: '700' });
+    const combobox = await waitFor(() => screen.getByRole('combobox'));
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-120AG' }).click(); });
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    await userEvent.type(input, 'F00100005');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(props.showScanResult).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'error', message: expect.stringContaining('West Jordan (700)') }),
+    );
+  });
+
+  it('allows save for Cleveland regardless of serial prefix', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+    mockCreate.mockResolvedValue({
+      id: 'sn-6', serialNumber: 'F00100006', productId: 'p1',
+      timestamp: new Date().toISOString(), printSucceeded: true, printMessage: null,
+    });
+
+    renderScreen({ plantCode: '000' });
+    const combobox = await waitFor(() => screen.getByRole('combobox'));
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-120AG' }).click(); });
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    await userEvent.type(input, 'F00100006');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
   });
 });

@@ -18,6 +18,10 @@ interface PendingDefect {
   locationName?: string;
 }
 
+function supportsCharacteristic(location: DefectLocation, characteristicId: string) {
+  return location.characteristicIds.length === 0 || location.characteristicIds.includes(characteristicId);
+}
+
 export function RoundSeamInspScreen(props: WorkCenterProps) {
   const {
     workCenterId, productionLineId, operatorId,
@@ -42,6 +46,9 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
   const [manualDefectCode, setManualDefectCode] = useState('');
   const [manualCharacteristic, setManualCharacteristic] = useState('');
   const [manualLocation, setManualLocation] = useState('');
+  const filteredManualLocations = manualCharacteristic
+    ? defectLocations.filter((location) => supportsCharacteristic(location, manualCharacteristic))
+    : [];
 
   useEffect(() => {
     loadLookups();
@@ -164,13 +171,46 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
           const parts = bc.value.split(';C;');
           const loc = defectLocations.find((l) => l.id === parts[0] || l.code === parts[0]);
           if (!loc) { showScanResult({ type: 'error', message: 'Location not applicable' }); return; }
-          let charMatch: Characteristic | undefined;
-          if (parts.length > 1) charMatch = characteristics.find((c) => c.id === parts[1] || c.code === parts[1] || c.name === parts[1]);
-          tryCompletePending({ ...pending, locationId: loc.id, locationName: loc.name, characteristicId: charMatch?.id ?? pending.characteristicId, characteristicName: charMatch?.name ?? pending.characteristicName }); return;
+          let selectedCharacteristic: Characteristic | undefined;
+          if (parts.length > 1) {
+            selectedCharacteristic = characteristics.find((c) => c.id === parts[1] || c.code === parts[1] || c.name === parts[1]);
+            if (!selectedCharacteristic) {
+              showScanResult({ type: 'error', message: 'Characteristic not found' });
+              return;
+            }
+          } else if (pending.characteristicId) {
+            selectedCharacteristic = characteristics.find((c) => c.id === pending.characteristicId);
+          }
+
+          if (!selectedCharacteristic) {
+            showScanResult({ type: 'error', message: 'Select characteristic first' });
+            return;
+          }
+
+          if (!supportsCharacteristic(loc, selectedCharacteristic.id)) {
+            showScanResult({ type: 'error', message: 'Location not valid for selected characteristic' });
+            return;
+          }
+
+          tryCompletePending({
+            ...pending,
+            locationId: loc.id,
+            locationName: loc.name,
+            characteristicId: selectedCharacteristic.id,
+            characteristicName: selectedCharacteristic.name,
+          });
+          return;
         }
         if (bc.prefix === 'C') {
           const charMatch = characteristics.find((c) => c.id === bc.value || c.code === bc.value || c.name === bc.value);
           if (!charMatch) { showScanResult({ type: 'error', message: 'Characteristic not found' }); return; }
+          if (pending.locationId) {
+            const selectedLocation = defectLocations.find((location) => location.id === pending.locationId);
+            if (selectedLocation && !supportsCharacteristic(selectedLocation, charMatch.id)) {
+              showScanResult({ type: 'error', message: 'Location not valid for selected characteristic' });
+              return;
+            }
+          }
           tryCompletePending({ ...pending, characteristicId: charMatch.id, characteristicName: charMatch.name }); return;
         }
         if (bc.prefix === 'FD') {
@@ -179,7 +219,8 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
           const code = defectCodes.find((c) => c.id === fd.defectCode || c.code === fd.defectCode);
           const char = characteristics.find((c) => c.id === fd.characteristic || c.code === fd.characteristic || c.name === fd.characteristic);
           const loc = defectLocations.find((l) => l.id === fd.location || l.code === fd.location);
-          if (!code || !loc) { showScanResult({ type: 'error', message: 'Invalid defect or location' }); return; }
+          if (!code || !loc || !char) { showScanResult({ type: 'error', message: 'Invalid defect, characteristic, or location' }); return; }
+          if (!supportsCharacteristic(loc, char.id)) { showScanResult({ type: 'error', message: 'Location not valid for selected characteristic' }); return; }
           addDefectEntry(code.id, code.name, char?.id ?? '', char?.name ?? '', loc.id, loc.name); return;
         }
       }
@@ -201,27 +242,73 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       const code = defectCodes.find((c) => c.id === manualDefectCode);
       const char = characteristics.find((c) => c.id === manualCharacteristic);
       const loc = defectLocations.find((l) => l.id === manualLocation);
-      if (code && char && loc) { addDefectEntry(code.id, code.name, char.id, char.name, loc.id, loc.name); setManualDefectCode(''); setManualCharacteristic(''); setManualLocation(''); }
+      if (code && char && loc && supportsCharacteristic(loc, char.id)) {
+        addDefectEntry(code.id, code.name, char.id, char.name, loc.id, loc.name);
+        setManualDefectCode('');
+        setManualCharacteristic('');
+        setManualLocation('');
+      }
     }
   }, [manualDefectCode, manualCharacteristic, manualLocation, defectCodes, characteristics, defectLocations, addDefectEntry]);
+
+  const hasPendingDefect = Boolean(pending.defectCodeId || pending.characteristicId || pending.locationId);
+  const nextInstruction = (() => {
+    if (screenState === 'WaitingForShell') {
+      return {
+        title: 'NEXT: Scan shell label',
+        detail: '',
+        isActive: true,
+      };
+    }
+
+    if (hasPendingDefect) {
+      return {
+        title: 'NEXT: Complete current defect entry',
+        detail: '',
+        isActive: true,
+      };
+    }
+
+    if (defects.length === 0) {
+      return {
+        title: 'NEXT: Scan defect + characteristic + location, or scan Save',
+        detail: '',
+        isActive: true,
+      };
+    }
+
+    return {
+      title: 'NEXT: Scan another defect, or scan Save',
+      detail: '',
+      isActive: true,
+    };
+  })();
 
   if (screenState === 'WaitingForShell') {
     return (
       <div className={styles.container}>
-        <div className={styles.prompt}>Scan Serial Number to begin...</div>
-        <div className={styles.form}>
-          <Label className={styles.label}>Serial Number</Label>
-          <Input value={manualSerial} onChange={(_, d) => setManualSerial(d.value)} placeholder="enter serial number" size="large" className={styles.input} onKeyDown={(e) => { if (e.key === 'Enter') handleManualShellSubmit(); }} disabled={props.externalInput} />
-          <Button appearance="primary" size="large" className={styles.submitBtn} onClick={handleManualShellSubmit} disabled={props.externalInput || !manualSerial.trim()}>Submit</Button>
+        <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+          <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
+          {nextInstruction.detail && <span className={styles.scanStateDetail}>{nextInstruction.detail}</span>}
         </div>
+        {!props.externalInput && (
+          <div className={styles.form}>
+            <Label className={styles.label}>Serial Number</Label>
+            <Input value={manualSerial} onChange={(_, d) => setManualSerial(d.value)} placeholder="enter serial number" size="large" className={styles.input} onKeyDown={(e) => { if (e.key === 'Enter') handleManualShellSubmit(); }} />
+            <Button appearance="primary" size="large" className={styles.submitBtn} onClick={handleManualShellSubmit} disabled={!manualSerial.trim()}>Submit</Button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className={styles.container}>
+      <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+        <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
+        {nextInstruction.detail && <span className={styles.scanStateDetail}>{nextInstruction.detail}</span>}
+      </div>
       <div className={styles.header}>
-        <span className={styles.stateLabel}>AwaitingDefects</span>
         <span>Assembly <strong>{alphaCode}{shells.length > 0 ? ` (${shells.join(', ')})` : ''}</strong></span>
         <span>Tank Size <strong>{tankSize}</strong></span>
       </div>
@@ -265,11 +352,18 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
             <Dropdown placeholder="Defect Code" value={defectCodes.find((c) => c.id === manualDefectCode)?.name ?? ''} selectedOptions={[manualDefectCode]} onOptionSelect={(_: unknown, d: OptionOnSelectData) => { if (d.optionValue) setManualDefectCode(d.optionValue); }} className={styles.dropdown}>
               {defectCodes.map((c) => <Option key={c.id} value={c.id}>{c.name}</Option>)}
             </Dropdown>
-            <Dropdown placeholder="Characteristic" value={characteristics.find((c) => c.id === manualCharacteristic)?.name ?? ''} selectedOptions={[manualCharacteristic]} onOptionSelect={(_: unknown, d: OptionOnSelectData) => { if (d.optionValue) setManualCharacteristic(d.optionValue); }} className={styles.dropdown}>
+            <Dropdown placeholder="Characteristic" value={characteristics.find((c) => c.id === manualCharacteristic)?.name ?? ''} selectedOptions={[manualCharacteristic]} onOptionSelect={(_: unknown, d: OptionOnSelectData) => { if (d.optionValue) { setManualCharacteristic(d.optionValue); setManualLocation(''); } }} className={styles.dropdown}>
               {characteristics.map((c) => <Option key={c.id} value={c.id}>{c.name}</Option>)}
             </Dropdown>
-            <Dropdown placeholder="Location" value={defectLocations.find((l) => l.id === manualLocation)?.name ?? ''} selectedOptions={[manualLocation]} onOptionSelect={(_: unknown, d: OptionOnSelectData) => { if (d.optionValue) setManualLocation(d.optionValue); }} className={styles.dropdown}>
-              {defectLocations.map((l) => <Option key={l.id} value={l.id}>{l.name}</Option>)}
+            <Dropdown
+              placeholder="Location"
+              disabled={!manualCharacteristic}
+              value={filteredManualLocations.find((l) => l.id === manualLocation)?.name ?? ''}
+              selectedOptions={[manualLocation]}
+              onOptionSelect={(_: unknown, d: OptionOnSelectData) => { if (d.optionValue) setManualLocation(d.optionValue); }}
+              className={styles.dropdown}
+            >
+              {filteredManualLocations.map((l) => <Option key={l.id} value={l.id}>{l.name}</Option>)}
             </Dropdown>
             <Button appearance="primary" onClick={handleManualDefectAdd} disabled={!manualDefectCode || !manualCharacteristic || !manualLocation}>Add</Button>
           </div>

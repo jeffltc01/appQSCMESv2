@@ -10,5 +10,6 @@ public class DefectLocation
     public bool IsActive { get; set; } = true;
 
     public Characteristic? Characteristic { get; set; }
+    public ICollection<DefectLocationCharacteristic> DefectLocationCharacteristics { get; set; } = new List<DefectLocationCharacteristic>();
     public ICollection<DefectLog> DefectLogs { get; set; } = new List<DefectLog>();
 }

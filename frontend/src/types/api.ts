@@ -351,14 +351,14 @@ export interface CreateDefectLocationRequest {
   code: string;
   name: string;
   defaultLocationDetail?: string;
-  characteristicId?: string;
+  characteristicIds: string[];
 }
 
 export interface UpdateDefectLocationRequest {
   code: string;
   name: string;
   defaultLocationDetail?: string;
-  characteristicId?: string;
+  characteristicIds: string[];
   isActive: boolean;
 }
 

@@ -83,11 +83,50 @@ function cloneDraft(draft: ReassemblyAssemblyDraft): ReassemblyAssemblyDraft {
   };
 }
 
+function normalizeKanbanCardId(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  if (/^KC;/i.test(trimmed)) {
+    return trimmed.slice(3).trim();
+  }
+  return trimmed;
+}
+
+function formatHeadTraceability(head: { lotNumber?: string; heatNumber?: string; coilNumber?: string }): string {
+  if (head.lotNumber?.trim()) return `Lot ${head.lotNumber.trim()}`;
+  return `Heat ${head.heatNumber || '—'} / Coil ${head.coilNumber || '—'}`;
+}
+
+function formatQueueHeadLabel(item: MaterialQueueItem): string {
+  const tankSize = item.shellSize ? `${item.shellSize} gal` : '—';
+  return `${tankSize} · ${formatHeadTraceability(item)} · Card ${item.cardId ?? '—'}`;
+}
+
+function formatReassemblyHeadSlot(head: HeadLotInfo | null): string {
+  if (!head) return '—';
+  if (head.lotNumber?.trim()) return `Lot ${head.lotNumber.trim()}`;
+  return `Heat ${head.heatNumber || '—'} / Coil ${head.coilNumber || '—'}`;
+}
+
+function headChangeSignature(head: HeadLotInfo | null): string {
+  if (!head) return '';
+  return `${head.lotNumber?.trim() ?? ''}|${head.heatNumber?.trim() ?? ''}|${head.coilNumber?.trim() ?? ''}`;
+}
+
+function isHeadChanged(current: HeadLotInfo | null, proposed: HeadLotInfo | null): boolean {
+  return headChangeSignature(current) !== headChangeSignature(proposed);
+}
+
+function isShellChanged(current: ShellSlot | undefined, proposed: ShellSlot | undefined): boolean {
+  return (current?.serial ?? '') !== (proposed?.serial ?? '');
+}
+
 export function FitupScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
+  const queueWCId = props.materialQueueForWCId ?? workCenterId;
 
   const [tankSize, setTankSize] = useState<number>(0);
   const [shells, setShells] = useState<ShellSlot[]>([]);
@@ -123,10 +162,10 @@ export function FitupScreen(props: WorkCenterProps) {
 
   const loadHeadsQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(workCenterId, 'fitup', productionLineId);
+      const items = await workCenterApi.getMaterialQueue(queueWCId, 'fitup', productionLineId);
       setHeadsQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
-  }, [workCenterId, productionLineId]);
+  }, [queueWCId, productionLineId]);
 
   const resetAssembly = useCallback((options?: { preserveHeads?: boolean }) => {
     const preserveHeads = options?.preserveHeads ?? false;
@@ -207,13 +246,14 @@ export function FitupScreen(props: WorkCenterProps) {
   const applyHeadLot = useCallback(
     async (cardId: string) => {
       try {
-        const data = await materialQueueApi.getCardLookup(workCenterId, productionLineId, cardId);
+        const normalizedCardId = normalizeKanbanCardId(cardId);
+        const data = await materialQueueApi.getCardLookup(queueWCId, productionLineId, normalizedCardId);
         const lot: HeadLotInfo = {
           heatNumber: data.heatNumber,
           coilNumber: data.coilNumber,
           lotNumber: data.lotNumber,
           productDescription: data.productDescription,
-          cardId,
+          cardId: normalizedCardId,
           cardColor: data.cardColor,
           tankSize: data.tankSize,
         };
@@ -234,7 +274,7 @@ export function FitupScreen(props: WorkCenterProps) {
         showScanResult({ type: 'error', message: 'Kanban card not found or not associated with any queued material' });
       }
     },
-    [headScanCount, productionLineId, showScanResult, tankSize, updateTankSize, workCenterId],
+    [headScanCount, productionLineId, queueWCId, showScanResult, tankSize, updateTankSize],
   );
 
   const swapHeads = useCallback(() => {
@@ -384,13 +424,14 @@ export function FitupScreen(props: WorkCenterProps) {
     }
 
     try {
-      const data = await materialQueueApi.getCardLookup(workCenterId, productionLineId, cardId);
+      const normalizedCardId = normalizeKanbanCardId(cardId);
+      const data = await materialQueueApi.getCardLookup(queueWCId, productionLineId, normalizedCardId);
       const lot: HeadLotInfo = {
         heatNumber: data.heatNumber,
         coilNumber: data.coilNumber,
         lotNumber: data.lotNumber,
         productDescription: data.productDescription,
-        cardId,
+        cardId: normalizedCardId,
         cardColor: data.cardColor,
         tankSize: selectedField.target === 'primary'
           ? reassemblyMode.primary.tankSize
@@ -427,7 +468,7 @@ export function FitupScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Kanban card not found or not associated with any queued material' });
     }
-  }, [productionLineId, reassemblyMode, showScanResult, workCenterId]);
+  }, [productionLineId, queueWCId, reassemblyMode, showScanResult]);
 
   const applyShellToSelection = useCallback(async (shellSerial: string) => {
     if (!reassemblyMode?.selectedField || reassemblyMode.selectedField.component !== 'shell') {
@@ -728,6 +769,12 @@ export function FitupScreen(props: WorkCenterProps) {
   })();
 
   const hasAssemblyStarted = shells.some((s) => s.filled) || !!leftHead || !!rightHead;
+  const selectedReassemblyHeadItem = reassemblyMode?.entryValue
+    ? headsQueue.find((q) => q.cardId === reassemblyMode.entryValue)
+    : undefined;
+  const selectedReassemblyHeadLabel = selectedReassemblyHeadItem
+    ? formatQueueHeadLabel(selectedReassemblyHeadItem)
+    : (reassemblyMode?.entryValue ? `Card ${reassemblyMode.entryValue}` : '');
 
   if (alphaCode) {
     return (
@@ -862,13 +909,23 @@ export function FitupScreen(props: WorkCenterProps) {
               )}
             </div>
           </div>
+          <div className={styles.reassemblyGuidance}>
+            Tip: Click a component in Proposed to select it for replacement.
+          </div>
 
           <div className={styles.reassemblyRowTitle}>Current</div>
           <div className={styles.assemblyDiagram}>
             <div className={styles.headSlot}>
               <span className={styles.slotLabel}>Left Head</span>
               <div className={`${styles.slotBox} ${reassemblyMode.source.leftHead ? styles.filled : ''}`}>
-                {reassemblyMode.source.leftHead ? `${reassemblyMode.source.leftHead.heatNumber}/${reassemblyMode.source.leftHead.coilNumber}` : '—'}
+                {reassemblyMode.source.leftHead?.cardColor && (
+                  <span
+                    className={styles.headColorSwatch}
+                    style={{ backgroundColor: reassemblyMode.source.leftHead.cardColor.toLowerCase() }}
+                    aria-hidden="true"
+                  />
+                )}
+                {formatReassemblyHeadSlot(reassemblyMode.source.leftHead)}
               </div>
             </div>
             {reassemblyMode.source.shells.map((shell, idx) => (
@@ -880,25 +937,48 @@ export function FitupScreen(props: WorkCenterProps) {
             <div className={styles.headSlot}>
               <span className={styles.slotLabel}>Right Head</span>
               <div className={`${styles.slotBox} ${reassemblyMode.source.rightHead ? styles.filled : ''}`}>
-                {reassemblyMode.source.rightHead ? `${reassemblyMode.source.rightHead.heatNumber}/${reassemblyMode.source.rightHead.coilNumber}` : '—'}
+                {reassemblyMode.source.rightHead?.cardColor && (
+                  <span
+                    className={styles.headColorSwatch}
+                    style={{ backgroundColor: reassemblyMode.source.rightHead.cardColor.toLowerCase() }}
+                    aria-hidden="true"
+                  />
+                )}
+                {formatReassemblyHeadSlot(reassemblyMode.source.rightHead)}
               </div>
             </div>
           </div>
-
           <div className={styles.reassemblyRowTitle}>Proposed A</div>
           <div className={styles.assemblyDiagram}>
             <div className={styles.headSlot}>
-              <span className={styles.slotLabel}>Left Head</span>
+              <span className={styles.slotLabel}>
+                Left Head
+                {isHeadChanged(reassemblyMode.source.leftHead, reassemblyMode.primary.leftHead) && (
+                  <span className={styles.changedTag}>Changed</span>
+                )}
+              </span>
               <button
                 className={`${styles.slotBox} ${reassemblyMode.primary.leftHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'primary' && reassemblyMode.selectedField.component === 'leftHead' ? styles.selectedSlot : ''}`}
                 onClick={() => selectReassemblyField({ target: 'primary', component: 'leftHead' })}
               >
-                {reassemblyMode.primary.leftHead ? `${reassemblyMode.primary.leftHead.heatNumber}/${reassemblyMode.primary.leftHead.coilNumber}` : 'Select + KC'}
+                {reassemblyMode.primary.leftHead?.cardColor && (
+                  <span
+                    className={styles.headColorSwatch}
+                    style={{ backgroundColor: reassemblyMode.primary.leftHead.cardColor.toLowerCase() }}
+                    aria-hidden="true"
+                  />
+                )}
+                {reassemblyMode.primary.leftHead ? formatReassemblyHeadSlot(reassemblyMode.primary.leftHead) : 'Select + KC'}
               </button>
             </div>
             {reassemblyMode.primary.shells.map((shell, idx) => (
               <div key={`primary-shell-${idx}`} className={styles.shellSlot}>
-                <span className={styles.slotLabel}>Shell {idx + 1}</span>
+                <span className={styles.slotLabel}>
+                  Shell {idx + 1}
+                  {isShellChanged(reassemblyMode.source.shells[idx], shell) && (
+                    <span className={styles.changedTag}>Changed</span>
+                  )}
+                </span>
                 <button
                   className={`${styles.slotBox} ${shell.serial ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'primary' && reassemblyMode.selectedField.component === 'shell' && reassemblyMode.selectedField.shellIndex === idx ? styles.selectedSlot : ''}`}
                   onClick={() => selectReassemblyField({ target: 'primary', component: 'shell', shellIndex: idx })}
@@ -908,12 +988,24 @@ export function FitupScreen(props: WorkCenterProps) {
               </div>
             ))}
             <div className={styles.headSlot}>
-              <span className={styles.slotLabel}>Right Head</span>
+              <span className={styles.slotLabel}>
+                Right Head
+                {isHeadChanged(reassemblyMode.source.rightHead, reassemblyMode.primary.rightHead) && (
+                  <span className={styles.changedTag}>Changed</span>
+                )}
+              </span>
               <button
                 className={`${styles.slotBox} ${reassemblyMode.primary.rightHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'primary' && reassemblyMode.selectedField.component === 'rightHead' ? styles.selectedSlot : ''}`}
                 onClick={() => selectReassemblyField({ target: 'primary', component: 'rightHead' })}
               >
-                {reassemblyMode.primary.rightHead ? `${reassemblyMode.primary.rightHead.heatNumber}/${reassemblyMode.primary.rightHead.coilNumber}` : 'Select + KC'}
+                {reassemblyMode.primary.rightHead?.cardColor && (
+                  <span
+                    className={styles.headColorSwatch}
+                    style={{ backgroundColor: reassemblyMode.primary.rightHead.cardColor.toLowerCase() }}
+                    aria-hidden="true"
+                  />
+                )}
+                {reassemblyMode.primary.rightHead ? formatReassemblyHeadSlot(reassemblyMode.primary.rightHead) : 'Select + KC'}
               </button>
             </div>
           </div>
@@ -923,17 +1015,34 @@ export function FitupScreen(props: WorkCenterProps) {
               <div className={styles.reassemblyRowTitle}>Proposed B</div>
               <div className={styles.assemblyDiagram}>
                 <div className={styles.headSlot}>
-                  <span className={styles.slotLabel}>Left Head</span>
+                  <span className={styles.slotLabel}>
+                    Left Head
+                    {isHeadChanged(reassemblyMode.source.leftHead, reassemblyMode.secondary.leftHead) && (
+                      <span className={styles.changedTag}>Changed</span>
+                    )}
+                  </span>
                   <button
                     className={`${styles.slotBox} ${reassemblyMode.secondary.leftHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'secondary' && reassemblyMode.selectedField.component === 'leftHead' ? styles.selectedSlot : ''}`}
                     onClick={() => selectReassemblyField({ target: 'secondary', component: 'leftHead' })}
                   >
-                    {reassemblyMode.secondary.leftHead ? `${reassemblyMode.secondary.leftHead.heatNumber}/${reassemblyMode.secondary.leftHead.coilNumber}` : 'Select + KC'}
+                    {reassemblyMode.secondary.leftHead?.cardColor && (
+                      <span
+                        className={styles.headColorSwatch}
+                        style={{ backgroundColor: reassemblyMode.secondary.leftHead.cardColor.toLowerCase() }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {reassemblyMode.secondary.leftHead ? formatReassemblyHeadSlot(reassemblyMode.secondary.leftHead) : 'Select + KC'}
                   </button>
                 </div>
                 {reassemblyMode.secondary.shells.map((shell, idx) => (
                   <div key={`secondary-shell-${idx}`} className={styles.shellSlot}>
-                    <span className={styles.slotLabel}>Shell {idx + 1}</span>
+                    <span className={styles.slotLabel}>
+                      Shell {idx + 1}
+                      {isShellChanged(reassemblyMode.source.shells[idx], shell) && (
+                        <span className={styles.changedTag}>Changed</span>
+                      )}
+                    </span>
                     <button
                       className={`${styles.slotBox} ${shell.serial ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'secondary' && reassemblyMode.selectedField.component === 'shell' && reassemblyMode.selectedField.shellIndex === idx ? styles.selectedSlot : ''}`}
                       onClick={() => selectReassemblyField({ target: 'secondary', component: 'shell', shellIndex: idx })}
@@ -943,12 +1052,24 @@ export function FitupScreen(props: WorkCenterProps) {
                   </div>
                 ))}
                 <div className={styles.headSlot}>
-                  <span className={styles.slotLabel}>Right Head</span>
+                  <span className={styles.slotLabel}>
+                    Right Head
+                    {isHeadChanged(reassemblyMode.source.rightHead, reassemblyMode.secondary.rightHead) && (
+                      <span className={styles.changedTag}>Changed</span>
+                    )}
+                  </span>
                   <button
                     className={`${styles.slotBox} ${reassemblyMode.secondary.rightHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'secondary' && reassemblyMode.selectedField.component === 'rightHead' ? styles.selectedSlot : ''}`}
                     onClick={() => selectReassemblyField({ target: 'secondary', component: 'rightHead' })}
                   >
-                    {reassemblyMode.secondary.rightHead ? `${reassemblyMode.secondary.rightHead.heatNumber}/${reassemblyMode.secondary.rightHead.coilNumber}` : 'Select + KC'}
+                    {reassemblyMode.secondary.rightHead?.cardColor && (
+                      <span
+                        className={styles.headColorSwatch}
+                        style={{ backgroundColor: reassemblyMode.secondary.rightHead.cardColor.toLowerCase() }}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {reassemblyMode.secondary.rightHead ? formatReassemblyHeadSlot(reassemblyMode.secondary.rightHead) : 'Select + KC'}
                   </button>
                 </div>
               </div>
@@ -956,12 +1077,60 @@ export function FitupScreen(props: WorkCenterProps) {
           )}
 
           <div className={styles.manualRow}>
-            <Input
-              value={reassemblyMode.entryValue}
-              onChange={(_, d) => setReassemblyMode((current) => current ? { ...current, entryValue: d.value } : current)}
-              placeholder={reassemblyMode.selectedField?.component === 'shell' ? 'Enter shell serial...' : 'Enter KC card id...'}
-              className={styles.serialInput}
-            />
+            {reassemblyMode.selectedField?.component === 'shell' ? (
+              <Input
+                value={reassemblyMode.entryValue}
+                onChange={(_, d) => setReassemblyMode((current) => current ? { ...current, entryValue: d.value } : current)}
+                placeholder="Enter shell serial..."
+                className={styles.serialInput}
+              />
+            ) : (
+              <div className={styles.reassemblyHeadPicker}>
+                <Dropdown
+                  className={styles.serialInput}
+                  value={selectedReassemblyHeadLabel}
+                  selectedOptions={reassemblyMode.entryValue ? [reassemblyMode.entryValue] : []}
+                  placeholder="Select queued head material..."
+                  onOptionSelect={(_, d: OptionOnSelectData) => {
+                    setReassemblyMode((current) => current ? { ...current, entryValue: d.optionValue ?? '' } : current);
+                  }}
+                  disabled={!reassemblyMode.selectedField || headsQueue.length === 0}
+                >
+                  {headsQueue
+                    .filter((item) => item.cardId)
+                    .map((item) => (
+                      <Option
+                        key={item.id}
+                        value={item.cardId!}
+                        text={formatQueueHeadLabel(item)}
+                      >
+                        <span className={styles.reassemblyHeadOption}>
+                          <span
+                            className={styles.optionColorSwatch}
+                            style={{ backgroundColor: item.cardColor ? item.cardColor.toLowerCase() : '#dee2e6' }}
+                            aria-hidden="true"
+                          />
+                          <span>{formatQueueHeadLabel(item)}</span>
+                        </span>
+                      </Option>
+                    ))}
+                </Dropdown>
+                {selectedReassemblyHeadLabel && (
+                  <div className={styles.reassemblySelectedHead}>
+                    <span
+                      className={styles.optionColorSwatch}
+                      style={{
+                        backgroundColor: selectedReassemblyHeadItem?.cardColor
+                          ? selectedReassemblyHeadItem.cardColor.toLowerCase()
+                          : '#dee2e6',
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span>{selectedReassemblyHeadLabel}</span>
+                  </div>
+                )}
+              </div>
+            )}
             <Button
               appearance="primary"
               onClick={() => {
@@ -1107,7 +1276,9 @@ export function FitupScreen(props: WorkCenterProps) {
               <div className={styles.queueCardInfo}>
                 <span>{item.shellSize ? `(${item.shellSize}) ` : ''}{item.productDescription}</span>
                 <span className={styles.queueCardDetail}>
-                  Card {item.cardId ?? '—'} &middot; Heat {item.heatNumber} / Coil {item.coilNumber}
+                  {item.lotNumber
+                    ? `Card ${item.cardId ?? '—'} · Lot ${item.lotNumber}`
+                    : `Card ${item.cardId ?? '—'} · Heat ${item.heatNumber || '—'} / Coil ${item.coilNumber || '—'}`}
                 </span>
               </div>
             </button>

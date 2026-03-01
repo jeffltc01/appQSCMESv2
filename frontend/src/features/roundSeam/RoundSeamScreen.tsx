@@ -16,6 +16,28 @@ function seamCountForSize(size: number): number {
   return 4;
 }
 
+function normalizeWelderId(id: string | null | undefined): string {
+  return (id ?? '').trim().toLowerCase();
+}
+
+function setupWelderIdsForSize(setup: RoundSeamSetup): string[] {
+  const requiredSeams = seamCountForSize(setup.tankSize);
+  return [setup.rs1WelderId, setup.rs2WelderId, setup.rs3WelderId, setup.rs4WelderId]
+    .slice(0, requiredSeams)
+    .map((id) => normalizeWelderId(id))
+    .filter((id) => id.length > 0);
+}
+
+function setupMatchesActiveWelders(setup: RoundSeamSetup, activeWelderIds: readonly string[]): boolean {
+  if (!setup.isComplete) return false;
+  const requiredSeams = seamCountForSize(setup.tankSize);
+  const setupWelderIds = setupWelderIdsForSize(setup);
+  if (setupWelderIds.length !== requiredSeams) return false;
+  const activeWelderIdSet = new Set(activeWelderIds.map((id) => normalizeWelderId(id)).filter((id) => id.length > 0));
+  if (activeWelderIdSet.size === 0) return false;
+  return setupWelderIds.every((id) => activeWelderIdSet.has(id));
+}
+
 function tankBracket(size: number): number {
   if (size <= 500) return 500;
   if (size <= 1000) return 1000;
@@ -23,7 +45,11 @@ function tankBracket(size: number): number {
 }
 
 function welderFingerprint(welderIds: readonly string[]): string {
-  return [...welderIds].sort((a, b) => a.localeCompare(b)).join('|');
+  return welderIds
+    .map((id) => normalizeWelderId(id))
+    .filter((id) => id.length > 0)
+    .sort((a, b) => a.localeCompare(b))
+    .join('|');
 }
 
 export function RoundSeamScreen(props: WorkCenterProps) {
@@ -43,6 +69,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupError, setSetupError] = useState('');
   const [setupWarning, setSetupWarning] = useState('');
+  const [setupLoaded, setSetupLoaded] = useState(false);
   const [setupWelderFingerprint, setSetupWelderFingerprint] = useState<string | null>(null);
   const pendingScanRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -64,6 +91,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
 
   useEffect(() => {
     initialLoadDoneRef.current = false;
+    setSetupLoaded(false);
     loadSetup();
   }, [workCenterId]);
 
@@ -72,16 +100,27 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   const loadSetup = useCallback(async () => {
     try {
       const s = await roundSeamApi.getSetup(workCenterId);
-      setSetup(s);
+      const activeWelderIds = availableWelders.map((w) => w.userId);
+      const staleSetup = welderCountLoaded
+        && activeWelderIds.length > 0
+        && s.isComplete
+        && !setupMatchesActiveWelders(s, activeWelderIds);
+      const effectiveSetup = staleSetup ? { ...s, isComplete: false } : s;
+      setSetup(effectiveSetup);
       if (s.tankSize > 0) setDetectedTankSize(s.tankSize);
-      if (s.isComplete) {
+      if (effectiveSetup.isComplete) {
         setSetupWelderFingerprint(currentWelderFingerprint);
       } else {
         setSetupWelderFingerprint(null);
       }
-      if (!s.isComplete && !initialLoadDoneRef.current) {
+      if (!effectiveSetup.isComplete && !initialLoadDoneRef.current) {
         initialLoadDoneRef.current = true;
         setSetupWelders([s.rs1WelderId, s.rs2WelderId, s.rs3WelderId, s.rs4WelderId]);
+        if (staleSetup) {
+          setSetupWarning('Setup welders are not all active. Please reassign round seam welders.');
+        } else {
+          setSetupWarning('');
+        }
         if (welderCountLoaded) {
           setShowSetup(true);
         } else {
@@ -98,8 +137,10 @@ export function RoundSeamScreen(props: WorkCenterProps) {
       } else {
         pendingSetupOpenRef.current = true;
       }
+    } finally {
+      setSetupLoaded(true);
     }
-  }, [workCenterId, welderCountLoaded, currentWelderFingerprint]);
+  }, [workCenterId, welderCountLoaded, currentWelderFingerprint, availableWelders]);
 
   useEffect(() => {
     if (welderCountLoaded && pendingSetupOpenRef.current) {
@@ -210,12 +251,24 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   }, [registerBarcodeHandler]);
 
   useEffect(() => {
+    if (!welderCountLoaded || !setup?.isComplete) return;
+    const activeWelderIds = availableWelders.map((w) => w.userId);
+    if (activeWelderIds.length === 0) return;
+    if (!setupMatchesActiveWelders(setup, activeWelderIds)) {
+      setSetup((prev) => (prev ? { ...prev, isComplete: false } : prev));
+      setSetupWelders([setup.rs1WelderId, setup.rs2WelderId, setup.rs3WelderId, setup.rs4WelderId]);
+      setSetupWarning('Setup welders are not all active. Please reassign round seam welders.');
+      setSetupError('');
+      setShowSetup(true);
+      setSetupWelderFingerprint(null);
+      return;
+    }
     if (!setup?.isComplete || !setupWelderFingerprint) return;
     if (setupWelderFingerprint !== currentWelderFingerprint) {
       invalidateSetupForWelderChange();
       setSetupWelderFingerprint(null);
     }
-  }, [setup, setupWelderFingerprint, currentWelderFingerprint, invalidateSetupForWelderChange]);
+  }, [setup, setupWelderFingerprint, currentWelderFingerprint, invalidateSetupForWelderChange, welderCountLoaded, availableWelders]);
 
   const handleManualSubmit = useCallback(() => {
     if (manualSerial.trim()) {
@@ -225,18 +278,69 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   }, [manualSerial, submitShell]);
 
   const seamCount = seamCountForSize(detectedTankSize);
+  const summaryTankSize = setup?.tankSize && setup.tankSize > 0 ? setup.tankSize : detectedTankSize;
+  const summarySeamCount = seamCountForSize(summaryTankSize);
+  const summaryWelderIds = [
+    setup?.rs1WelderId ?? setupWelders[0],
+    setup?.rs2WelderId ?? setupWelders[1],
+    setup?.rs3WelderId ?? setupWelders[2],
+    setup?.rs4WelderId ?? setupWelders[3],
+  ];
+  const seamAssignments = Array.from({ length: summarySeamCount }, (_, i) => {
+    const welderId = summaryWelderIds[i];
+    const normalizedWelderId = normalizeWelderId(welderId);
+    const welderName = welderId
+      ? availableWelders.find((w) => normalizeWelderId(w.userId) === normalizedWelderId)?.displayName ?? 'Inactive welder'
+      : 'Unassigned';
+    return { seamNo: i + 1, welderName };
+  });
+  const scanInstruction = (() => {
+    if (!setup?.isComplete) {
+      return {
+        title: 'NEXT: Complete Roundseam Setup',
+        detail: 'Tap "Roundseam Setup", assign welders, then save setup.',
+        isActive: false,
+      };
+    }
+
+    return {
+      title: 'NEXT: Scan shell barcode',
+      detail: `Setup ready for ${setup.tankSize} (${seamCountForSize(setup.tankSize)} seams)`,
+      isActive: true,
+    };
+  })();
 
   return (
     <div className={styles.container}>
-      {!setup?.isComplete && (
+      <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+        <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
+      </div>
+
+      <div className={styles.setupSummary}>
+        <div className={styles.setupInfo}>
+          <span>Tank Size: <strong>{summaryTankSize}</strong></span>
+          <span>Seams: <strong>{summarySeamCount}</strong></span>
+        </div>
+        <div className={styles.seamAssignments}>
+          {seamAssignments.map((item) => (
+            <div key={item.seamNo} className={styles.seamAssignment}>
+              Seam {item.seamNo} = <strong>{item.welderName}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {setupLoaded && !setup?.isComplete && (
         <div className={styles.warningBanner}>
           WARNING: Roundseam setup hasn&apos;t been completed!
         </div>
       )}
 
-      <Button appearance="primary" size="large" onClick={() => openSetup()}>
-        Roundseam Setup
-      </Button>
+      {!props.externalInput && (
+        <Button appearance="primary" size="large" onClick={() => openSetup()}>
+          Roundseam Setup
+        </Button>
+      )}
 
       {!props.externalInput && (
         <div className={styles.manualEntry}>
@@ -254,13 +358,6 @@ export function RoundSeamScreen(props: WorkCenterProps) {
               Submit
             </Button>
           </div>
-        </div>
-      )}
-
-      {setup?.isComplete && (
-        <div className={styles.setupInfo}>
-          <span>Tank Size: <strong>{setup.tankSize}</strong></span>
-          <span>Seams: <strong>{seamCountForSize(setup.tankSize)}</strong></span>
         </div>
       )}
 

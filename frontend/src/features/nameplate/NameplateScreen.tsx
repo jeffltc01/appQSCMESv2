@@ -6,11 +6,27 @@ import { productApi, nameplateApi } from '../../api/endpoints.ts';
 import styles from './NameplateScreen.module.css';
 
 export function NameplateScreen(props: WorkCenterProps) {
-  const { workCenterId, productionLineId, operatorId, plantId, showScanResult, refreshHistory } = props;
+  const { workCenterId, productionLineId, operatorId, plantId, plantCode, showScanResult, refreshHistory } = props;
 
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
+
+  const getSerialPrefixValidationError = useCallback((value: string): string | null => {
+    const normalizedPlantCode = plantCode?.trim();
+    const normalizedSerial = value.trim().toUpperCase();
+    if (!normalizedSerial) return null;
+
+    if (normalizedPlantCode === '700' && !normalizedSerial.startsWith('W')) {
+      return 'West Jordan (700) serial numbers must start with W';
+    }
+
+    if (normalizedPlantCode === '600' && !normalizedSerial.startsWith('F')) {
+      return 'Fremont (600) serial numbers must start with F';
+    }
+
+    return null;
+  }, [plantCode]);
 
   useEffect(() => {
     loadProducts();
@@ -28,6 +44,13 @@ export function NameplateScreen(props: WorkCenterProps) {
       showScanResult({ type: 'error', message: 'Please fill all fields' });
       return;
     }
+
+    const serialValidationError = getSerialPrefixValidationError(serialNumber);
+    if (serialValidationError) {
+      showScanResult({ type: 'error', message: serialValidationError });
+      return;
+    }
+
     try {
       const result = await nameplateApi.create({
         serialNumber: serialNumber.trim(),
@@ -46,7 +69,7 @@ export function NameplateScreen(props: WorkCenterProps) {
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? 'Failed to save nameplate record' });
     }
-  }, [selectedProductId, serialNumber, workCenterId, operatorId, showScanResult, refreshHistory]);
+  }, [selectedProductId, serialNumber, getSerialPrefixValidationError, workCenterId, operatorId, showScanResult, refreshHistory]);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 

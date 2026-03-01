@@ -160,8 +160,8 @@ public class AdminDefectLocationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? DefaultLocationDetail { get; set; }
-    public Guid? CharacteristicId { get; set; }
-    public string? CharacteristicName { get; set; }
+    public List<Guid> CharacteristicIds { get; set; } = new();
+    public List<string> CharacteristicNames { get; set; } = new();
     public bool IsActive { get; set; } = true;
 }
 
@@ -170,7 +170,7 @@ public class CreateDefectLocationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? DefaultLocationDetail { get; set; }
-    public Guid? CharacteristicId { get; set; }
+    public List<Guid> CharacteristicIds { get; set; } = new();
 }
 
 public class UpdateDefectLocationDto
@@ -178,7 +178,7 @@ public class UpdateDefectLocationDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? DefaultLocationDetail { get; set; }
-    public Guid? CharacteristicId { get; set; }
+    public List<Guid> CharacteristicIds { get; set; } = new();
     public bool IsActive { get; set; } = true;
 }
 

@@ -24,6 +24,7 @@ public class MesDbContext : DbContext
     public DbSet<DefectLog> DefectLogs => Set<DefectLog>();
     public DbSet<DefectCode> DefectCodes => Set<DefectCode>();
     public DbSet<DefectLocation> DefectLocations => Set<DefectLocation>();
+    public DbSet<DefectLocationCharacteristic> DefectLocationCharacteristics => Set<DefectLocationCharacteristic>();
     public DbSet<Characteristic> Characteristics => Set<Characteristic>();
     public DbSet<CharacteristicWorkCenter> CharacteristicWorkCenters => Set<CharacteristicWorkCenter>();
     public DbSet<DefectWorkCenter> DefectWorkCenters => Set<DefectWorkCenter>();

@@ -124,10 +124,11 @@ public class WorkCenterService : IWorkCenterService
         var isRolls = string.Equals(wcDataEntryType, "Rolls", StringComparison.OrdinalIgnoreCase);
         var isLongSeam = string.Equals(wcDataEntryType, "Barcode-LongSeam", StringComparison.OrdinalIgnoreCase);
         var isLongSeamInspection = string.Equals(wcDataEntryType, "Barcode-LongSeamInsp", StringComparison.OrdinalIgnoreCase);
+        var isRoundSeamInspection = string.Equals(wcDataEntryType, "Barcode-RoundSeamInsp", StringComparison.OrdinalIgnoreCase);
         var shouldWrapShellWithAssemblyAlpha = !isFitup && !isRolls && !isLongSeam && !isLongSeamInspection;
 
         var shellsByAssembly = new Dictionary<Guid, List<string>>();
-        if (isFitup)
+        if (isFitup || isRoundSeamInspection)
         {
             var assemblySnIds = recentProdRecords
                 .Select(r => r.SerialNumberId)
@@ -160,7 +161,7 @@ public class WorkCenterService : IWorkCenterService
         {
             var alphaOrSerial = r.SerialNumber?.Serial ?? r.Id.ToString("N")[..8];
             var serialOrIdentifier = alphaOrSerial;
-            if (isFitup
+            if ((isFitup || isRoundSeamInspection)
                 && shellsByAssembly.TryGetValue(r.SerialNumberId, out var shells)
                 && shells.Count > 0)
             {
@@ -387,7 +388,12 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         var locations = await _db.DefectLocations
-            .Where(d => d.IsActive && (d.CharacteristicId == null || characteristicIds.Contains(d.CharacteristicId.Value)))
+            .Include(d => d.DefectLocationCharacteristics)
+            .Where(d => d.IsActive)
+            .Where(d =>
+                d.DefectLocationCharacteristics.Any()
+                    ? d.DefectLocationCharacteristics.Any(link => characteristicIds.Contains(link.CharacteristicId))
+                    : (d.CharacteristicId == null || characteristicIds.Contains(d.CharacteristicId.Value)))
             .OrderBy(d => d.Code)
             .ToListAsync(cancellationToken);
 
@@ -395,7 +401,10 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = d.Id,
             Code = d.Code,
-            Name = d.Name
+            Name = d.Name,
+            CharacteristicIds = d.DefectLocationCharacteristics.Any()
+                ? d.DefectLocationCharacteristics.Select(link => link.CharacteristicId).ToList()
+                : (d.CharacteristicId.HasValue ? new List<Guid> { d.CharacteristicId.Value } : new List<Guid>())
         }).ToList();
     }
 

@@ -84,8 +84,51 @@
 
 .addWelderForm {
   display: flex;
-  gap: 8px;
-  padding: 4px;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.addWelderDialog {
+  width: min(560px, 92vw);
+  border-radius: 0;
+}
+
+.addWelderStatus {
+  margin: 0 0 8px 0;
+  color: #343a40;
+  font-size: 14px;
+}
+
+.dialogWelders {
+  margin-top: 4px;
+}
+
+.dialogWeldersLabel {
+  display: inline-block;
+  font-size: 12px;
+  color: #616161;
+  margin-bottom: 4px;
+}
+
+.dialogWeldersList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lookupStatus {
+  min-height: 18px;
+  font-size: 12px;
+  color: #616161;
+}
+
+.lookupStatusSuccess:not(:empty) {
+  color: #2b8a3e;
+}
+
+.lookupStatusError:not(:empty) {
+  color: #c4314b;
 }
 
 @media (max-width: 1024px) {

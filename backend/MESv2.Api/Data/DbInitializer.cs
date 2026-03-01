@@ -344,6 +344,14 @@ public static class DbInitializer
             new DefectLocation { Id = Guid.Parse("d1000001-0000-0000-0000-000000000005"), Code = "5", Name = "Start", DefaultLocationDetail = null, CharacteristicId = charLongSeamId },
             new DefectLocation { Id = Guid.Parse("d1000001-0000-0000-0000-000000000006"), Code = "6", Name = "End", DefaultLocationDetail = null, CharacteristicId = charLongSeamId }
         );
+        context.DefectLocationCharacteristics.AddRange(
+            new DefectLocationCharacteristic { Id = Guid.Parse("d2000001-0000-0000-0000-000000000001"), DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000001"), CharacteristicId = charLongSeamId },
+            new DefectLocationCharacteristic { Id = Guid.Parse("d2000001-0000-0000-0000-000000000002"), DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000002"), CharacteristicId = charLongSeamId },
+            new DefectLocationCharacteristic { Id = Guid.Parse("d2000001-0000-0000-0000-000000000003"), DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000003"), CharacteristicId = charLongSeamId },
+            new DefectLocationCharacteristic { Id = Guid.Parse("d2000001-0000-0000-0000-000000000004"), DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000004"), CharacteristicId = charLongSeamId },
+            new DefectLocationCharacteristic { Id = Guid.Parse("d2000001-0000-0000-0000-000000000005"), DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000005"), CharacteristicId = charLongSeamId },
+            new DefectLocationCharacteristic { Id = Guid.Parse("d2000001-0000-0000-0000-000000000006"), DefectLocationId = Guid.Parse("d1000001-0000-0000-0000-000000000006"), CharacteristicId = charLongSeamId }
+        );
 
         context.BarcodeCards.AddRange(
             new BarcodeCard { Id = Guid.Parse("bc000001-0000-0000-0000-000000000001"), CardValue = "01", Color = "Red", Description = null },

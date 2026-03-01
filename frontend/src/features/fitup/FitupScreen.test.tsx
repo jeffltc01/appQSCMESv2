@@ -64,6 +64,56 @@ describe('FitupScreen', () => {
     vi.mocked(adminPlantGearApi.getAll).mockResolvedValue([]);
   });
 
+  it('uses materialQueueForWCId when loading heads queue', async () => {
+    renderFitup({
+      workCenterId: 'wc-current',
+      materialQueueForWCId: 'wc-feed',
+      productionLineId: 'pl-inside',
+    });
+
+    await waitFor(() => {
+      expect(workCenterApi.getMaterialQueue).toHaveBeenCalledWith('wc-feed', 'fitup', 'pl-inside');
+    });
+  });
+
+  it('shows only queued head rows in Heads Queue', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'mq-queued',
+        position: 1,
+        status: 'queued',
+        cardId: '03',
+        cardColor: 'Red',
+        productDescription: 'Queued Head Material',
+        shellSize: '120',
+        heatNumber: 'HEAT01',
+        coilNumber: 'COIL01',
+        lotNumber: 'LOT01',
+        quantity: 1,
+        quantityCompleted: 0,
+      },
+      {
+        id: 'mq-active',
+        position: 2,
+        status: 'active',
+        cardId: '04',
+        cardColor: 'Blue',
+        productDescription: 'Active Head Material',
+        shellSize: '120',
+        heatNumber: 'HEAT02',
+        coilNumber: 'COIL02',
+        lotNumber: 'LOT02',
+        quantity: 1,
+        quantityCompleted: 0,
+      },
+    ]);
+
+    renderFitup();
+
+    expect(await screen.findByText(/queued head material/i)).toBeInTheDocument();
+    expect(screen.queryByText(/active head material/i)).not.toBeInTheDocument();
+  });
+
   it('duplicate shell scan enters reassembly prompt', async () => {
     vi.mocked(serialNumberApi.getContext).mockResolvedValue({
       serialNumber: 'SH001',
@@ -251,6 +301,113 @@ describe('FitupScreen', () => {
     expect(screen.queryByRole('button', { name: /split s1\|s2/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /split s2\|s3/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /replace mode/i })).not.toBeInTheDocument();
+  });
+
+  it('uses queued-head dropdown in reassembly and normalizes KC-prefixed card input', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'mq-queued',
+        position: 1,
+        status: 'queued',
+        cardId: '03',
+        cardColor: '#ff0000',
+        productDescription: 'HEMI 37"',
+        shellSize: '120',
+        heatNumber: 'HEAT01',
+        coilNumber: 'COIL01',
+        lotNumber: 'LOT01',
+        quantity: 1,
+        quantityCompleted: 0,
+      },
+    ]);
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+      existingAssembly: {
+        alphaCode: 'AB',
+        tankSize: 120,
+        shells: ['SH001'],
+      },
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      lotNumber: 'LOT01',
+      productDescription: 'HEMI 37"',
+      cardColor: '#ff0000',
+      tankSize: 120,
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await act(async () => {
+      handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    });
+    await waitFor(() => expect(screen.getByText('Reassembly Mode')).toBeInTheDocument());
+
+    await userEvent.click(screen.getAllByRole('button', { name: /select \+ kc/i })[0]);
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(screen.getByText(/120 gal · lot lot01 · card 03/i));
+    await userEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() => {
+      expect(materialQueueApi.getCardLookup).toHaveBeenCalledWith('wc-fitup', 'pl-1', '03');
+    });
+
+    await act(async () => {
+      handler({ prefix: 'KC', value: 'KC;03', raw: 'KC;KC;03' }, 'KC;KC;03');
+    });
+
+    await waitFor(() => {
+      expect(materialQueueApi.getCardLookup).toHaveBeenLastCalledWith('wc-fitup', 'pl-1', '03');
+    });
+  });
+
+  it('shows changed tag and guidance in reassembly mode', async () => {
+    vi.mocked(serialNumberApi.getContext)
+      .mockResolvedValueOnce({
+        serialNumber: 'SH001',
+        tankSize: 120,
+        existingAssembly: {
+          alphaCode: 'AB',
+          tankSize: 120,
+          shells: ['SH001'],
+        },
+      })
+      .mockResolvedValueOnce({
+        serialNumber: 'SH002',
+        tankSize: 120,
+      });
+
+    const { props } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await act(async () => {
+      handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/click a component in proposed to select it for replacement/i)).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'SH001' }));
+    await userEvent.type(screen.getByPlaceholderText(/enter shell serial/i), 'SH002');
+    await userEvent.click(screen.getByRole('button', { name: /^apply$/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/changed/i).length).toBeGreaterThan(0);
+    });
   });
 
   it('reset scan clears selected heads', async () => {

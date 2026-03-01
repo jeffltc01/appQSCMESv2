@@ -151,6 +151,37 @@ const mockLookupResult = {
               annotationCount: 0,
               events: [],
             },
+            {
+              id: 'lin-1',
+              label: 'DC (lineage)',
+              nodeType: 'lineage',
+              serial: 'DC',
+              defectCount: 0,
+              annotationCount: 0,
+              events: [],
+              children: [
+                {
+                  id: 'lin-shell-1',
+                  label: 'DC-SH (shell)',
+                  nodeType: 'shell',
+                  serial: 'DC-SH',
+                  defectCount: 0,
+                  annotationCount: 0,
+                  events: [],
+                  children: [
+                    {
+                      id: 'lin-plate-1',
+                      label: 'DC-PL (plate)',
+                      nodeType: 'plate',
+                      serial: 'DC-PL',
+                      defectCount: 0,
+                      annotationCount: 0,
+                      events: [],
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],
@@ -451,7 +482,7 @@ describe('SerialNumberLookupScreen', () => {
     expect(screen.getByText('Admin User')).toBeInTheDocument();
   });
 
-  it('renders nameplate card to the right of Fitup with attachment wrapper', async () => {
+  it('renders nameplate card in the genealogy graph', async () => {
     const user = userEvent.setup();
     renderScreen();
 
@@ -460,12 +491,9 @@ describe('SerialNumberLookupScreen', () => {
     await user.click(screen.getByTestId('lookup-go-btn'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('nameplate-attachment')).toBeInTheDocument();
+      expect(screen.getByTestId('genealogy-flow')).toBeInTheDocument();
     });
     expect(screen.getByTestId('hero-card-np-1')).toBeInTheDocument();
-
-    const attachment = screen.getByTestId('nameplate-attachment');
-    expect(attachment).toContainElement(screen.getByTestId('hero-card-np-1'));
   });
 
   it('does not show gate icon on non-gate-check nodes like heads', async () => {
@@ -480,5 +508,34 @@ describe('SerialNumberLookupScreen', () => {
       expect(screen.getByTestId('hero-card-child-2')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('gate-child-2')).not.toBeInTheDocument();
+  });
+
+  it('renders reassembly operation node for lineage relationships', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reassembly-op-lin-1-assy-1')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('hero-card-lin-1')).toBeInTheDocument();
+  });
+
+  it('shows lineage material trace by default', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    const input = screen.getByPlaceholderText('Enter serial number...');
+    await user.type(input, 'SN-001');
+    await user.click(screen.getByTestId('lookup-go-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hero-card-lin-1')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('hero-card-lin-shell-1')).toBeInTheDocument();
+    expect(screen.getByTestId('hero-card-lin-plate-1')).toBeInTheDocument();
   });
 });

@@ -117,6 +117,7 @@ export interface DefectLocation {
   id: string;
   code: string;
   name: string;
+  characteristicIds: string[];
 }
 
 export interface Characteristic {
@@ -352,8 +353,8 @@ export interface AdminDefectLocation {
   code: string;
   name: string;
   defaultLocationDetail?: string;
-  characteristicId?: string;
-  characteristicName?: string;
+  characteristicIds: string[];
+  characteristicNames: string[];
   isActive: boolean;
 }
 

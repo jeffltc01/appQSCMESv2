@@ -1,10 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  DialogTrigger,
   Input,
-  Popover,
-  PopoverTrigger,
-  PopoverSurface,
 } from '@fluentui/react-components';
 import { DismissRegular, PersonAddRegular } from '@fluentui/react-icons';
 import type { Welder } from '../../types/domain.ts';
@@ -46,10 +50,15 @@ export function TopBar({
 
   useEffect(() => {
     if (!addWelderOpen) {
+      setNewWelderEmpNo('');
       setLookupName(null);
       setLookupLoading(false);
     }
   }, [addWelderOpen]);
+
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   const doLookup = useCallback((empNo: string) => {
     if (!empNo.trim() || !workCenterId) {
@@ -117,11 +126,11 @@ export function TopBar({
         )}
 
         {!externalInput && (
-          <Popover
+          <Dialog
             open={addWelderOpen}
             onOpenChange={(_, data) => setAddWelderOpen(data.open)}
           >
-            <PopoverTrigger>
+            <DialogTrigger disableButtonEnhancement>
               <Button
                 appearance="subtle"
                 icon={<PersonAddRegular />}
@@ -129,30 +138,71 @@ export function TopBar({
                 className={styles.addWelderBtn}
                 aria-label="Add welder"
               />
-            </PopoverTrigger>
-            <PopoverSurface>
-              <div className={styles.addWelderForm}>
-                <Input
-                  placeholder="Employee No."
-                  value={newWelderEmpNo}
-                  onChange={(_, data) => handleEmpNoChange(data.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddWelder();
-                  }}
-                  size="medium"
-                  inputMode="numeric"
-                />
-                {(lookupLoading || lookupName) && (
-                  <span style={{ fontSize: 12, color: lookupName === 'Not found' ? '#c4314b' : '#616161', minHeight: 16 }}>
-                    {lookupLoading ? 'Looking up...' : lookupName}
-                  </span>
-                )}
-                <Button appearance="primary" size="small" onClick={handleAddWelder}>
-                  Add
-                </Button>
-              </div>
-            </PopoverSurface>
-          </Popover>
+            </DialogTrigger>
+            <DialogSurface className={styles.addWelderDialog}>
+              <DialogBody>
+                <DialogTitle>Add Welder</DialogTitle>
+                <DialogContent>
+                  <p className={styles.addWelderStatus}>
+                    Enter an employee number to add a welder for this work center.
+                  </p>
+
+                  {welders.length > 0 && (
+                    <div className={styles.dialogWelders}>
+                      <span className={styles.dialogWeldersLabel}>Current Welders:</span>
+                      <div className={styles.dialogWeldersList}>
+                        {welders.map((w) => (
+                          <span key={`dialog-${w.userId}`} className={styles.welderChip}>
+                            {w.displayName}
+                            <button
+                              className={styles.removeWelder}
+                              onClick={() => onRemoveWelder(w.userId)}
+                              aria-label={`Remove ${w.displayName}`}
+                            >
+                              <DismissRegular fontSize={14} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.addWelderForm}>
+                    <Input
+                      placeholder="Employee Number"
+                      value={newWelderEmpNo}
+                      onChange={(_, data) => handleEmpNoChange(data.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddWelder();
+                      }}
+                      size="large"
+                      inputMode="numeric"
+                    />
+                    <span
+                      className={`${styles.lookupStatus} ${lookupName === 'Not found' ? styles.lookupStatusError : styles.lookupStatusSuccess}`}
+                      aria-live="polite"
+                    >
+                      {lookupLoading ? 'Looking up...' : lookupName ?? ''}
+                    </span>
+                  </div>
+                </DialogContent>
+                <DialogActions>
+                  <DialogTrigger disableButtonEnhancement>
+                    <Button appearance="secondary">
+                      Cancel
+                    </Button>
+                  </DialogTrigger>
+                  <Button
+                    appearance="primary"
+                    onClick={handleAddWelder}
+                    disabled={!newWelderEmpNo.trim()}
+                  >
+                    Add Welder
+                  </Button>
+                </DialogActions>
+              </DialogBody>
+            </DialogSurface>
+          </Dialog>
         )}
       </div>
     </header>

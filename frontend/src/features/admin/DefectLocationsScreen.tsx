@@ -23,7 +23,7 @@ export function DefectLocationsScreen() {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [defaultLocationDetail, setDefaultLocationDetail] = useState('');
-  const [characteristicId, setCharacteristicId] = useState('');
+  const [characteristicIds, setCharacteristicIds] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<AdminDefectLocation | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -41,7 +41,7 @@ export function DefectLocationsScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setCode(''); setName(''); setDefaultLocationDetail(''); setCharacteristicId(''); setIsActive(true);
+    setCode(''); setName(''); setDefaultLocationDetail(''); setCharacteristicIds([]); setIsActive(true);
     setError(''); setModalOpen(true);
   };
 
@@ -49,7 +49,7 @@ export function DefectLocationsScreen() {
     setEditing(item);
     setCode(item.code); setName(item.name);
     setDefaultLocationDetail(item.defaultLocationDetail ?? '');
-    setCharacteristicId(item.characteristicId ?? ''); setIsActive(item.isActive);
+    setCharacteristicIds(item.characteristicIds ?? []); setIsActive(item.isActive);
     setError(''); setModalOpen(true);
   };
 
@@ -59,7 +59,7 @@ export function DefectLocationsScreen() {
       const payload = {
         code, name,
         defaultLocationDetail: defaultLocationDetail || undefined,
-        characteristicId: characteristicId || undefined,
+        characteristicIds,
         isActive,
       };
       if (editing) {
@@ -103,10 +103,10 @@ export function DefectLocationsScreen() {
                   </div>
                 )}
               </div>
-              {item.characteristicName && (
+              {item.characteristicNames.length > 0 && (
                 <div className={styles.cardField}>
-                  <span className={styles.cardFieldLabel}>Characteristic</span>
-                  <span className={styles.cardFieldValue}>{item.characteristicName}</span>
+                  <span className={styles.cardFieldLabel}>Characteristics</span>
+                  <span className={styles.cardFieldValue}>{item.characteristicNames.join(', ')}</span>
                 </div>
               )}
               <span className={`${styles.badge} ${item.isActive ? styles.badgeGreen : styles.badgeRed}`}>
@@ -133,13 +133,19 @@ export function DefectLocationsScreen() {
         <Input value={name} onChange={(_, d) => setName(d.value)} />
         <Label>Default Location Detail (optional)</Label>
         <Input value={defaultLocationDetail} onChange={(_, d) => setDefaultLocationDetail(d.value)} />
-        <Label>Characteristic (optional)</Label>
+        <Label>Characteristics (optional)</Label>
         <Dropdown
-          value={characteristics.find(c => c.id === characteristicId)?.name ?? 'None'}
-          selectedOptions={[characteristicId]}
-          onOptionSelect={(_, d) => setCharacteristicId(d.optionValue ?? '')}
+          multiselect
+          value={
+            characteristicIds.length === 0
+              ? 'None'
+              : characteristicIds.length === 1
+                ? (characteristics.find(c => c.id === characteristicIds[0])?.name ?? '1 selected')
+                : `${characteristicIds.length} selected`
+          }
+          selectedOptions={characteristicIds}
+          onOptionSelect={(_, d) => setCharacteristicIds((d.selectedOptions ?? []) as string[])}
         >
-          <Option value="">None</Option>
           {characteristics.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
         </Dropdown>
         {editing && (

@@ -78,4 +78,18 @@ describe('TopBar', () => {
     });
     expect(screen.queryByLabelText('Remove Alice')).not.toBeInTheDocument();
   });
+
+  it('opens dialog and calls onAddWelder', async () => {
+    const user = userEvent.setup();
+    const onAddWelder = vi.fn();
+    renderTopBar({ onAddWelder });
+
+    await user.click(screen.getByLabelText('Add welder'));
+    expect(screen.getByRole('heading', { name: 'Add Welder' })).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Employee Number'), '12345');
+    await user.click(screen.getByRole('button', { name: 'Add Welder' }));
+
+    expect(onAddWelder).toHaveBeenCalledWith('12345');
+  });
 });

@@ -692,6 +692,7 @@ export function OperatorLayout() {
     productionLineId: cache?.cachedProductionLineId ?? '',
     operatorId: user?.id ?? '',
     plantId: user?.defaultSiteId ?? '',
+    plantCode: user?.plantCode ?? '',
     welders,
     numberOfWelders,
     welderCountLoaded,
@@ -1000,6 +1001,7 @@ export interface WorkCenterProps {
   productionLineId: string;
   operatorId: string;
   plantId: string;
+  plantCode?: string;
   welders: Welder[];
   numberOfWelders: number;
   welderCountLoaded: boolean;

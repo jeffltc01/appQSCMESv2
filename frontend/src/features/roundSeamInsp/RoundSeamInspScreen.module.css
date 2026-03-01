@@ -6,6 +6,42 @@
   gap: 8px;
 }
 
+.scanStateBanner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 8px 12px;
+  border: 1px solid #2b3b84;
+  text-align: center;
+}
+
+.scanStateBannerActive {
+  background: #2b3b84;
+  color: #ffffff;
+}
+
+.scanStateBannerIdle {
+  background: #f8f9fa;
+  color: #2b3b84;
+}
+
+.scanStateTitle {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.2px;
+}
+
+.scanStateDetail {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0.95;
+}
+
 .prompt {
   font-size: 18px;
   color: #868686;
@@ -45,6 +81,7 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  justify-content: center;
   padding: 6px 0;
   font-size: 14px;
 }

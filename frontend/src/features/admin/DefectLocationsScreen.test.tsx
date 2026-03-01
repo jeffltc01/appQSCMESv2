@@ -37,8 +37,8 @@ const mockDefectLocations = [
     id: '1',
     code: '01',
     name: 'T-Joint',
-    characteristicId: 'c1',
-    characteristicName: 'Long Seam',
+    characteristicIds: ['c1'],
+    characteristicNames: ['Long Seam'],
     isActive: true,
   },
 ];

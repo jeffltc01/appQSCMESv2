@@ -173,9 +173,22 @@ public class CharacteristicsController : ControllerBase
     public async Task<ActionResult<IEnumerable<DefectLocationDto>>> GetLocations(Guid id, CancellationToken cancellationToken)
     {
         var list = await _db.DefectLocations
-            .Where(d => d.CharacteristicId == id || d.CharacteristicId == null)
+            .Include(d => d.DefectLocationCharacteristics)
+            .Where(d => d.IsActive)
+            .Where(d =>
+                d.DefectLocationCharacteristics.Any()
+                    ? d.DefectLocationCharacteristics.Any(link => link.CharacteristicId == id)
+                    : (d.CharacteristicId == null || d.CharacteristicId == id))
             .OrderBy(d => d.Code)
-            .Select(d => new DefectLocationDto { Id = d.Id, Code = d.Code, Name = d.Name })
+            .Select(d => new DefectLocationDto
+            {
+                Id = d.Id,
+                Code = d.Code,
+                Name = d.Name,
+                CharacteristicIds = d.DefectLocationCharacteristics.Any()
+                    ? d.DefectLocationCharacteristics.Select(link => link.CharacteristicId).ToList()
+                    : (d.CharacteristicId.HasValue ? new List<Guid> { d.CharacteristicId.Value } : new List<Guid>())
+            })
             .ToListAsync(cancellationToken);
         return Ok(list);
     }

@@ -115,6 +115,52 @@ describe('FitupQueueScreen', () => {
     expect(await screen.findByText(/Heat H-123\s+Coil\/Slab C-456/i)).toBeInTheDocument();
   });
 
+  it('shows only queued rows in Fitup queue list', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'q-queued',
+        position: 1,
+        status: 'queued',
+        productDescription: 'Queued Head 500',
+        shellSize: '500',
+        heatNumber: 'H-100',
+        coilNumber: 'C-100',
+        lotNumber: undefined,
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '03',
+        cardColor: 'Red',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'q-active',
+        position: 2,
+        status: 'active',
+        productDescription: 'Active Head 500',
+        shellSize: '500',
+        heatNumber: 'H-200',
+        coilNumber: 'C-200',
+        lotNumber: undefined,
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '04',
+        cardColor: 'Blue',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderScreen();
+
+    expect(await screen.findByText(/queued head 500/i)).toBeInTheDocument();
+    expect(screen.queryByText(/active head 500/i)).not.toBeInTheDocument();
+  });
+
   it('fetches vendors with correct type and plantId', async () => {
     renderScreen();
     await waitFor(() => {
@@ -149,16 +195,16 @@ describe('FitupQueueScreen', () => {
     });
   });
 
-  it('uses current work center for queue read even when materialQueueForWCId is present', async () => {
+  it('uses materialQueueForWCId for queue read when present', async () => {
     renderScreen({ workCenterId: 'wc-current', materialQueueForWCId: 'wc-feed', productionLineId: 'pl-inside' });
 
     await waitFor(() => {
-      expect(workCenterApi.getMaterialQueue).toHaveBeenCalledWith('wc-current', 'fitup', 'pl-inside');
+      expect(workCenterApi.getMaterialQueue).toHaveBeenCalledWith('wc-feed', 'fitup', 'pl-inside');
     });
-    expect(barcodeCardApi.getCards).toHaveBeenCalledWith('wc-current', '11111111-1111-1111-1111-111111111111');
+    expect(barcodeCardApi.getCards).toHaveBeenCalledWith('wc-feed', '11111111-1111-1111-1111-111111111111');
   });
 
-  it('uses current work center for queue save even when materialQueueForWCId is present', async () => {
+  it('uses materialQueueForWCId for queue save when present', async () => {
     vi.mocked(productApi.getProducts).mockResolvedValueOnce([
       {
         id: 'prod-1',
@@ -221,7 +267,7 @@ describe('FitupQueueScreen', () => {
 
     await waitFor(() => {
       expect(materialQueueApi.addFitupItem).toHaveBeenCalledWith(
-        'wc-current',
+        'wc-feed',
         expect.objectContaining({
           productionLineId: 'pl-inside',
           cardCode: '01',

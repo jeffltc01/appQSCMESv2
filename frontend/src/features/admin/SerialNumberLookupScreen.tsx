@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -21,74 +21,16 @@ import {
   FlagRegular,
   DismissRegular,
 } from '@fluentui/react-icons';
+import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
+import 'reactflow/dist/style.css';
 import { AdminLayout } from './AdminLayout.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { siteApi, serialNumberApi } from '../../api/endpoints.ts';
 import type { Plant, TraceabilityNode, ManufacturingEvent, SerialNumberLookup, LogAnnotationBadge } from '../../types/domain.ts';
 import { formatDateTime, formatShortDateTime } from '../../utils/dateFormat.ts';
+import { NODE_TYPE_COLORS } from './SerialLookupNodeCard.tsx';
+import { serialLookupNodeTypes, toReactFlowGraph } from './SerialLookupGraph.tsx';
 import styles from './SerialNumberLookupScreen.module.css';
-
-const NODE_TYPE_COLORS: Record<string, { bg: string; label: string }> = {
-  sellable:  { bg: '#28a745', label: 'Finished SN' },
-  assembled: { bg: '#606ca3', label: 'Fitup' },
-  shell:     { bg: '#e41e2f', label: 'Shells' },
-  plate:     { bg: '#ffc107', label: 'Plate' },
-  leftHead:  { bg: '#ba68c8', label: 'Heads' },
-  rightHead: { bg: '#ba68c8', label: 'Heads' },
-  valve:     { bg: '#17a2b8', label: 'Valves' },
-  nameplate: { bg: '#ff8c00', label: 'Nameplate' },
-};
-
-function getCardColorClass(nodeType: string): string {
-  switch (nodeType) {
-    case 'sellable': return styles.cardSellable;
-    case 'assembled': return styles.cardAssembled;
-    case 'shell': return styles.cardShell;
-    case 'plate': return styles.cardPlate;
-    case 'leftHead':
-    case 'rightHead': return styles.cardHead;
-    case 'valve': return styles.cardValve;
-    case 'nameplate': return styles.cardNameplate;
-    default: return styles.cardDefault;
-  }
-}
-
-function getNodeTypeLabel(nodeType: string): string {
-  return NODE_TYPE_COLORS[nodeType]?.label ?? nodeType;
-}
-
-interface FlowStep {
-  node: TraceabilityNode;
-  subComponents: TraceabilityNode[];
-  nameplateNode?: TraceabilityNode;
-}
-
-function flattenToFlow(treeNodes: TraceabilityNode[]): FlowStep[] {
-  if (treeNodes.length === 0) return [];
-  const root = treeNodes[0];
-  const steps: FlowStep[] = [];
-
-  function walk(node: TraceabilityNode) {
-    const mainTypes = new Set(['sellable', 'assembled', 'shell']);
-    const children = node.children ?? [];
-    const mainChildren = children.filter(c => mainTypes.has(c.nodeType));
-    const subChildren = children.filter(c => !mainTypes.has(c.nodeType));
-
-    const npChild = subChildren.find(c => c.nodeType === 'nameplate' || c.nodeType === 'NameplateToAssembly');
-    const otherSubs = subChildren.filter(c => c.nodeType !== 'nameplate' && c.nodeType !== 'NameplateToAssembly');
-
-    if (mainChildren.length > 0) {
-      for (const child of mainChildren) walk(child);
-      steps.push({ node, subComponents: otherSubs, nameplateNode: npChild });
-    } else {
-      const ownSubs = children.filter(c => c.nodeType === 'plate' || c.nodeType === 'leftHead' || c.nodeType === 'rightHead' || c.nodeType === 'valve');
-      steps.push({ node, subComponents: ownSubs });
-    }
-  }
-
-  walk(root);
-  return steps;
-}
 
 interface EventWithSource {
   event: ManufacturingEvent;
@@ -151,108 +93,6 @@ function Legend() {
   );
 }
 
-type GateStatus = 'pass' | 'fail' | 'none';
-
-function deriveGateStatus(node: TraceabilityNode): GateStatus | null {
-  const { nodeType } = node;
-  if (nodeType !== 'shell' && nodeType !== 'assembled' && nodeType !== 'sellable') return null;
-
-  const events = node.events ?? [];
-
-  const matches = (e: ManufacturingEvent, ...keywords: string[]) => {
-    const s = `${e.type} ${e.workCenterName}`.toLowerCase();
-    return keywords.some(k => s.includes(k));
-  };
-
-  let gateEvents: ManufacturingEvent[];
-  if (nodeType === 'shell') {
-    gateEvents = events.filter(e =>
-      e.inspectionResult != null && !matches(e, 'queue') &&
-      (matches(e, 'rt', 'realtime', 'real-time') ||
-       (matches(e, 'x-ray', 'xray') && !matches(e, 'spot'))));
-  } else if (nodeType === 'assembled') {
-    gateEvents = events.filter(e =>
-      e.inspectionResult != null && matches(e, 'spot'));
-  } else {
-    gateEvents = events.filter(e =>
-      e.inspectionResult != null && matches(e, 'hydro'));
-  }
-
-  if (gateEvents.length === 0) return 'none';
-
-  const hasReject = gateEvents.some(e => {
-    const r = e.inspectionResult!.toLowerCase();
-    return r.includes('reject') || r.includes('fail') || r === 'nogo';
-  });
-  return hasReject ? 'fail' : 'pass';
-}
-
-function formatCardTitle(node: TraceabilityNode): string {
-  const serial = node.serial || node.label;
-  if (node.nodeType === 'assembled' && node.childSerials && node.childSerials.length > 0) {
-    return `${serial} (${node.childSerials.join(', ')})`;
-  }
-  return serial;
-}
-
-function HeroCard({
-  node,
-  isSmall,
-}: {
-  node: TraceabilityNode;
-  isSmall?: boolean;
-}) {
-  const colorClass = getCardColorClass(node.nodeType);
-  const badgeColor = NODE_TYPE_COLORS[node.nodeType]?.bg;
-  const gateStatus = deriveGateStatus(node);
-  const defects = node.defectCount ?? 0;
-  const annotations = node.annotationCount ?? 0;
-
-  const cardClasses = [
-    styles.heroCard,
-    colorClass,
-    isSmall ? styles.heroCardSmall : '',
-  ].filter(Boolean).join(' ');
-
-  return (
-    <div
-      className={cardClasses}
-      data-testid={`hero-card-${node.id}`}
-    >
-      {gateStatus != null && (
-        <span className={styles.gateIcon} data-testid={`gate-${node.id}`}>
-          {gateStatus === 'pass'
-            ? <CheckmarkCircleFilled className={styles.gatePass} />
-            : gateStatus === 'fail'
-            ? <DismissCircleFilled className={styles.gateFail} />
-            : <SubtractCircleFilled className={styles.gateNone} />}
-        </span>
-      )}
-      <div className={styles.cardTypeBadge} style={{ background: badgeColor ? `${badgeColor}18` : undefined, color: badgeColor }}>
-        {getNodeTypeLabel(node.nodeType)}
-      </div>
-      <div className={styles.cardSerial} title={formatCardTitle(node)}>{formatCardTitle(node)}</div>
-      <div className={styles.cardInfo}>
-        {node.tankSize != null && <span title={`${node.tankSize} gal`}>{node.tankSize} gal</span>}
-        {node.heatNumber && <span title={`Heat: ${node.heatNumber}`}>Heat: {node.heatNumber}</span>}
-        {node.coilNumber && <span title={`Coil: ${node.coilNumber}`}>Coil: {node.coilNumber}</span>}
-        {node.lotNumber && <span title={`Lot: ${node.lotNumber}`}>Lot: {node.lotNumber}</span>}
-      </div>
-      <div className={styles.cardFooter}>
-        <div className={styles.cardStats}>
-          <span className={styles.statItem} title="Defects">
-            <span className={styles.statLabel}>Defects</span>
-            <span className={defects > 0 ? styles.statBad : styles.statGood}>{defects}</span>
-          </span>
-          <span className={styles.statItem} title="Annotations">
-            <span className={styles.statLabel}>Notes</span>
-            <span className={styles.statNeutral}>{annotations}</span>
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function AnnotationFlags({
   badges,
@@ -436,7 +276,7 @@ export function SerialNumberLookupScreen() {
     if (e.key === 'Enter') handleLookup();
   };
 
-  const flowSteps = data ? flattenToFlow(data.treeNodes) : [];
+  const graph = useMemo(() => (data ? toReactFlowGraph(data, { includeLineageChildren: true }) : null), [data]);
   const allEvents = data ? collectAllEvents(data.treeNodes) : [];
 
   return (
@@ -493,7 +333,7 @@ export function SerialNumberLookupScreen() {
             <div className={styles.emptyState}>
               <Spinner size="medium" label="Looking up..." />
             </div>
-          ) : flowSteps.length === 0 ? (
+          ) : !graph || graph.nodes.length === 0 ? (
             <>
               <Legend />
               <div className={styles.emptyState}>No traceability data found.</div>
@@ -504,43 +344,23 @@ export function SerialNumberLookupScreen() {
               <Legend />
               <div className={styles.splitLayout}>
                 <div className={styles.diagramPane}>
-                  <div className={styles.flowRow} data-testid="genealogy-flow">
-                    {flowSteps.map((step, i) => {
-                      const isLastShell =
-                        step.node.nodeType === 'shell' &&
-                        i < flowSteps.length - 1 &&
-                        flowSteps[i + 1].node.nodeType !== 'shell';
-                      const hasNameplate = !!step.nameplateNode;
-                      return (
-                      <div
-                        key={step.node.id}
-                        className={`${styles.flowColumn} ${i < flowSteps.length - 1 ? styles.flowColumnWithArrow : ''}`}
-                        data-node-type={step.node.nodeType}
-                        {...(isLastShell ? { 'data-last-shell': '' } : {})}
-                        {...(hasNameplate ? { 'data-has-nameplate': '' } : {})}
-                      >
-                        <HeroCard node={step.node} />
-                        {hasNameplate && (
-                          <div className={styles.nameplateAttachment} data-testid="nameplate-attachment">
-                            <div className={styles.nameplateArrowLine} />
-                            <HeroCard node={step.nameplateNode!} isSmall />
-                          </div>
-                        )}
-                        {step.subComponents.length > 0 && (
-                          <div className={styles.subComponentsArea}>
-                            {step.subComponents.map((sub) => (
-                              <div key={sub.id} className={styles.subItem}>
-                                <div className={styles.subArrow}>
-                                  <div className={styles.subArrowLine} />
-                                </div>
-                                <HeroCard node={sub} isSmall />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      );
-                    })}
+                  <div className={styles.graphSurface} data-testid="genealogy-flow">
+                    <ReactFlow
+                      nodes={graph.nodes}
+                      edges={graph.edges}
+                      nodeTypes={serialLookupNodeTypes}
+                      fitView
+                      fitViewOptions={{ padding: 0.2 }}
+                      proOptions={{ hideAttribution: true }}
+                      minZoom={0.3}
+                      maxZoom={1.6}
+                      nodesDraggable={false}
+                      nodesConnectable={false}
+                    >
+                      <Background gap={20} size={1} />
+                      <MiniMap pannable zoomable />
+                      <Controls showInteractive={false} />
+                    </ReactFlow>
                   </div>
                 </div>
                 <EventsPanel events={allEvents} />

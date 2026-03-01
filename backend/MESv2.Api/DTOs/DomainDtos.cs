@@ -97,6 +97,7 @@ public class DefectLocationDto
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public List<Guid> CharacteristicIds { get; set; } = new();
 }
 
 public class CharacteristicDto

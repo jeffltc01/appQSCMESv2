@@ -89,6 +89,25 @@ public class DefectLocationConfiguration : IEntityTypeConfiguration<DefectLocati
     }
 }
 
+public class DefectLocationCharacteristicConfiguration : IEntityTypeConfiguration<DefectLocationCharacteristic>
+{
+    public void Configure(EntityTypeBuilder<DefectLocationCharacteristic> builder)
+    {
+        builder.HasOne(dlc => dlc.DefectLocation)
+            .WithMany(dl => dl.DefectLocationCharacteristics)
+            .HasForeignKey(dlc => dlc.DefectLocationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(dlc => dlc.Characteristic)
+            .WithMany(c => c.DefectLocationCharacteristics)
+            .HasForeignKey(dlc => dlc.CharacteristicId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(dlc => new { dlc.DefectLocationId, dlc.CharacteristicId })
+            .IsUnique();
+    }
+}
+
 public class DefectLogConfiguration : IEntityTypeConfiguration<DefectLog>
 {
     public void Configure(EntityTypeBuilder<DefectLog> builder)
