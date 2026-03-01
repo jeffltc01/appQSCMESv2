@@ -4,7 +4,7 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { MaterialQueueItem, HeadLotInfo } from '../../types/domain.ts';
-import { serialNumberApi, materialQueueApi, workCenterApi, assemblyApi } from '../../api/endpoints.ts';
+import { serialNumberApi, materialQueueApi, workCenterApi, assemblyApi, adminPlantGearApi } from '../../api/endpoints.ts';
 import styles from './FitupScreen.module.css';
 
 function shellCountForSize(tankSize: number): number {
@@ -98,13 +98,28 @@ export function FitupScreen(props: WorkCenterProps) {
   const [alphaTimer, setAlphaTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [headsQueue, setHeadsQueue] = useState<MaterialQueueItem[]>([]);
   const [manualSerial, setManualSerial] = useState('');
+  const [nextAssemblyCode, setNextAssemblyCode] = useState<string | null>(null);
 
   const [reassemblyPrompt, setReassemblyPrompt] = useState<ReassemblyPromptState | null>(null);
   const [reassemblyMode, setReassemblyMode] = useState<ReassemblyModeState | null>(null);
 
+  const refreshNextAssemblyCode = useCallback(async () => {
+    try {
+      const plants = await adminPlantGearApi.getAll();
+      const currentPlant = plants.find((p) => p.plantId === props.plantId);
+      setNextAssemblyCode(currentPlant?.nextTankAlphaCode ?? null);
+    } catch {
+      setNextAssemblyCode(null);
+    }
+  }, [props.plantId]);
+
   useEffect(() => {
     loadHeadsQueue();
   }, [workCenterId]);
+
+  useEffect(() => {
+    refreshNextAssemblyCode();
+  }, [refreshNextAssemblyCode]);
 
   const loadHeadsQueue = useCallback(async () => {
     try {
@@ -113,12 +128,15 @@ export function FitupScreen(props: WorkCenterProps) {
     } catch { /* keep stale */ }
   }, [workCenterId, productionLineId]);
 
-  const resetAssembly = useCallback(() => {
+  const resetAssembly = useCallback((options?: { preserveHeads?: boolean }) => {
+    const preserveHeads = options?.preserveHeads ?? false;
     setTankSize(0);
     setShells([]);
-    setLeftHead(null);
-    setRightHead(null);
-    setHeadScanCount(0);
+    if (!preserveHeads) {
+      setLeftHead(null);
+      setRightHead(null);
+      setHeadScanCount(0);
+    }
     setReassemblyPrompt(null);
     setReassemblyMode(null);
     if (alphaTimer) clearTimeout(alphaTimer);
@@ -140,7 +158,7 @@ export function FitupScreen(props: WorkCenterProps) {
   const addShell = useCallback(
     async (serial: string) => {
       if (alphaCode) {
-        resetAssembly();
+        resetAssembly({ preserveHeads: true });
       }
 
       try {
@@ -199,6 +217,9 @@ export function FitupScreen(props: WorkCenterProps) {
           cardColor: data.cardColor,
           tankSize: data.tankSize,
         };
+        if (tankSize === 0 && typeof lot.tankSize === 'number' && lot.tankSize > 0) {
+          updateTankSize(lot.tankSize);
+        }
         if (headScanCount === 0) {
           setLeftHead(lot);
           setRightHead(lot);
@@ -213,7 +234,7 @@ export function FitupScreen(props: WorkCenterProps) {
         showScanResult({ type: 'error', message: 'Kanban card not found or not associated with any queued material' });
       }
     },
-    [headScanCount, productionLineId, showScanResult, workCenterId],
+    [headScanCount, productionLineId, showScanResult, tankSize, updateTankSize, workCenterId],
   );
 
   const swapHeads = useCallback(() => {
@@ -263,14 +284,15 @@ export function FitupScreen(props: WorkCenterProps) {
       setAlphaCode(resp.alphaCode);
       showScanResult({ type: 'success', message: `Assembly ${resp.alphaCode} saved` });
       refreshHistory();
+      refreshNextAssemblyCode();
 
-      const timer = setTimeout(resetAssembly, 30000);
+      const timer = setTimeout(() => resetAssembly({ preserveHeads: true }), 30000);
       setAlphaTimer(timer);
     } catch (err: any) {
       const msg = err?.body ?? err?.message ?? 'Failed to save assembly. Please try again.';
       showScanResult({ type: 'error', message: typeof msg === 'string' ? msg : 'Failed to save assembly. Please try again.' });
     }
-  }, [shells, leftHead, rightHead, tankSize, workCenterId, assetId, productionLineId, operatorId, welders, showScanResult, refreshHistory, resetAssembly]);
+  }, [shells, leftHead, rightHead, tankSize, workCenterId, assetId, productionLineId, operatorId, welders, showScanResult, refreshHistory, refreshNextAssemblyCode, resetAssembly]);
 
   const enterReassemblyMode = useCallback((prompt: ReassemblyPromptState) => {
     const source: ReassemblyAssemblyDraft = {
@@ -306,7 +328,8 @@ export function FitupScreen(props: WorkCenterProps) {
       return null;
     });
     setReassemblyPrompt(null);
-  }, [props]);
+    refreshNextAssemblyCode();
+  }, [props, refreshNextAssemblyCode]);
 
   const setSplitDraft = useCallback((mode: ReassemblyModeState, splitKind: 'two-left' | 'two-right' | 'three-12' | 'three-23') => {
     const source = cloneDraft(mode.source);
@@ -522,7 +545,8 @@ export function FitupScreen(props: WorkCenterProps) {
         message: `Reassembly saved: ${response.createdAssemblies.map((a) => a.alphaCode).join(', ')}`,
       });
       refreshHistory();
-      const timer = setTimeout(resetAssembly, 30000);
+      refreshNextAssemblyCode();
+      const timer = setTimeout(() => resetAssembly({ preserveHeads: true }), 30000);
       setAlphaTimer(timer);
     } catch (err: any) {
       const msg = err?.body ?? err?.message ?? 'Failed to save reassembly. Please try again.';
@@ -531,8 +555,12 @@ export function FitupScreen(props: WorkCenterProps) {
   }, [
     reassemblyMode, hasReassemblyChanges, validateReassemblyDraft, showScanResult,
     workCenterId, assetId, productionLineId, operatorId, welders,
-    refreshHistory, resetAssembly, props,
+    refreshHistory, refreshNextAssemblyCode, resetAssembly, props,
   ]);
+
+  const canShowSplitActions = reassemblyMode
+    ? reassemblyMode.source.tankSize > 500 && reassemblyMode.source.shells.length >= 2
+    : false;
 
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
@@ -542,10 +570,14 @@ export function FitupScreen(props: WorkCenterProps) {
       }
 
       if (alphaCode) {
-        resetAssembly();
+        resetAssembly({ preserveHeads: true });
         if (bc.prefix === 'SC') {
           const { serialNumber: serial } = parseShellLabel(bc.value);
           addShell(serial);
+          return;
+        }
+        if (bc.prefix === 'KC') {
+          applyHeadLot(bc.value);
         }
         return;
       }
@@ -695,6 +727,8 @@ export function FitupScreen(props: WorkCenterProps) {
     };
   })();
 
+  const hasAssemblyStarted = shells.some((s) => s.filled) || !!leftHead || !!rightHead;
+
   if (alphaCode) {
     return (
       <div className={styles.alphaDisplay}>
@@ -702,9 +736,8 @@ export function FitupScreen(props: WorkCenterProps) {
           {alphaCode}
           {shells.length > 0 && <span className={styles.alphaShells}> ({shells.map((s) => s.serial).join(', ')})</span>}
         </span>
-        <span className={styles.alphaHint}>Write this on the assembly</span>
         {!props.externalInput && (
-          <Button appearance="subtle" size="large" onClick={resetAssembly} style={{ marginTop: '1rem' }}>
+          <Button appearance="subtle" size="large" onClick={() => resetAssembly({ preserveHeads: true })} style={{ marginTop: '1rem' }}>
             Next Assembly
           </Button>
         )}
@@ -723,28 +756,36 @@ export function FitupScreen(props: WorkCenterProps) {
       )}
 
       <div className={styles.tankSizeDisplay}>
-        <Label>Tank Size:</Label>
-        {!props.externalInput ? (
-          <Dropdown
-            value={tankSize ? String(tankSize) : ''}
-            selectedOptions={tankSize ? [String(tankSize)] : []}
-            onOptionSelect={(_: unknown, d: OptionOnSelectData) => {
-              if (d.optionValue) updateTankSize(parseInt(d.optionValue, 10));
-            }}
-            className={styles.tankDropdown}
-          >
-            {[120, 250, 320, 500, 1000, 1500].map((s) => (
-              <Option key={s} value={String(s)}>{String(s)}</Option>
-            ))}
-          </Dropdown>
-        ) : (
-          <span className={styles.tankValue}>{tankSize || '—'}</span>
+        <div className={styles.metricPair}>
+          <Label>Tank Size:</Label>
+          {!props.externalInput ? (
+            <Dropdown
+              value={tankSize ? String(tankSize) : ''}
+              selectedOptions={tankSize ? [String(tankSize)] : []}
+              onOptionSelect={(_: unknown, d: OptionOnSelectData) => {
+                if (d.optionValue) updateTankSize(parseInt(d.optionValue, 10));
+              }}
+              className={styles.tankDropdown}
+            >
+              {[120, 250, 320, 500, 1000, 1500].map((s) => (
+                <Option key={s} value={String(s)}>{String(s)}</Option>
+              ))}
+            </Dropdown>
+          ) : (
+            <span className={styles.tankValue}>{tankSize || '—'}</span>
+          )}
+        </div>
+        {hasAssemblyStarted && (
+          <div className={styles.metricPair}>
+            <Label>Building Assembly:</Label>
+            <span className={styles.tankValue}>{nextAssemblyCode ?? '—'}</span>
+          </div>
         )}
       </div>
 
       {!props.externalInput && !reassemblyMode && (
         <div className={styles.topRow}>
-          <Button appearance="secondary" size="medium" onClick={resetAssembly}>Reset</Button>
+          <Button appearance="secondary" size="medium" onClick={() => resetAssembly()}>Reset</Button>
           <Button
             appearance="primary" size="medium" onClick={saveAssembly}
             disabled={!shells.every((s) => s.filled) || shells.length === 0 || !leftHead || isComponentMismatch(tankSize, leftHead?.tankSize) || isComponentMismatch(tankSize, rightHead?.tankSize) || shells.some((s) => s.filled && isComponentMismatch(tankSize, s.tankSize))}
@@ -771,48 +812,54 @@ export function FitupScreen(props: WorkCenterProps) {
               <strong>Current Assembly ({reassemblyMode.sourceAlphaCode})</strong>
             </div>
             <div className={styles.promptButtons}>
-              <Button
-                appearance="secondary"
-                onClick={() => {
-                  if (reassemblyMode.source.shells.length === 2) setSplitDraft(reassemblyMode, 'two-left');
-                }}
-                disabled={reassemblyMode.source.shells.length !== 2}
-              >
-                Split Keep Left
-              </Button>
-              <Button
-                appearance="secondary"
-                onClick={() => {
-                  if (reassemblyMode.source.shells.length === 2) setSplitDraft(reassemblyMode, 'two-right');
-                }}
-                disabled={reassemblyMode.source.shells.length !== 2}
-              >
-                Split Keep Right
-              </Button>
-              <Button
-                appearance="secondary"
-                onClick={() => {
-                  if (reassemblyMode.source.shells.length === 3) setSplitDraft(reassemblyMode, 'three-12');
-                }}
-                disabled={reassemblyMode.source.shells.length !== 3}
-              >
-                Split S1|S2
-              </Button>
-              <Button
-                appearance="secondary"
-                onClick={() => {
-                  if (reassemblyMode.source.shells.length === 3) setSplitDraft(reassemblyMode, 'three-23');
-                }}
-                disabled={reassemblyMode.source.shells.length !== 3}
-              >
-                Split S2|S3
-              </Button>
-              <Button
-                appearance="subtle"
-                onClick={() => setReassemblyMode({ ...reassemblyMode, operationType: 'replace', secondary: null })}
-              >
-                Replace Mode
-              </Button>
+              {canShowSplitActions && (
+                <>
+                  <Button
+                    appearance="secondary"
+                    onClick={() => {
+                      if (reassemblyMode.source.shells.length === 2) setSplitDraft(reassemblyMode, 'two-left');
+                    }}
+                    disabled={reassemblyMode.source.shells.length !== 2}
+                  >
+                    Split Keep Left
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    onClick={() => {
+                      if (reassemblyMode.source.shells.length === 2) setSplitDraft(reassemblyMode, 'two-right');
+                    }}
+                    disabled={reassemblyMode.source.shells.length !== 2}
+                  >
+                    Split Keep Right
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    onClick={() => {
+                      if (reassemblyMode.source.shells.length === 3) setSplitDraft(reassemblyMode, 'three-12');
+                    }}
+                    disabled={reassemblyMode.source.shells.length !== 3}
+                  >
+                    Split S1|S2
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    onClick={() => {
+                      if (reassemblyMode.source.shells.length === 3) setSplitDraft(reassemblyMode, 'three-23');
+                    }}
+                    disabled={reassemblyMode.source.shells.length !== 3}
+                  >
+                    Split S2|S3
+                  </Button>
+                </>
+              )}
+              {canShowSplitActions && (
+                <Button
+                  appearance="subtle"
+                  onClick={() => setReassemblyMode({ ...reassemblyMode, operationType: 'replace', secondary: null })}
+                >
+                  Replace Mode
+                </Button>
+              )}
             </div>
           </div>
 
@@ -966,6 +1013,9 @@ export function FitupScreen(props: WorkCenterProps) {
           <div key={idx} className={styles.shellSlot}>
             <span className={styles.slotLabel}>Shell {idx + 1}</span>
             <div className={`${styles.slotBox} ${shell.filled ? (isComponentMismatch(tankSize, shell.tankSize) ? styles.headMismatch : styles.filled) : ''}`}>
+              {shell.filled && !isComponentMismatch(tankSize, shell.tankSize) && (
+                <span className={styles.goodCheckMark} aria-label="Shell good">✓</span>
+              )}
               {shell.filled ? (
                 <span className={styles.slotInfo}>{shell.serial}</span>
               ) : (

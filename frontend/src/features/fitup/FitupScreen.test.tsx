@@ -19,9 +19,12 @@ vi.mock('../../api/endpoints', () => ({
     create: vi.fn(),
     reassemble: vi.fn(),
   },
+  adminPlantGearApi: {
+    getAll: vi.fn().mockResolvedValue([]),
+  },
 }));
 
-const { serialNumberApi, materialQueueApi, assemblyApi, workCenterApi } = await import('../../api/endpoints');
+const { serialNumberApi, materialQueueApi, assemblyApi, workCenterApi, adminPlantGearApi } = await import('../../api/endpoints');
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
@@ -58,6 +61,7 @@ describe('FitupScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([]);
+    vi.mocked(adminPlantGearApi.getAll).mockResolvedValue([]);
   });
 
   it('duplicate shell scan enters reassembly prompt', async () => {
@@ -179,10 +183,10 @@ describe('FitupScreen', () => {
   it('split mode sends secondary assembly payload', async () => {
     vi.mocked(serialNumberApi.getContext).mockResolvedValue({
       serialNumber: 'SH001',
-      tankSize: 120,
+      tankSize: 1000,
       existingAssembly: {
         alphaCode: 'AB',
-        tankSize: 120,
+        tankSize: 1000,
         shells: ['SH001', 'SH002'],
       },
     });
@@ -206,6 +210,7 @@ describe('FitupScreen', () => {
       handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
     });
 
+    expect(screen.getByRole('button', { name: /replace mode/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /split keep left/i }));
     await userEvent.click(screen.getByRole('button', { name: /create reassembly/i }));
 
@@ -216,6 +221,36 @@ describe('FitupScreen', () => {
         secondaryAssembly: expect.objectContaining({ shells: ['SH002'] }),
       }),
     ));
+  });
+
+  it('hides split controls for 500 gallon and under reassembly', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 500,
+      existingAssembly: {
+        alphaCode: 'AB',
+        tankSize: 500,
+        shells: ['SH001'],
+      },
+    });
+
+    const { props } = renderFitup();
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await waitFor(() => expect(serialNumberApi.getContext).toHaveBeenCalled());
+    await act(async () => {
+      handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    });
+
+    expect(screen.queryByRole('button', { name: /split keep left/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /split keep right/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /split s1\|s2/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /split s2\|s3/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /replace mode/i })).not.toBeInTheDocument();
   });
 
   it('reset scan clears selected heads', async () => {
@@ -249,5 +284,319 @@ describe('FitupScreen', () => {
     });
 
     await waitFor(() => expect(screen.getAllByText('Scan KC').length).toBeGreaterThan(0));
+  });
+
+  it('keeps selected heads after save when starting next assembly', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([
+      {
+        id: 'mq-1',
+        position: 1,
+        status: 'queued',
+        cardId: '03',
+        cardColor: 'Red',
+        productDescription: 'Head Material',
+        shellSize: '120',
+        heatNumber: 'HEAT01',
+        coilNumber: 'COIL01',
+        lotNumber: 'LOT01',
+        quantity: 1,
+        quantityCompleted: 0,
+      },
+    ]);
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 120,
+    });
+    vi.mocked(assemblyApi.create).mockResolvedValue({
+      id: 'assembly-1',
+      alphaCode: 'AB',
+      timestamp: new Date().toISOString(),
+    });
+
+    renderFitup({ externalInput: false });
+
+    const shellInput = screen.getByPlaceholderText(/shell serial number/i);
+    await userEvent.type(shellInput, 'SH001');
+    await userEvent.click(screen.getByRole('button', { name: /add shell/i }));
+
+    const headQueueCard = screen.getByRole('button', { name: /card/i });
+    await userEvent.click(headQueueCard);
+
+    await waitFor(() => {
+      expect(screen.queryAllByText('Scan KC')).toHaveLength(0);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(screen.getByText('AB')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /next assembly/i }));
+
+    await waitFor(() => {
+      expect(screen.queryAllByText('Scan KC')).toHaveLength(0);
+    });
+  });
+
+  it('refreshes Building Assembly code after save and next assembly', async () => {
+    vi.mocked(adminPlantGearApi.getAll)
+      .mockResolvedValueOnce([
+        {
+          plantId: 'plant-1',
+          plantName: 'Plant 1',
+          plantCode: '000',
+          nextTankAlphaCode: 'DD',
+          gears: [],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          plantId: 'plant-1',
+          plantName: 'Plant 1',
+          plantCode: '000',
+          nextTankAlphaCode: 'DE',
+          gears: [],
+        },
+      ]);
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 500,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 500,
+    });
+    vi.mocked(assemblyApi.create).mockResolvedValue({
+      id: 'assembly-1',
+      alphaCode: 'DD',
+      timestamp: new Date().toISOString(),
+    });
+
+    const { props } = renderFitup({ externalInput: false });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+    await act(async () => {
+      handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    });
+
+    await waitFor(() => expect(screen.getByText('DD')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: /next assembly/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Building Assembly:')).toBeInTheDocument();
+      expect(screen.getByText('DE')).toBeInTheDocument();
+    });
+  });
+
+  it('accepts head scan as first scan after save screen', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 120,
+    });
+    vi.mocked(assemblyApi.create).mockResolvedValue({
+      id: 'assembly-1',
+      alphaCode: 'AB',
+      timestamp: new Date().toISOString(),
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+    await act(async () => {
+      handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    });
+
+    await waitFor(() => expect(screen.getByText('AB')).toBeInTheDocument());
+
+    await act(async () => {
+      handler({ prefix: 'KC', value: '04', raw: 'KC;04' }, 'KC;04');
+    });
+
+    await waitFor(() => {
+      expect(materialQueueApi.getCardLookup).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('accepts shell scan as first scan after save screen', async () => {
+    vi.mocked(serialNumberApi.getContext)
+      .mockResolvedValueOnce({
+        serialNumber: 'SH001',
+        tankSize: 120,
+      })
+      .mockResolvedValueOnce({
+        serialNumber: 'SH002',
+        tankSize: 120,
+      });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 120,
+    });
+    vi.mocked(assemblyApi.create).mockResolvedValue({
+      id: 'assembly-1',
+      alphaCode: 'AB',
+      timestamp: new Date().toISOString(),
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+    await act(async () => {
+      handler({ prefix: 'INP', value: '3', raw: 'INP;3' }, 'INP;3');
+    });
+
+    await waitFor(() => expect(screen.getByText('AB')).toBeInTheDocument());
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH002', raw: 'SC;SH002' }, 'SC;SH002');
+    });
+
+    await waitFor(() => {
+      expect(serialNumberApi.getContext).toHaveBeenCalledTimes(2);
+      expect(serialNumberApi.getContext).toHaveBeenLastCalledWith('SH002');
+    });
+  });
+
+  it('defaults tank size from head card only when empty', async () => {
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 500,
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('500')).toBeInTheDocument();
+    });
+  });
+
+  it('does not overwrite existing tank size when selecting head card', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 500,
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await waitFor(() => expect(screen.getByText('120')).toBeInTheDocument());
+
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('120')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('500')).not.toBeInTheDocument();
+  });
+
+  it('shows green check marker for valid shell slot', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Shell good')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Building Assembly next alpha after scan starts', async () => {
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 500,
+    });
+    vi.mocked(adminPlantGearApi.getAll).mockResolvedValue([
+      {
+        plantId: 'plant-1',
+        plantName: 'Plant 1',
+        plantCode: '000',
+        nextTankAlphaCode: 'BG',
+        gears: [],
+      },
+    ]);
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Building Assembly:')).toBeInTheDocument();
+      expect(screen.getByText('BG')).toBeInTheDocument();
+    });
   });
 });
