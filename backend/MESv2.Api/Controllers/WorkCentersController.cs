@@ -39,9 +39,12 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] string? date = null, [FromQuery] int limit = 5, [FromQuery] Guid? assetId = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<WCHistoryDto>> GetHistory(Guid id, [FromQuery] Guid plantId, [FromQuery] Guid productionLineId, [FromQuery] string? date = null, [FromQuery] int limit = 5, [FromQuery] Guid? assetId = null, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetHistoryAsync(id, plantId, date, limit, assetId, cancellationToken);
+        if (productionLineId == Guid.Empty)
+            return BadRequest(new { message = "productionLineId is required." });
+
+        var result = await _workCenterService.GetHistoryAsync(id, plantId, productionLineId, date, limit, assetId, cancellationToken);
         return Ok(result);
     }
 
@@ -53,16 +56,16 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/material-queue")]
-    public async Task<ActionResult<IEnumerable<MaterialQueueItemDto>>> GetMaterialQueue(Guid id, [FromQuery] string? type, CancellationToken cancellationToken)
+    public async Task<ActionResult<IEnumerable<MaterialQueueItemDto>>> GetMaterialQueue(Guid id, [FromQuery] string? type, [FromQuery] Guid? productionLineId, CancellationToken cancellationToken)
     {
-        var list = await _workCenterService.GetMaterialQueueAsync(id, type, cancellationToken);
+        var list = await _workCenterService.GetMaterialQueueAsync(id, type, productionLineId, cancellationToken);
         return Ok(list);
     }
 
     [HttpPost("{id:guid}/queue/advance")]
-    public async Task<ActionResult<QueueAdvanceResponseDto>> AdvanceQueue(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<QueueAdvanceResponseDto>> AdvanceQueue(Guid id, [FromQuery] Guid? productionLineId, CancellationToken cancellationToken)
     {
-        var result = await _workCenterService.AdvanceQueueAsync(id, cancellationToken);
+        var result = await _workCenterService.AdvanceQueueAsync(id, productionLineId, cancellationToken);
         if (result == null)
             return NotFound();
         return Ok(result);

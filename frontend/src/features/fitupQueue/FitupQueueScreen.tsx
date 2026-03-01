@@ -52,10 +52,10 @@ export function FitupQueueScreen(props: WorkCenterProps) {
 
   const loadQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(targetWCId, 'fitup');
+      const items = await workCenterApi.getMaterialQueue(targetWCId, 'fitup', productionLineId);
       setQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
-  }, [targetWCId]);
+  }, [targetWCId, productionLineId]);
 
   const loadLookups = useCallback(async () => {
     try {

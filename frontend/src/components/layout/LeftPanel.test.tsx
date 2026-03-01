@@ -41,7 +41,6 @@ const EXPECTED_LABELS = [
   'Maintenance Request',
   'Tablet Setup',
   'Schedule',
-  'Report Issue',
   'Settings',
   'Logout',
 ];
@@ -70,18 +69,26 @@ describe('LeftPanel', () => {
   it('disables buttons when externalInput is true', () => {
     setUser(5);
     renderLeftPanel({ externalInput: true });
-    for (const label of EXPECTED_LABELS) {
-      expect(screen.getByRole('button', { name: label })).toBeDisabled();
-    }
+    expect(screen.getByRole('button', { name: 'Maintenance Request' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Schedule' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Logout' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Tablet Setup' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
-  it('disables Tablet Setup and Settings in kiosk mode', () => {
+  it('hides Tablet Setup and Settings in kiosk mode', () => {
     setUser(6);
     renderLeftPanel({ kioskMode: true });
-    expect(screen.getByRole('button', { name: 'Tablet Setup' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Settings' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Tablet Setup' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Maintenance Request' })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: 'Logout' })).not.toBeDisabled();
+  });
+
+  it('hides schedule button when disabled by work center type', () => {
+    setUser(6);
+    renderLeftPanel({ showScheduleButton: false });
+    expect(screen.queryByRole('button', { name: 'Schedule' })).not.toBeInTheDocument();
   });
 
   it('renders checklist button when enabled by config', () => {

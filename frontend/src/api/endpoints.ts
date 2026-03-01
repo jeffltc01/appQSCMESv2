@@ -191,16 +191,21 @@ export const workCenterApi = {
     api.get<WorkCenter[]>('/workcenters'),
   lookupWelder: (wcId: string, empNo: string) =>
     api.get<Welder>(`/workcenters/${wcId}/welders/lookup?empNo=${encodeURIComponent(empNo)}`),
-  getHistory: (wcId: string, date: string, plantId: string, assetId?: string) =>
-    api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&date=${date}&limit=5${assetId ? `&assetId=${assetId}` : ''}`),
+  getHistory: (wcId: string, date: string, plantId: string, productionLineId: string, assetId?: string) =>
+    api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&productionLineId=${encodeURIComponent(productionLineId)}&date=${date}&limit=5${assetId ? `&assetId=${assetId}` : ''}`),
   getQueueTransactions: (wcId: string, plantId?: string, limit = 5, action?: string) =>
     api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}${plantId ? `&plantId=${plantId}` : ''}${action ? `&action=${action}` : ''}`),
-  getMaterialQueue: (wcId: string, type?: string) =>
-    api.get<MaterialQueueItem[]>(
-      `/workcenters/${wcId}/material-queue${type ? `?type=${type}` : ''}`,
+  getMaterialQueue: (wcId: string, type?: string, productionLineId?: string) => {
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    if (productionLineId) params.set('productionLineId', productionLineId);
+    const qs = params.toString();
+    return api.get<MaterialQueueItem[]>(`/workcenters/${wcId}/material-queue${qs ? `?${qs}` : ''}`);
+  },
+  advanceQueue: (wcId: string, productionLineId?: string) =>
+    api.post<QueueAdvanceResponse>(
+      `/workcenters/${wcId}/queue/advance${productionLineId ? `?productionLineId=${encodeURIComponent(productionLineId)}` : ''}`,
     ),
-  advanceQueue: (wcId: string) =>
-    api.post<QueueAdvanceResponse>(`/workcenters/${wcId}/queue/advance`),
   reportFault: (wcId: string, description: string) =>
     api.post<void>(`/workcenters/${wcId}/faults`, { description }),
   getDefectCodes: (wcId: string) =>

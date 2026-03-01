@@ -5,11 +5,20 @@ import { MemoryRouter } from 'react-router-dom';
 import { WCHistory } from './WCHistory';
 import type { WCHistoryEntry } from '../../types/domain';
 
+const mockUseAuth = vi.fn();
+const mockNavigate = vi.fn();
+
 vi.mock('../../auth/AuthContext.tsx', () => ({
-  useAuth: () => ({
-    user: { plantTimeZoneId: 'America/Denver' },
-  }),
+  useAuth: () => mockUseAuth(),
 }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock('../../api/endpoints', () => ({
   adminAnnotationTypeApi: {
@@ -41,6 +50,10 @@ function renderWCHistory(props: Parameters<typeof WCHistory>[0]) {
 }
 
 describe('WCHistory', () => {
+  mockUseAuth.mockReturnValue({
+    user: { plantTimeZoneId: 'America/Denver', roleTier: 6 },
+  });
+
   it('shows history title', () => {
     renderWCHistory({ data: { dayCount: 0, recentRecords: [] } });
     expect(screen.getByText('Last 5 Transactions')).toBeInTheDocument();
@@ -49,6 +62,16 @@ describe('WCHistory', () => {
   it('does not display day count header text', () => {
     renderWCHistory({ data: { dayCount: 42, recentRecords: [] } });
     expect(screen.queryByText(/Today's Count:/)).not.toBeInTheDocument();
+  });
+
+  it('shows timezone code in date/time header', () => {
+    renderWCHistory({
+      data: {
+        dayCount: 1,
+        recentRecords: [makeRecord({ id: '1' })],
+      },
+    });
+    expect(screen.getByText(/Date\/Time \(.+\)/)).toBeInTheDocument();
   });
 
   it('shows "No History Found" when empty', () => {
@@ -89,7 +112,7 @@ describe('WCHistory', () => {
     expect(flagSvg!.style.color).toBe('rgb(255, 0, 0)');
   });
 
-  it('renders muted flag when no annotation exists', () => {
+  it('renders filled black flag when no annotation exists', () => {
     const { container } = renderWCHistory({
       data: {
         dayCount: 1,
@@ -100,7 +123,7 @@ describe('WCHistory', () => {
     });
     const flagSvg = container.querySelector('svg');
     expect(flagSvg).not.toBeNull();
-    expect(flagSvg!.style.color).not.toBe('rgb(255, 0, 0)');
+    expect(getComputedStyle(flagSvg!).color).toBe('rgb(0, 0, 0)');
   });
 
   it('shows screen-specific log CTA when logCta is provided and external input is off', () => {
@@ -141,6 +164,34 @@ describe('WCHistory', () => {
     const lastHistoryItem = screen.getByText('SH001');
     const logButton = screen.getByRole('button', { name: 'View Rolls Log' });
     expect(lastHistoryItem.compareDocumentPosition(logButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('routes log CTA to operator logs path for kiosk users', async () => {
+    const user = userEvent.setup();
+    mockUseAuth.mockReturnValue({
+      user: { plantTimeZoneId: 'America/Denver', roleTier: 6 },
+    });
+    renderWCHistory({
+      data: { dayCount: 0, recentRecords: [] },
+      logCta: { label: 'View Rolls Log', logType: 'rolls' },
+      externalInput: false,
+    });
+    await user.click(screen.getByRole('button', { name: 'View Rolls Log' }));
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/operator/production-logs?logType=rolls'));
+  });
+
+  it('routes log CTA to menu logs path for non-kiosk users', async () => {
+    const user = userEvent.setup();
+    mockUseAuth.mockReturnValue({
+      user: { plantTimeZoneId: 'America/Denver', roleTier: 5 },
+    });
+    renderWCHistory({
+      data: { dayCount: 0, recentRecords: [] },
+      logCta: { label: 'View Rolls Log', logType: 'rolls' },
+      externalInput: false,
+    });
+    await user.click(screen.getByRole('button', { name: 'View Rolls Log' }));
+    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/menu/production-logs?logType=rolls'));
   });
 
   it('renders flag as a clickable button with aria-label', () => {

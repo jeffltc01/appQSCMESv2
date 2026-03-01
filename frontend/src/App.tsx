@@ -8,6 +8,7 @@ import { TabletSetupScreen } from './components/tabletSetup/TabletSetupScreen.ts
 import { OperatorLayout } from './components/layout/OperatorLayout.tsx';
 import { MenuScreen } from './features/menu/MenuScreen.tsx';
 import { AdminRoutes } from './features/admin/AdminRoutes.tsx';
+import { ProductionLogsScreen } from './features/admin/ProductionLogsScreen.tsx';
 import { MobileRoutes } from './features/mobile/MobileRoutes.tsx';
 import { useIsPhoneViewport } from './hooks/useIsPhoneViewport.ts';
 import { reportTelemetry } from './telemetry/telemetryClient.ts';
@@ -63,6 +64,10 @@ export function App() {
       <Route
         path="/operator/*"
         element={isPhone && kioskMode ? <Navigate to="/mobile/operator-quick-actions" replace /> : <OperatorLayout />}
+      />
+      <Route
+        path="/operator/production-logs"
+        element={isPhone && kioskMode ? <Navigate to="/mobile/operator-quick-actions" replace /> : <ProductionLogsScreen />}
       />
       <Route path="/mobile/*" element={<MobileRoutes />} />
       <Route

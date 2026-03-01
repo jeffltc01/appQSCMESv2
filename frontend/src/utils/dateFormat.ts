@@ -23,6 +23,21 @@ function tzOpts(tz?: string): TzOption {
   return normalized ? { timeZone: normalized } : {};
 }
 
+/** Timezone short code for a specific instant (e.g. "CST", "CDT", "UTC"). */
+export function getTimeZoneCode(dateLike: Date | string, tz?: string): string {
+  try {
+    const date = typeof dateLike === 'string' ? new Date(dateLike) : dateLike;
+    const parts = new Intl.DateTimeFormat(LOCALE, {
+      ...tzOpts(tz),
+      timeZoneName: 'short',
+    }).formatToParts(date);
+    const tzPart = parts.find((part) => part.type === 'timeZoneName')?.value?.trim();
+    return tzPart || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 /** Full date + time: "2/22/2026, 3:45:12 PM" */
 export function formatDateTime(iso: string, tz?: string): string {
   try {

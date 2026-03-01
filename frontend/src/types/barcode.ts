@@ -60,6 +60,21 @@ export function parseShellLabel(value: string): ShellLabelParsed {
   return { serialNumber: value, labelSuffix: null };
 }
 
+export function normalizeShellSerialInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  const hasShellPrefix = /^SC;/i.test(trimmed);
+  const valueWithoutPrefix = hasShellPrefix ? trimmed.slice(3) : trimmed;
+  const hasLabelSuffix = /\/L[12]$/i.test(valueWithoutPrefix);
+
+  if (hasShellPrefix || hasLabelSuffix) {
+    return parseShellLabel(valueWithoutPrefix).serialNumber.trim();
+  }
+
+  return valueWithoutPrefix;
+}
+
 export function parseFullDefect(value: string): FullDefectParsed | null {
   const parts = value.split('-');
   if (parts.length !== 3) return null;

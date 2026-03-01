@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlagRegular, FlagFilled } from '@fluentui/react-icons';
+import { FlagFilled } from '@fluentui/react-icons';
+import { isOperatorKioskRole } from '../../auth/kioskPolicy.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import type { WCHistoryData, WCHistoryEntry } from '../../types/domain.ts';
-import { formatDateForInput, formatShortDateOnly, formatTimeOnly } from '../../utils/dateFormat.ts';
+import { formatDateForInput, formatShortDateOnly, formatTimeOnly, getTimeZoneCode } from '../../utils/dateFormat.ts';
 import { AnnotationDialog } from './AnnotationDialog.tsx';
 import styles from './WCHistory.module.css';
 
@@ -23,7 +24,10 @@ interface WCHistoryProps {
 export function WCHistory({ data, logCta, operatorId, externalInput = false, onAnnotationCreated }: WCHistoryProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const kioskMode = isOperatorKioskRole(user?.roleTier);
   const [dialogRecord, setDialogRecord] = useState<WCHistoryEntry | null>(null);
+  const headerInstant = data.recentRecords[0]?.timestamp ?? new Date();
+  const headerTzCode = getTimeZoneCode(headerInstant, user?.plantTimeZoneId);
 
   const handleFlagClick = (record: WCHistoryEntry) => {
     if (!operatorId) return;
@@ -45,7 +49,7 @@ export function WCHistory({ data, logCta, operatorId, externalInput = false, onA
 
       <div className={styles.tableHeader}>
         <span className={styles.colAnnot}>Annot</span>
-        <span className={styles.colDateTime}>Date/Time</span>
+        <span className={styles.colDateTime}>Date/Time ({headerTzCode})</span>
         <span className={styles.colSerial}>Shell Code / Serial No.</span>
         <span className={styles.colSize}>Size</span>
       </div>
@@ -66,7 +70,7 @@ export function WCHistory({ data, logCta, operatorId, externalInput = false, onA
                   >
                     {record.hasAnnotation
                       ? <FlagFilled fontSize={20} className={styles.flagActive} style={{ color: record.annotationColor ?? '#212529' }} />
-                      : <FlagRegular fontSize={20} className={styles.flagInactive} />}
+                      : <FlagFilled fontSize={20} className={styles.flagInactive} />}
                   </button>
                 </span>
                 <span className={styles.colDateTime}>
@@ -85,8 +89,9 @@ export function WCHistory({ data, logCta, operatorId, externalInput = false, onA
           className={styles.viewFullLogBtn}
           onClick={() => {
             const today = formatDateForInput(new Date());
+            const basePath = kioskMode ? '/operator/production-logs' : '/menu/production-logs';
             navigate(
-              `/menu/production-logs?logType=${logCta.logType}&startDate=${today}&endDate=${today}`,
+              `${basePath}?logType=${logCta.logType}&startDate=${today}&endDate=${today}`,
             );
           }}
           type="button"

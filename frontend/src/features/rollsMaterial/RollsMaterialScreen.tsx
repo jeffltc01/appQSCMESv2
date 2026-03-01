@@ -51,10 +51,10 @@ export function RollsMaterialScreen(props: WorkCenterProps) {
 
   const loadQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(targetWCId);
+      const items = await workCenterApi.getMaterialQueue(targetWCId, undefined, productionLineId);
       setQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
-  }, [targetWCId]);
+  }, [targetWCId, productionLineId]);
 
   const loadLookups = useCallback(async () => {
     try {

@@ -70,12 +70,77 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRoundSeamId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
         Assert.Equal(1, result.DayCount);
         Assert.Single(result.RecentRecords);
         Assert.Equal("AA (20301)", result.RecentRecords[0].SerialOrIdentifier);
         Assert.Equal(120, result.RecentRecords[0].TankSize);
+    }
+
+    /// <summary>
+    /// Rolls history must always show the shell serial, even if that shell
+    /// is later linked to an assembly alpha code downstream.
+    /// </summary>
+    [Fact]
+    public async Task Rolls_ShowsShellSerialEvenWhenAssemblyExists()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+
+        var shellSnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = shellSnId,
+            Serial = "0301101",
+            ProductId = shellProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        var assemblySnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = assemblySnId,
+            Serial = "AA",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shellSnId,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "ShellToAssembly",
+            Quantity = 1,
+            Timestamp = DateTime.UtcNow
+        });
+
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = shellSnId,
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null, limit: 10);
+
+        Assert.Single(result.RecentRecords);
+        Assert.Equal("0301101", result.RecentRecords[0].SerialOrIdentifier);
+        Assert.Equal(500, result.RecentRecords[0].TankSize);
     }
 
     /// <summary>
@@ -127,6 +192,7 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcFitupId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
         Assert.Equal(1, result.DayCount);
@@ -172,6 +238,7 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
         Assert.Single(result.RecentRecords);
@@ -217,6 +284,7 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
         Assert.Equal(1, result.DayCount);
@@ -266,6 +334,7 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
         Assert.Single(result.RecentRecords);
@@ -304,6 +373,7 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
         Assert.Single(result.RecentRecords);
@@ -312,11 +382,11 @@ public class WorkCenterServiceHistoryTests
     }
 
     /// <summary>
-    /// When production records are empty, the service falls through to
-    /// the inspection records path and returns those entries instead.
+    /// Last 5 Transactions is strict to the configured WorkCenter + ProductionLine (+ optional Asset).
+    /// If no production records exist in scope, the history should be empty.
     /// </summary>
     [Fact]
-    public async Task InspectionRecords_ReturnedWhenNoProductionRecords()
+    public async Task ReturnsEmpty_WhenNoProductionRecordsExistInScope()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
         var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
@@ -370,12 +440,11 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcLongSeamInspId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10);
 
-        Assert.Equal(1, result.DayCount);
-        Assert.Single(result.RecentRecords);
-        Assert.Equal("INSP-001", result.RecentRecords[0].SerialOrIdentifier);
-        Assert.Equal(120, result.RecentRecords[0].TankSize);
+        Assert.Equal(0, result.DayCount);
+        Assert.Empty(result.RecentRecords);
     }
 
     [Fact]
@@ -411,6 +480,7 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 3);
 
         Assert.Equal(5, result.DayCount);
@@ -458,10 +528,60 @@ public class WorkCenterServiceHistoryTests
 
         var result = await sut.GetHistoryAsync(
             TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null, limit: 10, assetId: TestHelpers.TestAssetId);
 
         Assert.Equal(1, result.DayCount);
         Assert.Single(result.RecentRecords);
         Assert.Equal("ASSET-A", result.RecentRecords[0].SerialOrIdentifier);
+    }
+
+    [Fact]
+    public async Task ProductionLineScope_ExcludesRecordsFromOtherLines()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var otherLineId = Guid.Parse("e2111111-1111-1111-1111-111111111111");
+
+        var snLine1 = Guid.NewGuid();
+        var snLine2 = Guid.NewGuid();
+        db.SerialNumbers.AddRange(
+            new SerialNumber { Id = snLine1, Serial = "LINE1", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow },
+            new SerialNumber { Id = snLine2, Serial = "LINE2", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow }
+        );
+
+        db.ProductionRecords.AddRange(
+            new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = snLine1,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+                OperatorId = TestHelpers.TestUserId,
+                Timestamp = DateTime.UtcNow
+            },
+            new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = snLine2,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = otherLineId,
+                OperatorId = TestHelpers.TestUserId,
+                Timestamp = DateTime.UtcNow
+            }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcRollsId,
+            TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null,
+            limit: 10);
+
+        Assert.Equal(1, result.DayCount);
+        Assert.Single(result.RecentRecords);
+        Assert.Equal("LINE1", result.RecentRecords[0].SerialOrIdentifier);
     }
 }

@@ -51,10 +51,10 @@ export function FitupScreen(props: WorkCenterProps) {
 
   const loadHeadsQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(workCenterId, 'fitup');
+      const items = await workCenterApi.getMaterialQueue(workCenterId, 'fitup', productionLineId);
       setHeadsQueue(items.filter((i) => i.status === 'queued'));
     } catch { /* keep stale */ }
-  }, [workCenterId]);
+  }, [workCenterId, productionLineId]);
 
   const resetAssembly = useCallback(() => {
     setTankSize(0);

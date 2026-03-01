@@ -170,6 +170,7 @@ export function OperatorLayout() {
   const AUTO_LOGOUT_MINUTES = 60;
   const DOWNTIME_CONFIG_FETCH_ERROR = 'Unable to load downtime reasons for this station. Check the connection and try again, then contact a Quality Manager if it persists.';
   const dataEntryType = cache?.cachedDataEntryType ?? '';
+  const showScheduleButton = dataEntryType.trim().toLowerCase() === 'rolls';
   const isQueueScreen = dataEntryType === 'MatQueue-Material' || dataEntryType === 'MatQueue-Fitup';
   const historyLogCta = dataEntryType === 'MatQueue-Shell'
     ? undefined
@@ -301,7 +302,13 @@ export function OperatorLayout() {
   const loadHistory = useCallback(async () => {
     if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;
     try {
-      const data = await workCenterApi.getHistory(cache.cachedWorkCenterId, '', user.defaultSiteId, cache.cachedAssetId || undefined);
+      const data = await workCenterApi.getHistory(
+        cache.cachedWorkCenterId,
+        '',
+        user.defaultSiteId,
+        cache.cachedProductionLineId,
+        cache.cachedAssetId || undefined,
+      );
       setHistoryData(data);
     } catch {
       // Keep stale data
@@ -724,6 +731,7 @@ export function OperatorLayout() {
           externalInput={externalInput}
           currentGearLevel={currentGearLevel}
           kioskMode={kioskMode}
+          showScheduleButton={showScheduleButton}
           showChecklistButton={checklistEnabled}
           onChecklistClick={() => {
             setSelectedChecklistType(null);

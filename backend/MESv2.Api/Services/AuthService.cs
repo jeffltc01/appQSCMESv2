@@ -62,7 +62,17 @@ public class AuthService : IAuthService
                 return null;
         }
 
-        var token = GenerateJwt(user);
+        var allowSiteSelection = user.RoleTier <= 2.0m;
+        if (!allowSiteSelection && siteId != user.DefaultSiteId)
+            return null;
+
+        var selectedSite = await _db.Plants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == siteId, cancellationToken);
+        if (selectedSite == null)
+            return null;
+
+        var token = GenerateJwt(user, selectedSite.Id);
         var userDto = new UserDto
         {
             Id = user.Id,
@@ -70,13 +80,13 @@ public class AuthService : IAuthService
             DisplayName = user.DisplayName,
             RoleTier = user.RoleTier,
             RoleName = user.RoleName,
-            DefaultSiteId = user.DefaultSiteId,
+            DefaultSiteId = selectedSite.Id,
             IsCertifiedWelder = user.IsCertifiedWelder,
             DemoMode = user.DemoMode,
             UserType = (int)user.UserType,
-            PlantCode = user.DefaultSite?.Code ?? string.Empty,
-            PlantName = user.DefaultSite?.Name ?? string.Empty,
-            PlantTimeZoneId = user.DefaultSite?.TimeZoneId ?? "America/Chicago"
+            PlantCode = selectedSite.Code,
+            PlantName = selectedSite.Name,
+            PlantTimeZoneId = selectedSite.TimeZoneId
         };
 
         return new LoginResultDto { Token = token, User = userDto };
@@ -102,7 +112,7 @@ public class AuthService : IAuthService
         return true;
     }
 
-    private string GenerateJwt(User user)
+    private string GenerateJwt(User user, Guid activeSiteId)
     {
         string key;
         if (_env.IsDevelopment())
@@ -120,7 +130,7 @@ public class AuthService : IAuthService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.DisplayName),
             new("employeeNumber", user.EmployeeNumber),
-            new("defaultSiteId", user.DefaultSiteId.ToString())
+            new("defaultSiteId", activeSiteId.ToString())
         };
 
         var issuer = _config["Jwt:Issuer"] ?? "MESv2";

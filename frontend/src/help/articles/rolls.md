@@ -19,29 +19,33 @@ When the External Input toggle in the bottom bar is Off, you can type a serial n
 
 ## Fields & Controls
 
-| Element | Description |
-|---|---|
-| **Scan Shell Label** | Manual serial number input (hidden when External Input is On). |
-| **Scan state indicator** | Shows the current step: "Advance the material queue to begin," "Scan Label 1," or "Scan Label 2." |
-| **Shell Count** | Shows how many shells have been rolled from the current material (e.g., "3 of 10"). |
-| **Shell Size** | The tank size for the active material. |
-| **Heat Number** | The steel heat number for traceability. |
-| **Coil Number** | The coil number for traceability. |
-| **Queue Quantity** | Total shells expected from this material queue entry. |
-| **Material Remaining** | How many shells are left before the material is consumed. |
-| **Material Queue** | A list of queued material entries below the data grid. Tap an entry to advance (manual mode) or use the Refresh button to reload. |
-| **Advance Queue prompt** | Appears when material remaining hits zero. Choose Yes to advance or No to stay on the current material. |
-| **Thickness Inspection prompt** | Appears after both labels match. Choose Pass or Fail. |
+
+| Element                         | Description                                                                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Shell Label**                 | Manual serial number input (hidden when External Input is On).                                                                    |
+| **Scan state indicator**        | Shows the current step: "Advance the material queue to begin," "Scan Label 1," or "Scan Label 2." The banner background is light in idle states and dark blue when an active scan action is expected. |
+| **Shell Count**                 | Shows how many shells have been rolled from the current material (e.g., "3 of 10").                                               |
+| **Shell Size**                  | The tank size for the active material.                                                                                            |
+| **Heat Number**                 | The steel heat number for traceability.                                                                                           |
+| **Coil Number**                 | The coil number for traceability.                                                                                                 |
+| **Queue Quantity**              | Total shells expected from this material queue entry.                                                                             |
+| **Material Remaining**          | How many shells are left before the material is consumed.                                                                         |
+| **Material Queue**              | A list of queued material entries below the data grid. Tap an entry to advance (manual mode) or use the Refresh button to reload. |
+| **Advance Queue prompt**        | Appears when material remaining hits zero. Choose Yes to advance or No to stay on the current material.                           |
+| **Thickness Inspection prompt** | Appears after both labels match. Choose Pass or Fail.                                                                             |
+
 
 ## Barcode Commands
 
-| Barcode | Action |
-|---|---|
-| **SC;{serial}** | Scan a shell label (Label 1 or Label 2). |
-| **INP;2** | Advance the material queue. |
-| **INP;3** | Yes / Pass (context-dependent). |
-| **INP;4** | No / Fail (context-dependent). |
-| **FLT;{text}** | Report a fault (e.g., "Button Stuck," "Gnd Fault"). |
+
+| Barcode         | Action                                              |
+| --------------- | --------------------------------------------------- |
+| **SC;{serial}** | Scan a shell label (Label 1 or Label 2).            |
+| **INP;2**       | Advance the material queue.                         |
+| **INP;3**       | Yes / Pass (context-dependent).                     |
+| **INP;4**       | No / Fail (context-dependent).                      |
+| **FLT;{text}**  | Report a fault (e.g., "Button Stuck," "Gnd Fault"). |
+
 
 ## Tips
 
@@ -52,6 +56,4 @@ When the External Input toggle in the bottom bar is Off, you can type a serial n
 ## Changes from MES v1
 
 - **Dual-label scanning** works the same as in v1 but with clearer on-screen prompts between Label 1 and Label 2.
-- **Thickness inspection** is now prompted automatically after both labels match, rather than being a separate step triggered by a barcode card.
-- **Material queue** is displayed directly on the Rolls screen instead of being managed on a separate page.
-- **Advance queue prompt** appears automatically when material remaining reaches zero.
+

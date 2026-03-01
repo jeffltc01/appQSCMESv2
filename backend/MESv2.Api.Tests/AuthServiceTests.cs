@@ -162,6 +162,61 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Login_UsesSelectedSite_WhenRoleCanChangeSite()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.RoleTier = 2.0m;
+        user.RoleName = "Quality Director";
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var result = await sut.LoginAsync("EMP001", null, TestHelpers.PlantPlt2Id, false);
+
+        Assert.NotNull(result);
+        Assert.Equal(TestHelpers.PlantPlt2Id, result.User.DefaultSiteId);
+        Assert.Equal("600", result.User.PlantCode);
+        Assert.Equal("Fremont", result.User.PlantName);
+        Assert.Equal("America/New_York", result.User.PlantTimeZoneId);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsNull_WhenNonDirectorSelectsDifferentSite()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.RoleTier = 6.0m;
+        user.RoleName = "Operator";
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var result = await sut.LoginAsync("EMP001", null, TestHelpers.PlantPlt2Id, false);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsNull_WhenSelectedSiteDoesNotExist()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var user = await db.Users.FirstAsync(u => u.EmployeeNumber == "EMP001");
+        user.RoleTier = 2.0m;
+        user.RoleName = "Quality Director";
+        await db.SaveChangesAsync();
+
+        var config = CreateConfig();
+        var sut = new AuthService(db, config, CreateDevEnvironment());
+
+        var result = await sut.LoginAsync("EMP001", null, Guid.NewGuid(), false);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public async Task Login_ReturnsCorrectTimeZone_ForEachPlant()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

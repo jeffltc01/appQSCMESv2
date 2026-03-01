@@ -38,6 +38,10 @@ vi.mock('./features/admin/AdminRoutes.tsx', () => ({
   AdminRoutes: () => <div data-testid="admin-routes">Admin Routes</div>,
 }));
 
+vi.mock('./features/admin/ProductionLogsScreen.tsx', () => ({
+  ProductionLogsScreen: () => <div data-testid="production-logs-screen">Production Logs</div>,
+}));
+
 vi.mock('./features/mobile/MobileRoutes.tsx', () => ({
   MobileRoutes: () => <div data-testid="mobile-routes">Mobile Routes</div>,
 }));
@@ -133,5 +137,11 @@ describe('App kiosk routing', () => {
     setAuthState(true, 6);
     renderApp('/operator');
     expect(screen.getByTestId('mobile-routes')).toBeInTheDocument();
+  });
+
+  it('allows kiosk users to open operator production logs route', () => {
+    setAuthState(true, 6);
+    renderApp('/operator/production-logs');
+    expect(screen.getByTestId('production-logs-screen')).toBeInTheDocument();
   });
 });

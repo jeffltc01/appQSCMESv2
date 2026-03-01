@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
-import { parseShellLabel } from '../../types/barcode.ts';
+import { parseShellLabel, normalizeShellSerialInput } from '../../types/barcode.ts';
 import type { MaterialQueueItem, OperatorControlPlan } from '../../types/domain.ts';
 import type { QueueAdvanceResponse } from '../../types/api.ts';
 import { workCenterApi, productionRecordApi, inspectionRecordApi, controlPlanApi, demoShellApi } from '../../api/endpoints.ts';
@@ -49,8 +49,17 @@ export function RollsScreen(props: WorkCenterProps) {
   const [needsInspection, setNeedsInspection] = useState(false);
 
   useEffect(() => {
-    loadQueue();
-  }, [workCenterId]);
+    setScanState('idle');
+    setPromptState('none');
+    setLabel1Serial('');
+    setLabel1Raw('');
+    setActiveMaterial(null);
+    setQueue([]);
+    setManualSerial('');
+    setInspectionResults({});
+    setInspectionIndex(0);
+    setNeedsInspection(false);
+  }, [workCenterId, productionLineId]);
 
   useEffect(() => {
     if (!workCenterId || !productionLineId) {
@@ -64,11 +73,11 @@ export function RollsScreen(props: WorkCenterProps) {
 
   const loadQueue = useCallback(async () => {
     try {
-      const items = await workCenterApi.getMaterialQueue(workCenterId);
+      const items = await workCenterApi.getMaterialQueue(workCenterId, undefined, productionLineId);
       setQueue(items.filter((i) => i.status === 'queued'));
 
       const active = items.find((i) => i.status === 'active');
-      if (active && !activeMaterial) {
+      if (active) {
         setActiveMaterial({
           shellSize: active.shellSize ?? '',
           heatNumber: active.heatNumber,
@@ -78,15 +87,23 @@ export function RollsScreen(props: WorkCenterProps) {
           shellCount: active.quantityCompleted,
           productDescription: active.productDescription,
         });
-        if (active.quantityCompleted === 0) setNeedsInspection(true);
+        setNeedsInspection(active.quantityCompleted === 0);
         setScanState('scanLabel1');
+      } else {
+        setActiveMaterial(null);
+        setNeedsInspection(false);
+        setScanState('idle');
       }
     } catch { /* keep stale */ }
-  }, [workCenterId, activeMaterial]);
+  }, [workCenterId, productionLineId]);
+
+  useEffect(() => {
+    loadQueue();
+  }, [loadQueue]);
 
   const advanceQueue = useCallback(async () => {
     try {
-      const data: QueueAdvanceResponse = await workCenterApi.advanceQueue(workCenterId);
+      const data: QueueAdvanceResponse = await workCenterApi.advanceQueue(workCenterId, productionLineId);
       setActiveMaterial({
         shellSize: data.shellSize,
         heatNumber: data.heatNumber,
@@ -104,7 +121,7 @@ export function RollsScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'No material in queue. Contact Material Handling.' });
     }
-  }, [workCenterId, loadQueue, showScanResult]);
+  }, [workCenterId, productionLineId, loadQueue, showScanResult]);
 
   const createRecord = useCallback(
     async (serial: string, resultsOverride?: Record<string, string>) => {
@@ -335,16 +352,45 @@ export function RollsScreen(props: WorkCenterProps) {
     setManualSerial('');
   }, [manualSerial, activeMaterial, controlPlans, needsInspection, createRecord]);
 
+  const scanInstruction = (() => {
+    if (scanState === 'idle' && !activeMaterial) {
+      return {
+        title: 'NEXT: Advance the material queue to begin',
+        detail: '',
+        isActive: false,
+      };
+    }
+    if (scanState === 'scanLabel1') {
+      return {
+        title: 'NEXT: Scan Label 1',
+        detail: '',
+        isActive: true,
+      };
+    }
+    if (scanState === 'scanLabel2') {
+      return {
+        title: 'NEXT: Scan Label 2',
+        detail: `Label 1: ${label1Serial || '—'}`,
+        isActive: true,
+      };
+    }
+    return {
+      title: 'NEXT: Follow on-screen instructions',
+      detail: '',
+      isActive: false,
+    };
+  })();
+
   return (
     <div className={styles.container}>
       <div className={styles.topSection}>
         {!props.externalInput && (
           <div className={styles.manualEntry}>
-            <Label>Scan Shell Label</Label>
+            <Label>Shell Label</Label>
             <div className={styles.manualRow}>
               <Input
                 value={manualSerial}
-                onChange={(_, d) => setManualSerial(d.value)}
+                onChange={(_, d) => setManualSerial(normalizeShellSerialInput(d.value))}
                 placeholder="Enter serial number..."
                 size="large"
                 className={styles.manualInput}
@@ -357,10 +403,9 @@ export function RollsScreen(props: WorkCenterProps) {
           </div>
         )}
 
-        <div className={styles.scanStateLabel}>
-          {scanState === 'idle' && !activeMaterial && 'Advance the material queue to begin'}
-          {scanState === 'scanLabel1' && 'Scan Label 1'}
-          {scanState === 'scanLabel2' && `Scan Label 2 (Label 1: ${label1Serial})`}
+        <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+          <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
+          {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
         </div>
 
         {activeMaterial && (

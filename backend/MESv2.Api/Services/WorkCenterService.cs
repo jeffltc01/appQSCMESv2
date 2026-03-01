@@ -44,7 +44,7 @@ public class WorkCenterService : IWorkCenterService
         return new WelderDto { UserId = user.Id, DisplayName = user.DisplayName, EmployeeNumber = user.EmployeeNumber };
     }
 
-    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
+    public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, Guid productionLineId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
     {
         var tz = await GetPlantTimeZoneAsync(plantId, cancellationToken);
 
@@ -59,6 +59,7 @@ public class WorkCenterService : IWorkCenterService
 
         var baseFilter = _db.ProductionRecords
             .Where(r => r.WorkCenterId == wcId)
+            .Where(r => r.ProductionLineId == productionLineId)
             .Where(r => r.ProductionLine.PlantId == plantId);
 
         if (assetId.HasValue)
@@ -76,10 +77,7 @@ public class WorkCenterService : IWorkCenterService
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        if (recentProdRecords.Count > 0)
-            return await GetProductionHistoryItems(wcId, dayCount, dayHourlyCounts, recentProdRecords, tz, cancellationToken);
-
-        return await GetInspectionHistoryItems(wcId, startOfDay, endOfDay, limit, tz, cancellationToken);
+        return await GetProductionHistoryItems(wcId, dayCount, dayHourlyCounts, recentProdRecords, tz, cancellationToken);
     }
 
     private static List<HourlyCountDto> BuildHourlyCountDtos(IEnumerable<DateTime> timestampsUtc, TimeZoneInfo tz)
@@ -123,6 +121,8 @@ public class WorkCenterService : IWorkCenterService
             .Select(w => w.DataEntryType)
             .FirstOrDefaultAsync(cancellationToken);
         var isFitup = string.Equals(wcDataEntryType, "Fitup", StringComparison.OrdinalIgnoreCase);
+        var isRolls = string.Equals(wcDataEntryType, "Rolls", StringComparison.OrdinalIgnoreCase);
+        var shouldWrapShellWithAssemblyAlpha = !isFitup && !isRolls;
 
         var shellsByAssembly = new Dictionary<Guid, List<string>>();
         if (isFitup)
@@ -148,7 +148,7 @@ public class WorkCenterService : IWorkCenterService
             }
         }
 
-        var assemblyByShell = isFitup
+        var assemblyByShell = !shouldWrapShellWithAssemblyAlpha
             ? new Dictionary<Guid, string>()
             : await ResolveAssemblyByShellAsync(
                 recentProdRecords.Select(r => r.SerialNumberId).Distinct().ToList(),
@@ -164,7 +164,7 @@ public class WorkCenterService : IWorkCenterService
             {
                 serialOrIdentifier = $"{alphaOrSerial} ({string.Join(", ", shells)})";
             }
-            else if (!isFitup
+            else if (shouldWrapShellWithAssemblyAlpha
                 && assemblyByShell.TryGetValue(r.SerialNumberId, out var alphaCode))
             {
                 serialOrIdentifier = $"{alphaCode} ({alphaOrSerial})";
@@ -257,12 +257,15 @@ public class WorkCenterService : IWorkCenterService
         return result;
     }
 
-    public async Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, Guid? productionLineId = null, CancellationToken cancellationToken = default)
     {
         var query = _db.MaterialQueueItems
             .Include(m => m.SerialNumber)
             .ThenInclude(s => s!.Product)
             .Where(m => m.WorkCenterId == wcId);
+
+        if (productionLineId.HasValue)
+            query = query.Where(m => m.ProductionLineId == productionLineId.Value);
 
         if (!string.IsNullOrEmpty(type))
             query = query.Where(m => m.QueueType == type);
@@ -278,17 +281,25 @@ public class WorkCenterService : IWorkCenterService
         return items.Select(m => MapQueueItem(m, cardColorMap)).ToList();
     }
 
-    public async Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default)
+    public async Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, Guid? productionLineId = null, CancellationToken cancellationToken = default)
     {
-        var active = await _db.MaterialQueueItems
+        var activeQuery = _db.MaterialQueueItems
             .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
-            .Where(m => m.WorkCenterId == wcId && m.Status == "active")
+            .Where(m => m.WorkCenterId == wcId && m.Status == "active");
+        if (productionLineId.HasValue)
+            activeQuery = activeQuery.Where(m => m.ProductionLineId == productionLineId.Value);
+
+        var active = await activeQuery
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var nextQueued = await _db.MaterialQueueItems
+        var queuedQuery = _db.MaterialQueueItems
             .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
-            .Where(m => m.WorkCenterId == wcId && m.Status == "queued")
+            .Where(m => m.WorkCenterId == wcId && m.Status == "queued");
+        if (productionLineId.HasValue)
+            queuedQuery = queuedQuery.Where(m => m.ProductionLineId == productionLineId.Value);
+
+        var nextQueued = await queuedQuery
             .OrderBy(m => m.Position)
             .FirstOrDefaultAsync(cancellationToken);
 

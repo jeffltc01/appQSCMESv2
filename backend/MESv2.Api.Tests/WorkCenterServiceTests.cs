@@ -236,7 +236,7 @@ public class WorkCenterServiceTests
         await db.SaveChangesAsync();
 
         // Querying for March 14 (local) should find this record. PlantPlt1Id = Cleveland (America/Chicago).
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-03-14", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-03-14", 10);
         Assert.Equal(1, result.DayCount);
         Assert.Single(result.RecentRecords);
     }
@@ -252,7 +252,7 @@ public class WorkCenterServiceTests
         await db.SaveChangesAsync();
 
         // Querying for March 15 (local) — day count should be 0, but the record still appears in recent list
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-03-15", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-03-15", 10);
         Assert.Equal(0, result.DayCount);
         Assert.Single(result.RecentRecords);
     }
@@ -269,7 +269,7 @@ public class WorkCenterServiceTests
         SeedProductionRecord(db, TestHelpers.wcRollsId, new DateTime(2026, 2, 20, 23, 59, 0, DateTimeKind.Utc));
         await db.SaveChangesAsync();
 
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-02-20", 10);
         Assert.Equal(2, result.DayCount);
         Assert.Equal(2, result.RecentRecords.Count);
     }
@@ -314,7 +314,7 @@ public class WorkCenterServiceTests
         });
         await db.SaveChangesAsync();
 
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-02-20", 10);
 
         Assert.Single(result.RecentRecords);
         Assert.True(result.RecentRecords[0].HasAnnotation);
@@ -330,7 +330,7 @@ public class WorkCenterServiceTests
         SeedProductionRecord(db, TestHelpers.wcRollsId, new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc));
         await db.SaveChangesAsync();
 
-        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-02-20", 10);
 
         Assert.Single(result.RecentRecords);
         Assert.False(result.RecentRecords[0].HasAnnotation);
@@ -387,7 +387,7 @@ public class WorkCenterServiceTests
         });
         await db.SaveChangesAsync();
 
-        var result = await sut.GetHistoryAsync(TestHelpers.wcFitupId, TestHelpers.PlantPlt1Id, "2026-02-20", 10);
+        var result = await sut.GetHistoryAsync(TestHelpers.wcFitupId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-02-20", 10);
 
         Assert.Single(result.RecentRecords);
         Assert.Contains("AB", result.RecentRecords[0].SerialOrIdentifier);
@@ -735,5 +735,57 @@ public class WorkCenterServiceTests
 
         Assert.Equal(first.Id, second.Id);
         Assert.Equal(1, db.MaterialQueueItems.Count(m => m.WorkCenterId == TestHelpers.wcFitupId && m.QueueType == "fitup"));
+    }
+
+    [Fact]
+    public async Task GetMaterialQueue_ScopesToProductionLine_WhenProvided()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var insideLineId = TestHelpers.ProductionLine1Plt1Id;
+        var outsideLineId = Guid.Parse("e2111111-1111-1111-1111-111111111111");
+
+        var (_, insideItem) = SeedQueueItemWithSN(
+            db, TestHelpers.wcRollsId, "queued", 1,
+            "120 gal", 120, "H-IN", "C-IN", 4);
+        insideItem.ProductionLineId = insideLineId;
+
+        var (_, outsideItem) = SeedQueueItemWithSN(
+            db, TestHelpers.wcRollsId, "queued", 2,
+            "250 gal", 250, "H-OUT", "C-OUT", 6);
+        outsideItem.ProductionLineId = outsideLineId;
+
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetMaterialQueueAsync(TestHelpers.wcRollsId, type: null, productionLineId: insideLineId);
+
+        Assert.Single(result);
+        Assert.Equal("H-IN", result[0].HeatNumber);
+    }
+
+    [Fact]
+    public async Task AdvanceQueue_ScopesToProductionLine_WhenProvided()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var insideLineId = TestHelpers.ProductionLine1Plt1Id;
+        var outsideLineId = Guid.Parse("e2111111-1111-1111-1111-111111111111");
+
+        var (_, outsideActive) = SeedQueueItemWithSN(
+            db, TestHelpers.wcRollsId, "active", 1,
+            "250 gal", 250, "H-ACTIVE-OUT", "C-ACTIVE-OUT", 10);
+        outsideActive.ProductionLineId = outsideLineId;
+
+        var (_, insideQueued) = SeedQueueItemWithSN(
+            db, TestHelpers.wcRollsId, "queued", 2,
+            "120 gal", 120, "H-NEXT-IN", "C-NEXT-IN", 8);
+        insideQueued.ProductionLineId = insideLineId;
+
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.AdvanceQueueAsync(TestHelpers.wcRollsId, productionLineId: insideLineId);
+
+        Assert.NotNull(result);
+        Assert.Equal("H-NEXT-IN", result!.HeatNumber);
     }
 }

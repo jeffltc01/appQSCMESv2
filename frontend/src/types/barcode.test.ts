@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBarcode, parseShellLabel, parseFullDefect } from './barcode';
+import { parseBarcode, parseShellLabel, parseFullDefect, normalizeShellSerialInput } from './barcode';
 
 describe('parseBarcode', () => {
   it('parses SC prefix', () => {
@@ -132,5 +132,23 @@ describe('parseFullDefect', () => {
     expect(parseFullDefect('042-007')).toBeNull();
     expect(parseFullDefect('042')).toBeNull();
     expect(parseFullDefect('042-007-003-999')).toBeNull();
+  });
+});
+
+describe('normalizeShellSerialInput', () => {
+  it('strips SC prefix and label suffix from scanned shell barcode', () => {
+    expect(normalizeShellSerialInput('SC;0301101/L2')).toBe('0301101');
+  });
+
+  it('strips SC prefix when no label suffix is present', () => {
+    expect(normalizeShellSerialInput('SC;0301101')).toBe('0301101');
+  });
+
+  it('strips label suffix without SC prefix', () => {
+    expect(normalizeShellSerialInput('0301101/L1')).toBe('0301101');
+  });
+
+  it('keeps manual serial unchanged except for trimming', () => {
+    expect(normalizeShellSerialInput('  0301101  ')).toBe('0301101');
   });
 });

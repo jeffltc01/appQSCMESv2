@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { RollsScreen } from './RollsScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
@@ -18,6 +18,7 @@ vi.mock('../../api/endpoints', () => ({
 }));
 
 const { workCenterApi } = await import('../../api/endpoints');
+const { productionRecordApi } = await import('../../api/endpoints');
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
   return {
@@ -72,6 +73,14 @@ describe('RollsScreen', () => {
     });
   });
 
+  it('requests material queue scoped by production line', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([]);
+    renderRolls({ workCenterId: 'wc-rolls', productionLineId: 'pl-inside' });
+    await waitFor(() => {
+      expect(workCenterApi.getMaterialQueue).toHaveBeenCalledWith('wc-rolls', undefined, 'pl-inside');
+    });
+  });
+
   it('shows data grid after queue advance', async () => {
     vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
       shellSize: '120',
@@ -97,6 +106,72 @@ describe('RollsScreen', () => {
     });
   });
 
+  it('advances queue scoped by production line', async () => {
+    vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
+      shellSize: '120',
+      heatNumber: 'H2',
+      coilNumber: 'C2',
+      quantity: 6,
+      quantityCompleted: 0,
+      productDescription: 'PL .218',
+    });
+
+    const { props } = renderRolls({ workCenterId: 'wc-rolls', productionLineId: 'pl-outside' });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    expect(handler).toBeDefined();
+
+    if (handler) {
+      handler({ prefix: 'INP', value: '2', raw: 'INP;2' }, 'INP;2');
+    }
+
+    await waitFor(() => {
+      expect(workCenterApi.advanceQueue).toHaveBeenCalledWith('wc-rolls', 'pl-outside');
+    });
+  });
+
+  it('clears previous active material when work center or line changes', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue)
+      .mockResolvedValueOnce([
+        {
+          id: 'q-active',
+          position: 1,
+          status: 'active',
+          productDescription: 'PL INSIDE',
+          shellSize: '120',
+          heatNumber: 'HEAT-INSIDE',
+          coilNumber: 'COIL-INSIDE',
+          quantity: 10,
+          quantityCompleted: 2,
+          createdAt: '',
+        },
+      ] as any)
+      .mockResolvedValueOnce([]);
+
+    const initial = createProps({ workCenterId: 'wc-rolls', productionLineId: 'pl-inside' });
+    const view = render(
+      <FluentProvider theme={webLightTheme}>
+        <RollsScreen {...initial} />
+      </FluentProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('HEAT-INSIDE')).toBeInTheDocument();
+    });
+
+    const updated = createProps({ workCenterId: 'wc-rolls', productionLineId: 'pl-outside' });
+    view.rerender(
+      <FluentProvider theme={webLightTheme}>
+        <RollsScreen {...updated} />
+      </FluentProvider>,
+    );
+
+    await waitFor(() => {
+      expect(workCenterApi.getMaterialQueue).toHaveBeenLastCalledWith('wc-rolls', undefined, 'pl-outside');
+    });
+    expect(screen.queryByText('HEAT-INSIDE')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Shell Count/i)).not.toBeInTheDocument();
+  });
+
   it('registers barcode handler on mount', () => {
     const { props } = renderRolls();
     expect(props.registerBarcodeHandler).toHaveBeenCalled();
@@ -118,6 +193,9 @@ describe('RollsScreen', () => {
   });
 
   it('shows both serials when labels do not match', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([
+      { id: 'active-1', position: 1, status: 'active', productDescription: 'PL .218', shellSize: '120', heatNumber: 'H1', coilNumber: 'C1', quantity: 10, quantityCompleted: 0, createdAt: '' },
+    ]);
     vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
       shellSize: '120',
       heatNumber: 'H1',
@@ -155,6 +233,9 @@ describe('RollsScreen', () => {
   });
 
   it('rejects scanning the same unlabeled barcode twice', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([
+      { id: 'active-2', position: 1, status: 'active', productDescription: 'PL .218', shellSize: '120', heatNumber: 'H1', coilNumber: 'C1', quantity: 10, quantityCompleted: 0, createdAt: '' },
+    ]);
     vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
       shellSize: '120',
       heatNumber: 'H1',
@@ -182,6 +263,43 @@ describe('RollsScreen', () => {
           type: 'error',
           message: expect.stringContaining('Same label scanned twice'),
         }),
+      );
+    });
+  });
+
+  it('normalizes scanned shell barcode in manual input before submit', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValue([
+      { id: 'active-3', position: 1, status: 'active', productDescription: 'PL .218', shellSize: '120', heatNumber: 'H1', coilNumber: 'C1', quantity: 10, quantityCompleted: 0, createdAt: '' },
+    ]);
+    vi.mocked(workCenterApi.advanceQueue).mockResolvedValue({
+      shellSize: '120',
+      heatNumber: 'H1',
+      coilNumber: 'C1',
+      quantity: 10,
+      quantityCompleted: 0,
+      productDescription: 'PL .218',
+    });
+    vi.mocked(productionRecordApi.create).mockResolvedValue({
+      id: 'pr-1',
+      serialNumber: '0301101',
+      warning: null,
+    });
+
+    const { props } = renderRolls({ externalInput: false });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    handler!({ prefix: 'INP', value: '2', raw: 'INP;2' }, 'INP;2');
+
+    await waitFor(() => expect(screen.getByText(/Shell Count/)).toBeInTheDocument());
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    fireEvent.change(input, { target: { value: 'SC;0301101/L2' } });
+    expect((input as HTMLInputElement).value).toBe('0301101');
+
+    fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(productionRecordApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({ serialNumber: '0301101' }),
       );
     });
   });

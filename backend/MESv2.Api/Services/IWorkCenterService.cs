@@ -6,9 +6,9 @@ public interface IWorkCenterService
 {
     Task<IReadOnlyList<WorkCenterDto>> GetWorkCentersAsync(CancellationToken cancellationToken = default);
     Task<WelderDto?> LookupWelderAsync(string empNo, CancellationToken cancellationToken = default);
-    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, CancellationToken cancellationToken = default);
-    Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, CancellationToken cancellationToken = default);
+    Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, Guid productionLineId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MaterialQueueItemDto>> GetMaterialQueueAsync(Guid wcId, string? type, Guid? productionLineId = null, CancellationToken cancellationToken = default);
+    Task<QueueAdvanceResponseDto?> AdvanceQueueAsync(Guid wcId, Guid? productionLineId = null, CancellationToken cancellationToken = default);
     Task ReportFaultAsync(Guid wcId, string description, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DefectCodeDto>> GetDefectCodesAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DefectLocationDto>> GetDefectLocationsAsync(Guid wcId, CancellationToken cancellationToken = default);

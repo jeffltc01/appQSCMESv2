@@ -7,18 +7,17 @@ import {
   CalendarRegular,
   SettingsRegular,
   SignOutRegular,
-  BugRegular,
   ClipboardTaskListLtrRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { MaintenanceRequestDialog } from '../../features/maintenance/MaintenanceRequestDialog.tsx';
-import { IssueRequestDialog } from '../../features/issueRequest/IssueRequestDialog.tsx';
 import styles from './LeftPanel.module.css';
 
 interface LeftPanelProps {
   externalInput: boolean;
   currentGearLevel?: number | null;
   kioskMode?: boolean;
+  showScheduleButton?: boolean;
   showChecklistButton?: boolean;
   onChecklistClick?: () => void;
 }
@@ -27,13 +26,13 @@ export function LeftPanel({
   externalInput,
   currentGearLevel,
   kioskMode = false,
+  showScheduleButton = true,
   showChecklistButton = false,
   onChecklistClick,
 }: LeftPanelProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [maintDialogOpen, setMaintDialogOpen] = useState(false);
-  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -60,26 +59,29 @@ export function LeftPanel({
         />
       </Tooltip>
 
-      <Tooltip content="Tablet Setup" relationship="label" positioning="after">
-        <Button
-          appearance="subtle"
-          icon={<TabletRegular fontSize={60} />}
-          className={styles.iconBtn}
-          disabled={navLocked}
-          aria-label="Tablet Setup"
-          onClick={() => navigate('/tablet-setup')}
-        />
-      </Tooltip>
+      {!navLocked && (
+        <Tooltip content="Tablet Setup" relationship="label" positioning="after">
+          <Button
+            appearance="subtle"
+            icon={<TabletRegular fontSize={60} />}
+            className={styles.iconBtn}
+            aria-label="Tablet Setup"
+            onClick={() => navigate('/tablet-setup')}
+          />
+        </Tooltip>
+      )}
 
-      <Tooltip content="Schedule" relationship="label" positioning="after">
-        <Button
-          appearance="subtle"
-          icon={<CalendarRegular fontSize={60} />}
-          className={styles.iconBtn}
-          disabled={disabled}
-          aria-label="Schedule"
-        />
-      </Tooltip>
+      {showScheduleButton && (
+        <Tooltip content="Schedule" relationship="label" positioning="after">
+          <Button
+            appearance="subtle"
+            icon={<CalendarRegular fontSize={60} />}
+            className={styles.iconBtn}
+            disabled={disabled}
+            aria-label="Schedule"
+          />
+        </Tooltip>
+      )}
 
       {showChecklistButton && (
         <Tooltip content="Checklist" relationship="label" positioning="after">
@@ -94,27 +96,17 @@ export function LeftPanel({
         </Tooltip>
       )}
 
-      <Tooltip content="Report Issue" relationship="label" positioning="after">
-        <Button
-          appearance="subtle"
-          icon={<BugRegular fontSize={60} />}
-          className={styles.iconBtn}
-          disabled={disabled}
-          aria-label="Report Issue"
-          onClick={() => setIssueDialogOpen(true)}
-        />
-      </Tooltip>
-
-      <Tooltip content="Settings" relationship="label" positioning="after">
-        <Button
-          appearance="subtle"
-          icon={<SettingsRegular fontSize={60} />}
-          className={styles.iconBtn}
-          disabled={navLocked}
-          aria-label="Settings"
-          onClick={() => navigate('/menu')}
-        />
-      </Tooltip>
+      {!navLocked && (
+        <Tooltip content="Settings" relationship="label" positioning="after">
+          <Button
+            appearance="subtle"
+            icon={<SettingsRegular fontSize={60} />}
+            className={styles.iconBtn}
+            aria-label="Settings"
+            onClick={() => navigate('/menu')}
+          />
+        </Tooltip>
+      )}
 
       <div className={styles.spacer} />
 
@@ -134,13 +126,6 @@ export function LeftPanel({
         onClose={() => setMaintDialogOpen(false)}
         employeeNumber={user?.employeeNumber ?? ''}
         displayName={user?.displayName ?? ''}
-      />
-
-      <IssueRequestDialog
-        open={issueDialogOpen}
-        onClose={() => setIssueDialogOpen(false)}
-        userId={user?.id ?? ''}
-        roleTier={user?.roleTier ?? 99}
       />
     </nav>
   );

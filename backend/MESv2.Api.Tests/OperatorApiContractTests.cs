@@ -72,6 +72,7 @@ public class OperatorApiContractTests
             .Setup(x => x.GetHistoryAsync(
                 TestHelpers.wcRollsId,
                 TestHelpers.PlantPlt1Id,
+                TestHelpers.ProductionLine1Plt1Id,
                 null,
                 5,
                 null,
@@ -108,6 +109,7 @@ public class OperatorApiContractTests
         var response = await controller.GetHistory(
             TestHelpers.wcRollsId,
             TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
             date: null,
             limit: 5,
             assetId: null,
@@ -133,6 +135,39 @@ public class OperatorApiContractTests
         Assert.True(firstRecord.TryGetProperty("tankSize", out _));
         Assert.True(firstRecord.TryGetProperty("hasAnnotation", out _));
         Assert.True(firstRecord.TryGetProperty("annotationColor", out _));
+    }
+
+    [Fact]
+    public async Task GetWorkCenterHistory_ReturnsBadRequest_WhenProductionLineIdMissing()
+    {
+        var workCenterService = new Mock<IWorkCenterService>();
+        var controller = new WorkCentersController(
+            workCenterService.Object,
+            Mock.Of<IXrayQueueService>(),
+            Mock.Of<IDowntimeService>(),
+            Mock.Of<IAdminWorkCenterService>(),
+            Mock.Of<ILogger<WorkCentersController>>());
+
+        var response = await controller.GetHistory(
+            TestHelpers.wcRollsId,
+            TestHelpers.PlantPlt1Id,
+            Guid.Empty,
+            date: null,
+            limit: 5,
+            assetId: null,
+            cancellationToken: CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(badRequest.Value, CamelCaseJson));
+        Assert.True(json.RootElement.TryGetProperty("message", out _));
+        workCenterService.Verify(x => x.GetHistoryAsync(
+            It.IsAny<Guid>(),
+            It.IsAny<Guid>(),
+            It.IsAny<Guid>(),
+            It.IsAny<string?>(),
+            It.IsAny<int>(),
+            It.IsAny<Guid?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

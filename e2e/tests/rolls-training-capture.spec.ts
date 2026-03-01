@@ -303,7 +303,7 @@ test.describe.serial('Rolls training screenshot capture', () => {
 
     // Return to manual mode and show fallback input controls.
     await setManualMode(page);
-    await expect(page.getByText(/Scan Shell Label/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/Shell Label/i)).toBeVisible({ timeout: 5_000 });
     await capture('08_manual_mode_input.png');
 
     // Close frame for final recap.
