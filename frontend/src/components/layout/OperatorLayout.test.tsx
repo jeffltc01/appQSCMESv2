@@ -178,6 +178,35 @@ describe('OperatorLayout', () => {
     });
   });
 
+  it('loads queue transactions using current wc and production line for queue screens', async () => {
+    const { getTabletCache } = await import('../../hooks/useLocalStorage');
+    const { workCenterApi } = await import('../../api/endpoints');
+    vi.mocked(getTabletCache).mockReturnValueOnce({
+      cachedWorkCenterId: 'wc-current',
+      cachedWorkCenterName: 'Fitup Queue',
+      cachedWorkCenterDisplayName: 'Fitup Queue',
+      cachedDataEntryType: 'MatQueue-Fitup',
+      cachedProductionLineId: 'pl-current',
+      cachedProductionLineName: 'Line 1',
+      cachedAssetId: 'a1',
+      cachedAssetName: 'Asset 1',
+      cachedNumberOfWelders: 0,
+      cachedMaterialQueueForWCId: 'wc-shared-old',
+    });
+
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(vi.mocked(workCenterApi.getQueueTransactions)).toHaveBeenCalledWith(
+        'wc-current',
+        'pl-current',
+        'site-1',
+        5,
+        'added',
+      );
+    });
+  });
+
   it('renders the correct work center screen based on dataEntryType', async () => {
     renderOperatorLayout();
     await waitFor(() => {

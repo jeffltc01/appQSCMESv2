@@ -69,6 +69,7 @@ public class MaterialQueueItemDto
     public Guid? ProductId { get; set; }
     public Guid? VendorMillId { get; set; }
     public Guid? VendorProcessorId { get; set; }
+    public Guid? VendorHeadId { get; set; }
     public string? CardId { get; set; }
     public string? CardColor { get; set; }
     public DateTime CreatedAt { get; set; }

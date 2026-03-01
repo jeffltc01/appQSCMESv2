@@ -195,8 +195,10 @@ export const workCenterApi = {
     api.get<Welder>(`/workcenters/${wcId}/welders/lookup?empNo=${encodeURIComponent(empNo)}`),
   getHistory: (wcId: string, date: string, plantId: string, productionLineId: string, assetId?: string) =>
     api.get<WCHistoryData>(`/workcenters/${wcId}/history?plantId=${encodeURIComponent(plantId)}&productionLineId=${encodeURIComponent(productionLineId)}&date=${date}&limit=5${assetId ? `&assetId=${assetId}` : ''}`),
-  getQueueTransactions: (wcId: string, plantId?: string, limit = 5, action?: string) =>
-    api.get<QueueTransaction[]>(`/workcenters/${wcId}/queue-transactions?limit=${limit}${plantId ? `&plantId=${plantId}` : ''}${action ? `&action=${action}` : ''}`),
+  getQueueTransactions: (wcId: string, productionLineId: string, plantId?: string, limit = 5, action?: string) =>
+    api.get<QueueTransaction[]>(
+      `/workcenters/${wcId}/queue-transactions?productionLineId=${encodeURIComponent(productionLineId)}&limit=${limit}${plantId ? `&plantId=${plantId}` : ''}${action ? `&action=${action}` : ''}`,
+    ),
   getMaterialQueue: (wcId: string, type?: string, productionLineId?: string) => {
     const params = new URLSearchParams();
     if (type) params.set('type', type);

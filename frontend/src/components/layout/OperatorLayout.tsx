@@ -289,15 +289,19 @@ export function OperatorLayout() {
   const weldersSatisfied = welders.length >= numberOfWelders;
   const showWelderGate = numberOfWelders > 0 && !weldersSatisfied;
 
-  const queueTxnWCId = cache?.cachedMaterialQueueForWCId ?? cache?.cachedWorkCenterId;
-
   const loadQueueTransactions = useCallback(async () => {
-    if (!queueTxnWCId) return;
+    if (!cache?.cachedWorkCenterId || !cache.cachedProductionLineId) return;
     try {
-      const txns = await workCenterApi.getQueueTransactions(queueTxnWCId, user?.defaultSiteId, 5, 'added');
+      const txns = await workCenterApi.getQueueTransactions(
+        cache.cachedWorkCenterId,
+        cache.cachedProductionLineId,
+        user?.defaultSiteId,
+        5,
+        'added',
+      );
       setQueueTransactions(txns);
     } catch { /* keep stale */ }
-  }, [queueTxnWCId, user?.defaultSiteId]);
+  }, [cache?.cachedWorkCenterId, cache?.cachedProductionLineId, user?.defaultSiteId]);
 
   const loadHistory = useCallback(async () => {
     if (!cache?.cachedWorkCenterId || !user?.defaultSiteId) return;

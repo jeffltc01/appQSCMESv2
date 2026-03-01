@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { FitupQueueScreen } from './FitupQueueScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
-import { productApi, vendorApi, workCenterApi, materialQueueApi } from '../../api/endpoints';
+import { productApi, vendorApi, workCenterApi, materialQueueApi, barcodeCardApi } from '../../api/endpoints';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
@@ -61,6 +61,60 @@ describe('FitupQueueScreen', () => {
     expect(screen.getByText(/no material in queue/i)).toBeInTheDocument();
   });
 
+  it('shows lot number in queue card when lot exists', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'q-lot-1',
+        position: 1,
+        status: 'queued',
+        productDescription: 'HEAD 500',
+        shellSize: '500',
+        heatNumber: '',
+        coilNumber: '',
+        lotNumber: 'LOT-777',
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '01',
+        cardColor: 'Blue',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderScreen();
+
+    expect(await screen.findByText('Lot LOT-777')).toBeInTheDocument();
+  });
+
+  it('shows heat and coil/slab in queue card when lot is absent', async () => {
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'q-heat-1',
+        position: 1,
+        status: 'queued',
+        productDescription: 'HEAD 500',
+        shellSize: '500',
+        heatNumber: 'H-123',
+        coilNumber: 'C-456',
+        lotNumber: undefined,
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: undefined,
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '02',
+        cardColor: 'Red',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderScreen();
+
+    expect(await screen.findByText(/Heat H-123\s+Coil\/Slab C-456/i)).toBeInTheDocument();
+  });
+
   it('fetches vendors with correct type and plantId', async () => {
     renderScreen();
     await waitFor(() => {
@@ -84,6 +138,95 @@ describe('FitupQueueScreen', () => {
     await waitFor(() => {
       expect(vendorApi.getVendors).toHaveBeenCalledWith('head', undefined);
       expect(productApi.getProducts).toHaveBeenCalledWith('head', undefined);
+      expect(barcodeCardApi.getCards).toHaveBeenCalledWith('wc-fitup-q', undefined);
+    });
+  });
+
+  it('fetches barcode cards using work center and plantId', async () => {
+    renderScreen();
+    await waitFor(() => {
+      expect(barcodeCardApi.getCards).toHaveBeenCalledWith('wc-fitup-q', '11111111-1111-1111-1111-111111111111');
+    });
+  });
+
+  it('uses current work center for queue read even when materialQueueForWCId is present', async () => {
+    renderScreen({ workCenterId: 'wc-current', materialQueueForWCId: 'wc-feed', productionLineId: 'pl-inside' });
+
+    await waitFor(() => {
+      expect(workCenterApi.getMaterialQueue).toHaveBeenCalledWith('wc-current', 'fitup', 'pl-inside');
+    });
+    expect(barcodeCardApi.getCards).toHaveBeenCalledWith('wc-current', '11111111-1111-1111-1111-111111111111');
+  });
+
+  it('uses current work center for queue save even when materialQueueForWCId is present', async () => {
+    vi.mocked(productApi.getProducts).mockResolvedValueOnce([
+      {
+        id: 'prod-1',
+        productNumber: 'HEAD 500',
+        tankSize: 500,
+        tankType: 'Head',
+      },
+    ]);
+    vi.mocked(vendorApi.getVendors).mockResolvedValueOnce([
+      {
+        id: 'vendor-1',
+        name: 'Compco Industries',
+        vendorType: 'head',
+      },
+    ]);
+    vi.mocked(barcodeCardApi.getCards).mockResolvedValueOnce([
+      { id: 'card-1', cardValue: '01', color: '#0000ff', colorName: 'Blue', isAssigned: false },
+    ]);
+    vi.mocked(materialQueueApi.addFitupItem).mockResolvedValueOnce({
+      id: 'q-1',
+      position: 1,
+      status: 'queued',
+      productDescription: 'HEAD 500',
+      shellSize: '500',
+      heatNumber: 'H1',
+      coilNumber: 'C1',
+      lotNumber: undefined,
+      quantity: 1,
+      quantityCompleted: 0,
+      productId: 'prod-1',
+      vendorHeadId: 'vendor-1',
+      cardId: '01',
+      cardColor: 'Blue',
+      createdAt: new Date().toISOString(),
+    });
+
+    const registerBarcodeHandler = vi.fn();
+    renderScreen({
+      workCenterId: 'wc-current',
+      materialQueueForWCId: 'wc-feed',
+      productionLineId: 'pl-inside',
+      registerBarcodeHandler,
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /add material to queue/i }));
+    fireEvent.click(screen.getByRole('button', { name: /select product/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /\(500\)\s*HEAD 500/i }));
+    fireEvent.click(screen.getByRole('button', { name: /select vendor/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /compco industries/i }));
+
+    await waitFor(() => {
+      expect(registerBarcodeHandler).toHaveBeenCalled();
+    });
+    const handler = registerBarcodeHandler.mock.calls[0][0] as (bc: { prefix: 'KC'; value: string; raw: string }, raw: string) => void;
+    act(() => {
+      handler({ prefix: 'KC', value: '01', raw: 'KC;01' }, 'KC;01');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(materialQueueApi.addFitupItem).toHaveBeenCalledWith(
+        'wc-current',
+        expect.objectContaining({
+          productionLineId: 'pl-inside',
+          cardCode: '01',
+        }),
+      );
     });
   });
 
@@ -181,4 +324,82 @@ describe('FitupQueueScreen', () => {
       expect(materialQueueApi.deleteFitupItem).toHaveBeenCalledWith('wc-fitup-q', 'q-1');
     });
   });
+
+  it('pre-populates edit dialog with selected queue item values', async () => {
+    vi.mocked(barcodeCardApi.getCards).mockResolvedValueOnce([
+      { id: 'card-1', cardValue: '01', color: '#ff0000', colorName: undefined, isAssigned: false },
+    ]);
+    vi.mocked(productApi.getProducts).mockResolvedValueOnce([
+      {
+        id: 'prod-1',
+        productNumber: 'HEAD 500',
+        tankSize: 500,
+        tankType: 'Head',
+      },
+    ]);
+    vi.mocked(vendorApi.getVendors).mockResolvedValueOnce([
+      {
+        id: 'vendor-1',
+        name: 'Commercial Metal Forming (CMF)',
+        vendorType: 'head',
+      },
+    ]);
+    vi.mocked(workCenterApi.getMaterialQueue).mockResolvedValueOnce([
+      {
+        id: 'q-1',
+        position: 1,
+        status: 'queued',
+        productDescription: 'HEAD 500',
+        shellSize: '500',
+        heatNumber: 'H1',
+        coilNumber: 'C1',
+        lotNumber: 'LOT-123',
+        quantity: 1,
+        quantityCompleted: 0,
+        productId: 'prod-1',
+        vendorHeadId: 'vendor-1',
+        vendorMillId: undefined,
+        vendorProcessorId: undefined,
+        cardId: '01',
+        cardColor: 'Red',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    renderScreen();
+
+    const editButton = await screen.findByRole('button', { name: /edit/i });
+    fireEvent.click(editButton);
+
+    expect(await screen.findByRole('button', { name: /\(500\)\s+HEAD 500/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /commercial metal forming \(cmf\)/i })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('LOT-123')).toBeInTheDocument();
+    expect(screen.getByText('01 - Red')).toBeInTheDocument();
+  });
+
+  it('auto-selects queue card dropdown when KC barcode is scanned', async () => {
+    const registerBarcodeHandler = vi.fn();
+    const showScanResult = vi.fn();
+    vi.mocked(barcodeCardApi.getCards).mockResolvedValueOnce([
+      { id: 'card-1', cardValue: '01', color: '#ff0000', colorName: 'Red', isAssigned: false },
+      { id: 'card-2', cardValue: '02', color: '#ffff00', colorName: 'Yellow', isAssigned: false },
+    ]);
+
+    renderScreen({ registerBarcodeHandler, showScanResult });
+    fireEvent.click(screen.getByRole('button', { name: /add material to queue/i }));
+
+    await waitFor(() => {
+      expect(registerBarcodeHandler).toHaveBeenCalled();
+    });
+    const handler = registerBarcodeHandler.mock.calls[0][0] as (bc: { prefix: 'KC'; value: string; raw: string }, raw: string) => void;
+    act(() => {
+      handler({ prefix: 'KC', value: '02', raw: 'KC;02' }, 'KC;02');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('02 - Yellow')).toBeInTheDocument();
+    });
+    expect(showScanResult).toHaveBeenCalledWith({ type: 'success', message: 'Card 02 scanned' });
+  });
+
 });

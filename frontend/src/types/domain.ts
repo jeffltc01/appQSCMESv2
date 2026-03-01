@@ -140,6 +140,7 @@ export interface MaterialQueueItem {
   productId?: string;
   vendorMillId?: string;
   vendorProcessorId?: string;
+  vendorHeadId?: string;
   cardId?: string;
   cardColor?: string;
   createdAt?: string;

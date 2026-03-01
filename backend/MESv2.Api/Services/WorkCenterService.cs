@@ -315,6 +315,7 @@ public class WorkCenterService : IWorkCenterService
             {
                 Id = Guid.NewGuid(),
                 WorkCenterId = wcId,
+                ProductionLineId = active.ProductionLineId,
                 Action = "completed",
                 ItemSummary = $"{active.SerialNumber?.Product?.ProductNumber ?? ""} - Qty {active.QuantityCompleted}/{active.Quantity}",
                 OperatorName = string.Empty,
@@ -546,6 +547,7 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
+            ProductionLineId = dto.ProductionLineId,
             Action = "added",
             ItemSummary = $"{productDesc} - Heat {dto.HeatNumber} Coil {dto.CoilNumber} - Qty {dto.Quantity}",
             OperatorName = string.Empty,
@@ -586,6 +588,7 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
+            ProductionLineId = item.ProductionLineId,
             Action = "updated",
             ItemSummary = $"{productDesc} - Heat {heat} Coil {coil} - Qty {item.Quantity}",
             OperatorName = string.Empty,
@@ -611,6 +614,7 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
+            ProductionLineId = item.ProductionLineId,
             Action = "removed",
             ItemSummary = $"{productDesc} - Heat {heat} Coil {coil}",
             OperatorName = string.Empty,
@@ -700,6 +704,7 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
+            ProductionLineId = dto.ProductionLineId,
             Action = "added",
             ItemSummary = $"{productDesc} - {summaryId} - Card {dto.CardCode}",
             OperatorName = string.Empty,
@@ -755,6 +760,7 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
+            ProductionLineId = item.ProductionLineId,
             Action = "updated",
             ItemSummary = $"{productDesc} - Card {item.CardId}",
             OperatorName = string.Empty,
@@ -777,6 +783,7 @@ public class WorkCenterService : IWorkCenterService
         {
             Id = Guid.NewGuid(),
             WorkCenterId = wcId,
+            ProductionLineId = item.ProductionLineId,
             Action = "removed",
             ItemSummary = $"{productDesc} - Card {item.CardId}",
             OperatorName = string.Empty,
@@ -828,6 +835,7 @@ public class WorkCenterService : IWorkCenterService
             ProductId = m.SerialNumber?.ProductId,
             VendorMillId = m.SerialNumber?.MillVendorId,
             VendorProcessorId = m.SerialNumber?.ProcessorVendorId,
+            VendorHeadId = m.SerialNumber?.HeadsVendorId,
             CardId = m.CardId,
             CardColor = color,
             CreatedAt = m.CreatedAt
@@ -941,14 +949,15 @@ public class WorkCenterService : IWorkCenterService
         return null;
     }
 
-    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, Guid? plantId = null, string? action = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, Guid productionLineId, int limit, Guid? plantId = null, string? action = null, CancellationToken cancellationToken = default)
     {
         var tz = plantId.HasValue
             ? await GetPlantTimeZoneAsync(plantId.Value, cancellationToken)
             : TimeZoneInfo.Utc;
 
         var query = _db.QueueTransactions
-            .Where(qt => qt.WorkCenterId == wcId);
+            .Where(qt => qt.WorkCenterId == wcId)
+            .Where(qt => qt.ProductionLineId == productionLineId);
 
         if (!string.IsNullOrEmpty(action))
             query = query.Where(qt => qt.Action == action);

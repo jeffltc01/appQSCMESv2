@@ -206,7 +206,12 @@ public class QueueTransactionConfiguration : IEntityTypeConfiguration<QueueTrans
             .HasForeignKey(qt => qt.WorkCenterId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(qt => new { qt.WorkCenterId, qt.Timestamp });
+        builder.HasOne(qt => qt.ProductionLine)
+            .WithMany()
+            .HasForeignKey(qt => qt.ProductionLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(qt => new { qt.WorkCenterId, qt.ProductionLineId, qt.Timestamp });
     }
 }
 

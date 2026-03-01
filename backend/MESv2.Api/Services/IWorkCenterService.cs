@@ -25,5 +25,5 @@ public interface IWorkCenterService
     Task<MaterialQueueItemDto?> UpdateFitupQueueItemAsync(Guid wcId, Guid itemId, UpdateFitupQueueItemDto dto, CancellationToken cancellationToken = default);
     Task<bool> DeleteFitupQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BarcodeCardDto>> GetBarcodeCardsAsync(Guid? plantId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, int limit, Guid? plantId = null, string? action = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<QueueTransactionDto>> GetQueueTransactionsAsync(Guid wcId, Guid productionLineId, int limit, Guid? plantId = null, string? action = null, CancellationToken cancellationToken = default);
 }

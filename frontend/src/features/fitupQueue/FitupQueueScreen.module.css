@@ -66,6 +66,11 @@
   color: #212529;
 }
 
+.queueTrace {
+  font-size: 13px;
+  color: #495057;
+}
+
 .queueMeta {
   display: flex;
   align-items: center;
@@ -128,6 +133,20 @@
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.cardOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.optionColorSwatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #8a8a8a;
+  flex-shrink: 0;
 }
 
 .colorSwatch {

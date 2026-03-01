@@ -866,6 +866,29 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
+    public async Task AddFitupQueueItem_ReturnsVendorHeadId_ForEditPrepopulation()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First();
+        var vendorId = Guid.NewGuid();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var created = await sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+        {
+            ProductId = product.Id,
+            VendorHeadId = vendorId,
+            LotNumber = "LOT-EDIT",
+            CardCode = "04"
+        });
+
+        Assert.Equal(vendorId, created.VendorHeadId);
+
+        var queue = await sut.GetMaterialQueueAsync(TestHelpers.wcFitupId, "fitup");
+        var fetched = Assert.Single(queue);
+        Assert.Equal(vendorId, fetched.VendorHeadId);
+    }
+
+    [Fact]
     public async Task GetMaterialQueue_ScopesToProductionLine_WhenProvided()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -976,5 +999,83 @@ public class WorkCenterServiceTests
             }));
 
         Assert.Contains("already assigned", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetQueueTransactions_FiltersByProductionLine_AndAction()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var targetLineId = TestHelpers.ProductionLine1Plt1Id;
+        var otherLineId = TestHelpers.ProductionLine1Plt2Id;
+        var now = DateTime.UtcNow;
+
+        db.QueueTransactions.AddRange(
+            new QueueTransaction
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterId = TestHelpers.wcFitupId,
+                ProductionLineId = targetLineId,
+                Action = "added",
+                ItemSummary = "target added",
+                OperatorName = string.Empty,
+                Timestamp = now
+            },
+            new QueueTransaction
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterId = TestHelpers.wcFitupId,
+                ProductionLineId = targetLineId,
+                Action = "removed",
+                ItemSummary = "target removed",
+                OperatorName = string.Empty,
+                Timestamp = now.AddMinutes(-1)
+            },
+            new QueueTransaction
+            {
+                Id = Guid.NewGuid(),
+                WorkCenterId = TestHelpers.wcFitupId,
+                ProductionLineId = otherLineId,
+                Action = "added",
+                ItemSummary = "other line added",
+                OperatorName = string.Empty,
+                Timestamp = now.AddMinutes(-2)
+            });
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetQueueTransactionsAsync(
+            TestHelpers.wcFitupId,
+            targetLineId,
+            limit: 10,
+            plantId: TestHelpers.PlantPlt1Id,
+            action: "added");
+
+        var tx = Assert.Single(result);
+        Assert.Equal("added", tx.Action);
+        Assert.Equal("target added", tx.ItemSummary);
+    }
+
+    [Fact]
+    public async Task AddFitupQueueItem_WritesQueueTransactionWithProductionLine()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First();
+        var lineId = TestHelpers.ProductionLine1Plt1Id;
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        await sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+        {
+            ProductId = product.Id,
+            VendorHeadId = Guid.NewGuid(),
+            LotNumber = "LOT-TX-LINE",
+            CardCode = "09",
+            ProductionLineId = lineId
+        });
+
+        var tx = await db.QueueTransactions
+            .OrderByDescending(t => t.Timestamp)
+            .FirstAsync(t => t.WorkCenterId == TestHelpers.wcFitupId && t.Action == "added");
+
+        Assert.Equal(lineId, tx.ProductionLineId);
     }
 }

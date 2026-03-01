@@ -49,9 +49,12 @@ public class WorkCentersController : ControllerBase
     }
 
     [HttpGet("{id:guid}/queue-transactions")]
-    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] int limit = 5, [FromQuery] Guid? plantId = null, [FromQuery] string? action = null, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<IEnumerable<QueueTransactionDto>>> GetQueueTransactions(Guid id, [FromQuery] Guid productionLineId, [FromQuery] int limit = 5, [FromQuery] Guid? plantId = null, [FromQuery] string? action = null, CancellationToken cancellationToken = default)
     {
-        var result = await _workCenterService.GetQueueTransactionsAsync(id, limit, plantId, action, cancellationToken);
+        if (productionLineId == Guid.Empty)
+            return BadRequest(new { message = "productionLineId is required." });
+
+        var result = await _workCenterService.GetQueueTransactionsAsync(id, productionLineId, limit, plantId, action, cancellationToken);
         return Ok(result);
     }
 
