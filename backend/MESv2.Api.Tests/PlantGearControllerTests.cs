@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using MESv2.Api.Controllers;
 using MESv2.Api.DTOs;
 using MESv2.Api.Models;
@@ -9,10 +10,16 @@ public class PlantGearControllerTests
 {
     private static readonly Guid GearLevel2Plt1Id = Guid.Parse("61111111-1111-1111-1111-111111111112");
 
-    private PlantGearController CreateController(out Data.MesDbContext db)
+    private PlantGearController CreateController(out Data.MesDbContext db, decimal roleTier = 2.0m)
     {
         db = TestHelpers.CreateInMemoryContext();
-        return new PlantGearController(db);
+        var controller = new PlantGearController(db);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+        controller.ControllerContext.HttpContext.Request.Headers["X-User-Role-Tier"] = roleTier.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return controller;
     }
 
     [Fact]
@@ -62,5 +69,16 @@ public class PlantGearControllerTests
         var dto = new SetPlantGearDto { PlantGearId = wrongGear.Id };
         var result = await controller.SetGear(TestHelpers.PlantPlt1Id, dto, CancellationToken.None);
         Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task SetGear_ReturnsForbid_WhenCallerIsBelowDirectorTier()
+    {
+        var controller = CreateController(out _, roleTier: 3.0m);
+        var dto = new SetPlantGearDto { PlantGearId = GearLevel2Plt1Id };
+
+        var result = await controller.SetGear(TestHelpers.PlantPlt1Id, dto, CancellationToken.None);
+
+        Assert.IsType<ForbidResult>(result);
     }
 }

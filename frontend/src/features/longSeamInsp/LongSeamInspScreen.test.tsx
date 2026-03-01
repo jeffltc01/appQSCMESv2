@@ -68,7 +68,7 @@ describe('LongSeamInspScreen', () => {
 
   it('starts in WaitingForShell state', () => {
     renderInspection();
-    expect(screen.getByText(/scan serial number/i)).toBeInTheDocument();
+    expect(screen.getByText(/next: enter shell serial and tap submit/i)).toBeInTheDocument();
   });
 
   it('transitions to AwaitingDefects after shell scan', async () => {
@@ -85,8 +85,8 @@ describe('LongSeamInspScreen', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('AwaitingDefects')).toBeInTheDocument();
       expect(screen.getByText('SH001')).toBeInTheDocument();
+      expect(screen.getByText(/next: add defect \+ location, or tap save/i)).toBeInTheDocument();
     });
   });
 
@@ -102,7 +102,6 @@ describe('LongSeamInspScreen', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('AwaitingDefects')).toBeInTheDocument();
       expect(screen.getByText(/no defects/i)).toBeInTheDocument();
     });
   });
@@ -143,7 +142,7 @@ describe('LongSeamInspScreen', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('AwaitingDefects')).toBeInTheDocument();
+      expect(screen.getByText(/serial no\./i)).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /^save$/i }));
@@ -178,13 +177,13 @@ describe('LongSeamInspScreen', () => {
     await user.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('AwaitingDefects')).toBeInTheDocument();
+      expect(screen.getByText(/serial no\./i)).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/scan serial number/i)).toBeInTheDocument();
+      expect(screen.getByText(/next: enter shell serial and tap submit/i)).toBeInTheDocument();
     });
   });
 
@@ -209,8 +208,33 @@ describe('LongSeamInspScreen', () => {
     expect(props.registerBarcodeHandler).toHaveBeenCalled();
   });
 
-  it('disables input in external mode', () => {
+  it('shows external-input NEXT instruction and hides manual waiting form', () => {
     renderInspection({ externalInput: true });
-    expect(screen.getByPlaceholderText(/enter serial number/i)).toBeDisabled();
+    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/enter serial number/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
+  });
+
+  it('updates AwaitingDefects NEXT instruction when defect is pending', async () => {
+    const { props } = renderInspection({ externalInput: true });
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+
+    const barcodeHandler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    expect(barcodeHandler).toBeTypeOf('function');
+
+    barcodeHandler?.({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+
+    await waitFor(() => {
+      expect(screen.getByText(/next: scan defect \+ location, or scan save/i)).toBeInTheDocument();
+    });
+
+    barcodeHandler?.({ prefix: 'D', value: '042', raw: 'D;042' }, 'D;042');
+
+    await waitFor(() => {
+      expect(screen.getByText(/next: scan location/i)).toBeInTheDocument();
+    });
   });
 });

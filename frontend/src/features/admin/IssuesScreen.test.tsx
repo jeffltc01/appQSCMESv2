@@ -95,7 +95,36 @@ describe('IssuesScreen', () => {
     const needsApprovalToggle = await screen.findByRole('switch', { name: /needs approval only/i });
     await user.click(needsApprovalToggle);
     await user.click(await screen.findByRole('button', { name: /review broken scanner/i }));
-    expect(await screen.findByText(/Review: Broken scanner/i)).toBeInTheDocument();
-    expect(screen.getByText('Scanner stops after first scan')).toBeInTheDocument();
+    expect(await screen.findByText(/Issue Details: Broken scanner/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Scanner stops after first scan').length).toBeGreaterThan(0);
+  });
+
+  it('opens details modal from view details button', async () => {
+    vi.mocked(issueRequestApi.getMine).mockResolvedValue([
+      {
+        id: 'ir-2',
+        type: IssueRequestType.FeatureRequest,
+        status: IssueRequestStatus.Pending,
+        title: 'Add export button',
+        area: 'Admin - Products',
+        bodyJson: JSON.stringify({
+          problem: 'Need to export records quickly',
+          solution: 'Add CSV export',
+          priority: 'Important',
+        }),
+        submittedByUserId: 'qm-1',
+        submittedByName: 'QM User',
+        submittedAt: '2026-02-24T01:00:00Z',
+      },
+    ]);
+    vi.mocked(issueRequestApi.getPending).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(await screen.findByRole('button', { name: /view details for add export button/i }));
+    expect(await screen.findByText(/Issue Details: Add export button/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Need to export records quickly').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
   });
 });

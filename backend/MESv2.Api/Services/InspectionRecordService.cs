@@ -96,8 +96,11 @@ public class InspectionRecordService : IInspectionRecordService
             if (firstRecordId == Guid.Empty) firstRecordId = record.Id;
         }
 
+        var shouldAutoMarkRepaired = await ShouldAutoMarkDefectsAsRepairedAsync(dto.WorkCenterId, cancellationToken);
+        var repairedByUserId = dto.WelderIds.FirstOrDefault();
         foreach (var defect in dto.Defects)
         {
+            var repairedDateTime = shouldAutoMarkRepaired ? DateTime.UtcNow : (DateTime?)null;
             _db.DefectLogs.Add(new DefectLog
             {
                 Id = Guid.NewGuid(),
@@ -109,8 +112,9 @@ public class InspectionRecordService : IInspectionRecordService
                 LocDetails1 = null,
                 LocDetails2 = null,
                 LocDetailsCode = null,
-                IsRepaired = false,
-                RepairedByUserId = null,
+                IsRepaired = shouldAutoMarkRepaired,
+                RepairedByUserId = shouldAutoMarkRepaired ? repairedByUserId : null,
+                RepairedDateTime = repairedDateTime,
                 Timestamp = DateTime.UtcNow
             });
         }
@@ -141,5 +145,16 @@ public class InspectionRecordService : IInspectionRecordService
                 LocationName = d.Location?.Name
             }).ToList()
         };
+    }
+
+    private async Task<bool> ShouldAutoMarkDefectsAsRepairedAsync(Guid workCenterId, CancellationToken cancellationToken)
+    {
+        var dataEntryType = await _db.WorkCenters
+            .Where(w => w.Id == workCenterId)
+            .Select(w => w.DataEntryType)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return string.Equals(dataEntryType, "Barcode-LongSeamInsp", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(dataEntryType, "Barcode-RoundSeamInsp", StringComparison.OrdinalIgnoreCase);
     }
 }

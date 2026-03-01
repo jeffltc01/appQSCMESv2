@@ -7,8 +7,9 @@ The Issues screen combines request submission and review workflows in one place.
 1. **Open Issues.** The default list shows your issue requests.
 2. **Filter list.** Use search, type, and status filters to narrow results.
 3. **Create request.** Click **New Issue**, select request type, complete required fields, and submit.
-4. **Review pending (approvers).** Enable **Needs Approval Only** to show requests waiting for action.
-5. **Approve or deny.** Use the review icon on a pending card to open details, then approve (creates GitHub issue) or deny with optional notes.
+4. **Open full details.** Click the eye icon on any card to review full request details in a modal.
+5. **Review pending (approvers).** Enable **Needs Approval Only** to focus on requests waiting for action.
+6. **Approve or deny.** From the details modal, approve (creates GitHub issue) or deny with optional notes.
 
 ## Request Types
 
@@ -54,6 +55,7 @@ The Issues screen combines request submission and review workflows in one place.
 | **New Issue** | Opens the multi-type submission form. |
 | **Search / Type / Status filters** | Narrows visible cards in list view. |
 | **Needs Approval Only** | Reviewer toggle for pending-only queue. |
+| **View details (eye icon)** | Opens a full details modal for any issue card. |
 | **Review icon** | Opens the approval dialog for pending requests. |
 | **Approve** | Approves request and creates corresponding GitHub issue. |
 | **Deny** | Rejects request with optional reviewer notes. |

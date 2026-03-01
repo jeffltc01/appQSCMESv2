@@ -587,9 +587,98 @@ export function MobileBottlenecksScreen() {
 }
 
 export function MobilePlantsScreen() {
+  const { user } = useAuth();
+  const canEditPlantGear = isOpsDirector(user) || (user?.roleTier ?? 99) <= 1;
   const { compareRows, updatedLabel } = useOperationsPortfolioData();
+  const [plants, setPlants] = useState<PlantWithGear[]>([]);
+  const [gearLoading, setGearLoading] = useState(true);
+  const [gearError, setGearError] = useState<string | null>(null);
+  const [savingPlantId, setSavingPlantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setGearLoading(true);
+        setGearError(null);
+        const allPlants = await adminPlantGearApi.getAll();
+        if (!cancelled) {
+          setPlants(allPlants);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setGearError(err instanceof Error ? err.message : 'Unable to load plant gear');
+          setPlants([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setGearLoading(false);
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSetGear = async (plantId: string, plantGearId: string) => {
+    setSavingPlantId(plantId);
+    try {
+      await adminPlantGearApi.setGear(plantId, { plantGearId });
+      setPlants((previous) => previous.map((plant) => {
+        if (plant.plantId !== plantId) {
+          return plant;
+        }
+        const selectedGear = plant.gears.find((gear) => gear.id === plantGearId);
+        return {
+          ...plant,
+          currentPlantGearId: plantGearId,
+          currentGearLevel: selectedGear?.level,
+        };
+      }));
+      setGearError(null);
+    } catch (err) {
+      setGearError(err instanceof Error ? err.message : 'Unable to update plant gear');
+    } finally {
+      setSavingPlantId(null);
+    }
+  };
+
   return (
     <MobileFrame title="Across-Plant Compare" chips={['3 Plants', 'Today', 'OEE']} tabs={opsTabs}>
+      <h2 className={styles.sectionTitle}>Plant Gear</h2>
+      {gearError ? <div className={styles.emptyState}>Plant gear unavailable: {gearError}</div> : null}
+      <section className={styles.cardGrid}>
+        {plants.map((plant) => (
+          <article key={plant.plantId} className={styles.card}>
+            <div className={styles.rowTitle}>{plant.plantName}</div>
+            <div className={styles.rowMeta}>
+              Current gear: {plant.currentGearLevel != null ? `Gear ${plant.currentGearLevel}` : 'Not set'}
+            </div>
+            {canEditPlantGear ? (
+              <div className={styles.gearRow}>
+                {plant.gears.map((gear) => (
+                  <Button
+                    key={gear.id}
+                    appearance={gear.id === plant.currentPlantGearId ? 'primary' : 'outline'}
+                    size="small"
+                    disabled={savingPlantId === plant.plantId}
+                    onClick={() => handleSetGear(plant.plantId, gear.id)}
+                    className={styles.gearButton}
+                  >
+                    {gear.level}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.rowMeta}>Read-only for this role.</div>
+            )}
+          </article>
+        ))}
+      </section>
+      {gearLoading && plants.length === 0 ? <div className={styles.footerNote}>Loading plant gear...</div> : null}
       <section className={styles.list}>
         {compareRows.map((row) => (
           <div key={row.plant} className={styles.listRow}><div><div className={styles.rowTitle}>{row.plant}</div><div className={styles.rowMeta}>{row.summary}</div></div><span className={statusBadgeClass(row.status)}>{row.status.toUpperCase()}</span></div>

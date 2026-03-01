@@ -49,9 +49,9 @@ describe('LongSeamScreen', () => {
     vi.clearAllMocks();
   });
 
-  it('renders prompt to scan serial', () => {
-    renderLongSeam();
-    expect(screen.getByText(/scan serial number/i)).toBeInTheDocument();
+  it('shows long seam specific NEXT instruction in external input mode', () => {
+    renderLongSeam({ externalInput: true });
+    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
   });
 
   it('has serial number input in manual mode', () => {
@@ -64,9 +64,15 @@ describe('LongSeamScreen', () => {
     expect(screen.getByRole('button', { name: /submit/i })).toBeInTheDocument();
   });
 
-  it('disables input in external input mode', () => {
+  it('shows manual-mode NEXT instruction when external input is off', () => {
+    renderLongSeam({ externalInput: false });
+    expect(screen.getByText(/next: enter shell serial and tap submit/i)).toBeInTheDocument();
+  });
+
+  it('hides manual input section in external input mode', () => {
     renderLongSeam({ externalInput: true });
-    expect(screen.getByPlaceholderText(/enter serial number/i)).toBeDisabled();
+    expect(screen.queryByPlaceholderText(/enter serial number/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
   });
 
   it('calls create on manual submit', async () => {

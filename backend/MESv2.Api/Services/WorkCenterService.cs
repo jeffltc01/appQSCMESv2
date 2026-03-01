@@ -122,7 +122,9 @@ public class WorkCenterService : IWorkCenterService
             .FirstOrDefaultAsync(cancellationToken);
         var isFitup = string.Equals(wcDataEntryType, "Fitup", StringComparison.OrdinalIgnoreCase);
         var isRolls = string.Equals(wcDataEntryType, "Rolls", StringComparison.OrdinalIgnoreCase);
-        var shouldWrapShellWithAssemblyAlpha = !isFitup && !isRolls;
+        var isLongSeam = string.Equals(wcDataEntryType, "Barcode-LongSeam", StringComparison.OrdinalIgnoreCase);
+        var isLongSeamInspection = string.Equals(wcDataEntryType, "Barcode-LongSeamInsp", StringComparison.OrdinalIgnoreCase);
+        var shouldWrapShellWithAssemblyAlpha = !isFitup && !isRolls && !isLongSeam && !isLongSeamInspection;
 
         var shellsByAssembly = new Dictionary<Guid, List<string>>();
         if (isFitup)
@@ -384,7 +386,7 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         var locations = await _db.DefectLocations
-            .Where(d => d.IsActive && d.CharacteristicId != null && characteristicIds.Contains(d.CharacteristicId!.Value))
+            .Where(d => d.IsActive && (d.CharacteristicId == null || characteristicIds.Contains(d.CharacteristicId.Value)))
             .OrderBy(d => d.Code)
             .ToListAsync(cancellationToken);
 

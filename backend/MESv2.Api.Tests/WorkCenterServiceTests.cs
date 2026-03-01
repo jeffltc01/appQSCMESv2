@@ -439,6 +439,98 @@ public class WorkCenterServiceTests
     }
 
     [Fact]
+    public async Task GetDefectLocations_IncludesUniversalAndMappedCharacteristicLocations()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+
+        var mappedCharacteristicId = Guid.NewGuid();
+        var unmappedCharacteristicId = Guid.NewGuid();
+
+        db.Characteristics.AddRange(
+            new Characteristic
+            {
+                Id = mappedCharacteristicId,
+                Code = "LS-MAP",
+                Name = "LS Mapped",
+                ProductTypeId = null,
+                IsActive = true
+            },
+            new Characteristic
+            {
+                Id = unmappedCharacteristicId,
+                Code = "LS-OTHER",
+                Name = "LS Unmapped",
+                ProductTypeId = null,
+                IsActive = true
+            });
+
+        db.CharacteristicWorkCenters.Add(new CharacteristicWorkCenter
+        {
+            Id = Guid.NewGuid(),
+            CharacteristicId = mappedCharacteristicId,
+            WorkCenterId = TestHelpers.wcLongSeamInspId
+        });
+
+        db.DefectLocations.AddRange(
+            new DefectLocation
+            {
+                Id = Guid.NewGuid(),
+                Code = "ZZ-MAP",
+                Name = "Mapped Location",
+                CharacteristicId = mappedCharacteristicId,
+                IsActive = true
+            },
+            new DefectLocation
+            {
+                Id = Guid.NewGuid(),
+                Code = "ZZ-ANY",
+                Name = "Universal Location",
+                CharacteristicId = null,
+                IsActive = true
+            },
+            new DefectLocation
+            {
+                Id = Guid.NewGuid(),
+                Code = "ZZ-NOMAP",
+                Name = "Unmapped Location",
+                CharacteristicId = unmappedCharacteristicId,
+                IsActive = true
+            });
+
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetDefectLocationsAsync(TestHelpers.wcLongSeamInspId);
+
+        var codes = result.Select(r => r.Code).ToList();
+        Assert.Contains("ZZ-MAP", codes);
+        Assert.Contains("ZZ-ANY", codes);
+        Assert.DoesNotContain("ZZ-NOMAP", codes);
+    }
+
+    [Fact]
+    public async Task GetDefectLocations_ExcludesInactiveUniversalLocations()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+
+        db.DefectLocations.Add(new DefectLocation
+        {
+            Id = Guid.NewGuid(),
+            Code = "ZZ-INACTIVE-ANY",
+            Name = "Inactive Universal",
+            CharacteristicId = null,
+            IsActive = false
+        });
+
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetDefectLocationsAsync(TestHelpers.wcLongSeamInspId);
+
+        Assert.DoesNotContain(result, r => r.Code == "ZZ-INACTIVE-ANY");
+    }
+
+    [Fact]
     public async Task GetCharacteristics_WithoutTankSize_ReturnsAll()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

@@ -9,7 +9,7 @@ import {
   Option,
   Switch,
 } from '@fluentui/react-components';
-import { ArrowLeftRegular, CheckmarkRegular } from '@fluentui/react-icons';
+import { ArrowLeftRegular, CheckmarkRegular, EyeRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { issueRequestApi } from '../../api/endpoints.ts';
@@ -94,6 +94,18 @@ function formatFieldLabel(key: string): string {
   return labels[key] ?? key;
 }
 
+function getPrimaryDetail(bodyJson: string): string {
+  const fields = parseBodyFields(bodyJson);
+  const orderedKeys = ['description', 'problem', 'question', 'actual', 'expected', 'solution', 'context', 'steps'];
+  for (const key of orderedKeys) {
+    const value = fields[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
 export function IssuesScreen() {
   const { user } = useAuth();
   const canApprove = (user?.roleTier ?? 99) <= 3;
@@ -110,10 +122,22 @@ export function IssuesScreen() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [needsApprovalOnly, setNeedsApprovalOnly] = useState(false);
 
-  const [reviewItem, setReviewItem] = useState<IssueRequestDto | null>(null);
+  const [selectedItem, setSelectedItem] = useState<IssueRequestDto | null>(null);
   const [reviewerNotes, setReviewerNotes] = useState('');
   const [reviewActionLoading, setReviewActionLoading] = useState(false);
   const [reviewError, setReviewError] = useState('');
+
+  const closeDetailsModal = () => {
+    setSelectedItem(null);
+    setReviewerNotes('');
+    setReviewError('');
+  };
+
+  const openDetailsModal = (item: IssueRequestDto) => {
+    setSelectedItem(item);
+    setReviewerNotes('');
+    setReviewError('');
+  };
 
   const [issueType, setIssueType] = useState<number>(IssueRequestType.Bug);
   const [title, setTitle] = useState('');
@@ -268,14 +292,13 @@ export function IssuesScreen() {
   };
 
   const handleApprove = async () => {
-    if (!reviewItem || !user?.id) return;
+    if (!selectedItem || !user?.id) return;
     setReviewActionLoading(true);
     setReviewError('');
     try {
       const dto: ApproveIssueRequestDto = { reviewerUserId: user.id };
-      await issueRequestApi.approve(reviewItem.id, dto);
-      setReviewItem(null);
-      setReviewerNotes('');
+      await issueRequestApi.approve(selectedItem.id, dto);
+      closeDetailsModal();
       await load();
     } catch {
       setReviewError('Failed to approve issue request.');
@@ -285,16 +308,15 @@ export function IssuesScreen() {
   };
 
   const handleDeny = async () => {
-    if (!reviewItem || !user?.id) return;
+    if (!selectedItem || !user?.id) return;
     setReviewActionLoading(true);
     setReviewError('');
     try {
-      await issueRequestApi.reject(reviewItem.id, {
+      await issueRequestApi.reject(selectedItem.id, {
         reviewerUserId: user.id,
         notes: reviewerNotes || undefined,
       });
-      setReviewItem(null);
-      setReviewerNotes('');
+      closeDetailsModal();
       await load();
     } catch {
       setReviewError('Failed to deny issue request.');
@@ -302,6 +324,8 @@ export function IssuesScreen() {
       setReviewActionLoading(false);
     }
   };
+
+  const canReviewSelected = !!selectedItem && canApprove && selectedItem.status === IssueRequestStatus.Pending;
 
   if (view === 'form') {
     return (
@@ -479,15 +503,24 @@ export function IssuesScreen() {
               <div key={item.id} className={styles.card}>
                 <div className={styles.cardHeader}>
                   <span className={styles.cardTitle}>{item.title}</span>
-                  {canApprove && item.status === IssueRequestStatus.Pending && (
+                  <div className={styles.cardActions}>
                     <Button
                       appearance="subtle"
-                      icon={<CheckmarkRegular />}
+                      icon={<EyeRegular />}
                       size="small"
-                      aria-label={`Review ${item.title}`}
-                      onClick={() => { setReviewItem(item); setReviewerNotes(''); setReviewError(''); }}
+                      aria-label={`View details for ${item.title}`}
+                      onClick={() => openDetailsModal(item)}
                     />
-                  )}
+                    {canApprove && item.status === IssueRequestStatus.Pending && (
+                      <Button
+                        appearance="subtle"
+                        icon={<CheckmarkRegular />}
+                        size="small"
+                        aria-label={`Review ${item.title}`}
+                        onClick={() => openDetailsModal(item)}
+                      />
+                    )}
+                  </div>
                 </div>
                 <div className={styles.cardField}>
                   <span className={styles.cardFieldLabel}>Type</span>
@@ -505,6 +538,9 @@ export function IssuesScreen() {
                   <span className={styles.cardFieldLabel}>Submitted</span>
                   <span className={styles.cardFieldValue}>{formatDateOnly(item.submittedAt)}</span>
                 </div>
+                {getPrimaryDetail(item.bodyJson) && (
+                  <div className={styles.cardPreview}>{getPrimaryDetail(item.bodyJson)}</div>
+                )}
                 {item.gitHubIssueUrl && (
                   <div className={styles.cardField}>
                     <span className={styles.cardFieldLabel}>GitHub</span>
@@ -521,29 +557,64 @@ export function IssuesScreen() {
       )}
 
       <AdminModal
-        open={!!reviewItem}
-        title={reviewItem ? `Review: ${reviewItem.title}` : 'Review Issue'}
-        onConfirm={handleApprove}
-        onCancel={() => { setReviewItem(null); setReviewerNotes(''); setReviewError(''); }}
-        confirmLabel="Approve"
+        open={!!selectedItem}
+        title={selectedItem ? `Issue Details: ${selectedItem.title}` : 'Issue Details'}
+        onConfirm={canReviewSelected ? handleApprove : closeDetailsModal}
+        onCancel={closeDetailsModal}
+        confirmLabel={canReviewSelected ? 'Approve' : 'Close'}
         loading={reviewActionLoading}
         error={reviewError}
+        hideCancel={!canReviewSelected}
       >
-        {reviewItem && (
+        {selectedItem && (
           <>
             <div className={styles.cardField}>
               <span className={styles.cardFieldLabel}>Type</span>
-              <span className={styles.cardFieldValue}>{TYPE_LABELS[reviewItem.type] ?? 'Unknown'}</span>
+              <span className={styles.cardFieldValue}>{TYPE_LABELS[selectedItem.type] ?? 'Unknown'}</span>
             </div>
             <div className={styles.cardField}>
               <span className={styles.cardFieldLabel}>Area</span>
-              <span className={styles.cardFieldValue}>{reviewItem.area}</span>
+              <span className={styles.cardFieldValue}>{selectedItem.area}</span>
             </div>
             <div className={styles.cardField}>
               <span className={styles.cardFieldLabel}>Submitted By</span>
-              <span className={styles.cardFieldValue}>{reviewItem.submittedByName}</span>
+              <span className={styles.cardFieldValue}>{selectedItem.submittedByName}</span>
             </div>
-            {Object.entries(parseBodyFields(reviewItem.bodyJson)).map(([key, value]) => (
+            <div className={styles.cardField}>
+              <span className={styles.cardFieldLabel}>Submitted</span>
+              <span className={styles.cardFieldValue}>{formatDateOnly(selectedItem.submittedAt)}</span>
+            </div>
+            <div className={styles.cardField}>
+              <span className={styles.cardFieldLabel}>Status</span>
+              <span className={styles.cardFieldValue}>{STATUS_LABELS[selectedItem.status] ?? 'Unknown'}</span>
+            </div>
+            {selectedItem.reviewedByName && (
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Reviewed By</span>
+                <span className={styles.cardFieldValue}>{selectedItem.reviewedByName}</span>
+              </div>
+            )}
+            {selectedItem.reviewedAt && (
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Reviewed</span>
+                <span className={styles.cardFieldValue}>{formatDateOnly(selectedItem.reviewedAt)}</span>
+              </div>
+            )}
+            {selectedItem.reviewerNotes && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Label>Reviewer Notes</Label>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{selectedItem.reviewerNotes}</div>
+              </div>
+            )}
+            {selectedItem.gitHubIssueUrl && (
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>GitHub</span>
+                <a href={selectedItem.gitHubIssueUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0078d4', fontSize: 13 }}>
+                  #{selectedItem.gitHubIssueNumber}
+                </a>
+              </div>
+            )}
+            {Object.entries(parseBodyFields(selectedItem.bodyJson)).map(([key, value]) => (
               value ? (
                 <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <Label>{formatFieldLabel(key)}</Label>
@@ -551,19 +622,23 @@ export function IssuesScreen() {
                 </div>
               ) : null
             ))}
-            <Label>Deny Notes (optional)</Label>
-            <Textarea
-              value={reviewerNotes}
-              onChange={(_, d) => setReviewerNotes(d.value)}
-              rows={3}
-              resize="vertical"
-              placeholder="Reason for denial..."
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button appearance="secondary" onClick={handleDeny} disabled={reviewActionLoading}>
-                Deny
-              </Button>
-            </div>
+            {canReviewSelected && (
+              <>
+                <Label>Deny Notes (optional)</Label>
+                <Textarea
+                  value={reviewerNotes}
+                  onChange={(_, d) => setReviewerNotes(d.value)}
+                  rows={3}
+                  resize="vertical"
+                  placeholder="Reason for denial..."
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button appearance="secondary" onClick={handleDeny} disabled={reviewActionLoading}>
+                    Deny
+                  </Button>
+                </div>
+              </>
+            )}
           </>
         )}
       </AdminModal>

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
@@ -7,6 +8,7 @@ namespace MESv2.Api.Controllers;
 
 [ApiController]
 [Route("api/plant-gear")]
+[Authorize]
 public class PlantGearController : ControllerBase
 {
     private readonly MesDbContext _db;
@@ -58,6 +60,9 @@ public class PlantGearController : ControllerBase
     [HttpPut("{plantId:guid}")]
     public async Task<ActionResult> SetGear(Guid plantId, [FromBody] SetPlantGearDto dto, CancellationToken cancellationToken)
     {
+        if (!IsDirectorOrAbove())
+            return Forbid();
+
         var plant = await _db.Plants.FindAsync(new object[] { plantId }, cancellationToken);
         if (plant == null) return NotFound();
 
@@ -73,6 +78,9 @@ public class PlantGearController : ControllerBase
     [HttpPut("{plantId:guid}/limble")]
     public async Task<ActionResult> SetLimbleLocationId(Guid plantId, [FromBody] UpdatePlantLimbleDto dto, CancellationToken cancellationToken)
     {
+        if (!IsDirectorOrAbove())
+            return Forbid();
+
         var plant = await _db.Plants.FindAsync(new object[] { plantId }, cancellationToken);
         if (plant == null) return NotFound();
 
@@ -84,6 +92,9 @@ public class PlantGearController : ControllerBase
     [HttpPut("{plantId:guid}/next-alpha-code")]
     public async Task<ActionResult> SetNextAlphaCode(Guid plantId, [FromBody] UpdatePlantNextAlphaCodeDto dto, CancellationToken cancellationToken)
     {
+        if (!IsDirectorOrAbove())
+            return Forbid();
+
         var plant = await _db.Plants.FindAsync(new object[] { plantId }, cancellationToken);
         if (plant == null) return NotFound();
 
@@ -94,5 +105,13 @@ public class PlantGearController : ControllerBase
         plant.NextTankAlphaCode = code;
         await _db.SaveChangesAsync(cancellationToken);
         return NoContent();
+    }
+
+    private bool IsDirectorOrAbove()
+    {
+        if (!Request.Headers.TryGetValue("X-User-Role-Tier", out var tierHeader))
+            return false;
+
+        return decimal.TryParse(tierHeader, out var callerTier) && callerTier <= 2.0m;
     }
 }

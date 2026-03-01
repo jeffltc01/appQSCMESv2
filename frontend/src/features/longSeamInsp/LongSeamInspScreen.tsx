@@ -132,6 +132,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
         serialNumber,
         workCenterId,
         operatorId,
+        welderIds: props.welders.map((w) => w.userId),
         results: controlPlans.map(cp => ({
           controlPlanId: cp.id,
           resultText: inspectionResults[cp.id] || '',
@@ -291,37 +292,78 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
     }
   }, [manualDefectCode, manualLocation, defectCodes, defectLocations, addDefectEntry]);
 
+  const nextInstruction = props.externalInput
+    ? {
+        title: 'NEXT: Scan shell label',
+        isActive: true,
+      }
+    : {
+        title: 'NEXT: Enter shell serial and tap Submit',
+        isActive: false,
+      };
+
+  const awaitingInstruction = (() => {
+    if (pending.defectCodeId && !pending.locationId) {
+      return {
+        title: 'NEXT: Scan Location',
+        isActive: true,
+      };
+    }
+    if (!pending.defectCodeId && pending.locationId) {
+      return {
+        title: 'NEXT: Scan Defect Code',
+        isActive: true,
+      };
+    }
+
+    return props.externalInput
+      ? {
+          title: 'NEXT: Scan defect + location, or scan Save',
+          isActive: true,
+        }
+      : {
+          title: 'NEXT: Add defect + location, or tap Save',
+          isActive: false,
+        };
+  })();
+
   if (screenState === 'WaitingForShell') {
     return (
       <div className={styles.container}>
-        <div className={styles.prompt}>Scan Serial Number to begin...</div>
-        <div className={styles.form}>
-          <Label className={styles.label}>Serial Number</Label>
-          <Input
-            value={manualSerial}
-            onChange={(_, d) => setManualSerial(d.value)}
-            placeholder="enter serial number"
-            size="large"
-            className={styles.input}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleManualShellSubmit(); }}
-            disabled={props.externalInput}
-          />
-          <Button
-            appearance="primary" size="large" className={styles.submitBtn}
-            onClick={handleManualShellSubmit}
-            disabled={props.externalInput || !manualSerial.trim()}
-          >
-            Submit
-          </Button>
+        <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+          <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
         </div>
+        {!props.externalInput && (
+          <div className={styles.form}>
+            <Label className={styles.label}>Serial Number</Label>
+            <Input
+              value={manualSerial}
+              onChange={(_, d) => setManualSerial(d.value)}
+              placeholder="enter serial number"
+              size="large"
+              className={styles.input}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleManualShellSubmit(); }}
+            />
+            <Button
+              appearance="primary" size="large" className={styles.submitBtn}
+              onClick={handleManualShellSubmit}
+              disabled={!manualSerial.trim()}
+            >
+              Submit
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className={styles.container}>
+      <div className={`${styles.scanStateBanner} ${awaitingInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+        <span className={styles.scanStateTitle}>{awaitingInstruction.title}</span>
+      </div>
+
       <div className={styles.header}>
-        <span className={styles.stateLabel}>AwaitingDefects</span>
         <span>Serial No. <strong>{serialNumber}</strong></span>
         <span>Tank Size <strong>{tankSize ?? '—'}</strong></span>
       </div>

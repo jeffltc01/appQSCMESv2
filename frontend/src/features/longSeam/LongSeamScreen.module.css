@@ -13,6 +13,48 @@
   font-weight: 400;
 }
 
+.scanStateBanner {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #e5e5e5;
+  padding: 14px 18px;
+  background: #f8f9fa;
+}
+
+.scanStateBannerActive {
+  background: #2b3b84;
+  border-color: #2b3b84;
+}
+
+.scanStateBannerIdle {
+  background: #f8f9fa;
+  border-color: #dfe2ed;
+}
+
+.scanStateTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.scanStateBannerActive .scanStateTitle {
+  color: #ffffff;
+}
+
+.scanStateDetail {
+  font-size: 16px;
+  font-weight: 400;
+  color: #343a40;
+}
+
+.scanStateBannerActive .scanStateDetail {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
 .form {
   display: flex;
   flex-direction: column;

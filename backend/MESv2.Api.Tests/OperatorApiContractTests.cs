@@ -1,9 +1,11 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MESv2.Api.Controllers;
 using MESv2.Api.DTOs;
+using MESv2.Api.Models;
 using MESv2.Api.Services;
 
 namespace MESv2.Api.Tests;
@@ -249,5 +251,89 @@ public class OperatorApiContractTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(badRequest.Value, CamelCaseJson));
         Assert.True(json.RootElement.TryGetProperty("message", out _));
+    }
+
+    [Fact]
+    public async Task GetWorkCenterHistory_LongSeam_DisplaysShellSerialOnly_WhenAssemblyExists()
+    {
+        await AssertHistoryShellOnlyForWorkCenterAsync(TestHelpers.wcLongSeamId, "API-LS-001");
+    }
+
+    [Fact]
+    public async Task GetWorkCenterHistory_LongSeamInspection_DisplaysShellSerialOnly_WhenAssemblyExists()
+    {
+        await AssertHistoryShellOnlyForWorkCenterAsync(TestHelpers.wcLongSeamInspId, "API-LSI-001");
+    }
+
+    private static async Task AssertHistoryShellOnlyForWorkCenterAsync(Guid workCenterId, string shellSerial)
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+
+        var shellSnId = Guid.NewGuid();
+        var assemblySnId = Guid.NewGuid();
+
+        db.SerialNumbers.AddRange(
+            new SerialNumber
+            {
+                Id = shellSnId,
+                Serial = shellSerial,
+                ProductId = shellProduct.Id,
+                PlantId = TestHelpers.PlantPlt1Id,
+                CreatedAt = DateTime.UtcNow
+            },
+            new SerialNumber
+            {
+                Id = assemblySnId,
+                Serial = "AA",
+                ProductId = assembledProduct.Id,
+                PlantId = TestHelpers.PlantPlt1Id,
+                CreatedAt = DateTime.UtcNow
+            });
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shellSnId,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "ShellToAssembly",
+            Quantity = 1,
+            Timestamp = DateTime.UtcNow
+        });
+
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = shellSnId,
+            WorkCenterId = workCenterId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        var workCenterService = new WorkCenterService(db, Mock.Of<ILogger<WorkCenterService>>());
+        var controller = new WorkCentersController(
+            workCenterService,
+            Mock.Of<IXrayQueueService>(),
+            Mock.Of<IDowntimeService>(),
+            Mock.Of<IAdminWorkCenterService>(),
+            Mock.Of<ILogger<WorkCentersController>>());
+
+        var response = await controller.GetHistory(
+            workCenterId,
+            TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null,
+            limit: 5,
+            assetId: null,
+            cancellationToken: CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var history = Assert.IsType<WCHistoryDto>(ok.Value);
+        Assert.Single(history.RecentRecords);
+        Assert.Equal(shellSerial, history.RecentRecords[0].SerialOrIdentifier);
     }
 }

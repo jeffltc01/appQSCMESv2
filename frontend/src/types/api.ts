@@ -65,6 +65,7 @@ export interface CreateInspectionRecordRequest {
   serialNumber: string;
   workCenterId: string;
   operatorId: string;
+  welderIds?: string[];
   productionRecordId?: string;
   results: InspectionResultEntry[];
   defects: {

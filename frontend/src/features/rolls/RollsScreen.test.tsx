@@ -282,7 +282,8 @@ describe('RollsScreen', () => {
     vi.mocked(productionRecordApi.create).mockResolvedValue({
       id: 'pr-1',
       serialNumber: '0301101',
-      warning: null,
+      timestamp: new Date().toISOString(),
+      warning: undefined,
     });
 
     const { props } = renderRolls({ externalInput: false });

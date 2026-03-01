@@ -74,34 +74,47 @@ export function LongSeamScreen(props: WorkCenterProps) {
     setManualSerial('');
   }, [manualSerial, recordShell]);
 
+  const nextInstruction = props.externalInput
+    ? {
+        title: 'NEXT: Scan shell label',
+        isActive: true,
+      }
+    : {
+        title: 'NEXT: Enter shell serial and tap Submit',
+        isActive: false,
+      };
+
   return (
     <div className={styles.container}>
-      <div className={styles.prompt}>Scan Serial Number to begin...</div>
-
-      <div className={styles.form}>
-        <Label htmlFor="ls-serial" className={styles.label}>
-          Serial Number
-        </Label>
-        <Input
-          id="ls-serial"
-          value={manualSerial}
-          onChange={(_, d) => setManualSerial(d.value)}
-          placeholder="enter serial number"
-          size="large"
-          className={styles.input}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }}
-          disabled={props.externalInput}
-        />
-        <Button
-          appearance="primary"
-          size="large"
-          className={styles.submitBtn}
-          onClick={handleManualSubmit}
-          disabled={props.externalInput || !manualSerial.trim()}
-        >
-          Submit
-        </Button>
+      <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+        <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
       </div>
+
+      {!props.externalInput && (
+        <div className={styles.form}>
+          <Label htmlFor="ls-serial" className={styles.label}>
+            Serial Number
+          </Label>
+          <Input
+            id="ls-serial"
+            value={manualSerial}
+            onChange={(_, d) => setManualSerial(d.value)}
+            placeholder="enter serial number"
+            size="large"
+            className={styles.input}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleManualSubmit(); }}
+          />
+          <Button
+            appearance="primary"
+            size="large"
+            className={styles.submitBtn}
+            onClick={handleManualSubmit}
+            disabled={!manualSerial.trim()}
+          >
+            Submit
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

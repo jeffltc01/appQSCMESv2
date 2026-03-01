@@ -264,6 +264,17 @@
   border-color: #c81928;
 }
 
+.gearRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gearButton {
+  min-width: 34px;
+  border-radius: 0 !important;
+}
+
 @media (max-width: 768px) {
   .logoutButton {
     min-width: 72px;

@@ -144,6 +144,134 @@ public class WorkCenterServiceHistoryTests
     }
 
     /// <summary>
+    /// Long Seam history must always show the shell serial, even if that shell
+    /// is linked to an assembly alpha code downstream.
+    /// </summary>
+    [Fact]
+    public async Task LongSeam_ShowsShellSerialEvenWhenAssemblyExists()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+
+        var shellSnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = shellSnId,
+            Serial = "0301201",
+            ProductId = shellProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        var assemblySnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = assemblySnId,
+            Serial = "AA",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shellSnId,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "ShellToAssembly",
+            Quantity = 1,
+            Timestamp = DateTime.UtcNow
+        });
+
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = shellSnId,
+            WorkCenterId = TestHelpers.wcLongSeamId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcLongSeamId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null, limit: 10);
+
+        Assert.Single(result.RecentRecords);
+        Assert.Equal("0301201", result.RecentRecords[0].SerialOrIdentifier);
+        Assert.Equal(120, result.RecentRecords[0].TankSize);
+    }
+
+    /// <summary>
+    /// Long Seam Inspection history must always show the shell serial, even if
+    /// that shell is linked to an assembly alpha code downstream.
+    /// </summary>
+    [Fact]
+    public async Task LongSeamInspection_ShowsShellSerialEvenWhenAssemblyExists()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
+
+        var shellSnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = shellSnId,
+            Serial = "0301301",
+            ProductId = shellProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        var assemblySnId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = assemblySnId,
+            Serial = "AA",
+            ProductId = assembledProduct.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shellSnId,
+            ToSerialNumberId = assemblySnId,
+            Relationship = "ShellToAssembly",
+            Quantity = 1,
+            Timestamp = DateTime.UtcNow
+        });
+
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = Guid.NewGuid(),
+            SerialNumberId = shellSnId,
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcLongSeamInspId, TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null, limit: 10);
+
+        Assert.Single(result.RecentRecords);
+        Assert.Equal("0301301", result.RecentRecords[0].SerialOrIdentifier);
+        Assert.Equal(120, result.RecentRecords[0].TankSize);
+    }
+
+    /// <summary>
     /// For a fitup work center, the history entry should read
     /// "AA (SHELL-001, SHELL-002)" — alpha code with shells listed inside.
     /// </summary>

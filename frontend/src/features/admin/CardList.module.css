@@ -64,6 +64,18 @@
   color: #212529;
 }
 
+.cardPreview {
+  font-size: 12px;
+  color: #495057;
+  background: #f8f9fa;
+  border-left: 3px solid #d0ebff;
+  padding: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .badge {
   display: inline-block;
   font-size: 11px;

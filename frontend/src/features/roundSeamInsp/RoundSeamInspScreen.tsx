@@ -114,6 +114,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
         serialNumber: alphaCode,
         workCenterId,
         operatorId,
+        welderIds: props.welders.map((w) => w.userId),
         results: controlPlans.map(cp => ({
           controlPlanId: cp.id,
           resultText: inspectionResults[cp.id] || '',
