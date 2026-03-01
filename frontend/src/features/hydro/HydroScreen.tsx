@@ -258,9 +258,60 @@ export function HydroScreen(props: WorkCenterProps) {
     setManualNameplateInput('');
   }, [manualNameplateInput, scanNameplate]);
 
+  const scanInstruction = (() => {
+    if (state === 'WaitingForScans') {
+      if (!shellSerial && !nameplateSerial) {
+        return {
+          title: 'NEXT: Scan Shell or Nameplate to begin',
+          detail: '',
+          isActive: false,
+        };
+      }
+
+      if (shellSerial && !nameplateSerial) {
+        return {
+          title: 'NEXT: Scan Nameplate',
+          detail: `Shell: ${shellSerial}`,
+          isActive: true,
+        };
+      }
+
+      if (!shellSerial && nameplateSerial) {
+        return {
+          title: 'NEXT: Scan Shell',
+          detail: `Nameplate: ${nameplateSerial}`,
+          isActive: true,
+        };
+      }
+    }
+
+    if (state === 'DefectEntry') {
+      const stepLabel = wizard?.step === 'defect'
+        ? 'Select Defect'
+        : wizard?.step === 'characteristic'
+          ? 'Select Characteristic'
+          : 'Select Location';
+      return {
+        title: 'NEXT: Complete defect wizard',
+        detail: stepLabel,
+        isActive: true,
+      };
+    }
+
+    return {
+      title: 'NEXT: Accept No Defects or Add Defect',
+      detail: '',
+      isActive: true,
+    };
+  })();
+
   if (state === 'DefectEntry' && wizard) {
     return (
       <div className={styles.container}>
+        <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+          <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
+          {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
+        </div>
         <div className={styles.wizardHeader}>
           <span className={styles.breadcrumb}>
             {wizard.step === 'defect' && 'Step 1: Select Defect'}
@@ -295,6 +346,10 @@ export function HydroScreen(props: WorkCenterProps) {
   if (state === 'ReadyForInspection') {
     return (
       <div className={styles.container}>
+        <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+          <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
+          {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
+        </div>
         <div className={styles.inspHeader}>
           <div className={styles.scanInfo}>
             <span>Nameplate SN: <strong>{nameplateSerial}</strong></span>
@@ -367,7 +422,10 @@ export function HydroScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={styles.waitingPrompt}>Scan Shell or Nameplate to begin...</div>
+      <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+        <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
+        {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
+      </div>
       <div className={styles.scanStatus}>
         <span>Shell: {shellSerial ? `✓ ${shellSerial}` : 'Not scanned'}</span>
         <span>Nameplate: {nameplateSerial ? `✓ ${nameplateSerial}` : 'Not scanned'}</span>
