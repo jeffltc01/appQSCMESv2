@@ -116,6 +116,8 @@ export function FitupScreen(props: WorkCenterProps) {
   const resetAssembly = useCallback(() => {
     setTankSize(0);
     setShells([]);
+    setLeftHead(null);
+    setRightHead(null);
     setHeadScanCount(0);
     setReassemblyPrompt(null);
     setReassemblyMode(null);
@@ -187,7 +189,7 @@ export function FitupScreen(props: WorkCenterProps) {
   const applyHeadLot = useCallback(
     async (cardId: string) => {
       try {
-        const data = await materialQueueApi.getCardLookup(cardId);
+        const data = await materialQueueApi.getCardLookup(workCenterId, productionLineId, cardId);
         const lot: HeadLotInfo = {
           heatNumber: data.heatNumber,
           coilNumber: data.coilNumber,
@@ -211,7 +213,7 @@ export function FitupScreen(props: WorkCenterProps) {
         showScanResult({ type: 'error', message: 'Kanban card not found or not associated with any queued material' });
       }
     },
-    [headScanCount, showScanResult],
+    [headScanCount, productionLineId, showScanResult, workCenterId],
   );
 
   const swapHeads = useCallback(() => {
@@ -359,7 +361,7 @@ export function FitupScreen(props: WorkCenterProps) {
     }
 
     try {
-      const data = await materialQueueApi.getCardLookup(cardId);
+      const data = await materialQueueApi.getCardLookup(workCenterId, productionLineId, cardId);
       const lot: HeadLotInfo = {
         heatNumber: data.heatNumber,
         coilNumber: data.coilNumber,
@@ -402,7 +404,7 @@ export function FitupScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Kanban card not found or not associated with any queued material' });
     }
-  }, [reassemblyMode, showScanResult]);
+  }, [productionLineId, reassemblyMode, showScanResult, workCenterId]);
 
   const applyShellToSelection = useCallback(async (shellSerial: string) => {
     if (!reassemblyMode?.selectedField || reassemblyMode.selectedField.component !== 'shell') {
@@ -641,7 +643,7 @@ export function FitupScreen(props: WorkCenterProps) {
     if (reassemblyPrompt) {
       return {
         title: props.externalInput
-          ? 'NEXT: Scan Yes (INP;3) or No (INP;4) for reassembly'
+          ? 'NEXT: Scan Yes or No for reassembly'
           : 'NEXT: Confirm reassembly (Yes or No)',
         isActive,
       };
@@ -669,8 +671,8 @@ export function FitupScreen(props: WorkCenterProps) {
     if (!leftHead || !rightHead) {
       return {
         title: props.externalInput
-          ? 'NEXT: Scan head kanban card (KC)'
-          : 'NEXT: Scan or select head kanban card (KC)',
+          ? 'NEXT: Scan head kanban card'
+          : 'NEXT: Scan or select head kanban card',
         isActive,
       };
     }
@@ -687,7 +689,7 @@ export function FitupScreen(props: WorkCenterProps) {
 
     return {
       title: props.externalInput
-        ? 'NEXT: Scan save (INP;3)'
+        ? 'NEXT: Scan Save'
         : 'NEXT: Tap Save',
       isActive,
     };

@@ -13,7 +13,11 @@ public interface IWorkCenterService
     Task<IReadOnlyList<DefectCodeDto>> GetDefectCodesAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DefectLocationDto>> GetDefectLocationsAsync(Guid wcId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CharacteristicDto>> GetCharacteristicsAsync(Guid wcId, int? tankSize = null, CancellationToken cancellationToken = default);
-    Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default);
+    Task<KanbanCardLookupDto?> GetCardLookupAsync(
+        Guid workCenterId,
+        Guid productionLineId,
+        string cardId,
+        CancellationToken cancellationToken = default);
     Task<MaterialQueueItemDto> AddMaterialQueueItemAsync(Guid wcId, CreateMaterialQueueItemDto dto, CancellationToken cancellationToken = default);
     Task<MaterialQueueItemDto?> UpdateMaterialQueueItemAsync(Guid wcId, Guid itemId, UpdateMaterialQueueItemDto dto, CancellationToken cancellationToken = default);
     Task<bool> DeleteMaterialQueueItemAsync(Guid wcId, Guid itemId, CancellationToken cancellationToken = default);

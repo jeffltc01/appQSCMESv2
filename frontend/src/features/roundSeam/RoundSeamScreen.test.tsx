@@ -81,6 +81,37 @@ describe('RoundSeamScreen', () => {
     });
   });
 
+  it('reopens setup when logged-in welders change', async () => {
+    mockGetSetup.mockResolvedValueOnce({
+      isComplete: true,
+      tankSize: 500,
+      rs1WelderId: 'w1',
+      rs2WelderId: 'w1',
+    });
+    const { rerender, props } = renderScreen({
+      welders: [{ userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' }],
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /save setup/i })).not.toBeInTheDocument();
+    });
+
+    rerender(
+      <FluentProvider theme={webLightTheme}>
+        <RoundSeamScreen
+          {...props}
+          welders={[
+            { userId: 'w1', displayName: 'Welder 1', employeeNumber: '001' },
+            { userId: 'w2', displayName: 'Welder 2', employeeNumber: '002' },
+          ]}
+        />
+      </FluentProvider>,
+    );
+
+    expect(await screen.findByText(/logged-in welders changed/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save setup/i })).toBeInTheDocument();
+  });
+
   it('does not auto-open setup dialog until welder count is loaded', async () => {
     mockGetSetup.mockResolvedValue({ isComplete: false, tankSize: 0 });
     const { rerender, props } = renderScreen({ welderCountLoaded: false });

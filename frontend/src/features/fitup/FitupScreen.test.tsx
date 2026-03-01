@@ -217,4 +217,37 @@ describe('FitupScreen', () => {
       }),
     ));
   });
+
+  it('reset scan clears selected heads', async () => {
+    vi.mocked(serialNumberApi.getContext).mockResolvedValue({
+      serialNumber: 'SH001',
+      tankSize: 120,
+    });
+    vi.mocked(materialQueueApi.getCardLookup).mockResolvedValue({
+      heatNumber: 'HEAT01',
+      coilNumber: 'COIL01',
+      productDescription: 'Head Material',
+      cardColor: 'Red',
+      tankSize: 120,
+    });
+
+    const { props } = renderFitup({ externalInput: true });
+    const handler = vi.mocked(props.registerBarcodeHandler).mock.calls[0]?.[0];
+    if (!handler) throw new Error('no handler');
+
+    await act(async () => {
+      handler({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
+    });
+    await act(async () => {
+      handler({ prefix: 'KC', value: '03', raw: 'KC;03' }, 'KC;03');
+    });
+
+    await waitFor(() => expect(screen.getAllByText(/head material/i).length).toBeGreaterThan(0));
+
+    await act(async () => {
+      handler({ prefix: 'INP', value: '2', raw: 'INP;2' }, 'INP;2');
+    });
+
+    await waitFor(() => expect(screen.getAllByText('Scan KC').length).toBeGreaterThan(0));
+  });
 });

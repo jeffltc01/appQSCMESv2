@@ -900,12 +900,20 @@ public class WorkCenterService : IWorkCenterService
         return TimeZoneInfo.Utc;
     }
 
-    public async Task<KanbanCardLookupDto?> GetCardLookupAsync(string cardId, CancellationToken cancellationToken = default)
+    public async Task<KanbanCardLookupDto?> GetCardLookupAsync(
+        Guid workCenterId,
+        Guid productionLineId,
+        string cardId,
+        CancellationToken cancellationToken = default)
     {
         var prefixed = $"KC;{cardId}";
         var queueItem = await _db.MaterialQueueItems
             .Include(m => m.SerialNumber).ThenInclude(s => s!.Product)
-            .Where(m => m.Status == "queued")
+            .Where(m =>
+                m.Status == "queued"
+                && m.QueueType == "fitup"
+                && m.WorkCenterId == workCenterId
+                && m.ProductionLineId == productionLineId)
             .FirstOrDefaultAsync(m => m.CardId == cardId || m.CardId == prefixed, cancellationToken);
         if (queueItem != null)
         {
@@ -929,17 +937,6 @@ public class WorkCenterService : IWorkCenterService
                 TankSize = sn?.Product?.TankSize
             };
         }
-
-        var card = await _db.BarcodeCards
-            .FirstOrDefaultAsync(b => b.CardValue == cardId, cancellationToken);
-        if (card != null)
-            return new KanbanCardLookupDto
-            {
-                HeatNumber = string.Empty,
-                CoilNumber = string.Empty,
-                ProductDescription = card.Description ?? card.CardValue,
-                CardColor = card.Color
-            };
 
         return null;
     }

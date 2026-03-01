@@ -325,8 +325,10 @@ export const serialNumberApi = {
 };
 
 export const materialQueueApi = {
-  getCardLookup: (cardId: string) =>
-    api.get<KanbanCardLookupResponse>(`/material-queue/card/${encodeURIComponent(cardId)}`),
+  getCardLookup: (workCenterId: string, productionLineId: string, cardId: string) =>
+    api.get<KanbanCardLookupResponse>(
+      `/material-queue/card/${encodeURIComponent(cardId)}?workCenterId=${encodeURIComponent(workCenterId)}&productionLineId=${encodeURIComponent(productionLineId)}`,
+    ),
   addItem: (wcId: string, req: CreateMaterialQueueItemRequest) =>
     api.post<MaterialQueueItem>(`/workcenters/${wcId}/material-queue`, req),
   updateItem: (wcId: string, itemId: string, req: Partial<CreateMaterialQueueItemRequest>) =>

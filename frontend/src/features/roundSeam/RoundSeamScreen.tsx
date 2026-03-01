@@ -22,6 +22,10 @@ function tankBracket(size: number): number {
   return 1001;
 }
 
+function welderFingerprint(welderIds: readonly string[]): string {
+  return [...welderIds].sort((a, b) => a.localeCompare(b)).join('|');
+}
+
 export function RoundSeamScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId,
@@ -38,8 +42,25 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   const [manualSerial, setManualSerial] = useState('');
   const [setupSaving, setSetupSaving] = useState(false);
   const [setupError, setSetupError] = useState('');
+  const [setupWarning, setSetupWarning] = useState('');
+  const [setupWelderFingerprint, setSetupWelderFingerprint] = useState<string | null>(null);
   const pendingScanRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
+  const currentWelderFingerprint = welderFingerprint(availableWelders.map((w) => w.userId));
+
+  const invalidateSetupForWelderChange = useCallback(() => {
+    setSetup((prev) => {
+      if (!prev || !prev.isComplete) return prev;
+      return { ...prev, isComplete: false };
+    });
+    setSetupWelders([
+      setup?.rs1WelderId, setup?.rs2WelderId,
+      setup?.rs3WelderId, setup?.rs4WelderId,
+    ]);
+    setSetupWarning('Logged-in welders changed. Please reassign round seam welders.');
+    setSetupError('');
+    setShowSetup(true);
+  }, [setup]);
 
   useEffect(() => {
     initialLoadDoneRef.current = false;
@@ -53,6 +74,11 @@ export function RoundSeamScreen(props: WorkCenterProps) {
       const s = await roundSeamApi.getSetup(workCenterId);
       setSetup(s);
       if (s.tankSize > 0) setDetectedTankSize(s.tankSize);
+      if (s.isComplete) {
+        setSetupWelderFingerprint(currentWelderFingerprint);
+      } else {
+        setSetupWelderFingerprint(null);
+      }
       if (!s.isComplete && !initialLoadDoneRef.current) {
         initialLoadDoneRef.current = true;
         setSetupWelders([s.rs1WelderId, s.rs2WelderId, s.rs3WelderId, s.rs4WelderId]);
@@ -65,6 +91,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
         initialLoadDoneRef.current = true;
       }
     } catch {
+      setSetupWelderFingerprint(null);
       initialLoadDoneRef.current = true;
       if (welderCountLoaded) {
         setShowSetup(true);
@@ -72,7 +99,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
         pendingSetupOpenRef.current = true;
       }
     }
-  }, [workCenterId, welderCountLoaded]);
+  }, [workCenterId, welderCountLoaded, currentWelderFingerprint]);
 
   useEffect(() => {
     if (welderCountLoaded && pendingSetupOpenRef.current) {
@@ -88,36 +115,9 @@ export function RoundSeamScreen(props: WorkCenterProps) {
       setup?.rs3WelderId, setup?.rs4WelderId,
     ]);
     setSetupError('');
+    setSetupWarning('');
     setShowSetup(true);
   }, [setup]);
-
-  const saveSetup = useCallback(async () => {
-    setSetupSaving(true);
-    setSetupError('');
-    try {
-      const s = await roundSeamApi.saveSetup(workCenterId, {
-        tankSize: detectedTankSize,
-        rs1WelderId: setupWelders[0],
-        rs2WelderId: setupWelders[1],
-        rs3WelderId: setupWelders[2],
-        rs4WelderId: setupWelders[3],
-      });
-      setSetup(s);
-      setShowSetup(false);
-
-      if (pendingScanRef.current) {
-        const serial = pendingScanRef.current;
-        pendingScanRef.current = null;
-        await doSubmitShell(serial);
-      } else {
-        showScanResult({ type: 'success', message: 'Round seam setup saved' });
-      }
-    } catch {
-      setSetupError('Failed to save setup');
-    } finally {
-      setSetupSaving(false);
-    }
-  }, [workCenterId, detectedTankSize, setupWelders, showScanResult]);
 
   const doSubmitShell = useCallback(async (serial: string) => {
     try {
@@ -135,6 +135,36 @@ export function RoundSeamScreen(props: WorkCenterProps) {
     }
   }, [workCenterId, assetId, productionLineId, operatorId, showScanResult, refreshHistory]);
 
+  const saveSetup = useCallback(async () => {
+    setSetupSaving(true);
+    setSetupError('');
+    try {
+      const s = await roundSeamApi.saveSetup(workCenterId, {
+        tankSize: detectedTankSize,
+        rs1WelderId: setupWelders[0],
+        rs2WelderId: setupWelders[1],
+        rs3WelderId: setupWelders[2],
+        rs4WelderId: setupWelders[3],
+      });
+      setSetup(s);
+      setShowSetup(false);
+      setSetupWarning('');
+      setSetupWelderFingerprint(currentWelderFingerprint);
+
+      if (pendingScanRef.current) {
+        const serial = pendingScanRef.current;
+        pendingScanRef.current = null;
+        await doSubmitShell(serial);
+      } else {
+        showScanResult({ type: 'success', message: 'Round seam setup saved' });
+      }
+    } catch {
+      setSetupError('Failed to save setup');
+    } finally {
+      setSetupSaving(false);
+    }
+  }, [workCenterId, detectedTankSize, setupWelders, showScanResult, currentWelderFingerprint, doSubmitShell]);
+
   const submitShell = useCallback(async (serial: string) => {
     if (!setup?.isComplete) {
       showScanResult({ type: 'error', message: 'Complete Roundseam Setup before scanning' });
@@ -151,6 +181,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
       setDetectedTankSize(assembly.tankSize);
       setSetupWelders([setup.rs1WelderId, setup.rs2WelderId, setup.rs3WelderId, setup.rs4WelderId]);
       setSetupError('');
+      setSetupWarning('');
       setShowSetup(true);
       return;
     }
@@ -177,6 +208,14 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   useEffect(() => {
     registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
   }, [registerBarcodeHandler]);
+
+  useEffect(() => {
+    if (!setup?.isComplete || !setupWelderFingerprint) return;
+    if (setupWelderFingerprint !== currentWelderFingerprint) {
+      invalidateSetupForWelderChange();
+      setSetupWelderFingerprint(null);
+    }
+  }, [setup, setupWelderFingerprint, currentWelderFingerprint, invalidateSetupForWelderChange]);
 
   const handleManualSubmit = useCallback(() => {
     if (manualSerial.trim()) {
@@ -259,6 +298,11 @@ export function RoundSeamScreen(props: WorkCenterProps) {
                 {pendingScanRef.current && (
                   <div className={styles.warningBanner}>
                     Tank size bracket changed. Please verify welder assignments before continuing.
+                  </div>
+                )}
+                {setupWarning && (
+                  <div className={styles.warningBanner}>
+                    {setupWarning}
                   </div>
                 )}
                 {setupError && <div style={{ color: '#dc3545', fontSize: 13 }}>{setupError}</div>}

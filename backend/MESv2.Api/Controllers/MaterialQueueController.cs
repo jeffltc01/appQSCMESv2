@@ -16,9 +16,13 @@ public class MaterialQueueController : ControllerBase
     }
 
     [HttpGet("card/{cardId}")]
-    public async Task<ActionResult<KanbanCardLookupDto>> GetCardLookup(string cardId, CancellationToken cancellationToken)
+    public async Task<ActionResult<KanbanCardLookupDto>> GetCardLookup(
+        string cardId,
+        [FromQuery] Guid workCenterId,
+        [FromQuery] Guid productionLineId,
+        CancellationToken cancellationToken)
     {
-        var result = await _workCenterService.GetCardLookupAsync(cardId, cancellationToken);
+        var result = await _workCenterService.GetCardLookupAsync(workCenterId, productionLineId, cardId, cancellationToken);
         if (result == null)
             return NotFound();
         return Ok(result);

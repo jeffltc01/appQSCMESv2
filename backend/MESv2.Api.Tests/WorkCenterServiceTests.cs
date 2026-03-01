@@ -186,19 +186,55 @@ public class WorkCenterServiceTests
     public async Task GetCardLookup_ReturnsDataFromSerialNumber()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        SeedQueueItemWithSN(db, TestHelpers.wcFitupId, "queued", 1,
+        var (_, queueItem) = SeedQueueItemWithSN(db, TestHelpers.wcFitupId, "queued", 1,
             "250 gal", 250, "HK-01", "CK-01", 1,
             queueType: "fitup", cardId: "03", cardColor: "Blue");
+        queueItem.ProductionLineId = TestHelpers.ProductionLine1Plt1Id;
         await db.SaveChangesAsync();
 
         var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
-        var result = await sut.GetCardLookupAsync("03");
+        var result = await sut.GetCardLookupAsync(TestHelpers.wcFitupId, TestHelpers.ProductionLine1Plt1Id, "03");
 
         Assert.NotNull(result);
         Assert.Equal("HK-01", result.HeatNumber);
         Assert.Equal("CK-01", result.CoilNumber);
         Assert.Equal("250 gal", result.ProductDescription);
         Assert.Equal("Blue", result.CardColor);
+    }
+
+    [Fact]
+    public async Task GetCardLookup_ReturnsNull_WhenCardOnlyQueuedOnDifferentProductionLine()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var (_, queueItem) = SeedQueueItemWithSN(db, TestHelpers.wcFitupId, "queued", 1,
+            "250 gal", 250, "HK-01", "CK-01", 1,
+            queueType: "fitup", cardId: "03", cardColor: "Blue");
+        queueItem.ProductionLineId = TestHelpers.ProductionLine1Plt2Id;
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetCardLookupAsync(TestHelpers.wcFitupId, TestHelpers.ProductionLine1Plt1Id, "03");
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetCardLookup_ReturnsNull_WhenCardExistsButNotQueued()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        db.BarcodeCards.Add(new BarcodeCard
+        {
+            Id = Guid.NewGuid(),
+            CardValue = "77",
+            Color = "Green",
+            Description = "Loose card"
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+        var result = await sut.GetCardLookupAsync(TestHelpers.wcFitupId, TestHelpers.ProductionLine1Plt1Id, "77");
+
+        Assert.Null(result);
     }
 
     private static void SeedProductionRecord(MesDbContext db, Guid wcId, DateTime utcTimestamp)
