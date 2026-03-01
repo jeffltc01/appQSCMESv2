@@ -24,6 +24,65 @@ interface ShellSlot {
   tankSize?: number;
 }
 
+type ReassemblyOperation = 'replace' | 'split';
+
+interface ReassemblyAssemblyDraft {
+  tankSize: number;
+  shells: ShellSlot[];
+  leftHead: HeadLotInfo | null;
+  rightHead: HeadLotInfo | null;
+}
+
+interface ReassemblyFieldSelection {
+  target: 'primary' | 'secondary';
+  component: 'leftHead' | 'rightHead' | 'shell';
+  shellIndex?: number;
+}
+
+interface ReassemblyModeState {
+  sourceAlphaCode: string;
+  source: ReassemblyAssemblyDraft;
+  primary: ReassemblyAssemblyDraft;
+  secondary: ReassemblyAssemblyDraft | null;
+  operationType: ReassemblyOperation;
+  selectedField: ReassemblyFieldSelection | null;
+  entryValue: string;
+  previousExternalInput: boolean;
+}
+
+interface ReassemblyPromptState {
+  alphaCode: string;
+  context: {
+    alphaCode: string;
+    tankSize: number;
+    shells: string[];
+    leftHeadInfo?: { heatNumber: string; coilNumber: string; productDescription: string };
+    rightHeadInfo?: { heatNumber: string; coilNumber: string; productDescription: string };
+  };
+}
+
+function headFromExisting(
+  head: { heatNumber: string; coilNumber: string; productDescription: string } | undefined,
+  tankSize: number,
+): HeadLotInfo | null {
+  if (!head) return null;
+  return {
+    heatNumber: head.heatNumber,
+    coilNumber: head.coilNumber,
+    productDescription: head.productDescription,
+    tankSize,
+  };
+}
+
+function cloneDraft(draft: ReassemblyAssemblyDraft): ReassemblyAssemblyDraft {
+  return {
+    tankSize: draft.tankSize,
+    shells: draft.shells.map((s) => ({ ...s })),
+    leftHead: draft.leftHead ? { ...draft.leftHead } : null,
+    rightHead: draft.rightHead ? { ...draft.rightHead } : null,
+  };
+}
+
 export function FitupScreen(props: WorkCenterProps) {
   const {
     workCenterId, assetId, productionLineId, operatorId, welders,
@@ -40,10 +99,8 @@ export function FitupScreen(props: WorkCenterProps) {
   const [headsQueue, setHeadsQueue] = useState<MaterialQueueItem[]>([]);
   const [manualSerial, setManualSerial] = useState('');
 
-  const [reassemblyPrompt, setReassemblyPrompt] = useState<{
-    alphaCode: string;
-    serial: string;
-  } | null>(null);
+  const [reassemblyPrompt, setReassemblyPrompt] = useState<ReassemblyPromptState | null>(null);
+  const [reassemblyMode, setReassemblyMode] = useState<ReassemblyModeState | null>(null);
 
   useEffect(() => {
     loadHeadsQueue();
@@ -61,6 +118,7 @@ export function FitupScreen(props: WorkCenterProps) {
     setShells([]);
     setHeadScanCount(0);
     setReassemblyPrompt(null);
+    setReassemblyMode(null);
     if (alphaTimer) clearTimeout(alphaTimer);
     setAlphaCode(null);
   }, [alphaTimer]);
@@ -87,7 +145,7 @@ export function FitupScreen(props: WorkCenterProps) {
         const ctx = await serialNumberApi.getContext(serial);
 
         if (ctx.existingAssembly) {
-          setReassemblyPrompt({ alphaCode: ctx.existingAssembly.alphaCode, serial });
+          setReassemblyPrompt({ alphaCode: ctx.existingAssembly.alphaCode, context: ctx.existingAssembly });
           return;
         }
 
@@ -212,6 +270,268 @@ export function FitupScreen(props: WorkCenterProps) {
     }
   }, [shells, leftHead, rightHead, tankSize, workCenterId, assetId, productionLineId, operatorId, welders, showScanResult, refreshHistory, resetAssembly]);
 
+  const enterReassemblyMode = useCallback((prompt: ReassemblyPromptState) => {
+    const source: ReassemblyAssemblyDraft = {
+      tankSize: prompt.context.tankSize,
+      shells: prompt.context.shells.map((s) => ({ serial: s, filled: true, tankSize: prompt.context.tankSize })),
+      leftHead: headFromExisting(prompt.context.leftHeadInfo, prompt.context.tankSize),
+      rightHead: headFromExisting(prompt.context.rightHeadInfo, prompt.context.tankSize),
+    };
+
+    if (props.externalInput) {
+      props.setExternalInput(false);
+    }
+
+    setReassemblyMode({
+      sourceAlphaCode: prompt.alphaCode,
+      source,
+      primary: cloneDraft(source),
+      secondary: null,
+      operationType: 'replace',
+      selectedField: null,
+      entryValue: '',
+      previousExternalInput: props.externalInput,
+    });
+    setReassemblyPrompt(null);
+    showScanResult({ type: 'success', message: 'Reassembly mode enabled' });
+  }, [props, showScanResult]);
+
+  const exitReassemblyMode = useCallback(() => {
+    setReassemblyMode((current) => {
+      if (current?.previousExternalInput) {
+        props.setExternalInput(true);
+      }
+      return null;
+    });
+    setReassemblyPrompt(null);
+  }, [props]);
+
+  const setSplitDraft = useCallback((mode: ReassemblyModeState, splitKind: 'two-left' | 'two-right' | 'three-12' | 'three-23') => {
+    const source = cloneDraft(mode.source);
+    let primaryShells: ShellSlot[] = [];
+    let secondaryShells: ShellSlot[] = [];
+    if (splitKind === 'two-left') {
+      primaryShells = [source.shells[0]].filter(Boolean);
+      secondaryShells = [source.shells[1]].filter(Boolean);
+    } else if (splitKind === 'two-right') {
+      primaryShells = [source.shells[1]].filter(Boolean);
+      secondaryShells = [source.shells[0]].filter(Boolean);
+    } else if (splitKind === 'three-12') {
+      primaryShells = [source.shells[0]].filter(Boolean);
+      secondaryShells = source.shells.slice(1);
+    } else {
+      primaryShells = source.shells.slice(0, 2);
+      secondaryShells = [source.shells[2]].filter(Boolean);
+    }
+
+    const primaryTankSize = primaryShells.length >= 3 ? 1500 : primaryShells.length === 2 ? 1000 : 500;
+    const secondaryTankSize = secondaryShells.length >= 3 ? 1500 : secondaryShells.length === 2 ? 1000 : 500;
+
+    setReassemblyMode({
+      ...mode,
+      operationType: 'split',
+      selectedField: null,
+      primary: {
+        tankSize: primaryTankSize,
+        shells: primaryShells.map((s) => ({ ...s, tankSize: primaryTankSize })),
+        leftHead: mode.source.leftHead ? { ...mode.source.leftHead, tankSize: primaryTankSize } : null,
+        rightHead: mode.source.rightHead ? { ...mode.source.rightHead, tankSize: primaryTankSize } : null,
+      },
+      secondary: {
+        tankSize: secondaryTankSize,
+        shells: secondaryShells.map((s) => ({ ...s, tankSize: secondaryTankSize })),
+        leftHead: mode.source.leftHead ? { ...mode.source.leftHead, tankSize: secondaryTankSize } : null,
+        rightHead: mode.source.rightHead ? { ...mode.source.rightHead, tankSize: secondaryTankSize } : null,
+      },
+    });
+  }, []);
+
+  const selectReassemblyField = useCallback((selection: ReassemblyFieldSelection) => {
+    setReassemblyMode((current) => current ? { ...current, selectedField: selection, entryValue: '' } : current);
+  }, []);
+
+  const applyHeadToSelection = useCallback(async (cardId: string) => {
+    if (!reassemblyMode?.selectedField) return;
+    const { selectedField } = reassemblyMode;
+    if (selectedField.component !== 'leftHead' && selectedField.component !== 'rightHead') {
+      showScanResult({ type: 'error', message: 'Select a head slot first' });
+      return;
+    }
+
+    try {
+      const data = await materialQueueApi.getCardLookup(cardId);
+      const lot: HeadLotInfo = {
+        heatNumber: data.heatNumber,
+        coilNumber: data.coilNumber,
+        lotNumber: data.lotNumber,
+        productDescription: data.productDescription,
+        cardId,
+        cardColor: data.cardColor,
+        tankSize: selectedField.target === 'primary'
+          ? reassemblyMode.primary.tankSize
+          : reassemblyMode.secondary?.tankSize,
+      };
+
+      setReassemblyMode((current) => {
+        if (!current || !current.selectedField) return current;
+        const target = current.selectedField.target;
+        const component = current.selectedField.component;
+        if (target === 'primary') {
+          return {
+            ...current,
+            primary: {
+              ...current.primary,
+              leftHead: component === 'leftHead' ? lot : current.primary.leftHead,
+              rightHead: component === 'rightHead' ? lot : current.primary.rightHead,
+            },
+            entryValue: '',
+          };
+        }
+        if (!current.secondary) return current;
+        return {
+          ...current,
+          secondary: {
+            ...current.secondary,
+            leftHead: component === 'leftHead' ? lot : current.secondary.leftHead,
+            rightHead: component === 'rightHead' ? lot : current.secondary.rightHead,
+          },
+          entryValue: '',
+        };
+      });
+      showScanResult({ type: 'success', message: 'Head replacement applied' });
+    } catch {
+      showScanResult({ type: 'error', message: 'Kanban card not found or not associated with any queued material' });
+    }
+  }, [reassemblyMode, showScanResult]);
+
+  const applyShellToSelection = useCallback(async (shellSerial: string) => {
+    if (!reassemblyMode?.selectedField || reassemblyMode.selectedField.component !== 'shell') {
+      showScanResult({ type: 'error', message: 'Select a shell slot first' });
+      return;
+    }
+    const { target, shellIndex } = reassemblyMode.selectedField;
+    if (shellIndex == null) return;
+
+    try {
+      const ctx = await serialNumberApi.getContext(shellSerial);
+      if (ctx.existingAssembly && ctx.existingAssembly.alphaCode !== reassemblyMode.sourceAlphaCode) {
+        showScanResult({ type: 'error', message: `Shell ${shellSerial} already belongs to ${ctx.existingAssembly.alphaCode}` });
+        return;
+      }
+
+      setReassemblyMode((current) => {
+        if (!current || !current.selectedField) return current;
+        const updateDraft = (draft: ReassemblyAssemblyDraft): ReassemblyAssemblyDraft => {
+          const updatedShells = draft.shells.map((s, idx) => (
+            idx === shellIndex ? { serial: shellSerial, filled: true, tankSize: ctx.tankSize || draft.tankSize } : s
+          ));
+          return { ...draft, shells: updatedShells };
+        };
+        if (target === 'primary') {
+          return { ...current, primary: updateDraft(current.primary), entryValue: '' };
+        }
+        if (!current.secondary) return current;
+        return { ...current, secondary: updateDraft(current.secondary), entryValue: '' };
+      });
+      showScanResult({ type: 'success', message: `Shell ${shellSerial} replacement applied` });
+    } catch {
+      showScanResult({ type: 'error', message: `Failed to look up shell ${shellSerial}` });
+    }
+  }, [reassemblyMode, showScanResult]);
+
+  const hasReassemblyChanges = useCallback((mode: ReassemblyModeState) => {
+    const compareDraft = (a: ReassemblyAssemblyDraft, b: ReassemblyAssemblyDraft) => {
+      const shellsA = a.shells.map((s) => s.serial).join('|');
+      const shellsB = b.shells.map((s) => s.serial).join('|');
+      const leftA = `${a.leftHead?.heatNumber ?? ''}|${a.leftHead?.coilNumber ?? ''}|${a.leftHead?.lotNumber ?? ''}`;
+      const leftB = `${b.leftHead?.heatNumber ?? ''}|${b.leftHead?.coilNumber ?? ''}|${b.leftHead?.lotNumber ?? ''}`;
+      const rightA = `${a.rightHead?.heatNumber ?? ''}|${a.rightHead?.coilNumber ?? ''}|${a.rightHead?.lotNumber ?? ''}`;
+      const rightB = `${b.rightHead?.heatNumber ?? ''}|${b.rightHead?.coilNumber ?? ''}|${b.rightHead?.lotNumber ?? ''}`;
+      return shellsA !== shellsB || leftA !== leftB || rightA !== rightB || a.tankSize !== b.tankSize;
+    };
+
+    if (mode.operationType === 'replace') {
+      return compareDraft(mode.primary, mode.source);
+    }
+    if (!mode.secondary) return false;
+    return true;
+  }, []);
+
+  const validateReassemblyDraft = useCallback((draft: ReassemblyAssemblyDraft) => {
+    if (draft.shells.length === 0 || draft.shells.some((s) => !s.serial)) return false;
+    const hasHeadMismatch = isComponentMismatch(draft.tankSize, draft.leftHead?.tankSize)
+      || isComponentMismatch(draft.tankSize, draft.rightHead?.tankSize);
+    const hasShellMismatch = draft.shells.some((s) => s.filled && isComponentMismatch(draft.tankSize, s.tankSize));
+    return !hasHeadMismatch && !hasShellMismatch;
+  }, []);
+
+  const saveReassembly = useCallback(async () => {
+    if (!reassemblyMode) return;
+    if (!hasReassemblyChanges(reassemblyMode)) {
+      showScanResult({ type: 'error', message: 'No changes detected for reassembly' });
+      return;
+    }
+    if (!validateReassemblyDraft(reassemblyMode.primary)) {
+      showScanResult({ type: 'error', message: 'Primary proposed assembly is invalid' });
+      return;
+    }
+    if (reassemblyMode.operationType === 'split' && (!reassemblyMode.secondary || !validateReassemblyDraft(reassemblyMode.secondary))) {
+      showScanResult({ type: 'error', message: 'Split requires a valid secondary assembly' });
+      return;
+    }
+
+    try {
+      const mapHead = (head: HeadLotInfo | null) => (head ? {
+        lotId: head.cardId,
+        heatNumber: head.heatNumber || undefined,
+        coilNumber: head.coilNumber || undefined,
+        lotNumber: head.lotNumber || undefined,
+      } : undefined);
+
+      const response = await assemblyApi.reassemble(reassemblyMode.sourceAlphaCode, {
+        operationType: reassemblyMode.operationType,
+        primaryAssembly: {
+          shells: reassemblyMode.primary.shells.map((s) => s.serial),
+          tankSize: reassemblyMode.primary.tankSize,
+          leftHead: mapHead(reassemblyMode.primary.leftHead),
+          rightHead: mapHead(reassemblyMode.primary.rightHead),
+        },
+        secondaryAssembly: reassemblyMode.secondary ? {
+          shells: reassemblyMode.secondary.shells.map((s) => s.serial),
+          tankSize: reassemblyMode.secondary.tankSize,
+          leftHead: mapHead(reassemblyMode.secondary.leftHead),
+          rightHead: mapHead(reassemblyMode.secondary.rightHead),
+        } : undefined,
+        workCenterId,
+        assetId: assetId || undefined,
+        productionLineId,
+        operatorId,
+        welderIds: welders.map((w) => w.userId),
+      });
+
+      const first = response.createdAssemblies[0];
+      setAlphaCode(first?.alphaCode ?? null);
+      if (reassemblyMode.previousExternalInput) {
+        props.setExternalInput(true);
+      }
+      setReassemblyMode(null);
+      showScanResult({
+        type: 'success',
+        message: `Reassembly saved: ${response.createdAssemblies.map((a) => a.alphaCode).join(', ')}`,
+      });
+      refreshHistory();
+      const timer = setTimeout(resetAssembly, 30000);
+      setAlphaTimer(timer);
+    } catch (err: any) {
+      const msg = err?.body ?? err?.message ?? 'Failed to save reassembly. Please try again.';
+      showScanResult({ type: 'error', message: typeof msg === 'string' ? msg : 'Failed to save reassembly. Please try again.' });
+    }
+  }, [
+    reassemblyMode, hasReassemblyChanges, validateReassemblyDraft, showScanResult,
+    workCenterId, assetId, productionLineId, operatorId, welders,
+    refreshHistory, resetAssembly, props,
+  ]);
+
   const handleBarcode = useCallback(
     (bc: ParsedBarcode | null, _raw: string) => {
       if (!bc) {
@@ -230,9 +550,7 @@ export function FitupScreen(props: WorkCenterProps) {
 
       if (reassemblyPrompt) {
         if (bc.prefix === 'INP' && bc.value === '3') {
-          // Yes - reassemble (simplified: just reset and use the shell)
-          setReassemblyPrompt(null);
-          showScanResult({ type: 'success', message: 'Reassembly mode' });
+          enterReassemblyMode(reassemblyPrompt);
           return;
         }
         if (bc.prefix === 'INP' && bc.value === '4') {
@@ -240,6 +558,29 @@ export function FitupScreen(props: WorkCenterProps) {
           resetAssembly();
           return;
         }
+        return;
+      }
+
+      if (reassemblyMode) {
+        if (bc.prefix === 'INP' && bc.value === '2') {
+          exitReassemblyMode();
+          showScanResult({ type: 'success', message: 'Reassembly cancelled' });
+          return;
+        }
+        if (bc.prefix === 'INP' && bc.value === '3') {
+          saveReassembly();
+          return;
+        }
+        if (bc.prefix === 'KC') {
+          applyHeadToSelection(bc.value);
+          return;
+        }
+        if (bc.prefix === 'SC') {
+          const { serialNumber: serial } = parseShellLabel(bc.value);
+          applyShellToSelection(serial);
+          return;
+        }
+        showScanResult({ type: 'error', message: 'Only KC/SC and Save/Cancel are valid in reassembly mode' });
         return;
       }
 
@@ -271,7 +612,11 @@ export function FitupScreen(props: WorkCenterProps) {
 
       showScanResult({ type: 'error', message: 'Invalid barcode in this context' });
     },
-    [alphaCode, reassemblyPrompt, addShell, applyHeadLot, swapHeads, resetAssembly, saveAssembly, updateTankSize, showScanResult],
+    [
+      alphaCode, reassemblyPrompt, reassemblyMode, addShell, applyHeadLot, swapHeads, resetAssembly,
+      saveAssembly, updateTankSize, showScanResult, enterReassemblyMode, saveReassembly,
+      exitReassemblyMode, applyHeadToSelection, applyShellToSelection,
+    ],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -280,6 +625,73 @@ export function FitupScreen(props: WorkCenterProps) {
   useEffect(() => {
     registerBarcodeHandler((bc, raw) => handleBarcodeRef.current(bc, raw));
   }, [registerBarcodeHandler]);
+
+  const nextInstruction = (() => {
+    const isActive = props.externalInput;
+
+    if (reassemblyMode) {
+      return {
+        title: props.externalInput
+          ? 'NEXT: Reassembly mode active'
+          : 'NEXT: Select a component in Proposed and enter replacement',
+        isActive: props.externalInput,
+      };
+    }
+
+    if (reassemblyPrompt) {
+      return {
+        title: props.externalInput
+          ? 'NEXT: Scan Yes (INP;3) or No (INP;4) for reassembly'
+          : 'NEXT: Confirm reassembly (Yes or No)',
+        isActive,
+      };
+    }
+
+    if (tankSize === 0 || shells.length === 0) {
+      return {
+        title: props.externalInput
+          ? 'NEXT: Scan first shell'
+          : 'NEXT: Enter first shell serial and tap Add Shell',
+        isActive,
+      };
+    }
+
+    const missingShells = shells.filter((s) => !s.filled).length;
+    if (missingShells > 0) {
+      return {
+        title: props.externalInput
+          ? `NEXT: Scan ${missingShells} more shell${missingShells > 1 ? 's' : ''}`
+          : `NEXT: Add ${missingShells} more shell${missingShells > 1 ? 's' : ''}`,
+        isActive,
+      };
+    }
+
+    if (!leftHead || !rightHead) {
+      return {
+        title: props.externalInput
+          ? 'NEXT: Scan head kanban card (KC)'
+          : 'NEXT: Scan or select head kanban card (KC)',
+        isActive,
+      };
+    }
+
+    const hasHeadMismatch = isComponentMismatch(tankSize, leftHead.tankSize)
+      || isComponentMismatch(tankSize, rightHead.tankSize);
+    const hasShellMismatch = shells.some((s) => s.filled && isComponentMismatch(tankSize, s.tankSize));
+    if (hasHeadMismatch || hasShellMismatch) {
+      return {
+        title: 'NEXT: Fix component size mismatch',
+        isActive,
+      };
+    }
+
+    return {
+      title: props.externalInput
+        ? 'NEXT: Scan save (INP;3)'
+        : 'NEXT: Tap Save',
+      isActive,
+    };
+  })();
 
   if (alphaCode) {
     return (
@@ -300,6 +712,14 @@ export function FitupScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
+      <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
+        <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
+      </div>
+
+      {reassemblyMode && (
+        <div className={styles.reassemblyBadge}>Reassembly Mode</div>
+      )}
+
       <div className={styles.tankSizeDisplay}>
         <Label>Tank Size:</Label>
         {!props.externalInput ? (
@@ -320,7 +740,7 @@ export function FitupScreen(props: WorkCenterProps) {
         )}
       </div>
 
-      {!props.externalInput && (
+      {!props.externalInput && !reassemblyMode && (
         <div className={styles.topRow}>
           <Button appearance="secondary" size="medium" onClick={resetAssembly}>Reset</Button>
           <Button
@@ -332,17 +752,192 @@ export function FitupScreen(props: WorkCenterProps) {
         </div>
       )}
 
-      {reassemblyPrompt && (
+      {reassemblyPrompt && !reassemblyMode && (
         <div className={styles.reassemblyPrompt}>
           <p>This shell is part of assembly <strong>{reassemblyPrompt.alphaCode}</strong>. Are you reassembling?</p>
           <div className={styles.promptButtons}>
-            <Button appearance="primary" onClick={() => { setReassemblyPrompt(null); }}>Yes</Button>
+            <Button appearance="primary" onClick={() => enterReassemblyMode(reassemblyPrompt)}>Yes</Button>
             <Button appearance="secondary" onClick={() => { setReassemblyPrompt(null); resetAssembly(); }}>No</Button>
           </div>
         </div>
       )}
 
-      <div className={styles.assemblyDiagram}>
+      {reassemblyMode && (
+        <div className={styles.reassemblyPanel}>
+          <div className={styles.reassemblyHeader}>
+            <div>
+              <strong>Current Assembly ({reassemblyMode.sourceAlphaCode})</strong>
+            </div>
+            <div className={styles.promptButtons}>
+              <Button
+                appearance="secondary"
+                onClick={() => {
+                  if (reassemblyMode.source.shells.length === 2) setSplitDraft(reassemblyMode, 'two-left');
+                }}
+                disabled={reassemblyMode.source.shells.length !== 2}
+              >
+                Split Keep Left
+              </Button>
+              <Button
+                appearance="secondary"
+                onClick={() => {
+                  if (reassemblyMode.source.shells.length === 2) setSplitDraft(reassemblyMode, 'two-right');
+                }}
+                disabled={reassemblyMode.source.shells.length !== 2}
+              >
+                Split Keep Right
+              </Button>
+              <Button
+                appearance="secondary"
+                onClick={() => {
+                  if (reassemblyMode.source.shells.length === 3) setSplitDraft(reassemblyMode, 'three-12');
+                }}
+                disabled={reassemblyMode.source.shells.length !== 3}
+              >
+                Split S1|S2
+              </Button>
+              <Button
+                appearance="secondary"
+                onClick={() => {
+                  if (reassemblyMode.source.shells.length === 3) setSplitDraft(reassemblyMode, 'three-23');
+                }}
+                disabled={reassemblyMode.source.shells.length !== 3}
+              >
+                Split S2|S3
+              </Button>
+              <Button
+                appearance="subtle"
+                onClick={() => setReassemblyMode({ ...reassemblyMode, operationType: 'replace', secondary: null })}
+              >
+                Replace Mode
+              </Button>
+            </div>
+          </div>
+
+          <div className={styles.reassemblyRowTitle}>Current</div>
+          <div className={styles.assemblyDiagram}>
+            <div className={styles.headSlot}>
+              <span className={styles.slotLabel}>Left Head</span>
+              <div className={`${styles.slotBox} ${reassemblyMode.source.leftHead ? styles.filled : ''}`}>
+                {reassemblyMode.source.leftHead ? `${reassemblyMode.source.leftHead.heatNumber}/${reassemblyMode.source.leftHead.coilNumber}` : '—'}
+              </div>
+            </div>
+            {reassemblyMode.source.shells.map((shell, idx) => (
+              <div key={`source-shell-${idx}`} className={styles.shellSlot}>
+                <span className={styles.slotLabel}>Shell {idx + 1}</span>
+                <div className={`${styles.slotBox} ${styles.filled}`}>{shell.serial}</div>
+              </div>
+            ))}
+            <div className={styles.headSlot}>
+              <span className={styles.slotLabel}>Right Head</span>
+              <div className={`${styles.slotBox} ${reassemblyMode.source.rightHead ? styles.filled : ''}`}>
+                {reassemblyMode.source.rightHead ? `${reassemblyMode.source.rightHead.heatNumber}/${reassemblyMode.source.rightHead.coilNumber}` : '—'}
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.reassemblyRowTitle}>Proposed A</div>
+          <div className={styles.assemblyDiagram}>
+            <div className={styles.headSlot}>
+              <span className={styles.slotLabel}>Left Head</span>
+              <button
+                className={`${styles.slotBox} ${reassemblyMode.primary.leftHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'primary' && reassemblyMode.selectedField.component === 'leftHead' ? styles.selectedSlot : ''}`}
+                onClick={() => selectReassemblyField({ target: 'primary', component: 'leftHead' })}
+              >
+                {reassemblyMode.primary.leftHead ? `${reassemblyMode.primary.leftHead.heatNumber}/${reassemblyMode.primary.leftHead.coilNumber}` : 'Select + KC'}
+              </button>
+            </div>
+            {reassemblyMode.primary.shells.map((shell, idx) => (
+              <div key={`primary-shell-${idx}`} className={styles.shellSlot}>
+                <span className={styles.slotLabel}>Shell {idx + 1}</span>
+                <button
+                  className={`${styles.slotBox} ${shell.serial ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'primary' && reassemblyMode.selectedField.component === 'shell' && reassemblyMode.selectedField.shellIndex === idx ? styles.selectedSlot : ''}`}
+                  onClick={() => selectReassemblyField({ target: 'primary', component: 'shell', shellIndex: idx })}
+                >
+                  {shell.serial || 'Select + shell'}
+                </button>
+              </div>
+            ))}
+            <div className={styles.headSlot}>
+              <span className={styles.slotLabel}>Right Head</span>
+              <button
+                className={`${styles.slotBox} ${reassemblyMode.primary.rightHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'primary' && reassemblyMode.selectedField.component === 'rightHead' ? styles.selectedSlot : ''}`}
+                onClick={() => selectReassemblyField({ target: 'primary', component: 'rightHead' })}
+              >
+                {reassemblyMode.primary.rightHead ? `${reassemblyMode.primary.rightHead.heatNumber}/${reassemblyMode.primary.rightHead.coilNumber}` : 'Select + KC'}
+              </button>
+            </div>
+          </div>
+
+          {reassemblyMode.secondary && (
+            <>
+              <div className={styles.reassemblyRowTitle}>Proposed B</div>
+              <div className={styles.assemblyDiagram}>
+                <div className={styles.headSlot}>
+                  <span className={styles.slotLabel}>Left Head</span>
+                  <button
+                    className={`${styles.slotBox} ${reassemblyMode.secondary.leftHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'secondary' && reassemblyMode.selectedField.component === 'leftHead' ? styles.selectedSlot : ''}`}
+                    onClick={() => selectReassemblyField({ target: 'secondary', component: 'leftHead' })}
+                  >
+                    {reassemblyMode.secondary.leftHead ? `${reassemblyMode.secondary.leftHead.heatNumber}/${reassemblyMode.secondary.leftHead.coilNumber}` : 'Select + KC'}
+                  </button>
+                </div>
+                {reassemblyMode.secondary.shells.map((shell, idx) => (
+                  <div key={`secondary-shell-${idx}`} className={styles.shellSlot}>
+                    <span className={styles.slotLabel}>Shell {idx + 1}</span>
+                    <button
+                      className={`${styles.slotBox} ${shell.serial ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'secondary' && reassemblyMode.selectedField.component === 'shell' && reassemblyMode.selectedField.shellIndex === idx ? styles.selectedSlot : ''}`}
+                      onClick={() => selectReassemblyField({ target: 'secondary', component: 'shell', shellIndex: idx })}
+                    >
+                      {shell.serial || 'Select + shell'}
+                    </button>
+                  </div>
+                ))}
+                <div className={styles.headSlot}>
+                  <span className={styles.slotLabel}>Right Head</span>
+                  <button
+                    className={`${styles.slotBox} ${reassemblyMode.secondary.rightHead ? styles.filled : ''} ${reassemblyMode.selectedField?.target === 'secondary' && reassemblyMode.selectedField.component === 'rightHead' ? styles.selectedSlot : ''}`}
+                    onClick={() => selectReassemblyField({ target: 'secondary', component: 'rightHead' })}
+                  >
+                    {reassemblyMode.secondary.rightHead ? `${reassemblyMode.secondary.rightHead.heatNumber}/${reassemblyMode.secondary.rightHead.coilNumber}` : 'Select + KC'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className={styles.manualRow}>
+            <Input
+              value={reassemblyMode.entryValue}
+              onChange={(_, d) => setReassemblyMode((current) => current ? { ...current, entryValue: d.value } : current)}
+              placeholder={reassemblyMode.selectedField?.component === 'shell' ? 'Enter shell serial...' : 'Enter KC card id...'}
+              className={styles.serialInput}
+            />
+            <Button
+              appearance="primary"
+              onClick={() => {
+                if (!reassemblyMode.selectedField || !reassemblyMode.entryValue.trim()) return;
+                if (reassemblyMode.selectedField.component === 'shell') {
+                  applyShellToSelection(reassemblyMode.entryValue.trim());
+                } else {
+                  applyHeadToSelection(reassemblyMode.entryValue.trim());
+                }
+              }}
+              disabled={!reassemblyMode.selectedField || !reassemblyMode.entryValue.trim()}
+            >
+              Apply
+            </Button>
+            <Button appearance="secondary" onClick={saveReassembly} disabled={!hasReassemblyChanges(reassemblyMode)}>
+              Create Reassembly
+            </Button>
+            <Button appearance="subtle" onClick={exitReassemblyMode}>
+              Cancel Reassembly
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!reassemblyMode && <div className={styles.assemblyDiagram}>
         <div className={styles.headSlot}>
           <span className={styles.slotLabel}>Left Head</span>
           <div className={`${styles.slotBox} ${leftHead ? (isComponentMismatch(tankSize, leftHead.tankSize) ? styles.headMismatch : styles.filled) : ''}`}>
@@ -408,9 +1003,9 @@ export function FitupScreen(props: WorkCenterProps) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
-      {!props.externalInput && (
+      {!props.externalInput && !reassemblyMode && (
         <div className={styles.manualEntry}>
           <div className={styles.manualRow}>
             <Input
@@ -438,7 +1033,7 @@ export function FitupScreen(props: WorkCenterProps) {
         </div>
       )}
 
-      <div className={styles.queueSection}>
+      {!reassemblyMode && <div className={styles.queueSection}>
         <div className={styles.queueHeader}>
           <span className={styles.queueTitle}>Heads Queue</span>
           <Button appearance="subtle" size="small" onClick={loadHeadsQueue}>Refresh</Button>
@@ -466,7 +1061,7 @@ export function FitupScreen(props: WorkCenterProps) {
             </button>
           ))
         )}
-      </div>
+      </div>}
     </div>
   );
 }

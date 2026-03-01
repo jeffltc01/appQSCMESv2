@@ -34,7 +34,7 @@ public class AssembliesController : ControllerBase
     }
 
     [HttpPost("{alphaCode}/reassemble")]
-    public async Task<ActionResult<CreateAssemblyResponseDto>> Reassemble(string alphaCode, [FromBody] ReassemblyDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ReassembleResponseDto>> Reassemble(string alphaCode, [FromBody] ReassemblyDto dto, CancellationToken cancellationToken)
     {
         try
         {

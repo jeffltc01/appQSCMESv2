@@ -30,11 +30,73 @@
   color: #2b3b84;
 }
 
+.scanStateBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #e5e5e5;
+  padding: 14px 18px;
+  background: #f8f9fa;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 640px;
+}
+
+.scanStateBannerActive {
+  background: #2b3b84;
+  border-color: #2b3b84;
+}
+
+.scanStateBannerIdle {
+  background: #f8f9fa;
+  border-color: #dfe2ed;
+}
+
+.scanStateTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.scanStateBannerActive .scanStateTitle {
+  color: #ffffff;
+}
+
 .reassemblyPrompt {
   background: #fff3cd;
   border: 1px solid #ffc107;
   padding: 12px;
   text-align: center;
+}
+
+.reassemblyBadge {
+  align-self: center;
+  background: #2b3b84;
+  color: #fff;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.reassemblyPanel {
+  border: 1px solid #dfe2ed;
+  padding: 10px;
+  background: #f8f9fa;
+}
+
+.reassemblyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.reassemblyRowTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2b3b84;
 }
 
 .promptButtons {
@@ -81,6 +143,13 @@
   background: #f8f9fa;
   padding: 8px;
   text-align: center;
+  color: #212529;
+  font: inherit;
+}
+
+.selectedSlot {
+  border-color: #2b3b84;
+  box-shadow: 0 0 0 2px rgba(43, 59, 132, 0.25);
 }
 
 .slotBox.filled {

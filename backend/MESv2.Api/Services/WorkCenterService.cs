@@ -656,7 +656,14 @@ public class WorkCenterService : IWorkCenterService
             throw new InvalidOperationException($"Queue is full. Maximum {MaxQueueItemsPerWorkCenter} items are allowed per work center queue.");
 
         var existingCard = await _db.MaterialQueueItems
-            .AnyAsync(m => m.CardId == dto.CardCode && m.Status == "queued", cancellationToken);
+            .AnyAsync(
+                m => m.WorkCenterId == wcId
+                     && m.QueueType == "fitup"
+                     && m.CardId == dto.CardCode
+                     && m.Status == "queued"
+                     && (m.ProductionLineId == dto.ProductionLineId
+                         || (!m.ProductionLineId.HasValue && !dto.ProductionLineId.HasValue)),
+                cancellationToken);
         if (existingCard)
             throw new InvalidOperationException("This card is already assigned to an active queue entry");
 
@@ -716,7 +723,15 @@ public class WorkCenterService : IWorkCenterService
         if (dto.CardCode != null && dto.CardCode != item.CardId)
         {
             var existingCard = await _db.MaterialQueueItems
-                .AnyAsync(m => m.CardId == dto.CardCode && m.Status == "queued" && m.Id != itemId, cancellationToken);
+                .AnyAsync(
+                    m => m.WorkCenterId == wcId
+                         && m.QueueType == "fitup"
+                         && m.CardId == dto.CardCode
+                         && m.Status == "queued"
+                         && m.Id != itemId
+                         && (m.ProductionLineId == item.ProductionLineId
+                             || (!m.ProductionLineId.HasValue && !item.ProductionLineId.HasValue)),
+                    cancellationToken);
             if (existingCard)
                 throw new InvalidOperationException("This card is already assigned to an active queue entry");
 

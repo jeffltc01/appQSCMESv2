@@ -91,6 +91,31 @@ public class SerialNumberServiceTests
     }
 
     [Fact]
+    public async Task GetContext_PrefersNonObsoleteAssembly_WhenShellHasMultipleAssemblyLinks()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var shellProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+        var assembledProduct = db.Products.First(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 500);
+
+        var shell = new SerialNumber { Id = Guid.NewGuid(), Serial = "SH-OBS", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var oldAsm = new SerialNumber { Id = Guid.NewGuid(), Serial = "OLD-A", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow.AddMinutes(-10), IsObsolete = true };
+        var newAsm = new SerialNumber { Id = Guid.NewGuid(), Serial = "NEW-A", ProductId = assembledProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        db.SerialNumbers.AddRange(shell, oldAsm, newAsm);
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = shell.Id, ToSerialNumberId = oldAsm.Id, Relationship = "ShellToAssembly", Timestamp = DateTime.UtcNow.AddMinutes(-5) },
+            new TraceabilityLog { Id = Guid.NewGuid(), FromSerialNumberId = shell.Id, ToSerialNumberId = newAsm.Id, Relationship = "ShellToAssembly", Timestamp = DateTime.UtcNow }
+        );
+        await db.SaveChangesAsync();
+
+        var sut = new SerialNumberService(db);
+        var result = await sut.GetContextAsync("SH-OBS");
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.ExistingAssembly);
+        Assert.Equal("NEW-A", result.ExistingAssembly!.AlphaCode);
+    }
+
+    [Fact]
     public async Task GetContext_DuplicateSerials_ReturnsNewest()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
@@ -759,6 +784,12 @@ public class SerialNumberServiceTests
     {
         var result = SerialNumberService.NormalizeRelationship(relationship, tankLocation);
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void NormalizeRelationship_ReassembledTo_MapsToLineage()
+    {
+        Assert.Equal("lineage", SerialNumberService.NormalizeRelationship("ReassembledTo", null));
     }
 
     #endregion

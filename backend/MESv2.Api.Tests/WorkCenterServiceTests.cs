@@ -880,4 +880,65 @@ public class WorkCenterServiceTests
         Assert.NotNull(result);
         Assert.Equal("H-NEXT-IN", result!.HeatNumber);
     }
+
+    [Fact]
+    public async Task AddFitupQueueItem_AllowsSameCardAcrossDifferentProductionLines()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First();
+        var vendorId = Guid.NewGuid();
+        var insideLineId = TestHelpers.ProductionLine1Plt1Id;
+        var outsideLineId = Guid.Parse("e2111111-1111-1111-1111-111111111111");
+
+        var (_, existingOutsideLineItem) = SeedQueueItemWithSN(
+            db, TestHelpers.wcFitupId, "queued", 1,
+            "ELLIP 24\" OD", 500, "FH-OUT", "FC-OUT", 1,
+            queueType: "fitup", cardId: "01", cardColor: "Blue");
+        existingOutsideLineItem.ProductionLineId = outsideLineId;
+
+        await db.SaveChangesAsync();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var result = await sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+        {
+            ProductId = product.Id,
+            VendorHeadId = vendorId,
+            LotNumber = "LOT-IN",
+            CardCode = "01",
+            ProductionLineId = insideLineId
+        });
+
+        Assert.Equal("01", result.CardId);
+        Assert.Equal(2, db.MaterialQueueItems.Count(m => m.WorkCenterId == TestHelpers.wcFitupId && m.QueueType == "fitup" && m.CardId == "01" && m.Status == "queued"));
+    }
+
+    [Fact]
+    public async Task AddFitupQueueItem_BlocksSameCardOnSameProductionLine()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First();
+        var vendorId = Guid.NewGuid();
+        var lineId = TestHelpers.ProductionLine1Plt1Id;
+
+        var (_, existingItem) = SeedQueueItemWithSN(
+            db, TestHelpers.wcFitupId, "queued", 1,
+            "ELLIP 24\" OD", 500, "FH-IN", "FC-IN", 1,
+            queueType: "fitup", cardId: "01", cardColor: "Blue");
+        existingItem.ProductionLineId = lineId;
+
+        await db.SaveChangesAsync();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.AddFitupQueueItemAsync(TestHelpers.wcFitupId, new DTOs.CreateFitupQueueItemDto
+            {
+                ProductId = product.Id,
+                VendorHeadId = vendorId,
+                LotNumber = "LOT-IN-2",
+                CardCode = "01",
+                ProductionLineId = lineId
+            }));
+
+        Assert.Contains("already assigned", ex.Message);
+    }
 }

@@ -27,21 +27,48 @@ public class SerialNumberService : ISerialNumberService
         var shellSize = sn.Product?.TankType;
 
         ExistingAssemblyDto? existingAssembly = null;
-        var shellLog = await _db.TraceabilityLogs
-            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id
-                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
-        var shellLogUsesReversedDirection = false;
-        if (shellLog == null)
-        {
-            shellLog = await _db.TraceabilityLogs
-                .FirstOrDefaultAsync(t => t.ToSerialNumberId == sn.Id
-                    && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
-            shellLogUsesReversedDirection = shellLog != null;
-        }
+        var directAssemblyCandidates = await _db.TraceabilityLogs
+            .Where(t => t.FromSerialNumberId == sn.Id
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                && t.ToSerialNumberId.HasValue)
+            .Join(_db.SerialNumbers,
+                t => t.ToSerialNumberId!.Value,
+                s => s.Id,
+                (t, s) => new { Trace = t, Assembly = s })
+            .Where(x => !x.Assembly.IsObsolete
+                && x.Assembly.Product != null
+                && x.Assembly.Product.ProductType!.SystemTypeName == "assembled")
+            .OrderByDescending(x => x.Trace.Timestamp)
+            .ThenByDescending(x => x.Assembly.CreatedAt)
+            .Select(x => x.Assembly.Id)
+            .ToListAsync(cancellationToken);
 
-        var assemblySnId = shellLogUsesReversedDirection
-            ? shellLog?.FromSerialNumberId
-            : shellLog?.ToSerialNumberId;
+        Guid? assemblySnId = null;
+        if (directAssemblyCandidates.Count > 0)
+        {
+            assemblySnId = directAssemblyCandidates[0];
+        }
+        else
+        {
+            var reverseAssemblyCandidates = await _db.TraceabilityLogs
+                .Where(t => t.ToSerialNumberId == sn.Id
+                    && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                    && t.FromSerialNumberId.HasValue)
+                .Join(_db.SerialNumbers,
+                    t => t.FromSerialNumberId!.Value,
+                    s => s.Id,
+                    (t, s) => new { Trace = t, Assembly = s })
+                .Where(x => !x.Assembly.IsObsolete
+                    && x.Assembly.Product != null
+                    && x.Assembly.Product.ProductType!.SystemTypeName == "assembled")
+                .OrderByDescending(x => x.Trace.Timestamp)
+                .ThenByDescending(x => x.Assembly.CreatedAt)
+                .Select(x => x.Assembly.Id)
+                .ToListAsync(cancellationToken);
+
+            if (reverseAssemblyCandidates.Count > 0)
+                assemblySnId = reverseAssemblyCandidates[0];
+        }
 
         if (assemblySnId != null)
         {
@@ -359,6 +386,7 @@ public class SerialNumberService : ISerialNumberService
             "leftHead" or "rightHead" => relationship,
             "plate" => "plate",
             "NameplateToAssembly" or "Nameplate" => "nameplate",
+            "ReassembledTo" => "lineage",
             "component" => tankLocation switch
             {
                 "Head 1" => "leftHead",

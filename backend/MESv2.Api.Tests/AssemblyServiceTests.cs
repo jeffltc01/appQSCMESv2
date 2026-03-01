@@ -184,106 +184,133 @@ public class AssemblyServiceTests
     }
 
     [Fact]
-    public async Task Reassemble_UpdatesShellLogs()
+    public async Task Reassemble_Replace_CreatesNewAssembly_AndObsoletesSource()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var shell1 = "SHELL-R1";
-        var shell2 = "SHELL-R2";
-        var sn1Id = Guid.NewGuid();
-        var sn2Id = Guid.NewGuid();
         var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
-        db.SerialNumbers.Add(new SerialNumber { Id = sn1Id, Serial = shell1, ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
-        db.SerialNumbers.Add(new SerialNumber { Id = sn2Id, Serial = shell2, ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow });
-
         var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
-        var assemblySnId = Guid.NewGuid();
-        db.SerialNumbers.Add(new SerialNumber
+
+        var shellOld = new SerialNumber { Id = Guid.NewGuid(), Serial = "SHELL-OLD", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var shellNew = new SerialNumber { Id = Guid.NewGuid(), Serial = "SHELL-NEW", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var oldAssembly = new SerialNumber
         {
-            Id = assemblySnId,
+            Id = Guid.NewGuid(),
             Serial = "BB",
             ProductId = assembledProduct.Id,
             PlantId = TestHelpers.PlantPlt1Id,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = TestHelpers.TestUserId
-        });
+        };
+
+        db.SerialNumbers.AddRange(shellOld, shellNew, oldAssembly);
         db.TraceabilityLogs.Add(new TraceabilityLog
         {
             Id = Guid.NewGuid(),
-            FromSerialNumberId = sn1Id,
-            ToSerialNumberId = assemblySnId,
-            Relationship = "shell",
-            Quantity = 1,
+            FromSerialNumberId = shellOld.Id,
+            ToSerialNumberId = oldAssembly.Id,
+            Relationship = "ShellToAssembly",
+            TankLocation = "Shell 1",
             Timestamp = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
         var sut = new AssemblyService(db);
-        var dto = new ReassemblyDto { Shells = new List<string> { shell2 } };
+        var result = await sut.ReassembleAsync("BB", new ReassemblyDto
+        {
+            OperationType = "replace",
+            WorkCenterId = TestHelpers.wcFitupId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            PrimaryAssembly = new ReassemblyAssemblyDto
+            {
+                TankSize = 120,
+                Shells = new List<string> { "SHELL-NEW" }
+            }
+        });
 
-        var result = await sut.ReassembleAsync("BB", dto);
+        Assert.Single(result.CreatedAssemblies);
+        var created = result.CreatedAssemblies[0];
+        Assert.NotEqual("BB", created.AlphaCode);
 
-        Assert.Equal("BB", result.AlphaCode);
+        var source = await db.SerialNumbers.FirstAsync(s => s.Id == oldAssembly.Id);
+        Assert.True(source.IsObsolete);
+        Assert.Equal(created.Id, source.ReplaceBySNId);
 
-        var shellLogs = await db.TraceabilityLogs
-            .Where(t => t.ToSerialNumberId == assemblySnId && t.Relationship == "ShellToAssembly")
+        var lineage = await db.TraceabilityLogs
+            .Where(t => t.FromSerialNumberId == oldAssembly.Id && t.Relationship == "ReassembledTo")
             .ToListAsync();
-        Assert.Single(shellLogs);
-        Assert.Equal(sn2Id, shellLogs[0].FromSerialNumberId);
+        Assert.Single(lineage);
+        Assert.Equal(created.Id, lineage[0].ToSerialNumberId);
     }
 
     [Fact]
-    public async Task Reassemble_ResolvesToMostRecentNonObsolete_WhenDuplicateAlphaCodesExist()
+    public async Task Reassemble_Split_CreatesTwoAssemblies_AndLineageToBoth()
     {
         await using var db = TestHelpers.CreateInMemoryContext();
-        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
         var shellProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var assembledProduct = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "assembled" && p.TankSize == 120);
 
-        var oldAssemblyId = Guid.NewGuid();
-        db.SerialNumbers.Add(new SerialNumber
+        var shell1 = new SerialNumber { Id = Guid.NewGuid(), Serial = "SPLIT-S1", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var shell2 = new SerialNumber { Id = Guid.NewGuid(), Serial = "SPLIT-S2", ProductId = shellProduct.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow };
+        var oldAssembly = new SerialNumber
         {
-            Id = oldAssemblyId,
-            Serial = "CC",
-            ProductId = assembledProduct.Id,
-            PlantId = TestHelpers.PlantPlt1Id,
-            CreatedAt = DateTime.UtcNow.AddDays(-30),
-            IsObsolete = true
-        });
-
-        var newShellId = Guid.NewGuid();
-        db.SerialNumbers.Add(new SerialNumber
-        {
-            Id = newShellId, Serial = "SHELL-DUP", ProductId = shellProduct.Id,
-            PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow
-        });
-
-        var newAssemblyId = Guid.NewGuid();
-        db.SerialNumbers.Add(new SerialNumber
-        {
-            Id = newAssemblyId,
+            Id = Guid.NewGuid(),
             Serial = "CC",
             ProductId = assembledProduct.Id,
             PlantId = TestHelpers.PlantPlt1Id,
             CreatedAt = DateTime.UtcNow,
             CreatedByUserId = TestHelpers.TestUserId
-        });
-        db.TraceabilityLogs.Add(new TraceabilityLog
-        {
-            Id = Guid.NewGuid(),
-            FromSerialNumberId = newShellId,
-            ToSerialNumberId = newAssemblyId,
-            Relationship = "ShellToAssembly",
-            TankLocation = "Shell 1",
-            Quantity = 1,
-            Timestamp = DateTime.UtcNow
-        });
+        };
+        db.SerialNumbers.AddRange(shell1, shell2, oldAssembly);
+        db.TraceabilityLogs.AddRange(
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = shell1.Id,
+                ToSerialNumberId = oldAssembly.Id,
+                Relationship = "ShellToAssembly",
+                TankLocation = "Shell 1",
+                Timestamp = DateTime.UtcNow
+            },
+            new TraceabilityLog
+            {
+                Id = Guid.NewGuid(),
+                FromSerialNumberId = shell2.Id,
+                ToSerialNumberId = oldAssembly.Id,
+                Relationship = "ShellToAssembly",
+                TankLocation = "Shell 2",
+                Timestamp = DateTime.UtcNow
+            });
         await db.SaveChangesAsync();
 
         var sut = new AssemblyService(db);
-        var dto = new ReassemblyDto { Shells = new List<string> { "SHELL-DUP" }, OperatorId = TestHelpers.TestUserId };
+        var result = await sut.ReassembleAsync("CC", new ReassemblyDto
+        {
+            OperationType = "split",
+            WorkCenterId = TestHelpers.wcFitupId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            PrimaryAssembly = new ReassemblyAssemblyDto
+            {
+                TankSize = 120,
+                Shells = new List<string> { "SPLIT-S1" }
+            },
+            SecondaryAssembly = new ReassemblyAssemblyDto
+            {
+                TankSize = 120,
+                Shells = new List<string> { "SPLIT-S2" }
+            }
+        });
 
-        var result = await sut.ReassembleAsync("CC", dto);
+        Assert.Equal(2, result.CreatedAssemblies.Count);
 
-        Assert.Equal("CC", result.AlphaCode);
-        Assert.Equal(newAssemblyId, result.Id);
+        var source = await db.SerialNumbers.FirstAsync(s => s.Id == oldAssembly.Id);
+        Assert.True(source.IsObsolete);
+        Assert.NotNull(source.ReplaceBySNId);
+
+        var lineage = await db.TraceabilityLogs
+            .Where(t => t.FromSerialNumberId == oldAssembly.Id && t.Relationship == "ReassembledTo")
+            .ToListAsync();
+        Assert.Equal(2, lineage.Count);
     }
 }

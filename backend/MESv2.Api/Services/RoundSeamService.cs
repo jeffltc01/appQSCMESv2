@@ -80,14 +80,28 @@ public class RoundSeamService : IRoundSeamService
             .FirstOrDefaultAsync(s => s.Serial == serial, cancellationToken);
         if (sn == null) return null;
 
-        var shellLog = await _db.TraceabilityLogs
-            .FirstOrDefaultAsync(t => t.FromSerialNumberId == sn.Id
-                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell"), cancellationToken);
-        if (shellLog?.ToSerialNumberId == null) return null;
+        var shellToAssemblyCandidates = await _db.TraceabilityLogs
+            .Where(t => t.FromSerialNumberId == sn.Id
+                && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
+                && t.ToSerialNumberId.HasValue)
+            .Join(_db.SerialNumbers,
+                t => t.ToSerialNumberId!.Value,
+                s => s.Id,
+                (t, s) => new { Trace = t, Assembly = s })
+            .Where(x => !x.Assembly.IsObsolete
+                && x.Assembly.Product != null
+                && x.Assembly.Product.ProductType!.SystemTypeName == "assembled")
+            .OrderByDescending(x => x.Trace.Timestamp)
+            .ThenByDescending(x => x.Assembly.CreatedAt)
+            .Select(x => x.Assembly.Id)
+            .ToListAsync(cancellationToken);
+
+        if (shellToAssemblyCandidates.Count == 0)
+            return null;
 
         var assemblySn = await _db.SerialNumbers
             .Include(s => s.Product)
-            .FirstOrDefaultAsync(s => s.Id == shellLog.ToSerialNumberId.Value, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == shellToAssemblyCandidates[0], cancellationToken);
         if (assemblySn == null) return null;
 
         var tankSize = assemblySn.Product?.TankSize ?? 0;

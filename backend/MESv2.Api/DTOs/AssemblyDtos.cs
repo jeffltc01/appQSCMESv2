@@ -28,9 +28,34 @@ public class CreateAssemblyResponseDto
 
 public class ReassemblyDto
 {
-    public List<string>? Shells { get; set; }
-    public string? LeftHeadLotId { get; set; }
-    public string? RightHeadLotId { get; set; }
-    public Guid? OperatorId { get; set; }
-    public List<Guid>? WelderIds { get; set; }
+    public string OperationType { get; set; } = "replace"; // replace | split
+    public ReassemblyAssemblyDto PrimaryAssembly { get; set; } = new();
+    public ReassemblyAssemblyDto? SecondaryAssembly { get; set; } // required for split
+    public Guid WorkCenterId { get; set; }
+    public Guid? AssetId { get; set; }
+    public Guid ProductionLineId { get; set; }
+    public Guid OperatorId { get; set; }
+    public List<Guid> WelderIds { get; set; } = new();
+}
+
+public class ReassemblyAssemblyDto
+{
+    public List<string> Shells { get; set; } = new();
+    public int TankSize { get; set; }
+    public ReassemblyHeadDto? LeftHead { get; set; }
+    public ReassemblyHeadDto? RightHead { get; set; }
+}
+
+public class ReassemblyHeadDto
+{
+    public string? LotId { get; set; }
+    public string? HeatNumber { get; set; }
+    public string? CoilNumber { get; set; }
+    public string? LotNumber { get; set; }
+}
+
+public class ReassembleResponseDto
+{
+    public string SourceAlphaCode { get; set; } = string.Empty;
+    public List<CreateAssemblyResponseDto> CreatedAssemblies { get; set; } = new();
 }

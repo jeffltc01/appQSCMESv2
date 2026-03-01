@@ -10,6 +10,8 @@ import type {
   CreateInspectionRecordRequest,
   CreateAssemblyRequest,
   CreateAssemblyResponse,
+  ReassemblyRequest,
+  ReassembleResponse,
   SerialNumberContextResponse,
   QueueAdvanceResponse,
   KanbanCardLookupResponse,
@@ -311,8 +313,8 @@ export const checklistApi = {
 export const assemblyApi = {
   create: (req: CreateAssemblyRequest) =>
     api.post<CreateAssemblyResponse>('/assemblies', req),
-  reassemble: (alphaCode: string, body: unknown) =>
-    api.post<CreateAssemblyResponse>(`/assemblies/${alphaCode}/reassemble`, body),
+  reassemble: (alphaCode: string, body: ReassemblyRequest) =>
+    api.post<ReassembleResponse>(`/assemblies/${alphaCode}/reassemble`, body),
 };
 
 export const serialNumberApi = {

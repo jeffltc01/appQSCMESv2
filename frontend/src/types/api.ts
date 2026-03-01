@@ -99,6 +99,36 @@ export interface CreateAssemblyResponse {
   timestamp: string;
 }
 
+export interface ReassemblyHeadRequest {
+  lotId?: string;
+  heatNumber?: string;
+  coilNumber?: string;
+  lotNumber?: string;
+}
+
+export interface ReassemblyAssemblyRequest {
+  shells: string[];
+  tankSize: number;
+  leftHead?: ReassemblyHeadRequest;
+  rightHead?: ReassemblyHeadRequest;
+}
+
+export interface ReassemblyRequest {
+  operationType: 'replace' | 'split';
+  primaryAssembly: ReassemblyAssemblyRequest;
+  secondaryAssembly?: ReassemblyAssemblyRequest;
+  workCenterId: string;
+  assetId?: string;
+  productionLineId: string;
+  operatorId: string;
+  welderIds: string[];
+}
+
+export interface ReassembleResponse {
+  sourceAlphaCode: string;
+  createdAssemblies: CreateAssemblyResponse[];
+}
+
 export interface SerialNumberContextResponse {
   serialNumber: string;
   tankSize: number;
