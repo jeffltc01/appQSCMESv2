@@ -6,11 +6,22 @@ import { productApi, nameplateApi } from '../../api/endpoints.ts';
 import styles from './NameplateScreen.module.css';
 
 export function NameplateScreen(props: WorkCenterProps) {
-  const { workCenterId, productionLineId, operatorId, plantId, plantCode, showScanResult, refreshHistory } = props;
+  const {
+    workCenterId,
+    productionLineId,
+    operatorId,
+    plantId,
+    plantCode,
+    showScanResult,
+    refreshHistory,
+    selectedHistoryRecord,
+    clearSelectedHistoryRecord,
+  } = props;
 
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   const getSerialPrefixValidationError = useCallback((value: string): string | null => {
     const normalizedPlantCode = plantCode?.trim();
@@ -40,7 +51,7 @@ export function NameplateScreen(props: WorkCenterProps) {
   }, [plantId]);
 
   const handleSave = useCallback(async () => {
-    if (!selectedProductId || !serialNumber.trim()) {
+    if (!selectedProductId || (!editingRecordId && !serialNumber.trim())) {
       showScanResult({ type: 'error', message: 'Please fill all fields' });
       return;
     }
@@ -52,24 +63,53 @@ export function NameplateScreen(props: WorkCenterProps) {
     }
 
     try {
-      const result = await nameplateApi.create({
-        serialNumber: serialNumber.trim(),
-        productId: selectedProductId,
-        workCenterId,
-        productionLineId,
-        operatorId,
-      });
-      if (result.printSucceeded) {
-        showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} saved. Label printing.` });
+      if (editingRecordId) {
+        const result = await nameplateApi.update(editingRecordId, {
+          productId: selectedProductId,
+          operatorId,
+        });
+        if (result.printSucceeded) {
+          showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} updated. Label reprinting.` });
+        } else {
+          showScanResult({ type: 'warning', message: `Serial updated but print failed: ${result.printMessage ?? 'Unknown error'}` });
+        }
       } else {
-        showScanResult({ type: 'warning', message: `Serial saved but print failed: ${result.printMessage ?? 'Unknown error'}` });
+        const result = await nameplateApi.create({
+          serialNumber: serialNumber.trim(),
+          productId: selectedProductId,
+          workCenterId,
+          productionLineId,
+          operatorId,
+        });
+        if (result.printSucceeded) {
+          showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} saved. Label printing.` });
+        } else {
+          showScanResult({ type: 'warning', message: `Serial saved but print failed: ${result.printMessage ?? 'Unknown error'}` });
+        }
       }
       refreshHistory();
       setSerialNumber('');
+      setEditingRecordId(null);
+      clearSelectedHistoryRecord?.();
     } catch (err: any) {
-      showScanResult({ type: 'error', message: err?.message ?? 'Failed to save nameplate record' });
+      showScanResult({ type: 'error', message: err?.message ?? (editingRecordId ? 'Failed to update nameplate record' : 'Failed to save nameplate record') });
     }
-  }, [selectedProductId, serialNumber, getSerialPrefixValidationError, workCenterId, operatorId, showScanResult, refreshHistory]);
+  }, [selectedProductId, serialNumber, editingRecordId, getSerialPrefixValidationError, workCenterId, productionLineId, operatorId, showScanResult, refreshHistory, clearSelectedHistoryRecord]);
+
+  useEffect(() => {
+    if (!selectedHistoryRecord?.serialNumberId) return;
+    setEditingRecordId(selectedHistoryRecord.serialNumberId);
+    setSerialNumber(selectedHistoryRecord.serialOrIdentifier);
+    if (selectedHistoryRecord.productId) {
+      setSelectedProductId(selectedHistoryRecord.productId);
+    }
+  }, [selectedHistoryRecord]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingRecordId(null);
+    setSerialNumber('');
+    clearSelectedHistoryRecord?.();
+  }, [clearSelectedHistoryRecord]);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
 
@@ -100,6 +140,7 @@ export function NameplateScreen(props: WorkCenterProps) {
             size="large"
             className={styles.input}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+            disabled={!!editingRecordId}
           />
         </div>
 
@@ -108,10 +149,16 @@ export function NameplateScreen(props: WorkCenterProps) {
           size="large"
           className={styles.submitBtn}
           onClick={handleSave}
-          disabled={!selectedProductId || !serialNumber.trim()}
+          disabled={!selectedProductId || (!editingRecordId && !serialNumber.trim())}
         >
-          Save
+          {editingRecordId ? 'Update & Reprint' : 'Save'}
         </Button>
+
+        {editingRecordId && (
+          <Button appearance="secondary" size="large" className={styles.cancelBtn} onClick={handleCancelEdit}>
+            Cancel Edit
+          </Button>
+        )}
       </div>
     </div>
   );

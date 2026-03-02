@@ -7,10 +7,14 @@ import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
 
 const mockGetProducts = vi.fn().mockResolvedValue([]);
 const mockCreate = vi.fn();
+const mockUpdate = vi.fn();
 
 vi.mock('../../api/endpoints', () => ({
   productApi: { getProducts: (...args: unknown[]) => mockGetProducts(...args) },
-  nameplateApi: { create: (...args: unknown[]) => mockCreate(...args) },
+  nameplateApi: {
+    create: (...args: unknown[]) => mockCreate(...args),
+    update: (...args: unknown[]) => mockUpdate(...args),
+  },
 }));
 
 function createProps(overrides: Partial<WorkCenterProps> = {}): WorkCenterProps {
@@ -194,5 +198,46 @@ describe('NameplateScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+  });
+
+  it('updates selected history record product and auto-reprints', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+      { id: 'p2', productNumber: 'PLT-250AG', tankSize: 250, tankType: 'AG', nameplateNumber: null },
+    ]);
+    mockUpdate.mockResolvedValue({
+      id: 'sn-9', serialNumber: 'W00100009', productId: 'p2',
+      timestamp: new Date().toISOString(), printSucceeded: true, printMessage: null,
+    });
+
+    const { props } = renderScreen({
+      selectedHistoryRecord: {
+        id: 'pr-1',
+        productionRecordId: 'pr-1',
+        serialNumberId: 'sn-9',
+        serialOrIdentifier: 'W00100009',
+        productId: 'p1',
+        timestamp: new Date().toISOString(),
+        hasAnnotation: false,
+      },
+    });
+
+    const serialInput = await waitFor(() => screen.getByPlaceholderText(/enter serial number/i));
+    expect(serialInput).toBeDisabled();
+    expect(serialInput).toHaveValue('W00100009');
+
+    const combobox = screen.getByRole('combobox');
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-250AG' }).click(); });
+
+    await userEvent.click(screen.getByRole('button', { name: /update & reprint/i }));
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith('sn-9', { productId: 'p2', operatorId: 'op-1' });
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(props.showScanResult).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'success', message: expect.stringContaining('updated') }),
+    );
   });
 });

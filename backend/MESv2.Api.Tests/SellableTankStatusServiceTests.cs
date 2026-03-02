@@ -145,6 +145,31 @@ public class SellableTankStatusServiceTests
     }
 
     [Fact]
+    public async Task GetStatus_ExcludesSellableWithoutAssemblyMarriage()
+    {
+        await using var db = CreateDbWithGateChecks();
+        var targetDate = new DateTime(2026, 2, 20, 12, 0, 0, DateTimeKind.Utc);
+
+        SeedTank(db, "TANK-LINKED", 120, targetDate, TestHelpers.PlantPlt1Id);
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "TANK-UNLINKED",
+            ProductId = SellableProductId,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = targetDate.AddHours(1)
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new SellableTankStatusService(db);
+        var result = await sut.GetStatusAsync(TestHelpers.PlantPlt1Id, new DateOnly(2026, 2, 20));
+
+        Assert.Single(result);
+        Assert.Contains(result, r => r.SerialNumber == "TANK-LINKED");
+        Assert.DoesNotContain(result, r => r.SerialNumber == "TANK-UNLINKED");
+    }
+
+    [Fact]
     public async Task GetStatus_ReturnsProductNumberAndTankSize()
     {
         await using var db = CreateDbWithGateChecks();

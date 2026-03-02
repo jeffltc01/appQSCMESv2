@@ -178,8 +178,10 @@ public class WorkCenterService : IWorkCenterService
             {
                 Id = r.Id,
                 ProductionRecordId = r.Id,
+                SerialNumberId = r.SerialNumberId,
                 Timestamp = DateTime.SpecifyKind(r.Timestamp, DateTimeKind.Utc),
                 SerialOrIdentifier = serialOrIdentifier,
+                ProductId = r.SerialNumber?.ProductId,
                 TankSize = tankSize,
                 HasAnnotation = color != null,
                 AnnotationColor = color
@@ -229,8 +231,10 @@ public class WorkCenterService : IWorkCenterService
             {
                 Id = i.Id,
                 ProductionRecordId = i.ProductionRecordId,
+                SerialNumberId = i.SerialNumberId,
                 Timestamp = DateTime.SpecifyKind(i.Timestamp, DateTimeKind.Utc),
                 SerialOrIdentifier = serialOrIdentifier,
+                ProductId = i.SerialNumber?.ProductId,
                 TankSize = tankSize,
                 HasAnnotation = color != null,
                 AnnotationColor = color

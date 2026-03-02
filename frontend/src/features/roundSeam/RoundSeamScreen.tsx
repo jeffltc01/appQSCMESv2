@@ -8,6 +8,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { RoundSeamSetup, AssemblyLookup } from '../../types/domain.ts';
 import { roundSeamApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './RoundSeamScreen.module.css';
 
 function seamCountForSize(size: number): number {
@@ -312,9 +313,7 @@ export function RoundSeamScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-        <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
-      </div>
+      <NextStepBanner instruction={scanInstruction} />
 
       <div className={styles.setupSummary}>
         <div className={styles.setupInfo}>

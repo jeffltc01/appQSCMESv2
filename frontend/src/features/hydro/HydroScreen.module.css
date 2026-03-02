@@ -6,55 +6,11 @@
   gap: 8px;
 }
 
-.scanStateBanner {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 2px;
-  min-height: 58px;
-  padding: 8px 12px;
-  border: 1px solid #2b3b84;
-  text-align: center;
-}
-
-.scanStateBannerActive {
-  background: #2b3b84;
-  color: #ffffff;
-}
-
-.scanStateBannerIdle {
-  background: #f8f9fa;
-  color: #2b3b84;
-}
-
-.scanStateTitle {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: 0.2px;
-}
-
-.scanStateDetail {
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1.2;
-  opacity: 0.95;
-}
-
 .waitingPrompt {
   font-size: 18px;
   color: #868686;
   text-align: center;
   padding: 10px 0;
-}
-
-.scanStatus {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  font-size: 14px;
-  color: #555;
 }
 
 .manualEntry {
@@ -79,6 +35,62 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+}
+
+.shellCard {
+  padding-top: 10px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shellBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: inherit;
+  margin-left: auto;
+}
+
+.shellBadgeLabel {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.shellBadgeValue {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.shellBadgeMeta {
+  font-size: 12px;
+  color: #505050;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.mismatchMark {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d13438;
+  font-size: 108px;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgb(255 255 255 / 78%);
 }
 
 .manualSvg {
@@ -114,14 +126,113 @@
   font-size: 14px;
 }
 
+.characteristicCard {
+  border: 2px solid #9098a6;
+  border-radius: 24px;
+  background: #f3f4f6;
+  padding: 14px 16px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 12%);
+}
+
+.characteristicHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.characteristicTitleWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.characteristicTitle {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2b3b84;
+  line-height: 1.1;
+}
+
+.characteristicSubtitle {
+  font-size: 16px;
+  color: #4b4b4b;
+  text-align: center;
+}
+
+.arrowButton {
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  background-color: #2b3b84;
+  border: 1px solid #2b3b84;
+  border-radius: 12px;
+}
+
+.arrowButton:disabled {
+  opacity: 0.45;
+  background-color: #868686;
+  border-color: #868686;
+  color: #fff;
+}
+
+.characteristicBody {
+  margin-top: 12px;
+  border: 1px solid #c5c9d2;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.responseButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.responseButton {
+  min-height: 120px;
+  font-size: 46px;
+  font-weight: 700;
+  border-radius: 24px;
+  border: 2px solid transparent;
+}
+
+.responseNeutral {
+  background: #eceff4;
+  border-color: #b5bbc8;
+  color: #4f5665;
+}
+
+.responseSelectedPositive {
+  background: #dff2e2;
+  border-color: #0e7a0d;
+  color: #0e7a0d;
+  box-shadow: 0 0 0 4px rgb(14 122 13 / 20%);
+}
+
+.responseSelectedNegative {
+  background: #f9d6d8;
+  border-color: #d13438;
+  color: #a4262c;
+  box-shadow: 0 0 0 4px rgb(209 52 56 / 18%);
+}
+
 .defectTable {
   border: 1px solid #e5e5e5;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tableHeader {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 40px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 44px;
   padding: 8px 10px;
   background: #f8f9fa;
   font-weight: 600;
@@ -131,11 +242,26 @@
 
 .tableRow {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 40px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 44px;
   padding: 8px 10px;
   border-bottom: 1px solid #e5e5e5;
   font-size: 13px;
   align-items: center;
+}
+
+.tableHeader > span,
+.tableRow > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tableRow button {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  padding: 0;
+  justify-self: center;
 }
 
 .actionButtons {
@@ -174,6 +300,8 @@
 .tileGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(72px, auto);
+  align-content: start;
   gap: 8px;
   flex: 1;
   overflow-y: auto;
@@ -184,7 +312,7 @@
   align-items: center;
   justify-content: center;
   padding: 12px;
-  min-height: 48px;
+  min-height: 72px;
   background: #ffffff;
   border: 1px solid #e5e5e5;
   cursor: pointer;
@@ -197,4 +325,26 @@
 .tile:hover {
   background: #f8f9fa;
   border-color: #2b3b84;
+}
+
+.emptyWizardMessage {
+  grid-column: 1 / -1;
+  padding: 12px;
+  color: #666;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .characteristicTitle {
+    font-size: 28px;
+  }
+
+  .responseButtons {
+    grid-template-columns: 1fr;
+  }
+
+  .responseButton {
+    min-height: 72px;
+    font-size: 34px;
+  }
 }

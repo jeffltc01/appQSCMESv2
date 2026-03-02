@@ -37,5 +37,6 @@ Sellable Tank Status provides a daily snapshot of sellable tanks by site and dat
 ## Tips
 
 - URL parameters for site/date are preserved, so filtered views can be bookmarked/shared.
+- Only finished serial numbers that have an attached assembly (hydro marriage traceability) are included in results.
 - A gray dash means no qualifying gate record was found for that checkpoint.
 - Use serial links to pivot into full genealogy when a gate result looks unexpected.

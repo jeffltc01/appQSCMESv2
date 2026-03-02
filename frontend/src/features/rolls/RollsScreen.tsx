@@ -6,6 +6,7 @@ import { parseShellLabel, normalizeShellSerialInput } from '../../types/barcode.
 import type { MaterialQueueItem, OperatorControlPlan } from '../../types/domain.ts';
 import type { QueueAdvanceResponse } from '../../types/api.ts';
 import { workCenterApi, productionRecordApi, inspectionRecordApi, controlPlanApi, demoShellApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './RollsScreen.module.css';
 
 type ScanState = 'idle' | 'scanLabel1' | 'scanLabel2';
@@ -384,6 +385,8 @@ export function RollsScreen(props: WorkCenterProps) {
   return (
     <div className={styles.container}>
       <div className={styles.topSection}>
+        <NextStepBanner instruction={scanInstruction} />
+
         {!props.externalInput && (
           <div className={styles.manualEntry}>
             <Label>Shell Label</Label>
@@ -402,11 +405,6 @@ export function RollsScreen(props: WorkCenterProps) {
             </div>
           </div>
         )}
-
-        <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-          <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
-          {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
-        </div>
 
         {activeMaterial && (
           <div className={styles.dataGrid}>

@@ -21,6 +21,7 @@ import type {
   CreateRoundSeamSetupRequest,
   CreateRoundSeamRecordRequest,
   CreateNameplateRecordRequest,
+  UpdateNameplateRecordRequest,
   CreateHydroRecordRequest,
   HydroRecordResponse,
   CreateProductRequest,
@@ -388,6 +389,8 @@ export const nameplateApi = {
     api.post<NameplateRecordInfo>('/nameplate-records', req),
   getBySerial: (serialNumber: string) =>
     api.get<NameplateRecordInfo>(`/nameplate-records/${encodeURIComponent(serialNumber)}`),
+  update: (id: string, req: UpdateNameplateRecordRequest) =>
+    api.put<NameplateRecordInfo>(`/nameplate-records/${id}`, req),
   reprint: (id: string) =>
     api.post<NameplateRecordInfo>(`/nameplate-records/${id}/reprint`),
 };

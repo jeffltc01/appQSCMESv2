@@ -5,6 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { MaterialQueueItem, HeadLotInfo } from '../../types/domain.ts';
 import { serialNumberApi, materialQueueApi, workCenterApi, assemblyApi, adminPlantGearApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './FitupScreen.module.css';
 
 function shellCountForSize(tankSize: number): number {
@@ -794,9 +795,7 @@ export function FitupScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-        <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
-      </div>
+      <NextStepBanner instruction={nextInstruction} />
 
       {reassemblyMode && (
         <div className={styles.reassemblyBadge}>Reassembly Mode</div>

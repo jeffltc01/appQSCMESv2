@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label } from '@fluentui/react-components';
+import { DeleteRegular } from '@fluentui/react-icons';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
 import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel } from '../../types/barcode.ts';
 import type { DefectCode, Characteristic, DefectLocation, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
 import type { InspectionResultEntry } from '../../types/api.ts';
 import { roundSeamApi, nameplateApi, workCenterApi, hydroApi, controlPlanApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './HydroScreen.module.css';
 
 type HydroState = 'WaitingForScans' | 'ReadyForInspection' | 'DefectEntry';
@@ -16,6 +18,18 @@ interface DefectWizardState {
   defectCodeName?: string;
   characteristicId?: string;
   characteristicName?: string;
+}
+
+function supportsCharacteristic(location: DefectLocation, characteristicId: string) {
+  return location.characteristicIds.length === 0 || location.characteristicIds.includes(characteristicId);
+}
+
+function getResultLabels(resultType: string): [string, string] {
+  switch (resultType) {
+    case 'AcceptReject': return ['Accept', 'Reject'];
+    case 'GoNoGo': return ['Go', 'NoGo'];
+    default: return ['Pass', 'Fail'];
+  }
 }
 
 export function HydroScreen(props: WorkCenterProps) {
@@ -36,11 +50,14 @@ export function HydroScreen(props: WorkCenterProps) {
 
   const [defectCodes, setDefectCodes] = useState<DefectCode[]>([]);
   const [characteristics, setCharacteristics] = useState<Characteristic[]>([]);
-  const [locations, setLocations] = useState<DefectLocation[]>([]);
+  const [defectLocations, setDefectLocations] = useState<DefectLocation[]>([]);
   const [controlPlans, setControlPlans] = useState<OperatorControlPlan[]>([]);
   const [inspectionResults, setInspectionResults] = useState<Record<string, string>>({});
+  const [currentControlPlanIndex, setCurrentControlPlanIndex] = useState(0);
+  const [tankSizeMismatch, setTankSizeMismatch] = useState(false);
   const [manualShellInput, setManualShellInput] = useState('');
   const [manualNameplateInput, setManualNameplateInput] = useState('');
+  const resolvedTankSize = assemblyTankSize ?? nameplateTankSize ?? undefined;
 
   useEffect(() => {
     loadLookups();
@@ -48,12 +65,12 @@ export function HydroScreen(props: WorkCenterProps) {
 
   const loadLookups = useCallback(async () => {
     try {
-      const [codes, chars] = await Promise.all([
+      const [codes, locs] = await Promise.all([
         workCenterApi.getDefectCodes(workCenterId),
-        workCenterApi.getCharacteristics(workCenterId),
+        workCenterApi.getDefectLocations(workCenterId),
       ]);
       setDefectCodes(codes);
-      setCharacteristics(chars);
+      setDefectLocations(locs);
     } catch { /* keep empty */ }
     if (productionLineId) {
       try {
@@ -63,13 +80,18 @@ export function HydroScreen(props: WorkCenterProps) {
     }
   }, [workCenterId, productionLineId]);
 
-  function getResultLabels(resultType: string): [string, string] {
-    switch (resultType) {
-      case 'AcceptReject': return ['Accept', 'Reject'];
-      case 'GoNoGo': return ['Go', 'NoGo'];
-      default: return ['Pass', 'Fail'];
-    }
-  }
+  useEffect(() => {
+    workCenterApi.getCharacteristics(workCenterId, resolvedTankSize)
+      .then(setCharacteristics)
+      .catch(() => setCharacteristics([]));
+  }, [workCenterId, resolvedTankSize]);
+
+  useEffect(() => {
+    setCurrentControlPlanIndex((prev) => {
+      if (controlPlans.length === 0) return 0;
+      return Math.min(prev, controlPlans.length - 1);
+    });
+  }, [controlPlans]);
 
   const scanShell = useCallback(async (serial: string) => {
     try {
@@ -81,9 +103,11 @@ export function HydroScreen(props: WorkCenterProps) {
       showScanResult({ type: 'success', message: `Assembly ${assembly.alphaCode} found` });
       if (nameplateSerial) {
         if (nameplateTankSize != null && assembly.tankSize != null && assembly.tankSize !== nameplateTankSize) {
+          setTankSizeMismatch(true);
           showScanResult({ type: 'error', message: `Tank size mismatch: shell assembly is ${assembly.tankSize} gal but nameplate is ${nameplateTankSize} gal` });
           return;
         }
+        setTankSizeMismatch(false);
         setState('ReadyForInspection');
         setExternalInput(false);
       }
@@ -100,9 +124,11 @@ export function HydroScreen(props: WorkCenterProps) {
       showScanResult({ type: 'success', message: `Nameplate ${serial} found` });
       if (assemblyAlpha) {
         if (assemblyTankSize != null && np.tankSize != null && assemblyTankSize !== np.tankSize) {
+          setTankSizeMismatch(true);
           showScanResult({ type: 'error', message: `Tank size mismatch: shell assembly is ${assemblyTankSize} gal but nameplate is ${np.tankSize} gal` });
           return;
         }
+        setTankSizeMismatch(false);
         setState('ReadyForInspection');
         setExternalInput(false);
       }
@@ -135,6 +161,11 @@ export function HydroScreen(props: WorkCenterProps) {
   }, []);
 
   const handleAccept = useCallback(async () => {
+    const missingControlPlanResult = controlPlans.some((cp) => !inspectionResults[cp.id]);
+    if (controlPlans.length > 0 && missingControlPlanResult) {
+      showScanResult({ type: 'error', message: 'Complete all control plan results before saving' });
+      return;
+    }
     try {
       await hydroApi.create({
         assemblyAlphaCode: assemblyAlpha,
@@ -170,6 +201,8 @@ export function HydroScreen(props: WorkCenterProps) {
     setManualShellInput('');
     setManualNameplateInput('');
     setInspectionResults({});
+    setCurrentControlPlanIndex(0);
+    setTankSizeMismatch(false);
     setExternalInput(true);
   }, [setExternalInput]);
 
@@ -182,12 +215,8 @@ export function HydroScreen(props: WorkCenterProps) {
     setWizard((prev) => prev ? { ...prev, step: 'characteristic', defectCodeId: code.id, defectCodeName: code.name } : null);
   }, []);
 
-  const selectCharacteristic = useCallback(async (char: Characteristic) => {
+  const selectCharacteristic = useCallback((char: Characteristic) => {
     setWizard((prev) => prev ? { ...prev, step: 'location', characteristicId: char.id, characteristicName: char.name } : null);
-    try {
-      const locs = await hydroApi.getLocationsByCharacteristic(char.id);
-      setLocations(locs);
-    } catch { setLocations([]); }
   }, []);
 
   const selectLocation = useCallback((loc: DefectLocation) => {
@@ -260,6 +289,14 @@ export function HydroScreen(props: WorkCenterProps) {
 
   const scanInstruction = (() => {
     if (state === 'WaitingForScans') {
+      if (tankSizeMismatch) {
+        return {
+          title: 'NEXT: Tank size mismatch - rescan Shell or Nameplate',
+          detail: `Shell: ${assemblyTankSize != null ? `${assemblyTankSize} gal` : '—'} | Nameplate: ${nameplateTankSize != null ? `${nameplateTankSize} gal` : '—'}`,
+          isActive: true,
+        };
+      }
+
       if (!shellSerial && !nameplateSerial) {
         return {
           title: 'NEXT: Scan Shell or Nameplate to begin',
@@ -306,12 +343,13 @@ export function HydroScreen(props: WorkCenterProps) {
   })();
 
   if (state === 'DefectEntry' && wizard) {
+    const filteredLocations = wizard.characteristicId
+      ? defectLocations.filter((location) => supportsCharacteristic(location, wizard.characteristicId!))
+      : [];
+
     return (
       <div className={styles.container}>
-        <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-          <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
-          {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
-        </div>
+        <NextStepBanner instruction={scanInstruction} />
         <div className={styles.wizardHeader}>
           <span className={styles.breadcrumb}>
             {wizard.step === 'defect' && 'Step 1: Select Defect'}
@@ -335,21 +373,28 @@ export function HydroScreen(props: WorkCenterProps) {
           {wizard.step === 'characteristic' && characteristics.map((c) => (
             <button key={c.id} className={styles.tile} onClick={() => selectCharacteristic(c)}>{c.name}</button>
           ))}
-          {wizard.step === 'location' && locations.map((l) => (
+          {wizard.step === 'location' && filteredLocations.map((l) => (
             <button key={l.id} className={styles.tile} onClick={() => selectLocation(l)}>{l.name}</button>
           ))}
+          {wizard.step === 'location' && filteredLocations.length === 0 && (
+            <div className={styles.emptyWizardMessage}>No locations available for this characteristic.</div>
+          )}
         </div>
       </div>
     );
   }
 
   if (state === 'ReadyForInspection') {
+    const currentControlPlan = controlPlans[currentControlPlanIndex] ?? null;
+    const [positiveLabel, negativeLabel] = currentControlPlan ? getResultLabels(currentControlPlan.resultType) : ['Pass', 'Fail'];
+    const selectedResult = currentControlPlan ? inspectionResults[currentControlPlan.id] : undefined;
+    const atFirstCharacteristic = currentControlPlanIndex === 0;
+    const atLastCharacteristic = currentControlPlanIndex >= controlPlans.length - 1;
+    const allControlPlansSelected = controlPlans.length === 0 || controlPlans.every((cp) => !!inspectionResults[cp.id]);
+
     return (
       <div className={styles.container}>
-        <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-          <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
-          {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
-        </div>
+        <NextStepBanner instruction={scanInstruction} />
         <div className={styles.inspHeader}>
           <div className={styles.scanInfo}>
             <span>Nameplate SN: <strong>{nameplateSerial}</strong></span>
@@ -359,32 +404,56 @@ export function HydroScreen(props: WorkCenterProps) {
           <Button appearance="subtle" onClick={resetScreen}>Reset</Button>
         </div>
 
-        {controlPlans.length > 0 && (
-          <div className={styles.defectTable} style={{ marginBottom: 12 }}>
-            <div className={styles.tableHeader}><span>Characteristic</span><span>Result</span></div>
-            {controlPlans.map((cp) => {
-              const [posLabel, negLabel] = getResultLabels(cp.resultType);
-              const selected = inspectionResults[cp.id];
-              return (
-                <div key={cp.id} className={styles.tableRow} style={{ alignItems: 'center' }}>
-                  <span>{cp.characteristicName}</span>
-                  <span style={{ display: 'flex', gap: 6 }}>
-                    <Button
-                      size="small"
-                      appearance={selected === posLabel ? 'primary' : 'outline'}
-                      style={selected === posLabel ? { backgroundColor: '#0e7a0d', borderColor: '#0e7a0d', color: '#fff' } : undefined}
-                      onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: posLabel }))}
-                    >{posLabel}</Button>
-                    <Button
-                      size="small"
-                      appearance={selected === negLabel ? 'primary' : 'outline'}
-                      style={selected === negLabel ? { backgroundColor: '#d13438', borderColor: '#d13438', color: '#fff' } : undefined}
-                      onClick={() => setInspectionResults(prev => ({ ...prev, [cp.id]: negLabel }))}
-                    >{negLabel}</Button>
-                  </span>
-                </div>
-              );
-            })}
+        {controlPlans.length > 0 && currentControlPlan && (
+          <div className={styles.characteristicCard}>
+            <div className={styles.characteristicHeader}>
+              {controlPlans.length > 1 && (
+                <Button
+                  appearance="subtle"
+                  className={styles.arrowButton}
+                  aria-label="Previous characteristic"
+                  disabled={atFirstCharacteristic}
+                  onClick={() => setCurrentControlPlanIndex((prev) => Math.max(prev - 1, 0))}
+                >
+                  {'<'}
+                </Button>
+              )}
+              <div className={styles.characteristicTitleWrap}>
+                <div className={styles.characteristicTitle}>Hydro Test</div>
+              </div>
+              {controlPlans.length > 1 && (
+                <Button
+                  appearance="subtle"
+                  className={styles.arrowButton}
+                  aria-label="Next characteristic"
+                  disabled={atLastCharacteristic}
+                  onClick={() => setCurrentControlPlanIndex((prev) => Math.min(prev + 1, controlPlans.length - 1))}
+                >
+                  {'>'}
+                </Button>
+              )}
+            </div>
+
+            <div className={styles.characteristicBody}>
+              <div className={styles.responseButtons}>
+                <Button
+                  size="large"
+                  className={`${styles.responseButton} ${styles.responseNeutral} ${selectedResult === positiveLabel ? styles.responseSelectedPositive : ''}`}
+                  data-state={selectedResult === positiveLabel ? 'positive' : 'neutral'}
+                  onClick={() => setInspectionResults((prev) => ({ ...prev, [currentControlPlan.id]: positiveLabel }))}
+                >
+                  {positiveLabel}
+                </Button>
+                <Button
+                  size="large"
+                  className={`${styles.responseButton} ${styles.responseNeutral} ${selectedResult === negativeLabel ? styles.responseSelectedNegative : ''}`}
+                  data-state={selectedResult === negativeLabel ? 'negative' : 'neutral'}
+                  onClick={() => setInspectionResults((prev) => ({ ...prev, [currentControlPlan.id]: negativeLabel }))}
+                >
+                  {negativeLabel}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -396,7 +465,7 @@ export function HydroScreen(props: WorkCenterProps) {
                 <span>{d.defectCodeName}</span>
                 <span>{d.characteristicName}</span>
                 <span>{d.locationName}</span>
-                <Button appearance="subtle" size="small" onClick={() => removeDefect(i)}>🗑</Button>
+                <Button appearance="subtle" size="small" icon={<DeleteRegular />} aria-label="Delete defect" onClick={() => removeDefect(i)} />
               </div>
             ))}
           </div>
@@ -404,11 +473,11 @@ export function HydroScreen(props: WorkCenterProps) {
 
         <div className={styles.actionButtons}>
           {defects.length === 0 ? (
-            <Button appearance="primary" size="large" className={styles.acceptBtn} onClick={handleAccept}>
-              No Defects - Accept
+            <Button appearance="primary" size="large" className={styles.acceptBtn} onClick={handleAccept} disabled={!allControlPlansSelected}>
+              No Defects Accept
             </Button>
           ) : (
-            <Button appearance="primary" size="large" className={styles.acceptBtn} onClick={handleAccept}>
+            <Button appearance="primary" size="large" className={styles.acceptBtn} onClick={handleAccept} disabled={!allControlPlansSelected}>
               Save Defect(s)
             </Button>
           )}
@@ -422,18 +491,19 @@ export function HydroScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={`${styles.scanStateBanner} ${scanInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-        <span className={styles.scanStateTitle}>{scanInstruction.title}</span>
-        {scanInstruction.detail && <span className={styles.scanStateDetail}>{scanInstruction.detail}</span>}
-      </div>
-      <div className={styles.scanStatus}>
-        <span>Shell: {shellSerial ? `✓ ${shellSerial}` : 'Not scanned'}</span>
-        <span>Nameplate: {nameplateSerial ? `✓ ${nameplateSerial}` : 'Not scanned'}</span>
-      </div>
+      <NextStepBanner instruction={scanInstruction} />
       <div className={styles.manualEntry}>
         <div className={styles.manualCards}>
-          <div className={styles.manualCard}>
-            <Label>Shell / Tank</Label>
+          <div className={`${styles.manualCard} ${styles.shellCard}`}>
+            {tankSizeMismatch && <div className={styles.mismatchMark} aria-label="Tank size mismatch">✕</div>}
+            <div className={styles.cardHeader}>
+              <Label>Shell / Tank</Label>
+              <div className={styles.shellBadge} aria-live="polite">
+                <span className={styles.shellBadgeLabel}>Shell</span>
+                <strong className={styles.shellBadgeValue}>{shellSerial || 'Not scanned'}</strong>
+                <span className={styles.shellBadgeMeta}>Tank Size: {assemblyTankSize != null ? `${assemblyTankSize} gal` : '—'}</span>
+              </div>
+            </div>
             <svg viewBox="0 0 120 72" className={styles.manualSvg} aria-hidden="true">
               <rect x="6" y="16" width="108" height="40" rx="18" fill="#dfe7f6" stroke="#2b3b84" strokeWidth="3" />
               <line x1="24" y1="56" x2="24" y2="66" stroke="#2b3b84" strokeWidth="3" />
@@ -456,7 +526,15 @@ export function HydroScreen(props: WorkCenterProps) {
           </div>
 
           <div className={styles.manualCard}>
-            <Label>Tank Nameplate</Label>
+            {tankSizeMismatch && <div className={styles.mismatchMark} aria-label="Tank size mismatch">✕</div>}
+            <div className={styles.cardHeader}>
+              <Label>Tank Nameplate</Label>
+              <div className={styles.shellBadge} aria-live="polite">
+                <span className={styles.shellBadgeLabel}>Nameplate</span>
+                <strong className={styles.shellBadgeValue}>{nameplateSerial || 'Not scanned'}</strong>
+                <span className={styles.shellBadgeMeta}>Tank Size: {nameplateTankSize != null ? `${nameplateTankSize} gal` : '—'}</span>
+              </div>
+            </div>
             <svg viewBox="0 0 120 72" className={styles.manualSvg} aria-hidden="true">
               <rect x="18" y="12" width="84" height="48" rx="4" fill="#fff3cd" stroke="#8a6d3b" strokeWidth="3" />
               <line x1="28" y1="26" x2="92" y2="26" stroke="#8a6d3b" strokeWidth="3" />

@@ -68,7 +68,7 @@ public class InspectionRecordService : IInspectionRecordService
                 Id = Guid.NewGuid(),
                 SerialNumberId = sn.Id,
                 WorkCenterId = dto.WorkCenterId,
-                AssetId = null,
+                AssetId = dto.AssetId,
                 ProductionLineId = upstreamRecord.ProductionLineId,
                 OperatorId = dto.OperatorId,
                 Timestamp = DateTime.UtcNow,

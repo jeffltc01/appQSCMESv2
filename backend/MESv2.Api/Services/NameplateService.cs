@@ -101,6 +101,49 @@ public class NameplateService : INameplateService
         };
     }
 
+    public async Task<NameplateRecordResponseDto> UpdateAsync(Guid id, UpdateNameplateRecordDto dto, CancellationToken cancellationToken = default)
+    {
+        var sn = await _db.SerialNumbers
+            .Include(s => s.Product)
+            .ThenInclude(p => p!.ProductType)
+            .FirstOrDefaultAsync(
+                s => s.Id == id
+                    && s.Product != null
+                    && s.Product.ProductType != null
+                    && s.Product.ProductType.SystemTypeName == "sellable",
+                cancellationToken)
+            ?? throw new InvalidOperationException("Nameplate serial number not found");
+
+        var product = await _db.Products
+            .Include(p => p.ProductType)
+            .FirstOrDefaultAsync(p => p.Id == dto.ProductId, cancellationToken)
+            ?? throw new InvalidOperationException("Product not found");
+
+        if (!string.Equals(product.ProductType?.SystemTypeName, "sellable", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Product must be a sellable tank");
+
+        sn.ProductId = dto.ProductId;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var (printSucceeded, printMessage) = await PrintForSerialAsync(
+            sn.Id,
+            dto.ProductId,
+            sn.PlantId,
+            dto.OperatorId,
+            cancellationToken);
+
+        return new NameplateRecordResponseDto
+        {
+            Id = sn.Id,
+            SerialNumber = sn.Serial,
+            ProductId = dto.ProductId,
+            TankSize = product.TankSize,
+            Timestamp = sn.CreatedAt,
+            PrintSucceeded = printSucceeded,
+            PrintMessage = printMessage
+        };
+    }
+
     public async Task<NameplateRecordResponseDto> ReprintAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var sn = await _db.SerialNumbers

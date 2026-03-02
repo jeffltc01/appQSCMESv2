@@ -238,4 +238,21 @@ describe('WCHistory', () => {
     expect(screen.getByRole('heading', { name: 'Create Annotation' })).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  it('invokes onRowSelect when a history row is clicked', async () => {
+    const user = userEvent.setup();
+    const onRowSelect = vi.fn();
+    renderWCHistory({
+      data: {
+        dayCount: 1,
+        recentRecords: [
+          makeRecord({ id: '1', serialOrIdentifier: 'W00100009' }),
+        ],
+      },
+      onRowSelect,
+    });
+
+    await user.click(screen.getByText('W00100009'));
+    expect(onRowSelect).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }));
+  });
 });

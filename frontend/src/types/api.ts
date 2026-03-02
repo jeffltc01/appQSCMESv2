@@ -64,6 +64,7 @@ export interface InspectionResultEntry {
 export interface CreateInspectionRecordRequest {
   serialNumber: string;
   workCenterId: string;
+  assetId?: string;
   operatorId: string;
   welderIds?: string[];
   productionRecordId?: string;
@@ -207,6 +208,11 @@ export interface CreateNameplateRecordRequest {
   productId: string;
   workCenterId: string;
   productionLineId: string;
+  operatorId: string;
+}
+
+export interface UpdateNameplateRecordRequest {
+  productId: string;
   operatorId: string;
 }
 

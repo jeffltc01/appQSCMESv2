@@ -19,9 +19,19 @@ interface WCHistoryProps {
   operatorId?: string;
   externalInput?: boolean;
   onAnnotationCreated?: () => void;
+  onRowSelect?: (record: WCHistoryEntry) => void;
+  selectedRowId?: string;
 }
 
-export function WCHistory({ data, logCta, operatorId, externalInput = false, onAnnotationCreated }: WCHistoryProps) {
+export function WCHistory({
+  data,
+  logCta,
+  operatorId,
+  externalInput = false,
+  onAnnotationCreated,
+  onRowSelect,
+  selectedRowId,
+}: WCHistoryProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const kioskMode = isOperatorKioskRole(user?.roleTier);
@@ -59,12 +69,28 @@ export function WCHistory({ data, logCta, operatorId, externalInput = false, onA
           <div className={styles.noRecords}>No History Found</div>
         ) : (
           data.recentRecords.map((record) => (
-              <div key={record.id} className={styles.row}>
+              <div
+                key={record.id}
+                className={`${styles.row} ${onRowSelect ? styles.selectableRow : ''} ${selectedRowId === record.id ? styles.selectedRow : ''}`}
+                onClick={() => onRowSelect?.(record)}
+                role={onRowSelect ? 'button' : undefined}
+                tabIndex={onRowSelect ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (!onRowSelect) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onRowSelect(record);
+                  }
+                }}
+              >
                 <span className={styles.colAnnot}>
                   <button
                     type="button"
                     className={styles.flagBtn}
-                    onClick={() => handleFlagClick(record)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFlagClick(record);
+                    }}
                     aria-label={`Add annotation for ${record.serialOrIdentifier}`}
                     disabled={!operatorId}
                   >

@@ -143,6 +143,9 @@ public class SellableTankStatusService : ISellableTankStatusService
         foreach (var sellable in sellableSnList)
         {
             var hasAssembly = sellableToAssembly.TryGetValue(sellable.Id, out var assemblyId);
+            if (!hasAssembly)
+                continue;
+
             var shellIds = hasAssembly
                 ? assemblyToShells.GetValueOrDefault(assemblyId, new HashSet<Guid>())
                 : new HashSet<Guid>();

@@ -11,8 +11,10 @@ public class WCHistoryEntryDto
 {
     public Guid Id { get; set; }
     public Guid ProductionRecordId { get; set; }
+    public Guid SerialNumberId { get; set; }
     public DateTime Timestamp { get; set; }
     public string SerialOrIdentifier { get; set; } = string.Empty;
+    public Guid? ProductId { get; set; }
     public int? TankSize { get; set; }
     public bool HasAnnotation { get; set; }
     public string? AnnotationColor { get; set; }

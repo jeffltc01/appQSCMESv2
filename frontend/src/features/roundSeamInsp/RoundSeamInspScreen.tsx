@@ -5,6 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel, parseFullDefect } from '../../types/barcode.ts';
 import type { DefectCode, DefectLocation, Characteristic, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
 import { roundSeamApi, workCenterApi, inspectionRecordApi, controlPlanApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './RoundSeamInspScreen.module.css';
 
 type ScreenState = 'WaitingForShell' | 'AwaitingDefects';
@@ -24,7 +25,7 @@ function supportsCharacteristic(location: DefectLocation, characteristicId: stri
 
 export function RoundSeamInspScreen(props: WorkCenterProps) {
   const {
-    workCenterId, productionLineId, operatorId,
+    workCenterId, assetId, productionLineId, operatorId,
     showScanResult, refreshHistory, registerBarcodeHandler,
   } = props;
 
@@ -120,6 +121,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
       await inspectionRecordApi.create({
         serialNumber: alphaCode,
         workCenterId,
+        assetId: assetId || undefined,
         operatorId,
         welderIds: props.welders.map((w) => w.userId),
         results: controlPlans.map(cp => ({
@@ -287,10 +289,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
   if (screenState === 'WaitingForShell') {
     return (
       <div className={styles.container}>
-        <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-          <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
-          {nextInstruction.detail && <span className={styles.scanStateDetail}>{nextInstruction.detail}</span>}
-        </div>
+        <NextStepBanner instruction={nextInstruction} />
         {!props.externalInput && (
           <div className={styles.form}>
             <Label className={styles.label}>Serial Number</Label>
@@ -304,10 +303,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-        <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
-        {nextInstruction.detail && <span className={styles.scanStateDetail}>{nextInstruction.detail}</span>}
-      </div>
+      <NextStepBanner instruction={nextInstruction} />
       <div className={styles.header}>
         <span>Assembly <strong>{alphaCode}{shells.length > 0 ? ` (${shells.join(', ')})` : ''}</strong></span>
         <span>Tank Size <strong>{tankSize}</strong></span>

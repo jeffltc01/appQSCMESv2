@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { CharacteristicsScreen } from './CharacteristicsScreen.tsx';
@@ -69,12 +70,36 @@ const mockTypes = [{ id: 'pt1', name: 'Shell' }];
 
 const mockWorkCenters = [
   {
-    id: 'wc1',
-    name: 'Rolls 1',
-    workCenterTypeName: 'Rolls',
+    id: 'wc-ls-insp',
+    name: 'Long Seam Inspection',
+    workCenterTypeName: 'Inspection',
     productionLineName: 'Line 1',
     numberOfWelders: 2,
-    dataEntryType: 'standard',
+    dataEntryType: 'Barcode-LongSeamInsp',
+  },
+  {
+    id: 'wc-rs-insp',
+    name: 'Round Seam Inspection',
+    workCenterTypeName: 'Inspection',
+    productionLineName: 'Line 1',
+    numberOfWelders: 2,
+    dataEntryType: 'Barcode-RoundSeamInsp',
+  },
+  {
+    id: 'wc-hydro',
+    name: 'Hydro',
+    workCenterTypeName: 'Hydro',
+    productionLineName: 'Line 1',
+    numberOfWelders: 1,
+    dataEntryType: 'Hydro',
+  },
+  {
+    id: 'wc-rolls',
+    name: 'Rolls',
+    workCenterTypeName: 'Rolls',
+    productionLineName: 'Line 1',
+    numberOfWelders: 1,
+    dataEntryType: 'Rolls',
   },
 ];
 
@@ -149,6 +174,21 @@ describe('CharacteristicsScreen', () => {
       expect(screen.getByText('Long Seam')).toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: /Add/i })).toBeInTheDocument();
+  });
+
+  it('lists assignable work centers by data entry type allowlist', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Long Seam')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Add/i }));
+
+    expect(screen.getByText('Long Seam Inspection')).toBeInTheDocument();
+    expect(screen.getByText('Round Seam Inspection')).toBeInTheDocument();
+    expect(screen.getByText('Hydro')).toBeInTheDocument();
+    expect(screen.queryByText('Rolls')).not.toBeInTheDocument();
   });
 
   it('displays correct title', async () => {

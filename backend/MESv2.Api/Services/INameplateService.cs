@@ -6,5 +6,6 @@ public interface INameplateService
 {
     Task<NameplateRecordResponseDto> CreateAsync(CreateNameplateRecordDto dto, CancellationToken cancellationToken = default);
     Task<NameplateRecordResponseDto?> GetBySerialAsync(string serialNumber, CancellationToken cancellationToken = default);
+    Task<NameplateRecordResponseDto> UpdateAsync(Guid id, UpdateNameplateRecordDto dto, CancellationToken cancellationToken = default);
     Task<NameplateRecordResponseDto> ReprintAsync(Guid id, CancellationToken cancellationToken = default);
 }

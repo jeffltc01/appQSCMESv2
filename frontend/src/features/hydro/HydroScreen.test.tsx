@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor, within } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { HydroScreen } from './HydroScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
-import { roundSeamApi, nameplateApi } from '../../api/endpoints';
+import { roundSeamApi, nameplateApi, workCenterApi, controlPlanApi } from '../../api/endpoints';
 
 vi.mock('../../api/endpoints', () => ({
   roundSeamApi: { getAssemblyByShell: vi.fn() },
   nameplateApi: { getBySerial: vi.fn() },
-  workCenterApi: { getDefectCodes: vi.fn().mockResolvedValue([]), getCharacteristics: vi.fn().mockResolvedValue([]) },
-  hydroApi: { create: vi.fn(), getLocationsByCharacteristic: vi.fn().mockResolvedValue([]) },
+  workCenterApi: {
+    getDefectCodes: vi.fn().mockResolvedValue([]),
+    getDefectLocations: vi.fn().mockResolvedValue([]),
+    getCharacteristics: vi.fn().mockResolvedValue([]),
+  },
+  hydroApi: { create: vi.fn() },
   controlPlanApi: { getForWorkCenter: vi.fn().mockResolvedValue([]) },
 }));
 
@@ -42,8 +46,14 @@ describe('HydroScreen', () => {
 
   it('shows scan status', () => {
     renderScreen();
-    expect(screen.getByText(/shell: not scanned/i)).toBeInTheDocument();
-    expect(screen.getByText(/nameplate: not scanned/i)).toBeInTheDocument();
+    const shellCardHeader = screen.getByText(/shell \/ tank/i).closest('div');
+    expect(shellCardHeader).not.toBeNull();
+    expect(within(shellCardHeader as HTMLElement).getByText(/^shell$/i)).toBeInTheDocument();
+    expect(within(shellCardHeader as HTMLElement).getByText(/not scanned/i)).toBeInTheDocument();
+    const nameplateCardHeader = screen.getByText(/tank nameplate/i).closest('div');
+    expect(nameplateCardHeader).not.toBeNull();
+    expect(within(nameplateCardHeader as HTMLElement).getByText(/^nameplate$/i)).toBeInTheDocument();
+    expect(within(nameplateCardHeader as HTMLElement).getByText(/not scanned/i)).toBeInTheDocument();
   });
 
   it('shows manual input in manual mode', () => {
@@ -90,6 +100,9 @@ describe('HydroScreen', () => {
     const lastCall = showScanResult.mock.calls[showScanResult.mock.calls.length - 1][0];
     expect(lastCall.type).toBe('error');
     expect(lastCall.message).toContain('Tank size mismatch');
+    expect(screen.getAllByLabelText(/tank size mismatch/i)).toHaveLength(2);
+    expect(screen.getByText(/tank size:\s*120 gal/i)).toBeInTheDocument();
+    expect(screen.getByText(/tank size:\s*250 gal/i)).toBeInTheDocument();
   });
 
   it('treats unprefixed shell labels with /L1 as shell scans', async () => {
@@ -179,5 +192,168 @@ describe('HydroScreen', () => {
       expect(nameplateApi.getBySerial).toHaveBeenCalledWith('W00100001');
     });
     expect(roundSeamApi.getAssemblyByShell).not.toHaveBeenCalled();
+  });
+
+  it('requests characteristics with resolved tank size when shell scan succeeds', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+
+    renderScreen({
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'SC', value: '021604' }, 'SC;021604'); });
+
+    await waitFor(() => {
+      expect(
+        vi.mocked(workCenterApi.getCharacteristics).mock.calls.some(
+          ([wcId, tankSize]) => wcId === 'wc-hydro' && tankSize === 120,
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it('shows one characteristic at a time with arrow navigation', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+
+    vi.mocked(controlPlanApi.getForWorkCenter).mockResolvedValue([
+      { id: 'cp-1', characteristicName: 'Pressure Hold', resultType: 'PassFail', isGateCheck: true },
+      { id: 'cp-2', characteristicName: 'Leak Check', resultType: 'AcceptReject', isGateCheck: true },
+    ]);
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'SC', value: '021604' }, 'SC;021604'); });
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+
+    expect(await screen.findByRole('button', { name: /^pass$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^fail$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/previous characteristic/i)).toBeDisabled();
+    expect(screen.getByLabelText(/next characteristic/i)).not.toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText(/next characteristic/i));
+    expect(await screen.findByRole('button', { name: /^accept$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^reject$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/next characteristic/i)).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText(/previous characteristic/i));
+    expect(await screen.findByRole('button', { name: /^pass$/i })).toBeInTheDocument();
+  });
+
+  it('renders control-plan response buttons and no numeric entry input', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+
+    vi.mocked(controlPlanApi.getForWorkCenter).mockResolvedValue([
+      { id: 'cp-1', characteristicName: 'Pressure Hold', resultType: 'PassFail', isGateCheck: true },
+    ]);
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'SC', value: '021604' }, 'SC;021604'); });
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+
+    const passBtn = await screen.findByRole('button', { name: /^pass$/i });
+    const failBtn = screen.getByRole('button', { name: /^fail$/i });
+    const saveBtn = screen.getByRole('button', { name: /no defects accept/i });
+    expect(saveBtn).toBeDisabled();
+    expect(passBtn).toHaveAttribute('data-state', 'neutral');
+    expect(failBtn).toHaveAttribute('data-state', 'neutral');
+
+    fireEvent.click(passBtn);
+    expect(passBtn).toHaveAttribute('data-state', 'positive');
+    expect(failBtn).toHaveAttribute('data-state', 'neutral');
+    expect(saveBtn).not.toBeDisabled();
+
+    fireEvent.click(failBtn);
+    expect(passBtn).toHaveAttribute('data-state', 'neutral');
+    expect(failBtn).toHaveAttribute('data-state', 'negative');
+    expect(saveBtn).not.toBeDisabled();
+
+    expect(screen.queryByPlaceholderText(/enter numeric value/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/previous characteristic/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/next characteristic/i)).not.toBeInTheDocument();
+  });
+
+  it('filters wizard locations by selected characteristic', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+
+    vi.mocked(workCenterApi.getDefectCodes).mockResolvedValue([
+      { id: 'd1', code: '001', name: 'Crack' },
+    ]);
+    vi.mocked(workCenterApi.getCharacteristics).mockResolvedValue([
+      { id: 'c-flange', code: 'C1', name: 'Flange' },
+      { id: 'c-other', code: 'C2', name: 'Other' },
+    ]);
+    vi.mocked(workCenterApi.getDefectLocations).mockResolvedValue([
+      { id: 'l-flange', code: 'L1', name: 'Fill Valve', characteristicIds: ['c-flange'] },
+      { id: 'l-universal', code: 'L2', name: 'Universal', characteristicIds: [] },
+      { id: 'l-other', code: 'L3', name: 'Other Loc', characteristicIds: ['c-other'] },
+    ]);
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'SC', value: '021604' }, 'SC;021604'); });
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+
+    fireEvent.click(await screen.findByRole('button', { name: /add defect/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /crack/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /flange/i }));
+
+    expect(await screen.findByRole('button', { name: /fill valve/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /universal/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /other loc/i })).not.toBeInTheDocument();
   });
 });

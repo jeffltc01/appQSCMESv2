@@ -103,6 +103,36 @@ public class InspectionRecordServiceTests
     }
 
     [Fact]
+    public async Task Create_SetsProductionRecordAssetId_WhenProvided()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSerialAndProdRecord(db, "SN-INSP-ASSET-001", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlan(db);
+        var assetId = Guid.NewGuid();
+
+        var sut = new InspectionRecordService(db);
+        var dto = new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-INSP-ASSET-001",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            AssetId = assetId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Pass" } },
+            Defects = new List<DefectEntryDto>()
+        };
+
+        await sut.CreateAsync(dto);
+
+        var prodRecord = await db.ProductionRecords
+            .Where(r => r.WorkCenterId == TestHelpers.wcLongSeamInspId
+                        && r.SerialNumber.Serial == "SN-INSP-ASSET-001")
+            .FirstOrDefaultAsync();
+
+        Assert.NotNull(prodRecord);
+        Assert.Equal(assetId, prodRecord.AssetId);
+    }
+
+    [Fact]
     public async Task Create_ProductionRecord_HasFailResult_WhenDefectsExist()
     {
         await using var db = TestHelpers.CreateInMemoryContext();

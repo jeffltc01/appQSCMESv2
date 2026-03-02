@@ -8,6 +8,12 @@ import { useAuth } from '../../auth/AuthContext.tsx';
 import type { AdminCharacteristic, ProductType, AdminWorkCenter } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
+const CHARACTERISTIC_ASSIGNABLE_DATA_ENTRY_TYPES = new Set([
+  'Barcode-LongSeamInsp',
+  'Barcode-RoundSeamInsp',
+  'Hydro',
+]);
+
 export function CharacteristicsScreen() {
   const { user } = useAuth();
   const isAdmin = (user?.roleTier ?? 99) <= 1;
@@ -199,7 +205,7 @@ export function CharacteristicsScreen() {
         </Dropdown>
         <Label>Assign to Work Centers</Label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
-          {workCenters.filter(wc => wc.workCenterTypeName === 'Inspection').map(wc => (
+          {workCenters.filter((wc) => wc.dataEntryType && CHARACTERISTIC_ASSIGNABLE_DATA_ENTRY_TYPES.has(wc.dataEntryType)).map(wc => (
             <label key={wc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
               <input type="checkbox" checked={selectedWcIds.includes(wc.id)} onChange={() => toggleWc(wc.id)} />
               {wc.name}

@@ -9,7 +9,7 @@ import { useBarcode } from '../../hooks/useBarcode.ts';
 import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import { useInactivityTracker } from '../../hooks/useInactivityTracker.ts';
 import { parseBarcode, type ParsedBarcode } from '../../types/barcode.ts';
-import type { Welder, WCHistoryData, QueueTransaction, DowntimeConfig, HourlyCount } from '../../types/domain.ts';
+import type { Welder, WCHistoryData, WCHistoryEntry, QueueTransaction, DowntimeConfig, HourlyCount } from '../../types/domain.ts';
 import { workCenterApi, adminWorkCenterApi, adminPlantGearApi, downtimeConfigApi, downtimeEventApi, supervisorDashboardApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
 import { BottomBar } from './BottomBar.tsx';
@@ -141,6 +141,7 @@ export function OperatorLayout() {
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barcodeHandlerRef = useRef<((bc: ParsedBarcode | null, raw: string) => void) | null>(null);
   const [historyData, setHistoryData] = useState<WCHistoryData>({ dayCount: 0, recentRecords: [] });
+  const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<WCHistoryEntry | null>(null);
   const [queueTransactions, setQueueTransactions] = useState<QueueTransaction[]>([]);
   const [currentGearLevel, setCurrentGearLevel] = useState<number | null>(null);
   const [welderGateEmpNo, setWelderGateEmpNo] = useState('');
@@ -318,6 +319,12 @@ export function OperatorLayout() {
       // Keep stale data
     }
   }, [cache?.cachedWorkCenterId, user?.defaultSiteId, cache?.cachedAssetId]);
+
+  useEffect(() => {
+    if (!selectedHistoryRecord) return;
+    const stillExists = historyData.recentRecords.some((r) => r.id === selectedHistoryRecord.id);
+    if (!stillExists) setSelectedHistoryRecord(null);
+  }, [historyData.recentRecords, selectedHistoryRecord]);
 
   const loadNumberOfWelders = useCallback(async () => {
     if (!cache?.cachedWorkCenterId) return;
@@ -703,6 +710,8 @@ export function OperatorLayout() {
     showScanResult,
     refreshHistory,
     registerBarcodeHandler,
+    selectedHistoryRecord,
+    clearSelectedHistoryRecord: () => setSelectedHistoryRecord(null),
   };
 
   return (
@@ -769,6 +778,8 @@ export function OperatorLayout() {
                 operatorId={user?.id}
                 externalInput={externalInput}
                 onAnnotationCreated={refreshHistory}
+                onRowSelect={dataEntryType === 'DataPlate' ? setSelectedHistoryRecord : undefined}
+                selectedRowId={selectedHistoryRecord?.id}
               />
             )}
           </aside>
@@ -1012,6 +1023,8 @@ export interface WorkCenterProps {
   showScanResult: (result: ScanResult) => void;
   refreshHistory: () => void;
   registerBarcodeHandler: (handler: (bc: ParsedBarcode | null, raw: string) => void) => void;
+  selectedHistoryRecord?: WCHistoryEntry | null;
+  clearSelectedHistoryRecord?: () => void;
 }
 
 function WorkCenterRouter(props: WorkCenterProps) {

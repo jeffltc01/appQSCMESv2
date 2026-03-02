@@ -308,4 +308,73 @@ public class NameplateServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.ReprintAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task Update_ChangesProductAndReprints()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product120 = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+        var product250 = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 250);
+
+        var snId = Guid.NewGuid();
+        db.SerialNumbers.Add(new SerialNumber
+        {
+            Id = snId,
+            Serial = "W00400001",
+            ProductId = product120.Id,
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = TestHelpers.TestUserId
+        });
+        db.PlantPrinters.Add(new PlantPrinter
+        {
+            Id = Guid.NewGuid(),
+            PlantId = TestHelpers.PlantPlt1Id,
+            PrinterName = "NP-Update",
+            PrintLocation = "Nameplate",
+            Enabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var mockNiceLabel = new Mock<INiceLabelService>();
+        mockNiceLabel
+            .Setup(x => x.PrintNameplateAsync(
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync((true, (string?)null));
+
+        var sut = CreateService(db, mockNiceLabel);
+        var result = await sut.UpdateAsync(snId, new UpdateNameplateRecordDto
+        {
+            ProductId = product250.Id,
+            OperatorId = TestHelpers.TestUserId
+        });
+
+        Assert.Equal("W00400001", result.SerialNumber);
+        Assert.Equal(product250.Id, result.ProductId);
+        Assert.Equal(250, result.TankSize);
+        Assert.True(result.PrintSucceeded);
+
+        var serial = db.SerialNumbers.First(s => s.Id == snId);
+        Assert.Equal(product250.Id, serial.ProductId);
+
+        mockNiceLabel.Verify(x => x.PrintNameplateAsync(
+            "NP-Update", 1, It.IsAny<string>(),
+            product250.TankType, product250.TankSize, "W00400001"), Times.Once);
+    }
+
+    [Fact]
+    public async Task Update_NotFound_Throws()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+        var sut = CreateService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            sut.UpdateAsync(Guid.NewGuid(), new UpdateNameplateRecordDto
+            {
+                ProductId = product.Id,
+                OperatorId = TestHelpers.TestUserId
+            }));
+    }
 }

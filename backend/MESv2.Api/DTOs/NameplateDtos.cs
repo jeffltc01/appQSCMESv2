@@ -19,3 +19,9 @@ public class NameplateRecordResponseDto
     public bool PrintSucceeded { get; set; }
     public string? PrintMessage { get; set; }
 }
+
+public class UpdateNameplateRecordDto
+{
+    public Guid ProductId { get; set; }
+    public Guid OperatorId { get; set; }
+}

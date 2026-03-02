@@ -5,6 +5,7 @@ import type { ParsedBarcode } from '../../types/barcode.ts';
 import { parseShellLabel, parseFullDefect } from '../../types/barcode.ts';
 import type { DefectCode, DefectLocation, Characteristic, DefectEntry, OperatorControlPlan } from '../../types/domain.ts';
 import { serialNumberApi, workCenterApi, inspectionRecordApi, controlPlanApi, demoShellApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './LongSeamInspScreen.module.css';
 
 type ScreenState = 'WaitingForShell' | 'AwaitingDefects';
@@ -330,9 +331,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
   if (screenState === 'WaitingForShell') {
     return (
       <div className={styles.container}>
-        <div className={`${styles.scanStateBanner} ${nextInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-          <span className={styles.scanStateTitle}>{nextInstruction.title}</span>
-        </div>
+        <NextStepBanner instruction={nextInstruction} />
         {!props.externalInput && (
           <div className={styles.form}>
             <Label className={styles.label}>Serial Number</Label>
@@ -359,9 +358,7 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
 
   return (
     <div className={styles.container}>
-      <div className={`${styles.scanStateBanner} ${awaitingInstruction.isActive ? styles.scanStateBannerActive : styles.scanStateBannerIdle}`}>
-        <span className={styles.scanStateTitle}>{awaitingInstruction.title}</span>
-      </div>
+      <NextStepBanner instruction={awaitingInstruction} />
 
       <div className={styles.header}>
         <span>Serial No. <strong>{serialNumber}</strong></span>

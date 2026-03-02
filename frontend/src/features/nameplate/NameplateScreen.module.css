@@ -40,3 +40,9 @@
   border-radius: 0 !important;
   margin-top: 8px;
 }
+
+.cancelBtn {
+  min-height: 48px;
+  font-size: 16px;
+  border-radius: 0 !important;
+}

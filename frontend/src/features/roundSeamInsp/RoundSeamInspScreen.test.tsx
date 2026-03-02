@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { RoundSeamInspScreen } from './RoundSeamInspScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
@@ -110,5 +110,24 @@ describe('RoundSeamInspScreen', () => {
   it('shows external-input NEXT guidance while waiting', () => {
     renderScreen({ externalInput: true });
     expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
+  });
+
+  it('includes selected assetId when saving inspection', async () => {
+    mockGetAssemblyByShell.mockResolvedValue({ alphaCode: 'AA', tankSize: 500, roundSeamCount: 2 });
+    renderScreen({ assetId: 'asset-123' });
+
+    await act(async () => {
+      capturedHandler!({ prefix: 'SC', value: '022103', raw: 'SC;022103' }, 'SC;022103');
+    });
+    await waitFor(() => expect(screen.getByText(/tank size/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        assetId: 'asset-123',
+        workCenterId: 'wc-rsi',
+      }));
+    });
   });
 });

@@ -38,6 +38,24 @@ public class NameplateRecordsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<NameplateRecordResponseDto>> Update(Guid id, [FromBody] UpdateNameplateRecordDto dto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _nameplateService.UpdateAsync(id, dto, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("{id:guid}/reprint")]
     public async Task<ActionResult<NameplateRecordResponseDto>> Reprint(Guid id, CancellationToken cancellationToken)
     {

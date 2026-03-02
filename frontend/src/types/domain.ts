@@ -160,8 +160,10 @@ export interface HeadLotInfo {
 export interface WCHistoryEntry {
   id: string;
   productionRecordId?: string;
+  serialNumberId?: string;
   timestamp: string;
   serialOrIdentifier: string;
+  productId?: string;
   tankSize?: number;
   hasAnnotation: boolean;
   annotationColor?: string;
