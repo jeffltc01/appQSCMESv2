@@ -11,6 +11,9 @@ jobs:
     name: Validate verify inputs
     runs-on: ubuntu-latest
     environment: dev
+    outputs:
+      backend_url: ${{ steps.capture-vars.outputs.backend_url }}
+      frontend_url: ${{ steps.capture-vars.outputs.frontend_url }}
     steps:
       - name: Validate required variables
         shell: bash
@@ -28,6 +31,17 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Capture validated URLs
+        id: capture-vars
+        shell: bash
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+        run: |
+          set -euo pipefail
+          echo "backend_url=${BACKEND_URL}" >> "$GITHUB_OUTPUT"
+          echo "frontend_url=${FRONTEND_URL}" >> "$GITHUB_OUTPUT"
 
   detect-operator-impact:
     name: Detect operator-impacting changes
@@ -73,8 +87,8 @@ jobs:
     uses: ./.github/workflows/build-test-package.yml
     with:
       release_ref: ${{ github.sha }}
-      backend_url: ${{ vars.BACKEND_URL }}
-      frontend_url: ${{ vars.FRONTEND_URL }}
+      backend_url: ${{ needs.validate-verify-inputs.outputs.backend_url }}
+      frontend_url: ${{ needs.validate-verify-inputs.outputs.frontend_url }}
       run_e2e: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' }}
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit
