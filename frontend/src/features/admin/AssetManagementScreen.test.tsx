@@ -176,6 +176,8 @@ describe('AssetManagementScreen', () => {
     await waitFor(() => {
       expect(adminAssetApi.remove).toHaveBeenCalledWith('1');
     });
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Inactive')).toBeInTheDocument();
+    });
   });
 });

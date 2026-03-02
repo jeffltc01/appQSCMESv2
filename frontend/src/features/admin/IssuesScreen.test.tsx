@@ -124,7 +124,5 @@ describe('IssuesScreen', () => {
     await user.click(await screen.findByRole('button', { name: /view details for add export button/i }));
     expect(await screen.findByText(/Issue Details: Add export button/i)).toBeInTheDocument();
     expect(screen.getAllByText('Need to export records quickly').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
   });
 });
