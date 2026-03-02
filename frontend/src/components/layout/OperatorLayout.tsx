@@ -657,6 +657,15 @@ export function OperatorLayout() {
     dataEntryType === 'DataPlate' ||
     dataEntryType === 'Spot'
   );
+
+  // Some screens (including Spot X-ray) are touch-first. If external input was
+  // left on from another screen, force it off so interactive controls remain clickable.
+  useEffect(() => {
+    if (!supportsExternalInput && externalInput) {
+      setExternalInput(false);
+    }
+  }, [supportsExternalInput, externalInput, setExternalInput]);
+
   useEffect(() => {
     const wasExternalInput = prevExternalInputRef.current;
     const turnedOn = externalInput && !wasExternalInput;

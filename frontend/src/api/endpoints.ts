@@ -138,6 +138,7 @@ import type {
   AdminPlantPrinter,
   SerialNumberLookup,
   SellableTankStatus,
+  WhereUsedResult,
   AIReviewRecord,
   RollsLogEntry,
   FitupLogEntry,
@@ -555,6 +556,22 @@ export const sellableTankStatusApi = {
     api.get<SellableTankStatus[]>(`/sellable-tank-status?siteId=${encodeURIComponent(siteId)}&date=${encodeURIComponent(date)}`),
 };
 
+export const whereUsedApi = {
+  search: (params: {
+    heatNumber?: string;
+    coilNumber?: string;
+    lotNumber?: string;
+    siteId?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params.heatNumber?.trim()) query.set('heatNumber', params.heatNumber.trim());
+    if (params.coilNumber?.trim()) query.set('coilNumber', params.coilNumber.trim());
+    if (params.lotNumber?.trim()) query.set('lotNumber', params.lotNumber.trim());
+    if (params.siteId?.trim()) query.set('siteId', params.siteId.trim());
+    return api.get<WhereUsedResult[]>(`/where-used?${query.toString()}`);
+  },
+};
+
 export const activeSessionApi = {
   getBySite: (plantId: string) => api.get<ActiveSession[]>(`/active-sessions?plantId=${encodeURIComponent(plantId)}`),
   upsert: (req: CreateActiveSessionRequest) => api.post<void>('/active-sessions', req),
@@ -722,20 +739,20 @@ export const capacityTargetApi = {
 };
 
 export const spotXrayApi = {
-  getLaneQueues: (siteCode: string) =>
-    api.get<SpotXrayLaneQueues>(`/spot-xray/lanes?siteCode=${encodeURIComponent(siteCode)}`),
+  getLaneQueues: (siteId: string) =>
+    api.get<SpotXrayLaneQueues>(`/spot-xray/lanes?siteId=${encodeURIComponent(siteId)}`),
   createIncrements: (req: {
     workCenterId: string;
     productionLineId: string;
     operatorId: string;
-    siteCode: string;
+    siteId: string;
     laneSelections: { laneName: string; selectedPositions: number[] }[];
   }) =>
     api.post<{ increments: SpotXrayIncrementSummary[] }>('/spot-xray/increments', req),
   getIncrement: (id: string) =>
     api.get<SpotXrayIncrementDetail>(`/spot-xray/increments/${id}`),
-  getRecentIncrements: (siteCode: string) =>
-    api.get<SpotXrayIncrementSummary[]>(`/spot-xray/increments/recent?siteCode=${encodeURIComponent(siteCode)}`),
+  getRecentIncrements: (siteId: string) =>
+    api.get<SpotXrayIncrementSummary[]>(`/spot-xray/increments/recent?siteId=${encodeURIComponent(siteId)}`),
   saveResults: (id: string, req: {
     inspectTankId?: string;
     isDraft: boolean;

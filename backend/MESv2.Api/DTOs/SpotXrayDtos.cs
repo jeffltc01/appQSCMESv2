@@ -37,7 +37,8 @@ public class CreateSpotXrayIncrementsRequest
     public Guid WorkCenterId { get; set; }
     public Guid ProductionLineId { get; set; }
     public Guid OperatorId { get; set; }
-    public string SiteCode { get; set; } = string.Empty;
+    public Guid? SiteId { get; set; }
+    public string? SiteCode { get; set; }
     public List<LaneSelectionDto> LaneSelections { get; set; } = new();
 }
 

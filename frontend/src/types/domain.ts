@@ -684,6 +684,14 @@ export interface SellableTankStatus {
   hydroResult: string | null;
 }
 
+export interface WhereUsedResult {
+  plant: string;
+  serialNumber: string;
+  productionNumber: string;
+  tankSize: number;
+  hydroCompletedAt: string | null;
+}
+
 export interface AdminPlantPrinter {
   id: string;
   plantId: string;

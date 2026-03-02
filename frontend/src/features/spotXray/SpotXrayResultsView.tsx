@@ -11,6 +11,21 @@ interface Props {
   onBackToCreate: () => void;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+}
+
 export function SpotXrayResultsView({ incrementSummaries, operatorId, plantId, onBackToCreate }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [detail, setDetail] = useState<SpotXrayIncrementDetail | null>(null);
@@ -32,7 +47,7 @@ export function SpotXrayResultsView({ incrementSummaries, operatorId, plantId, o
       setInspectTankId(data.inspectTankId ?? '');
       setSeamData(data.seams.map(s => seamToForm(s)));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load increment');
+      setError(getErrorMessage(e, 'Failed to load increment'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +68,7 @@ export function SpotXrayResultsView({ incrementSummaries, operatorId, plantId, o
         return next;
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to get shot number');
+      setError(getErrorMessage(e, 'Failed to get shot number'));
     }
   }, [plantId]);
 
@@ -92,7 +107,7 @@ export function SpotXrayResultsView({ incrementSummaries, operatorId, plantId, o
       setInspectTankId(result.inspectTankId ?? '');
       setSeamData(result.seams.map(s => seamToForm(s)));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to save results');
+      setError(getErrorMessage(e, 'Failed to save results'));
     } finally {
       setSaving(false);
     }

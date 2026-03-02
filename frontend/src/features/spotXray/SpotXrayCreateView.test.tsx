@@ -82,6 +82,14 @@ describe('SpotXrayCreateView', () => {
     });
   });
 
+  it('shows API error message when lane queue load fails', async () => {
+    vi.mocked(spotXrayApi.getLaneQueues).mockRejectedValue({ message: 'Plant PLT1 not found' });
+    renderView();
+    await waitFor(() => {
+      expect(screen.getByText('Plant PLT1 not found')).toBeInTheDocument();
+    });
+  });
+
   it('Create button is disabled when no tanks selected', async () => {
     vi.mocked(spotXrayApi.getLaneQueues).mockResolvedValue(mockLaneQueues);
     renderView();

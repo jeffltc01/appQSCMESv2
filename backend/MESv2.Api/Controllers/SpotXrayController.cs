@@ -17,11 +17,11 @@ public class SpotXrayController : ControllerBase
 
     [HttpGet("lanes")]
     public async Task<ActionResult<SpotXrayLaneQueuesDto>> GetLaneQueues(
-        [FromQuery] string siteCode, CancellationToken ct)
+        [FromQuery] Guid? siteId, [FromQuery] string? siteCode, CancellationToken ct)
     {
         try
         {
-            var result = await _spotXrayService.GetLaneQueuesAsync(siteCode, ct);
+            var result = await _spotXrayService.GetLaneQueuesAsync(siteId, siteCode, ct);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -55,9 +55,9 @@ public class SpotXrayController : ControllerBase
 
     [HttpGet("increments/recent")]
     public async Task<ActionResult<List<SpotXrayIncrementSummaryDto>>> GetRecentIncrements(
-        [FromQuery] string siteCode, CancellationToken ct)
+        [FromQuery] Guid? siteId, [FromQuery] string? siteCode, CancellationToken ct)
     {
-        var result = await _spotXrayService.GetRecentIncrementsAsync(siteCode, ct);
+        var result = await _spotXrayService.GetRecentIncrementsAsync(siteId, siteCode, ct);
         return Ok(result);
     }
 

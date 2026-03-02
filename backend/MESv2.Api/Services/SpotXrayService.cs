@@ -20,9 +20,13 @@ public class SpotXrayService : ISpotXrayService
         _db = db;
     }
 
-    public async Task<SpotXrayLaneQueuesDto> GetLaneQueuesAsync(string siteCode, CancellationToken ct = default)
+    public Task<SpotXrayLaneQueuesDto> GetLaneQueuesAsync(string siteCode, CancellationToken ct = default) =>
+        GetLaneQueuesAsync(null, siteCode, ct);
+
+    public async Task<SpotXrayLaneQueuesDto> GetLaneQueuesAsync(Guid? siteId, string? siteCode, CancellationToken ct = default)
     {
-        var fetchResult = await FetchLaneQueueData(siteCode, ct);
+        var plant = await ResolvePlantAsync(siteId, siteCode, ct);
+        var fetchResult = await FetchLaneQueueData(plant, ct);
         if (fetchResult == null) return new SpotXrayLaneQueuesDto();
 
         var (laneGroups, shellsByAssembly, draftCounts) = fetchResult.Value;
@@ -82,11 +86,8 @@ public class SpotXrayService : ISpotXrayService
         Dictionary<string, List<(ProductionRecord Record, SerialNumber Assembly)>> LaneGroups,
         Dictionary<Guid, List<string>> ShellsByAssembly,
         Dictionary<string, int> DraftCounts
-    )?> FetchLaneQueueData(string siteCode, CancellationToken ct)
+    )?> FetchLaneQueueData(Plant plant, CancellationToken ct)
     {
-        var plant = await _db.Plants.FirstOrDefaultAsync(p => p.Code == siteCode, ct)
-            ?? throw new InvalidOperationException($"Plant {siteCode} not found");
-
         var rsType = await _db.WorkCenterTypes.FirstOrDefaultAsync(t => t.Name == "Round Seam", ct);
         if (rsType == null) return null;
 
@@ -112,10 +113,22 @@ public class SpotXrayService : ISpotXrayService
             .Where(t => shellSnIds.Contains(t.FromSerialNumberId)
                      && (t.Relationship == "ShellToAssembly" || t.Relationship == "shell")
                      && t.ToSerialNumberId.HasValue)
-            .Select(t => new { FromId = t.FromSerialNumberId!.Value, AssemblyId = t.ToSerialNumberId!.Value })
+            .Select(t => new
+            {
+                FromId = t.FromSerialNumberId!.Value,
+                AssemblyId = t.ToSerialNumberId!.Value,
+                t.Timestamp
+            })
             .ToListAsync(ct);
 
-        var assemblyIds = shellToAssembly.Select(x => x.AssemblyId).Distinct().ToList();
+        // A shell can have multiple trace links over time (e.g., reassembly); keep the latest.
+        var shellToAssemblyMap = shellToAssembly
+            .GroupBy(x => x.FromId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => x.Timestamp).First().AssemblyId);
+
+        var assemblyIds = shellToAssemblyMap.Values.Distinct().ToList();
         var assemblies = await _db.SerialNumbers
             .Include(s => s.Product)
             .Where(s => assemblyIds.Contains(s.Id))
@@ -132,14 +145,14 @@ public class SpotXrayService : ISpotXrayService
 
         var shellsByAssembly = assemblyShells
             .GroupBy(x => x.AssemblyId)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.ShellSerial).OrderBy(s => s).ToList());
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.ShellSerial).Distinct().OrderBy(s => s).ToList());
 
         var usedAssemblyIds = await _db.SpotXrayIncrementTanks
             .Select(t => t.SerialNumberId)
             .ToListAsync(ct);
         var usedSet = usedAssemblyIds.ToHashSet();
-
-        var shellToAssemblyMap = shellToAssembly.ToDictionary(x => x.FromId, x => x.AssemblyId);
 
         var assemblyRsRecords = new Dictionary<Guid, ProductionRecord>();
         foreach (var r in rsRecords)
@@ -188,11 +201,9 @@ public class SpotXrayService : ISpotXrayService
     public async Task<CreateSpotXrayIncrementsResponse> CreateIncrementsAsync(
         CreateSpotXrayIncrementsRequest request, CancellationToken ct = default)
     {
-        var plant = await _db.Plants.FirstOrDefaultAsync(
-            p => p.Code == request.SiteCode, ct)
-            ?? throw new InvalidOperationException("Plant not found");
+        var plant = await ResolvePlantAsync(request.SiteId, request.SiteCode, ct);
 
-        var lanes = await GetLaneQueuesAsync(request.SiteCode, ct);
+        var lanes = await GetLaneQueuesAsync(plant.Id, plant.Code, ct);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var counter = await _db.XrayShotCounters
@@ -361,10 +372,9 @@ public class SpotXrayService : ISpotXrayService
     }
 
     public async Task<List<SpotXrayIncrementSummaryDto>> GetRecentIncrementsAsync(
-        string siteCode, CancellationToken ct = default)
+        Guid? siteId, string? siteCode, CancellationToken ct = default)
     {
-        var plant = await _db.Plants.FirstOrDefaultAsync(p => p.Code == siteCode, ct);
-        if (plant == null) return new();
+        var plant = await ResolvePlantAsync(siteId, siteCode, ct);
 
         var cutoff = DateTime.UtcNow.AddHours(-24);
         return await _db.SpotXrayIncrements
@@ -380,6 +390,31 @@ public class SpotXrayService : ISpotXrayService
                 OverallStatus = i.OverallStatus,
                 IsDraft = i.IsDraft
             }).ToListAsync(ct);
+    }
+
+    public Task<List<SpotXrayIncrementSummaryDto>> GetRecentIncrementsAsync(string siteCode, CancellationToken ct = default) =>
+        GetRecentIncrementsAsync(null, siteCode, ct);
+
+    private async Task<Plant> ResolvePlantAsync(Guid? siteId, string? siteCode, CancellationToken ct)
+    {
+        Plant? plant = null;
+        if (siteId.HasValue)
+        {
+            plant = await _db.Plants.FirstOrDefaultAsync(p => p.Id == siteId.Value, ct);
+        }
+
+        if (plant == null && !string.IsNullOrWhiteSpace(siteCode))
+        {
+            var normalizedCode = siteCode.Trim();
+            plant = await _db.Plants.FirstOrDefaultAsync(p => p.Code == normalizedCode, ct);
+        }
+
+        if (plant == null)
+        {
+            throw new InvalidOperationException("Plant not found for the provided site identifier");
+        }
+
+        return plant;
     }
 
     public async Task<SpotXrayIncrementDetailDto> SaveResultsAsync(

@@ -39,6 +39,7 @@ builder.Services.AddScoped<INameplateService, NameplateService>();
 builder.Services.AddScoped<IHydroService, HydroService>();
 builder.Services.AddScoped<IXrayQueueService, XrayQueueService>();
 builder.Services.AddScoped<ISellableTankStatusService, SellableTankStatusService>();
+builder.Services.AddScoped<IWhereUsedService, WhereUsedService>();
 
 builder.Services.Configure<NiceLabelOptions>(builder.Configuration.GetSection("NiceLabel"));
 builder.Services.AddHttpClient<INiceLabelService, NiceLabelService>();

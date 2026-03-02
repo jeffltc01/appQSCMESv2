@@ -97,6 +97,7 @@ describe('MenuScreen', () => {
 
     expect(screen.getByText('Kanban Card Mgmt')).toBeInTheDocument();
     expect(screen.getByText('Serial Number Lookup')).toBeInTheDocument();
+    expect(screen.getByText('Where Used')).toBeInTheDocument();
     expect(screen.getByText('Downtime Log')).toBeInTheDocument();
     expect(screen.getByText('Supervisor / Team Lead Dashboard')).toBeInTheDocument();
     expect(screen.getByText("Who's On the Floor")).toBeInTheDocument();

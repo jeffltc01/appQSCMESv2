@@ -78,6 +78,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Control Plans', icon: <ListRegular />, minRoleTier: 3, route: '/menu/control-plans', implemented: true },
       { label: 'Kanban Card Mgmt', icon: <TagRegular />, minRoleTier: 5, route: '/menu/kanban-cards', implemented: true },
       { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
+      { label: 'Where Used', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/where-used', implemented: true },
       { label: 'Annotations', icon: <NoteRegular />, minRoleTier: 3, route: '/menu/annotations', implemented: true },
     ],
   },

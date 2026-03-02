@@ -29,6 +29,7 @@ const ProductionLineMaintenanceScreen = named(() => import('./ProductionLineMain
 const AnnotationTypesScreen = named(() => import('./AnnotationTypesScreen.tsx'), 'AnnotationTypesScreen');
 const SerialNumberLookupScreen = named(() => import('./SerialNumberLookupScreen.tsx'), 'SerialNumberLookupScreen');
 const SellableTankStatusScreen = named(() => import('./SellableTankStatusScreen.tsx'), 'SellableTankStatusScreen');
+const WhereUsedScreen = named(() => import('./WhereUsedScreen.tsx'), 'WhereUsedScreen');
 const AnnotationMaintenanceScreen = named(() => import('./AnnotationMaintenanceScreen.tsx'), 'AnnotationMaintenanceScreen');
 const PlantPrinterScreen = named(() => import('./PlantPrinterScreen.tsx'), 'PlantPrinterScreen');
 const IssuesScreen = named(() => import('./IssuesScreen.tsx'), 'IssuesScreen');
@@ -85,6 +86,7 @@ export function AdminRoutes() {
         <Route path="annotations" element={<AnnotationMaintenanceScreen />} />
         <Route path="serial-lookup" element={<SerialNumberLookupScreen />} />
         <Route path="sellable-tank-status" element={<SellableTankStatusScreen />} />
+        <Route path="where-used" element={<WhereUsedScreen />} />
         <Route path="plant-printers" element={<PlantPrinterScreen />} />
         <Route path="issues" element={<IssuesScreen />} />
         <Route path="report-issue" element={<Navigate to="/menu/issues" replace />} />

@@ -16,9 +16,24 @@ interface Props {
   onIncrementsCreated: (ids: SpotXrayIncrementSummary[]) => void;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+}
+
 export function SpotXrayCreateView({ workCenterId, productionLineId, operatorId, onIncrementsCreated }: Props) {
   const { user } = useAuth();
-  const siteCode = user?.plantCode ?? '';
+  const siteId = user?.defaultSiteId ?? '';
   const [lanes, setLanes] = useState<SpotXrayLaneQueues | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,21 +41,21 @@ export function SpotXrayCreateView({ workCenterId, productionLineId, operatorId,
   const [creating, setCreating] = useState(false);
 
   const fetchLanes = useCallback(async () => {
-    if (!siteCode) return;
+    if (!siteId) return;
     try {
       setLoading(true);
       setError('');
-      const data = await spotXrayApi.getLaneQueues(siteCode);
+      const data = await spotXrayApi.getLaneQueues(siteId);
       setLanes(data);
       const initial: Record<string, Set<number>> = {};
       data.lanes.forEach(l => { initial[l.laneName] = new Set(); });
       setSelections(initial);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load lane queues');
+      setError(getErrorMessage(e, 'Failed to load lane queues'));
     } finally {
       setLoading(false);
     }
-  }, [siteCode]);
+  }, [siteId]);
 
   useEffect(() => { fetchLanes(); }, [fetchLanes]);
 
@@ -86,12 +101,12 @@ export function SpotXrayCreateView({ workCenterId, productionLineId, operatorId,
         workCenterId,
         productionLineId,
         operatorId,
-        siteCode,
+        siteId,
         laneSelections,
       });
       onIncrementsCreated(result.increments);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to create increments');
+      setError(getErrorMessage(e, 'Failed to create increments'));
     } finally {
       setCreating(false);
     }

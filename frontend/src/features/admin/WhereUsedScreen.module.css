@@ -1,0 +1,93 @@
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.statusTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid #dfe2ed;
+  background: #f8f9fa;
+  color: #495057;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 16px;
+}
+
+.statusTable th {
+  background: #f8f9fa;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.statusTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.statusTable tr:hover td {
+  background: #f8f9fa;
+}
+
+.serialLink {
+  all: unset;
+  cursor: pointer;
+  color: #2b3b84;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.serialLink:hover {
+  text-decoration-color: #2b3b84;
+}
+
+.emptyState {
+  text-align: center;
+  color: #868e96;
+  padding: 32px;
+  font-style: italic;
+}
+
+.errorMsg {
+  color: #c92a2a;
+  font-size: 14px;
+  padding: 8px 0;
+}

@@ -509,6 +509,41 @@ public class SpotXrayServiceTests
     }
 
     [Fact]
+    public async Task GetLaneQueues_DuplicateShellTraceability_UsesLatestAssemblyMapping()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+        var now = DateTime.UtcNow;
+
+        var (shellId, _, _) = await SeedTankAtRoundSeam(
+            db, "SH-DUP-01", "ALPHA-OLD", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+
+        var latestAssembly = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "ALPHA-NEW",
+            PlantId = TestHelpers.PlantPlt1Id,
+            ProductId = Product500Id,
+            CreatedAt = now.AddMinutes(-2)
+        };
+        db.SerialNumbers.Add(latestAssembly);
+        db.TraceabilityLogs.Add(new TraceabilityLog
+        {
+            Id = Guid.NewGuid(),
+            FromSerialNumberId = shellId,
+            ToSerialNumberId = latestAssembly.Id,
+            Relationship = "ShellToAssembly",
+            Timestamp = now.AddMinutes(-1)
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.GetLaneQueuesAsync(TestHelpers.PlantPlt1Id, null);
+
+        var lane1 = result.Lanes.First(l => l.LaneName == "Lane 1");
+        Assert.Contains(lane1.Tanks, t => t.AlphaCode == "ALPHA-NEW");
+    }
+
+    [Fact]
     public async Task GetRecentIncrements_ReturnsCreatedIncrements()
     {
         await using var db = await CreateSeededContext();
