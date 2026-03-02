@@ -18,16 +18,16 @@ vi.mock('../../api/endpoints', () => ({
           laneName: 'Lane 1',
           draftCount: 0,
           tanks: [
-            { position: 1, assemblySerialNumberId: 'sn-1', alphaCode: 'ABC-001', shellSerials: ['S1'], tankSize: 500, weldType: 'RS', welderNames: ['Jeff'], welderIds: ['w1'], sizeChanged: false, welderChanged: false },
-            { position: 2, assemblySerialNumberId: 'sn-2', alphaCode: 'ABC-002', shellSerials: ['S2'], tankSize: 500, weldType: 'RS', welderNames: ['Jeff'], welderIds: ['w1'], sizeChanged: false, welderChanged: false },
-            { position: 3, assemblySerialNumberId: 'sn-3', alphaCode: 'ABC-003', shellSerials: ['S3'], tankSize: 250, weldType: 'RS', welderNames: ['Jeff'], welderIds: ['w1'], sizeChanged: true, welderChanged: false },
+            { position: 1, assemblySerialNumberId: 'sn-1', alphaCode: 'ABC-001', shellSerials: ['S1'], tankSize: 500, weldType: 'RS Lane 1', roundSeamWeldedAtUtc: '2026-03-02T12:00:00Z', seamWelders: 'RS1: Jeff | RS2: Jeff', welderNames: ['Jeff'], welderIds: ['w1'], sizeChanged: false, welderChanged: false },
+            { position: 2, assemblySerialNumberId: 'sn-2', alphaCode: 'ABC-002', shellSerials: ['S2'], tankSize: 500, weldType: 'RS Lane 1', roundSeamWeldedAtUtc: '2026-03-02T12:10:00Z', seamWelders: 'RS1: Jeff | RS2: Jeff', welderNames: ['Jeff'], welderIds: ['w1'], sizeChanged: false, welderChanged: false },
+            { position: 3, assemblySerialNumberId: 'sn-3', alphaCode: 'ABC-003', shellSerials: ['S3'], tankSize: 250, weldType: 'RS Lane 1', roundSeamWeldedAtUtc: '2026-03-02T12:20:00Z', seamWelders: 'RS1: Jeff | RS2: Jeff', welderNames: ['Jeff'], welderIds: ['w1'], sizeChanged: true, welderChanged: false },
           ],
         },
         {
           laneName: 'Lane 2',
           draftCount: 1,
           tanks: [
-            { position: 1, assemblySerialNumberId: 'sn-4', alphaCode: 'ABC-004', shellSerials: ['S4'], tankSize: 500, weldType: 'RS', welderNames: ['Joe'], welderIds: ['w2'], sizeChanged: false, welderChanged: false },
+            { position: 1, assemblySerialNumberId: 'sn-4', alphaCode: 'ABC-004', shellSerials: ['S4'], tankSize: 500, weldType: 'RS Lane 2', roundSeamWeldedAtUtc: '2026-03-02T12:30:00Z', seamWelders: 'RS1: Joe | RS2: Joe', welderNames: ['Joe'], welderIds: ['w2'], sizeChanged: false, welderChanged: false },
           ],
         },
       ],
@@ -37,6 +37,7 @@ vi.mock('../../api/endpoints', () => ({
         { id: 'inc-1', incrementNo: '260222001-Lane1', laneNo: 'Lane 1', tankSize: 500, overallStatus: 'Pending', isDraft: true },
       ],
     }),
+    getDraftIncrements: vi.fn().mockResolvedValue([]),
     getIncrement: vi.fn().mockResolvedValue({
       id: 'inc-1', incrementNo: '260222001-Lane1', overallStatus: 'Pending', laneNo: 'Lane 1', isDraft: true, tankSize: 500, seamCount: 2,
       inspectTankId: null, inspectTankAlpha: null,
@@ -75,8 +76,11 @@ describe('SpotXrayScreen', () => {
   it('shows tank info in lanes', async () => {
     render(<FluentProvider theme={webLightTheme}><SpotXrayScreen {...createProps()} /></FluentProvider>);
     await waitFor(() => {
-      expect(screen.getByText('ABC-001')).toBeInTheDocument();
-      expect(screen.getByText('ABC-004')).toBeInTheDocument();
+      expect(screen.getByText('ABC-001 (S1)')).toBeInTheDocument();
+      expect(screen.getByText('ABC-004 (S4)')).toBeInTheDocument();
+      expect(screen.getAllByText('Round Seam Date/Time').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Seam Welders').length).toBeGreaterThan(0);
+      expect(screen.getByText('RS1: Joe | RS2: Joe')).toBeInTheDocument();
     });
   });
 
@@ -90,7 +94,7 @@ describe('SpotXrayScreen', () => {
   it('shows size break indicator', async () => {
     render(<FluentProvider theme={webLightTheme}><SpotXrayScreen {...createProps()} /></FluentProvider>);
     await waitFor(() => {
-      expect(screen.getByText('ABC-003')).toBeInTheDocument();
+      expect(screen.getByText('ABC-003 (S3)')).toBeInTheDocument();
     });
   });
 

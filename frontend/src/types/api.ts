@@ -224,6 +224,7 @@ export interface CreateHydroRecordRequest {
   productionLineId: string;
   assetId?: string;
   operatorId: string;
+  welderIds: string[];
   defects: { defectCodeId: string; characteristicId: string; locationId: string }[];
 }
 

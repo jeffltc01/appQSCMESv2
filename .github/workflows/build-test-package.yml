@@ -165,6 +165,33 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Validate operator smoke URLs
+        if: ${{ inputs.run_e2e }}
+        shell: bash
+        env:
+          BACKEND_URL: ${{ inputs.backend_url }}
+          FRONTEND_URL: ${{ inputs.frontend_url }}
+        run: |
+          set -euo pipefail
+          for name in BACKEND_URL FRONTEND_URL; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required value for operator smoke: ${name}" >&2
+              exit 1
+            fi
+            if [[ ! "${!name}" =~ ^https?:// ]]; then
+              echo "${name} must start with http:// or https:// (got '${!name}')" >&2
+              exit 1
+            fi
+          done
+          if [[ "${BACKEND_URL}" == */ ]]; then
+            echo "BACKEND_URL should not end with '/' (got '${BACKEND_URL}')" >&2
+            exit 1
+          fi
+          if [[ "${FRONTEND_URL}" == */ ]]; then
+            echo "FRONTEND_URL should not end with '/' (got '${FRONTEND_URL}')" >&2
+            exit 1
+          fi
+
       - name: Run operator smoke E2E tests
         if: ${{ inputs.run_e2e }}
         working-directory: e2e

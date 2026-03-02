@@ -259,6 +259,60 @@ public class WorkCenterServiceTests
         });
     }
 
+    private static void SeedSpotIncrementWithTankCount(MesDbContext db, DateTime utcTimestamp, int tankCount)
+    {
+        var assemblyIds = Enumerable.Range(0, tankCount)
+            .Select(_ => Guid.NewGuid())
+            .ToList();
+
+        foreach (var assemblyId in assemblyIds)
+        {
+            db.SerialNumbers.Add(new SerialNumber
+            {
+                Id = assemblyId,
+                Serial = "ASM-" + assemblyId.ToString("N")[..6],
+                ProductId = TestProductId,
+                PlantId = TestHelpers.PlantPlt1Id,
+                CreatedAt = utcTimestamp
+            });
+        }
+
+        var productionRecordId = Guid.NewGuid();
+        db.ProductionRecords.Add(new ProductionRecord
+        {
+            Id = productionRecordId,
+            SerialNumberId = assemblyIds[0],
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            Timestamp = utcTimestamp,
+            PlantGearId = TestPlantGearId
+        });
+
+        var incrementId = Guid.NewGuid();
+        db.SpotXrayIncrements.Add(new SpotXrayIncrement
+        {
+            Id = incrementId,
+            ManufacturingLogId = productionRecordId,
+            IncrementNo = "SPOT-INC-1",
+            OverallStatus = "Pending",
+            LaneNo = "Lane 1",
+            IsDraft = true,
+            CreatedDateTime = utcTimestamp
+        });
+
+        for (var i = 0; i < assemblyIds.Count; i++)
+        {
+            db.SpotXrayIncrementTanks.Add(new SpotXrayIncrementTank
+            {
+                Id = Guid.NewGuid(),
+                SpotXrayIncrementId = incrementId,
+                SerialNumberId = assemblyIds[i],
+                Position = i + 1
+            });
+        }
+    }
+
     [Fact]
     public async Task GetHistory_ReturnsRecordsForLocalDate_UsingPlantTimezone()
     {
@@ -308,6 +362,48 @@ public class WorkCenterServiceTests
         var result = await sut.GetHistoryAsync(TestHelpers.wcRollsId, TestHelpers.PlantPlt1Id, TestHelpers.ProductionLine1Plt1Id, "2026-02-20", 10);
         Assert.Equal(2, result.DayCount);
         Assert.Equal(2, result.RecentRecords.Count);
+    }
+
+    [Fact]
+    public async Task GetHistory_SpotCountsIncrementTanks_ForDayAndHourly()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        SeedSpotIncrementWithTankCount(db, new DateTime(2026, 2, 20, 18, 30, 0, DateTimeKind.Utc), tankCount: 3);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcSpotXrayId,
+            TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            "2026-02-20",
+            10);
+
+        Assert.Equal(3, result.DayCount);
+        Assert.Equal(3, result.HourlyCounts.Sum(h => h.Count));
+        Assert.Empty(result.RecentRecords);
+    }
+
+    [Fact]
+    public async Task GetHistory_SpotIgnoresAssetFilter_WhenCountingTanks()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var sut = new WorkCenterService(db, NullLogger<WorkCenterService>.Instance);
+
+        SeedSpotIncrementWithTankCount(db, new DateTime(2026, 2, 20, 18, 30, 0, DateTimeKind.Utc), tankCount: 2);
+        await db.SaveChangesAsync();
+
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcSpotXrayId,
+            TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            "2026-02-20",
+            10,
+            assetId: Guid.NewGuid());
+
+        Assert.Equal(2, result.DayCount);
+        Assert.Equal(2, result.HourlyCounts.Sum(h => h.Count));
     }
 
     [Fact]

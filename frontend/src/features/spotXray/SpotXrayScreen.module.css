@@ -23,6 +23,17 @@
   margin: 0;
 }
 
+.createHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.createToggleGroup {
+  display: flex;
+  gap: 6px;
+}
+
 .lanesContainer {
   flex: 1;
   display: flex;
@@ -69,21 +80,39 @@
   padding: 4px 0;
 }
 
-.tankRow {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  gap: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  user-select: none;
+.laneTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
 }
 
-.tankRow:hover {
+.laneTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  background: #f8f9fa;
+  color: #606ca3;
+  padding: 6px 8px;
+  border-bottom: 1px solid #dfe2ed;
+  white-space: nowrap;
+}
+
+.tankRow {
+  cursor: pointer;
+}
+
+.tankRow td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f2f5;
+  vertical-align: middle;
+}
+
+.tankRow:hover td {
   background: #f0f4ff;
 }
 
-.tankRowSelected {
+.tankRowSelected td {
   background: #e8edf8;
 }
 
@@ -93,8 +122,8 @@
 
 .tankPosition {
   font-weight: 600;
-  min-width: 24px;
-  text-align: center;
+  min-width: 20px;
+  text-align: left;
   color: #606ca3;
 }
 
@@ -134,6 +163,44 @@
 
 .selectionError {
   color: #dc3545;
+}
+
+.draftsContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draftsTableHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #606ca3;
+  border-bottom: 1px solid #dfe2ed;
+}
+
+.draftRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #dfe2ed;
+  border-radius: 6px;
+  align-items: center;
+  font-size: 13px;
+  background: #fff;
+}
+
+.draftsEmpty {
+  color: #868686;
+  font-size: 14px;
+  padding: 12px 0;
 }
 
 /* ---- Results View ---- */

@@ -63,6 +63,8 @@ public class SpotXrayService : ISpotXrayService
                     ShellSerials = shells,
                     TankSize = tankSize,
                     WeldType = weldType,
+                    RoundSeamWeldedAtUtc = rec.Timestamp,
+                    SeamWelders = BuildSeamWeldersSummary(welderLogs),
                     WelderNames = welderNames,
                     WelderIds = welderIds,
                     SizeChanged = sizeChanged,
@@ -96,6 +98,15 @@ public class SpotXrayService : ISpotXrayService
             .Select(pl => pl.Id)
             .ToListAsync(ct);
 
+        var configuredLanes = await _db.Assets
+            .Where(a => a.IsActive
+                     && plantLineIds.Contains(a.ProductionLineId)
+                     && a.WorkCenter.WorkCenterTypeId == rsType.Id
+                     && !string.IsNullOrWhiteSpace(a.LaneName))
+            .Select(a => a.LaneName!.Trim())
+            .Distinct()
+            .ToListAsync(ct);
+
         var rsRecords = await _db.ProductionRecords
             .Include(r => r.Asset)
             .Include(r => r.WelderLogs).ThenInclude(w => w.User)
@@ -105,8 +116,6 @@ public class SpotXrayService : ISpotXrayService
                      && plantLineIds.Contains(r.ProductionLineId))
             .OrderBy(r => r.Timestamp)
             .ToListAsync(ct);
-
-        if (rsRecords.Count == 0) return null;
 
         var shellSnIds = rsRecords.Select(r => (Guid?)r.SerialNumberId).Distinct().ToList();
         var shellToAssembly = await _db.TraceabilityLogs
@@ -161,7 +170,12 @@ public class SpotXrayService : ISpotXrayService
                 assemblyRsRecords.TryAdd(asmId, r);
         }
 
-        var laneGroups = new Dictionary<string, List<(ProductionRecord Record, SerialNumber Assembly)>>();
+        var laneGroups = configuredLanes
+            .OrderBy(name => name)
+            .ToDictionary(
+                name => name,
+                _ => new List<(ProductionRecord Record, SerialNumber Assembly)>());
+
         foreach (var (asmId, rec) in assemblyRsRecords)
         {
             if (usedSet.Contains(asmId)) continue;
@@ -196,6 +210,44 @@ public class SpotXrayService : ISpotXrayService
         var welderChanged = !currentWelderIds.SequenceEqual(prevWelderIds);
 
         return (sizeChanged, welderChanged);
+    }
+
+    private static string BuildSeamWeldersSummary(List<WelderLog> welderLogs)
+    {
+        var seamAssignments = welderLogs
+            .Select(log => new
+            {
+                Seam = NormalizeSeamName(log.Characteristic?.Name),
+                Welder = log.User?.DisplayName ?? "Unknown"
+            })
+            .Where(x => x.Seam != null)
+            .GroupBy(x => x.Seam!)
+            .Select(g => g.First())
+            .OrderBy(x => x.Seam)
+            .ToList();
+
+        if (seamAssignments.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(" | ", seamAssignments.Select(x => $"{x.Seam}: {x.Welder}"));
+    }
+
+    private static string? NormalizeSeamName(string? characteristicName)
+    {
+        if (string.IsNullOrWhiteSpace(characteristicName))
+        {
+            return null;
+        }
+
+        var normalized = characteristicName.Trim().ToUpperInvariant();
+        if (normalized.StartsWith("RS"))
+        {
+            return normalized;
+        }
+
+        return null;
     }
 
     public async Task<CreateSpotXrayIncrementsResponse> CreateIncrementsAsync(
@@ -394,6 +446,26 @@ public class SpotXrayService : ISpotXrayService
 
     public Task<List<SpotXrayIncrementSummaryDto>> GetRecentIncrementsAsync(string siteCode, CancellationToken ct = default) =>
         GetRecentIncrementsAsync(null, siteCode, ct);
+
+    public async Task<List<SpotXrayIncrementSummaryDto>> GetDraftIncrementsAsync(
+        Guid? siteId, string? siteCode, CancellationToken ct = default)
+    {
+        var plant = await ResolvePlantAsync(siteId, siteCode, ct);
+
+        return await _db.SpotXrayIncrements
+            .Where(i => i.ProductionRecord.ProductionLine.PlantId == plant.Id
+                     && i.IsDraft)
+            .OrderByDescending(i => i.CreatedDateTime)
+            .Select(i => new SpotXrayIncrementSummaryDto
+            {
+                Id = i.Id,
+                IncrementNo = i.IncrementNo,
+                LaneNo = i.LaneNo,
+                TankSize = i.TankSize,
+                OverallStatus = i.OverallStatus,
+                IsDraft = i.IsDraft
+            }).ToListAsync(ct);
+    }
 
     private async Task<Plant> ResolvePlantAsync(Guid? siteId, string? siteCode, CancellationToken ct)
     {

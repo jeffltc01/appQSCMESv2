@@ -3,7 +3,7 @@ import { render, screen, act, fireEvent, waitFor, within } from '@testing-librar
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { HydroScreen } from './HydroScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
-import { roundSeamApi, nameplateApi, workCenterApi, controlPlanApi } from '../../api/endpoints';
+import { roundSeamApi, nameplateApi, workCenterApi, controlPlanApi, hydroApi } from '../../api/endpoints';
 
 vi.mock('../../api/endpoints', () => ({
   roundSeamApi: { getAssemblyByShell: vi.fn() },
@@ -309,6 +309,51 @@ describe('HydroScreen', () => {
     expect(screen.queryByPlaceholderText(/enter numeric value/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/previous characteristic/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/next characteristic/i)).not.toBeInTheDocument();
+  });
+
+  it('includes selected welders when saving hydro record', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+    vi.mocked(controlPlanApi.getForWorkCenter).mockResolvedValue([]);
+    vi.mocked(hydroApi.create).mockResolvedValue({
+      id: 'hydro-1',
+      assemblyAlphaCode: 'AA',
+      nameplateSerialNumber: 'W00100001',
+      timestamp: new Date().toISOString(),
+    });
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockResolvedValue({
+      alphaCode: 'AA',
+      tankSize: 120,
+      roundSeamCount: 2,
+      shells: ['021604'],
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      welders: [
+        { userId: 'welder-1', displayName: 'Welder One', employeeNumber: '1001' },
+        { userId: 'welder-2', displayName: 'Welder Two', employeeNumber: '1002' },
+      ],
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'SC', value: '021604' }, 'SC;021604'); });
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+
+    fireEvent.click(await screen.findByRole('button', { name: /no defects accept/i }));
+
+    await waitFor(() => {
+      expect(hydroApi.create).toHaveBeenCalled();
+    });
+
+    const payload = vi.mocked(hydroApi.create).mock.calls[0][0];
+    expect(payload.welderIds).toEqual(['welder-1', 'welder-2']);
   });
 
   it('filters wizard locations by selected characteristic', async () => {

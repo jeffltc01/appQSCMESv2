@@ -800,6 +800,8 @@ export interface SpotXrayQueueTank {
   shellSerials: string[];
   tankSize: number;
   weldType: string;
+  roundSeamWeldedAtUtc?: string;
+  seamWelders?: string;
   welderNames: string[];
   welderIds: string[];
   sizeChanged: boolean;

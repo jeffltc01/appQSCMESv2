@@ -8,22 +8,27 @@ type View = 'create' | 'results';
 
 export function SpotXrayScreen(props: WorkCenterProps) {
   const [view, setView] = useState<View>('create');
-  const [createdIncrements, setCreatedIncrements] = useState<SpotXrayIncrementSummary[]>([]);
+  const [activeIncrements, setActiveIncrements] = useState<SpotXrayIncrementSummary[]>([]);
 
   const handleIncrementsCreated = useCallback((increments: SpotXrayIncrementSummary[]) => {
-    setCreatedIncrements(increments);
+    setActiveIncrements(increments);
+    setView('results');
+  }, []);
+
+  const handleOpenDraft = useCallback((draft: SpotXrayIncrementSummary) => {
+    setActiveIncrements([draft]);
     setView('results');
   }, []);
 
   const handleBackToCreate = useCallback(() => {
     setView('create');
-    setCreatedIncrements([]);
+    setActiveIncrements([]);
   }, []);
 
-  if (view === 'results' && createdIncrements.length > 0) {
+  if (view === 'results' && activeIncrements.length > 0) {
     return (
       <SpotXrayResultsView
-        incrementSummaries={createdIncrements}
+        incrementSummaries={activeIncrements}
         operatorId={props.operatorId}
         plantId={props.plantId}
         onBackToCreate={handleBackToCreate}
@@ -37,6 +42,7 @@ export function SpotXrayScreen(props: WorkCenterProps) {
       productionLineId={props.productionLineId}
       operatorId={props.operatorId}
       onIncrementsCreated={handleIncrementsCreated}
+      onOpenDraft={handleOpenDraft}
     />
   );
 }

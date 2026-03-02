@@ -8,6 +8,8 @@ public class SpotXrayQueueTankDto
     public List<string> ShellSerials { get; set; } = new();
     public int TankSize { get; set; }
     public string WeldType { get; set; } = string.Empty;
+    public DateTime? RoundSeamWeldedAtUtc { get; set; }
+    public string SeamWelders { get; set; } = string.Empty;
     public List<string> WelderNames { get; set; } = new();
     public List<Guid> WelderIds { get; set; } = new();
     public bool SizeChanged { get; set; }

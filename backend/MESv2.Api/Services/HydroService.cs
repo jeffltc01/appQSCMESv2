@@ -67,6 +67,17 @@ public class HydroService : IHydroService
         };
         _db.ProductionRecords.Add(record);
 
+        foreach (var welderId in dto.WelderIds)
+        {
+            _db.WelderLogs.Add(new WelderLog
+            {
+                Id = Guid.NewGuid(),
+                ProductionRecordId = record.Id,
+                UserId = welderId,
+                CharacteristicId = null
+            });
+        }
+
         foreach (var result in dto.Results)
         {
             _db.InspectionRecords.Add(new InspectionRecord

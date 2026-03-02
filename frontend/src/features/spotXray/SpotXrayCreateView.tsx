@@ -8,12 +8,14 @@ import styles from './SpotXrayScreen.module.css';
 const MAX_INCREMENT_SIZE: Record<number, number> = {
   120: 8, 250: 6, 320: 6, 500: 5, 1000: 4, 1450: 4, 1990: 4,
 };
+const LANE_REFRESH_INTERVAL_MS = 15_000;
 
 interface Props {
   workCenterId: string;
   productionLineId: string;
   operatorId: string;
   onIncrementsCreated: (ids: SpotXrayIncrementSummary[]) => void;
+  onOpenDraft: (draft: SpotXrayIncrementSummary) => void;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -31,33 +33,89 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function SpotXrayCreateView({ workCenterId, productionLineId, operatorId, onIncrementsCreated }: Props) {
+export function SpotXrayCreateView({ workCenterId, productionLineId, operatorId, onIncrementsCreated, onOpenDraft }: Props) {
   const { user } = useAuth();
   const siteId = user?.defaultSiteId ?? '';
+  const [mode, setMode] = useState<'create' | 'drafts'>('create');
   const [lanes, setLanes] = useState<SpotXrayLaneQueues | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selections, setSelections] = useState<Record<string, Set<number>>>({});
   const [creating, setCreating] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [drafts, setDrafts] = useState<SpotXrayIncrementSummary[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
 
-  const fetchLanes = useCallback(async () => {
+  const fetchLanes = useCallback(async (options?: { showLoading?: boolean; resetSelections?: boolean }) => {
+    const showLoading = options?.showLoading ?? true;
+    const resetSelections = options?.resetSelections ?? false;
     if (!siteId) return;
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       setError('');
       const data = await spotXrayApi.getLaneQueues(siteId);
       setLanes(data);
-      const initial: Record<string, Set<number>> = {};
-      data.lanes.forEach(l => { initial[l.laneName] = new Set(); });
-      setSelections(initial);
+      setLastUpdated(new Date());
+      setSelections(prev => {
+        const next: Record<string, Set<number>> = {};
+        for (const lane of data.lanes) {
+          if (resetSelections) {
+            next[lane.laneName] = new Set();
+            continue;
+          }
+
+          const previousSelection = prev[lane.laneName] ?? new Set<number>();
+          const validPositions = new Set(lane.tanks.map(t => t.position));
+          next[lane.laneName] = new Set(
+            Array.from(previousSelection).filter(position => validPositions.has(position)),
+          );
+        }
+        return next;
+      });
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'Failed to load lane queues'));
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [siteId]);
 
-  useEffect(() => { fetchLanes(); }, [fetchLanes]);
+  useEffect(() => {
+    fetchLanes({ showLoading: true, resetSelections: true });
+  }, [fetchLanes]);
+
+  useEffect(() => {
+    if (!siteId) return undefined;
+    if (mode !== 'create') return undefined;
+    const intervalId = window.setInterval(() => {
+      void fetchLanes({ showLoading: false, resetSelections: false });
+    }, LANE_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [siteId, mode, fetchLanes]);
+
+  const fetchDrafts = useCallback(async () => {
+    if (!siteId) return;
+    try {
+      setDraftsLoading(true);
+      setError('');
+      const data = await spotXrayApi.getDraftIncrements(siteId);
+      setDrafts(data);
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, 'Failed to load drafts'));
+    } finally {
+      setDraftsLoading(false);
+    }
+  }, [siteId]);
+
+  useEffect(() => {
+    if (mode === 'drafts') {
+      void fetchDrafts();
+    }
+  }, [mode, fetchDrafts]);
 
   const toggleTank = useCallback((laneName: string, position: number) => {
     setSelections(prev => {
@@ -123,33 +181,107 @@ export function SpotXrayCreateView({ workCenterId, productionLineId, operatorId,
   return (
     <div className={styles.container}>
       <div className={styles.createHeader}>
-        <h2>Create Increment</h2>
+        <div className={styles.createHeaderTitle}>
+          <h2>Spot Xray Increments</h2>
+          <div className={styles.createToggleGroup}>
+            <Button
+              appearance={mode === 'create' ? 'primary' : 'secondary'}
+              size="small"
+              onClick={() => setMode('create')}
+            >
+              Create
+            </Button>
+            <Button
+              appearance={mode === 'drafts' ? 'primary' : 'secondary'}
+              size="small"
+              onClick={() => setMode('drafts')}
+            >
+              Drafts
+            </Button>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {mode === 'create' && (
+            <span style={{ color: '#868686', fontSize: 12 }}>
+              Auto-refresh every 15s{lastUpdated ? ` • Last updated ${lastUpdated.toLocaleTimeString()}` : ''}
+            </span>
+          )}
           {error && <span style={{ color: '#dc3545', fontSize: 13 }}>{error}</span>}
-          <Button
-            appearance="primary"
-            size="large"
-            disabled={!anySelected || hasErrors || creating}
-            onClick={handleCreate}
-          >
-            {creating ? 'Creating...' : 'Create Increment'}
-          </Button>
+          {mode === 'create' && (
+            <Button
+              appearance="primary"
+              size="large"
+              disabled={!anySelected || hasErrors || creating}
+              onClick={handleCreate}
+            >
+              {creating ? 'Creating...' : 'Create Increment'}
+            </Button>
+          )}
         </div>
       </div>
-      <div className={styles.lanesContainer}>
-        {lanes?.lanes.map(lane => (
-          <LaneColumn
-            key={lane.laneName}
-            lane={lane}
-            selected={selections[lane.laneName] ?? new Set()}
-            error={validationErrors[lane.laneName]}
-            onToggle={(pos) => toggleTank(lane.laneName, pos)}
-          />
-        ))}
-        {(!lanes || lanes.lanes.length === 0) && (
-          <div style={{ padding: 20, color: '#868686' }}>No tanks available in any lane.</div>
-        )}
+      {mode === 'create' ? (
+        <div className={styles.lanesContainer}>
+          {lanes?.lanes.map(lane => (
+            <LaneColumn
+              key={lane.laneName}
+              lane={lane}
+              selected={selections[lane.laneName] ?? new Set()}
+              error={validationErrors[lane.laneName]}
+              onToggle={(pos) => toggleTank(lane.laneName, pos)}
+            />
+          ))}
+          {(!lanes || lanes.lanes.length === 0) && (
+            <div style={{ padding: 20, color: '#868686' }}>No tanks available in any lane.</div>
+          )}
+        </div>
+      ) : (
+        <DraftList drafts={drafts} loading={draftsLoading} onOpenDraft={onOpenDraft} />
+      )}
+    </div>
+  );
+}
+
+function DraftList({ drafts, loading, onOpenDraft }: {
+  drafts: SpotXrayIncrementSummary[];
+  loading: boolean;
+  onOpenDraft: (draft: SpotXrayIncrementSummary) => void;
+}) {
+  if (loading) {
+    return (
+      <div className={styles.draftsContainer}>
+        <Spinner size="large" label="Loading drafts..." />
       </div>
+    );
+  }
+
+  if (drafts.length === 0) {
+    return (
+      <div className={styles.draftsContainer}>
+        <div className={styles.draftsEmpty}>No drafts available.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.draftsContainer}>
+      <div className={styles.draftsTableHeader}>
+        <span>Increment</span>
+        <span>Lane</span>
+        <span>Tank Size</span>
+        <span>Status</span>
+        <span />
+      </div>
+      {drafts.map(draft => (
+        <div key={draft.id} className={styles.draftRow}>
+          <span>{draft.incrementNo}</span>
+          <span>{draft.laneNo}</span>
+          <span>{draft.tankSize ? `${draft.tankSize} gal` : '-'}</span>
+          <span>{draft.overallStatus}</span>
+          <Button appearance="primary" size="small" onClick={() => onOpenDraft(draft)}>
+            Open
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -174,14 +306,28 @@ function LaneColumn({ lane, selected, error, onToggle }: {
         )}
       </div>
       <div className={styles.laneBody}>
-        {lane.tanks.map(tank => (
-          <TankRow
-            key={tank.position}
-            tank={tank}
-            isSelected={selected.has(tank.position)}
-            onToggle={() => onToggle(tank.position)}
-          />
-        ))}
+        <table className={styles.laneTable}>
+          <thead>
+            <tr>
+              <th />
+              <th>Pos</th>
+              <th>Tank</th>
+              <th>Size</th>
+              <th>Round Seam Date/Time</th>
+              <th>Seam Welders</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lane.tanks.map(tank => (
+              <TankRow
+                key={tank.position}
+                tank={tank}
+                isSelected={selected.has(tank.position)}
+                onToggle={() => onToggle(tank.position)}
+              />
+            ))}
+          </tbody>
+        </table>
         {lane.tanks.length === 0 && (
           <div style={{ padding: 12, color: '#868686', fontSize: 13, textAlign: 'center' }}>
             No tanks available
@@ -205,24 +351,35 @@ function TankRow({ tank, isSelected, onToggle }: {
   onToggle: () => void;
 }) {
   const showBreak = tank.sizeChanged || tank.welderChanged;
+  const alphaWithShells = tank.shellSerials.length > 0
+    ? `${tank.alphaCode} (${tank.shellSerials.join(', ')})`
+    : tank.alphaCode;
+  const roundSeamDateTime = tank.roundSeamWeldedAtUtc
+    ? new Date(tank.roundSeamWeldedAtUtc).toLocaleString()
+    : '-';
+  const seamWelders = tank.seamWelders?.trim() || '-';
   return (
-    <div
+    <tr
       className={`${styles.tankRow} ${isSelected ? styles.tankRowSelected : ''} ${showBreak ? styles.tankRowBreak : ''}`}
       onClick={onToggle}
     >
-      <Checkbox
-        checked={isSelected}
-        onChange={(e) => { e.stopPropagation(); onToggle(); }}
-      />
-      <span className={styles.tankPosition}>{tank.position}</span>
-      <div className={styles.tankInfo}>
-        <span className={styles.tankAlpha}>{tank.alphaCode}</span>
-        <span className={styles.tankMeta}>
-          {tank.welderNames.join(', ')}
-        </span>
-      </div>
-      <span className={styles.sizeBadge}>{tank.tankSize}</span>
-    </div>
+      <td>
+        <Checkbox
+          checked={isSelected}
+          onChange={(e) => { e.stopPropagation(); onToggle(); }}
+        />
+      </td>
+      <td className={styles.tankPosition}>{tank.position}</td>
+      <td>
+        <div className={styles.tankInfo}>
+          <span className={styles.tankAlpha}>{alphaWithShells}</span>
+          <span className={styles.tankMeta}>{tank.weldType}</span>
+        </div>
+      </td>
+      <td><span className={styles.sizeBadge}>{tank.tankSize}</span></td>
+      <td className={styles.tankMeta}>{roundSeamDateTime}</td>
+      <td className={styles.tankMeta}>{seamWelders}</td>
+    </tr>
   );
 }
 

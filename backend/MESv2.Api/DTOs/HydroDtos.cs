@@ -9,6 +9,7 @@ public class CreateHydroRecordDto
     public Guid ProductionLineId { get; set; }
     public Guid? AssetId { get; set; }
     public Guid OperatorId { get; set; }
+    public List<Guid> WelderIds { get; set; } = new();
     public List<DefectEntryDto> Defects { get; set; } = new();
 }
 

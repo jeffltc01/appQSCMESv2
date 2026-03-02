@@ -47,6 +47,10 @@ public class WorkCenterService : IWorkCenterService
     public async Task<WCHistoryDto> GetHistoryAsync(Guid wcId, Guid plantId, Guid productionLineId, string? date, int limit, Guid? assetId = null, CancellationToken cancellationToken = default)
     {
         var tz = await GetPlantTimeZoneAsync(plantId, cancellationToken);
+        var wcDataEntryType = await _db.WorkCenters
+            .Where(w => w.Id == wcId)
+            .Select(w => w.DataEntryType)
+            .FirstOrDefaultAsync(cancellationToken);
 
         DateTime localDate;
         if (!string.IsNullOrWhiteSpace(date) && DateTime.TryParse(date, out var dateParsed))
@@ -56,6 +60,9 @@ public class WorkCenterService : IWorkCenterService
 
         var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate, tz);
         var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDate.AddDays(1), tz);
+
+        if (string.Equals(wcDataEntryType, "Spot", StringComparison.OrdinalIgnoreCase))
+            return await GetSpotHistoryAsync(wcId, plantId, productionLineId, startOfDay, endOfDay, tz, cancellationToken);
 
         var baseFilter = _db.ProductionRecords
             .Where(r => r.WorkCenterId == wcId)
@@ -78,6 +85,31 @@ public class WorkCenterService : IWorkCenterService
             .ToListAsync(cancellationToken);
 
         return await GetProductionHistoryItems(wcId, dayCount, dayHourlyCounts, recentProdRecords, tz, cancellationToken);
+    }
+
+    private async Task<WCHistoryDto> GetSpotHistoryAsync(
+        Guid wcId,
+        Guid plantId,
+        Guid productionLineId,
+        DateTime startOfDay,
+        DateTime endOfDay,
+        TimeZoneInfo tz,
+        CancellationToken cancellationToken)
+    {
+        var dayTankTimestamps = await _db.SpotXrayIncrementTanks
+            .Where(t => t.SpotXrayIncrement.ProductionRecord.WorkCenterId == wcId)
+            .Where(t => t.SpotXrayIncrement.ProductionRecord.ProductionLineId == productionLineId)
+            .Where(t => t.SpotXrayIncrement.ProductionRecord.ProductionLine.PlantId == plantId)
+            .Select(t => t.SpotXrayIncrement.CreatedDateTime ?? t.SpotXrayIncrement.ProductionRecord.Timestamp)
+            .Where(ts => ts >= startOfDay && ts < endOfDay)
+            .ToListAsync(cancellationToken);
+
+        return new WCHistoryDto
+        {
+            DayCount = dayTankTimestamps.Count,
+            HourlyCounts = BuildHourlyCountDtos(dayTankTimestamps, tz),
+            RecentRecords = new List<WCHistoryEntryDto>()
+        };
     }
 
     private static List<HourlyCountDto> BuildHourlyCountDtos(IEnumerable<DateTime> timestampsUtc, TimeZoneInfo tz)

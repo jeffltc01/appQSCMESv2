@@ -753,6 +753,8 @@ export const spotXrayApi = {
     api.get<SpotXrayIncrementDetail>(`/spot-xray/increments/${id}`),
   getRecentIncrements: (siteId: string) =>
     api.get<SpotXrayIncrementSummary[]>(`/spot-xray/increments/recent?siteId=${encodeURIComponent(siteId)}`),
+  getDraftIncrements: (siteId: string) =>
+    api.get<SpotXrayIncrementSummary[]>(`/spot-xray/increments/drafts?siteId=${encodeURIComponent(siteId)}`),
   saveResults: (id: string, req: {
     inspectTankId?: string;
     isDraft: boolean;

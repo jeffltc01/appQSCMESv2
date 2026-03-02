@@ -61,6 +61,14 @@ public class SpotXrayController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("increments/drafts")]
+    public async Task<ActionResult<List<SpotXrayIncrementSummaryDto>>> GetDraftIncrements(
+        [FromQuery] Guid? siteId, [FromQuery] string? siteCode, CancellationToken ct)
+    {
+        var result = await _spotXrayService.GetDraftIncrementsAsync(siteId, siteCode, ct);
+        return Ok(result);
+    }
+
     [HttpPut("increments/{id:guid}")]
     public async Task<ActionResult<SpotXrayIncrementDetailDto>> SaveResults(
         Guid id, [FromBody] SaveSpotXrayResultsRequest request, CancellationToken ct)

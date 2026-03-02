@@ -178,6 +178,7 @@ export function HydroScreen(props: WorkCenterProps) {
         productionLineId,
         assetId: assetId || undefined,
         operatorId,
+        welderIds: props.welders.map((w) => w.userId),
         defects: defects.map((d) => ({ defectCodeId: d.defectCodeId, characteristicId: d.characteristicId, locationId: d.locationId })),
       });
       showScanResult({ type: 'success', message: defects.length > 0 ? `Accepted with ${defects.length} defect(s)` : 'Accepted — no defects' });

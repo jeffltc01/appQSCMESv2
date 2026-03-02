@@ -286,6 +286,30 @@ public class HydroServiceTests
         Assert.Equal(defectCodeId, defects[0].DefectCodeId);
     }
 
+    [Fact]
+    public async Task Create_WithWelderIds_CreatesWelderLogs()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        SeedSellableSn(db, "W00100025");
+
+        var sut = new HydroService(db);
+
+        var result = await sut.CreateAsync(new CreateHydroRecordDto
+        {
+            AssemblyAlphaCode = "",
+            NameplateSerialNumber = "W00100025",
+            Results = new List<InspectionResultEntryDto>(),
+            WorkCenterId = TestHelpers.wcHydroId,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid> { TestHelpers.TestUserId },
+            Defects = new List<DefectEntryDto>()
+        });
+
+        var welderLogs = db.WelderLogs.Where(w => w.ProductionRecordId == result.Id).ToList();
+        Assert.Single(welderLogs);
+        Assert.Equal(TestHelpers.TestUserId, welderLogs[0].UserId);
+    }
+
     private static Guid SeedSellableSn(MESv2.Api.Data.MesDbContext db, string serial, int tankSize = 120)
     {
         var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == tankSize);

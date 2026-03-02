@@ -86,6 +86,8 @@ public class SpotXrayServiceTests
         Assert.Equal(2, lane1.Tanks.Count);
         Assert.Equal("ALPHA-001", lane1.Tanks[0].AlphaCode);
         Assert.Equal("ALPHA-002", lane1.Tanks[1].AlphaCode);
+        Assert.NotNull(lane1.Tanks[0].RoundSeamWeldedAtUtc);
+        Assert.Equal("RS1: Jeff | RS2: Jeff", lane1.Tanks[0].SeamWelders);
     }
 
     [Fact]
@@ -498,14 +500,32 @@ public class SpotXrayServiceTests
     }
 
     [Fact]
-    public async Task GetLaneQueues_NoRoundSeamRecords_ReturnsEmpty()
+    public async Task GetLaneQueues_NoRoundSeamRecords_ReturnsConfiguredEmptyLanes()
     {
         await using var db = await CreateSeededContext();
         var svc = new SpotXrayService(db);
 
         var result = await svc.GetLaneQueuesAsync("000");
 
-        Assert.Empty(result.Lanes);
+        Assert.Equal(2, result.Lanes.Count);
+        Assert.All(result.Lanes, lane => Assert.Empty(lane.Tanks));
+    }
+
+    [Fact]
+    public async Task GetLaneQueues_LaneWithoutRecords_IsReturnedWithNoTanks()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+        var now = DateTime.UtcNow;
+
+        await SeedTankAtRoundSeam(db, "SH-ONLY-01", "ALPHA-ONLY-01", RsAssetLane1Id, now.AddMinutes(-5), WelderJeffId);
+
+        var result = await svc.GetLaneQueuesAsync("000");
+
+        var lane1 = result.Lanes.First(l => l.LaneName == "Lane 1");
+        var lane2 = result.Lanes.First(l => l.LaneName == "Lane 2");
+        Assert.Single(lane1.Tanks);
+        Assert.Empty(lane2.Tanks);
     }
 
     [Fact]
@@ -566,5 +586,53 @@ public class SpotXrayServiceTests
 
         Assert.Single(recent);
         Assert.True(recent[0].IsDraft);
+    }
+
+    [Fact]
+    public async Task GetDraftIncrements_ReturnsOnlyDraftsAcrossAllAges()
+    {
+        await using var db = await CreateSeededContext();
+        var svc = new SpotXrayService(db);
+
+        var now = DateTime.UtcNow;
+        var (_, asmId, _) = await SeedTankAtRoundSeam(db, "SH-E01", "ALPHA-E01", RsAssetLane1Id, now.AddMinutes(-20), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-E02", "ALPHA-E02", RsAssetLane1Id, now.AddMinutes(-10), WelderJeffId);
+        await SeedTankAtRoundSeam(db, "SH-E03", "ALPHA-E03", RsAssetLane2Id, now.AddMinutes(-5), WelderJoeId);
+
+        var created = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 1", SelectedPositions = new() { 1, 2 } } }
+        });
+
+        var finalized = await svc.CreateIncrementsAsync(new CreateSpotXrayIncrementsRequest
+        {
+            WorkCenterId = TestHelpers.wcSpotXrayId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            SiteCode = "000",
+            LaneSelections = new() { new() { LaneName = "Lane 2", SelectedPositions = new() { 1 } } }
+        });
+
+        await svc.SaveResultsAsync(finalized.Increments[0].Id, new SaveSpotXrayResultsRequest
+        {
+            InspectTankId = asmId,
+            IsDraft = false,
+            OperatorId = TestHelpers.TestUserId,
+            Seams = new()
+            {
+                new() { SeamNumber = 1, ShotNo = "1", Result = "Accept" },
+                new() { SeamNumber = 2, ShotNo = "2", Result = "Accept" }
+            }
+        });
+
+        var drafts = await svc.GetDraftIncrementsAsync(null, "000");
+
+        Assert.Single(drafts);
+        Assert.True(drafts[0].IsDraft);
+        Assert.Equal("Lane 1", drafts[0].LaneNo);
     }
 }
