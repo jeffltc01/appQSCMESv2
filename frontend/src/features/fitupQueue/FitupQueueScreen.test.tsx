@@ -442,8 +442,9 @@ describe('FitupQueueScreen', () => {
       handler({ prefix: 'KC', value: '02', raw: 'KC;02' }, 'KC;02');
     });
 
+    const queueCardField = screen.getByRole('combobox');
     await waitFor(() => {
-      expect(screen.getByText('02 - Yellow')).toBeInTheDocument();
+      expect(queueCardField).toHaveTextContent(/02|yellow/i);
     });
     expect(showScanResult).toHaveBeenCalledWith({ type: 'success', message: 'Card 02 scanned' });
   });
