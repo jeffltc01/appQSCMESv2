@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { TopBar } from './TopBar';
@@ -85,10 +85,11 @@ describe('TopBar', () => {
     renderTopBar({ onAddWelder });
 
     await user.click(screen.getByLabelText('Add welder'));
-    expect(screen.getByRole('heading', { name: 'Add Welder' })).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Add Welder' })).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText('Employee Number'), '12345');
-    await user.click(screen.getByRole('button', { name: 'Add Welder' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Add Welder' }));
 
     expect(onAddWelder).toHaveBeenCalledWith('12345');
   });

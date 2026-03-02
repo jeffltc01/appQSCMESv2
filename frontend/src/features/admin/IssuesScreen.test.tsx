@@ -16,7 +16,7 @@ vi.mock('../../api/endpoints', () => ({
   },
 }));
 
-vi.mock('../../auth/AuthContext', () => ({
+vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
     user: {
       id: 'qm-1',
