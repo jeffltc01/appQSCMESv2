@@ -137,11 +137,6 @@ public class DefectLogConfiguration : IEntityTypeConfiguration<DefectLog>
             .HasForeignKey(d => d.LocationId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(d => d.RepairedByUser)
-            .WithMany()
-            .HasForeignKey(d => d.RepairedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasOne(d => d.CreatedByUser)
             .WithMany()
             .HasForeignKey(d => d.CreatedByUserId)

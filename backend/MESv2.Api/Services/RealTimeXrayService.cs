@@ -166,7 +166,6 @@ public class RealTimeXrayService : IRealTimeXrayService
                         LocDetails1 = defect.LocationDetails1,
                         LocDetails2 = defect.LocationDetails2,
                         LocDetailsCode = defect.LocationDetailsCode,
-                        IsRepaired = false,
                         Timestamp = DateTime.UtcNow,
                     });
                 }

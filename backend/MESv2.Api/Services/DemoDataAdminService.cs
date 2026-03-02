@@ -212,7 +212,6 @@ public class DemoDataAdminService : IDemoDataAdminService
             {
                 row.Timestamp = row.Timestamp.Add(delta);
                 row.CreatedAt = row.CreatedAt.Add(delta);
-                if (row.RepairedDateTime.HasValue) row.RepairedDateTime = row.RepairedDateTime.Value.Add(delta);
             }
             AddCount("DefectLogs", defectLogs.Count, updated);
 
@@ -817,9 +816,6 @@ public class DemoDataAdminService : IDemoDataAdminService
                     DefectCodeId = defectCode.Id,
                     CharacteristicId = longSeamChar.Id,
                     LocationId = defectLocation.Id,
-                    IsRepaired = i % 6 == 0,
-                    RepairedByUserId = i % 6 == 0 ? op.Id : null,
-                    RepairedDateTime = i % 6 == 0 ? shellStamp.AddMinutes(80) : null,
                     CreatedByUserId = op.Id,
                     CreatedAt = shellStamp.AddMinutes(38),
                     Timestamp = shellStamp.AddMinutes(38),
