@@ -40,6 +40,7 @@ export function HydroScreen(props: WorkCenterProps) {
 
   const [state, setState] = useState<HydroState>('WaitingForScans');
   const [shellSerial, setShellSerial] = useState('');
+  const [noShellMode, setNoShellMode] = useState(false);
   const [assemblyAlpha, setAssemblyAlpha] = useState('');
   const [assemblyShells, setAssemblyShells] = useState<string[]>([]);
   const [assemblyTankSize, setAssemblyTankSize] = useState<number | null>(null);
@@ -96,6 +97,7 @@ export function HydroScreen(props: WorkCenterProps) {
   const scanShell = useCallback(async (serial: string) => {
     try {
       const assembly = await roundSeamApi.getAssemblyByShell(serial);
+      setNoShellMode(false);
       setShellSerial(serial);
       setAssemblyAlpha(assembly.alphaCode);
       setAssemblyShells(assembly.shells ?? []);
@@ -116,13 +118,27 @@ export function HydroScreen(props: WorkCenterProps) {
     }
   }, [nameplateSerial, nameplateTankSize, showScanResult, setExternalInput]);
 
+  const setNoShell = useCallback(() => {
+    setNoShellMode(true);
+    setShellSerial('');
+    setAssemblyAlpha('');
+    setAssemblyShells([]);
+    setAssemblyTankSize(null);
+    setTankSizeMismatch(false);
+    showScanResult({ type: 'success', message: 'No shell mode enabled' });
+    if (nameplateSerial) {
+      setState('ReadyForInspection');
+      setExternalInput(false);
+    }
+  }, [nameplateSerial, setExternalInput, showScanResult]);
+
   const scanNameplate = useCallback(async (serial: string) => {
     try {
       const np = await nameplateApi.getBySerial(serial);
       setNameplateSerial(serial);
       setNameplateTankSize(np.tankSize ?? null);
       showScanResult({ type: 'success', message: `Nameplate ${serial} found` });
-      if (assemblyAlpha) {
+      if (assemblyAlpha || noShellMode) {
         if (assemblyTankSize != null && np.tankSize != null && assemblyTankSize !== np.tankSize) {
           setTankSizeMismatch(true);
           showScanResult({ type: 'error', message: `Tank size mismatch: shell assembly is ${assemblyTankSize} gal but nameplate is ${np.tankSize} gal` });
@@ -135,18 +151,18 @@ export function HydroScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Nameplate serial number not found' });
     }
-  }, [assemblyAlpha, assemblyTankSize, showScanResult, setExternalInput]);
+  }, [assemblyAlpha, noShellMode, assemblyTankSize, showScanResult, setExternalInput]);
 
   const scanAuto = useCallback(async (serial: string) => {
-    if (assemblyAlpha && !nameplateSerial) { scanNameplate(serial); return; }
-    if (nameplateSerial && !assemblyAlpha) { scanShell(serial); return; }
+    if ((assemblyAlpha || noShellMode) && !nameplateSerial) { await scanNameplate(serial); return; }
+    if (nameplateSerial && !assemblyAlpha) { await scanShell(serial); return; }
     try {
       await roundSeamApi.getAssemblyByShell(serial);
-      scanShell(serial);
+      await scanShell(serial);
     } catch {
-      scanNameplate(serial);
+      await scanNameplate(serial);
     }
-  }, [assemblyAlpha, nameplateSerial, scanShell, scanNameplate]);
+  }, [assemblyAlpha, noShellMode, nameplateSerial, scanShell, scanNameplate]);
 
   const parseShellScanCandidate = useCallback((value: string): string | null => {
     const trimmed = value.trim();
@@ -168,7 +184,7 @@ export function HydroScreen(props: WorkCenterProps) {
     }
     try {
       await hydroApi.create({
-        assemblyAlphaCode: assemblyAlpha,
+        assemblyAlphaCode: noShellMode ? '' : assemblyAlpha,
         nameplateSerialNumber: nameplateSerial,
         results: controlPlans.map(cp => ({
           controlPlanId: cp.id,
@@ -187,11 +203,12 @@ export function HydroScreen(props: WorkCenterProps) {
     } catch {
       showScanResult({ type: 'error', message: 'Failed to save hydro record' });
     }
-  }, [assemblyAlpha, nameplateSerial, workCenterId, productionLineId, assetId, operatorId, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
+  }, [assemblyAlpha, noShellMode, nameplateSerial, workCenterId, productionLineId, assetId, operatorId, defects, controlPlans, inspectionResults, showScanResult, refreshHistory]);
 
   const resetScreen = useCallback(() => {
     setState('WaitingForScans');
     setShellSerial('');
+    setNoShellMode(false);
     setAssemblyAlpha('');
     setAssemblyShells([]);
     setAssemblyTankSize(null);
@@ -239,25 +256,25 @@ export function HydroScreen(props: WorkCenterProps) {
   }, []);
 
   const handleBarcode = useCallback(
-    (bc: ParsedBarcode | null, _raw: string) => {
+    async (bc: ParsedBarcode | null, _raw: string) => {
       if (state === 'WaitingForScans') {
-        if (bc?.prefix === 'SC') { scanShell(parseShellLabel(bc.value).serialNumber); return; }
-        if (bc?.prefix === 'NOSHELL' && bc.value === '0') { setShellSerial(''); showScanResult({ type: 'success', message: 'No shell mode' }); return; }
+        if (bc?.prefix === 'SC') { await scanShell(parseShellLabel(bc.value).serialNumber); return; }
+        if (bc?.prefix === 'NOSHELL' && bc.value === '0') { setNoShell(); return; }
         const unprefixedShellSerial = !bc ? parseShellScanCandidate(_raw) : null;
         if (unprefixedShellSerial) {
-          scanShell(unprefixedShellSerial);
+          await scanShell(unprefixedShellSerial);
           return;
         }
 
         const serial = bc ? (bc.value.includes(';') ? bc.value : _raw.replace(/^[^;]*;/, '')) : _raw.trim();
         if (serial) {
-          scanAuto(serial);
+          await scanAuto(serial);
           return;
         }
       }
       showScanResult({ type: 'error', message: bc ? 'Invalid barcode in this context' : 'Unknown barcode' });
     },
-    [state, parseShellScanCandidate, scanShell, scanAuto, showScanResult],
+    [state, parseShellScanCandidate, scanShell, scanAuto, setNoShell, showScanResult],
   );
 
   const handleBarcodeRef = useRef(handleBarcode);
@@ -298,7 +315,7 @@ export function HydroScreen(props: WorkCenterProps) {
         };
       }
 
-      if (!shellSerial && !nameplateSerial) {
+      if (!shellSerial && !noShellMode && !nameplateSerial) {
         return {
           title: 'NEXT: Scan Shell or Nameplate to begin',
           detail: '',
@@ -306,15 +323,15 @@ export function HydroScreen(props: WorkCenterProps) {
         };
       }
 
-      if (shellSerial && !nameplateSerial) {
+      if ((shellSerial || noShellMode) && !nameplateSerial) {
         return {
           title: 'NEXT: Scan Nameplate',
-          detail: `Shell: ${shellSerial}`,
+          detail: noShellMode ? 'No shell mode selected' : `Shell: ${shellSerial}`,
           isActive: true,
         };
       }
 
-      if (!shellSerial && nameplateSerial) {
+      if (!shellSerial && !noShellMode && nameplateSerial) {
         return {
           title: 'NEXT: Scan Shell',
           detail: `Nameplate: ${nameplateSerial}`,
@@ -399,8 +416,8 @@ export function HydroScreen(props: WorkCenterProps) {
         <div className={styles.inspHeader}>
           <div className={styles.scanInfo}>
             <span>Nameplate SN: <strong>{nameplateSerial}</strong></span>
-            <span>Shell No.: <strong>{shellSerial || '—'}</strong></span>
-            <span>Assembly: <strong>{assemblyAlpha}{assemblyShells.length > 0 ? ` (${assemblyShells.join(', ')})` : ''}</strong></span>
+            <span>Shell No.: <strong>{noShellMode ? 'NO SHELL' : (shellSerial || '—')}</strong></span>
+            <span>Assembly: <strong>{noShellMode ? 'NO SHELL' : `${assemblyAlpha}${assemblyShells.length > 0 ? ` (${assemblyShells.join(', ')})` : ''}`}</strong></span>
           </div>
           <Button appearance="subtle" onClick={resetScreen}>Reset</Button>
         </div>
@@ -501,7 +518,7 @@ export function HydroScreen(props: WorkCenterProps) {
               <Label>Shell / Tank</Label>
               <div className={styles.shellBadge} aria-live="polite">
                 <span className={styles.shellBadgeLabel}>Shell</span>
-                <strong className={styles.shellBadgeValue}>{shellSerial || 'Not scanned'}</strong>
+                <strong className={styles.shellBadgeValue}>{noShellMode ? 'NO SHELL' : (shellSerial || 'Not scanned')}</strong>
                 <span className={styles.shellBadgeMeta}>Tank Size: {assemblyTankSize != null ? `${assemblyTankSize} gal` : '—'}</span>
               </div>
             </div>
@@ -511,6 +528,9 @@ export function HydroScreen(props: WorkCenterProps) {
               <line x1="96" y1="56" x2="96" y2="66" stroke="#2b3b84" strokeWidth="3" />
             </svg>
             <div className={styles.manualRow}>
+              {!props.externalInput && (
+                <Button appearance="secondary" size="large" onClick={setNoShell}>No Shell</Button>
+              )}
               <Input
                 value={props.externalInput ? shellSerial : manualShellInput}
                 onChange={(_, d) => setManualShellInput(d.value)}

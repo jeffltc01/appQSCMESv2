@@ -61,6 +61,7 @@ describe('HydroScreen', () => {
     expect(screen.getByPlaceholderText(/enter shell serial/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/enter nameplate serial/i)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /submit/i })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /no shell/i })).toBeInTheDocument();
   });
 
   it('shows scan-filled cards in external mode', () => {
@@ -354,6 +355,117 @@ describe('HydroScreen', () => {
 
     const payload = vi.mocked(hydroApi.create).mock.calls[0][0];
     expect(payload.welderIds).toEqual(['welder-1', 'welder-2']);
+  });
+
+  it('supports NOSHELL scan followed by nameplate scan', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+    vi.mocked(controlPlanApi.getForWorkCenter).mockResolvedValue([]);
+    vi.mocked(hydroApi.create).mockResolvedValue({
+      id: 'hydro-1',
+      assemblyAlphaCode: '',
+      nameplateSerialNumber: 'W00100001',
+      timestamp: new Date().toISOString(),
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler({ prefix: 'NOSHELL', value: '0' }, 'NOSHELL;0'); });
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+
+    fireEvent.click(await screen.findByRole('button', { name: /no defects accept/i }));
+
+    await waitFor(() => {
+      expect(hydroApi.create).toHaveBeenCalled();
+    });
+
+    const payload = vi.mocked(hydroApi.create).mock.calls[0][0];
+    expect(payload.assemblyAlphaCode).toBe('');
+    expect(payload.nameplateSerialNumber).toBe('W00100001');
+  });
+
+  it('supports nameplate scan followed by NOSHELL scan', async () => {
+    let barcodeHandler: (bc: any, raw: string) => void = () => {};
+    vi.mocked(controlPlanApi.getForWorkCenter).mockResolvedValue([]);
+    vi.mocked(roundSeamApi.getAssemblyByShell).mockRejectedValue(
+      new Error('Shell not found in any assembly'),
+    );
+    vi.mocked(hydroApi.create).mockResolvedValue({
+      id: 'hydro-2',
+      assemblyAlphaCode: '',
+      nameplateSerialNumber: 'W00100001',
+      timestamp: new Date().toISOString(),
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({
+      registerBarcodeHandler: (handler: any) => { barcodeHandler = handler; },
+    });
+
+    await act(async () => { barcodeHandler(null, 'W00100001'); });
+    await act(async () => { barcodeHandler({ prefix: 'NOSHELL', value: '0' }, 'NOSHELL;0'); });
+
+    fireEvent.click(await screen.findByRole('button', { name: /no defects accept/i }));
+
+    await waitFor(() => {
+      expect(hydroApi.create).toHaveBeenCalled();
+    });
+
+    const payload = vi.mocked(hydroApi.create).mock.calls[0][0];
+    expect(payload.assemblyAlphaCode).toBe('');
+    expect(payload.nameplateSerialNumber).toBe('W00100001');
+  });
+
+  it('allows manual no-shell mode then nameplate submit', async () => {
+    vi.mocked(controlPlanApi.getForWorkCenter).mockResolvedValue([]);
+    vi.mocked(hydroApi.create).mockResolvedValue({
+      id: 'hydro-3',
+      assemblyAlphaCode: '',
+      nameplateSerialNumber: 'W00100001',
+      timestamp: new Date().toISOString(),
+    });
+    vi.mocked(nameplateApi.getBySerial).mockResolvedValue({
+      id: 'np-1',
+      serialNumber: 'W00100001',
+      productId: 'prod-1',
+      tankSize: 120,
+      timestamp: new Date().toISOString(),
+      printSucceeded: true,
+    });
+
+    renderScreen({ externalInput: false });
+
+    fireEvent.click(screen.getByRole('button', { name: /no shell/i }));
+
+    const nameplateInput = screen.getByPlaceholderText(/enter nameplate serial/i);
+    fireEvent.change(nameplateInput, { target: { value: 'W00100001' } });
+    fireEvent.keyDown(nameplateInput, { key: 'Enter', code: 'Enter' });
+
+    fireEvent.click(await screen.findByRole('button', { name: /no defects accept/i }));
+
+    await waitFor(() => {
+      expect(hydroApi.create).toHaveBeenCalled();
+    });
+
+    const payload = vi.mocked(hydroApi.create).mock.calls[0][0];
+    expect(payload.assemblyAlphaCode).toBe('');
+    expect(payload.nameplateSerialNumber).toBe('W00100001');
   });
 
   it('filters wizard locations by selected characteristic', async () => {
