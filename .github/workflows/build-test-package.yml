@@ -11,6 +11,10 @@ on:
         description: Absolute backend URL injected as VITE_API_URL.
         required: true
         type: string
+      frontend_url:
+        description: Absolute frontend URL used by smoke tests.
+        required: true
+        type: string
       run_e2e:
         description: Run Playwright E2E tests as part of build.
         required: false
@@ -164,6 +168,10 @@ jobs:
       - name: Run operator smoke E2E tests
         if: ${{ inputs.run_e2e }}
         working-directory: e2e
+        env:
+          DEPLOY_SMOKE: "true"
+          BACKEND_URL: ${{ inputs.backend_url }}
+          FRONTEND_URL: ${{ inputs.frontend_url }}
         run: npm run test:operator-smoke
 
       - name: Upload Playwright report

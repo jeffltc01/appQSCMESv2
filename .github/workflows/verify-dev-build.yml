@@ -16,12 +16,13 @@ jobs:
         shell: bash
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           PERF_EMP_NO: ${{ secrets.PERF_EMP_NO }}
           PERF_PIN: ${{ secrets.PERF_PIN }}
           PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
         run: |
           set -euo pipefail
-          for name in BACKEND_URL PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
+          for name in BACKEND_URL FRONTEND_URL PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing required value: ${name}" >&2
               exit 1
@@ -73,6 +74,7 @@ jobs:
     with:
       release_ref: ${{ github.sha }}
       backend_url: ${{ vars.BACKEND_URL }}
+      frontend_url: ${{ vars.FRONTEND_URL }}
       run_e2e: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' }}
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit
