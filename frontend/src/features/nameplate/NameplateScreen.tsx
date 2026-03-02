@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button, Input, Label, Dropdown, Option, type OptionOnSelectData } from '@fluentui/react-components';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout.tsx';
+import type { ParsedBarcode } from '../../types/barcode.ts';
 import type { ProductListItem } from '../../types/domain.ts';
 import { productApi, nameplateApi } from '../../api/endpoints.ts';
+import { NextStepBanner } from '../../components/nextStep/NextStepBanner.tsx';
 import styles from './NameplateScreen.module.css';
 
 export function NameplateScreen(props: WorkCenterProps) {
@@ -14,6 +16,8 @@ export function NameplateScreen(props: WorkCenterProps) {
     plantCode,
     showScanResult,
     refreshHistory,
+    registerBarcodeHandler,
+    externalInput,
     selectedHistoryRecord,
     clearSelectedHistoryRecord,
   } = props;
@@ -50,13 +54,14 @@ export function NameplateScreen(props: WorkCenterProps) {
     } catch { /* keep empty */ }
   }, [plantId]);
 
-  const handleSave = useCallback(async () => {
-    if (!selectedProductId || (!editingRecordId && !serialNumber.trim())) {
+  const saveRecord = useCallback(async (serialOverride?: string) => {
+    const serialToSave = (serialOverride ?? serialNumber).trim();
+    if (!selectedProductId || (!editingRecordId && !serialToSave)) {
       showScanResult({ type: 'error', message: 'Please fill all fields' });
       return;
     }
 
-    const serialValidationError = getSerialPrefixValidationError(serialNumber);
+    const serialValidationError = getSerialPrefixValidationError(serialToSave);
     if (serialValidationError) {
       showScanResult({ type: 'error', message: serialValidationError });
       return;
@@ -69,20 +74,20 @@ export function NameplateScreen(props: WorkCenterProps) {
           operatorId,
         });
         if (result.printSucceeded) {
-          showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} updated. Label reprinting.` });
+          showScanResult({ type: 'success', message: `Serial ${serialToSave} updated. Label reprinting.` });
         } else {
           showScanResult({ type: 'warning', message: `Serial updated but print failed: ${result.printMessage ?? 'Unknown error'}` });
         }
       } else {
         const result = await nameplateApi.create({
-          serialNumber: serialNumber.trim(),
+          serialNumber: serialToSave,
           productId: selectedProductId,
           workCenterId,
           productionLineId,
           operatorId,
         });
         if (result.printSucceeded) {
-          showScanResult({ type: 'success', message: `Serial ${serialNumber.trim()} saved. Label printing.` });
+          showScanResult({ type: 'success', message: `Serial ${serialToSave} saved. Label printing.` });
         } else {
           showScanResult({ type: 'warning', message: `Serial saved but print failed: ${result.printMessage ?? 'Unknown error'}` });
         }
@@ -95,6 +100,10 @@ export function NameplateScreen(props: WorkCenterProps) {
       showScanResult({ type: 'error', message: err?.message ?? (editingRecordId ? 'Failed to update nameplate record' : 'Failed to save nameplate record') });
     }
   }, [selectedProductId, serialNumber, editingRecordId, getSerialPrefixValidationError, workCenterId, productionLineId, operatorId, showScanResult, refreshHistory, clearSelectedHistoryRecord]);
+
+  const handleSave = useCallback(async () => {
+    await saveRecord();
+  }, [saveRecord]);
 
   useEffect(() => {
     if (!selectedHistoryRecord?.serialNumberId) return;
@@ -112,9 +121,62 @@ export function NameplateScreen(props: WorkCenterProps) {
   }, [clearSelectedHistoryRecord]);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
+  const nextInstruction = (() => {
+    if (externalInput) {
+      if (editingRecordId) {
+        return {
+          title: 'NEXT: Toggle External Input off to edit this record',
+          detail: 'Editing existing records requires manual mode.',
+          isActive: true,
+        };
+      }
+      return {
+        title: selectedProductId
+          ? 'NEXT: Scan finished serial barcode'
+          : 'NEXT: Select Tank Size / Type, then scan finished serial barcode',
+        detail: 'Scanning auto-saves and prints the barcode label.',
+        isActive: true,
+      };
+    }
+    return {
+      title: 'NEXT: Select Tank Size / Type, enter serial, then Save',
+      detail: '',
+      isActive: false,
+    };
+  })();
+
+  const handleBarcode = useCallback((bc: ParsedBarcode | null, raw: string) => {
+    if (!externalInput) return;
+    if (editingRecordId) {
+      showScanResult({ type: 'error', message: 'Finish or cancel edit before scanning a new serial' });
+      return;
+    }
+    if (!selectedProductId) {
+      showScanResult({ type: 'error', message: 'Select Tank Size / Type before scanning' });
+      return;
+    }
+
+    // Nameplate scanner labels contain the finished serial directly (no prefix).
+    const scannedSerial = !bc ? raw.trim() : bc.prefix === 'SC' ? bc.value.trim() : '';
+    if (!scannedSerial) {
+      showScanResult({ type: 'error', message: 'Scan a valid nameplate serial barcode' });
+      return;
+    }
+
+    setSerialNumber(scannedSerial);
+    void saveRecord(scannedSerial);
+  }, [externalInput, editingRecordId, selectedProductId, showScanResult, saveRecord]);
+
+  const barcodeHandlerRef = useRef(handleBarcode);
+  barcodeHandlerRef.current = handleBarcode;
+
+  useEffect(() => {
+    registerBarcodeHandler((bc, raw) => barcodeHandlerRef.current(bc, raw));
+  }, [registerBarcodeHandler]);
 
   return (
     <div className={styles.container}>
+      <NextStepBanner instruction={nextInstruction} />
       <div className={styles.form}>
         <div className={styles.formField}>
           <Label required>Tank Size / Type</Label>
@@ -131,33 +193,37 @@ export function NameplateScreen(props: WorkCenterProps) {
           </Dropdown>
         </div>
 
-        <div className={styles.formField}>
-          <Label required>Serial Number</Label>
-          <Input
-            value={serialNumber}
-            onChange={(_, d) => setSerialNumber(d.value)}
-            placeholder="Enter serial number (e.g. W00123456)"
-            size="large"
-            className={styles.input}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
-            disabled={!!editingRecordId}
-          />
-        </div>
+        {!externalInput && (
+          <>
+            <div className={styles.formField}>
+              <Label required>Serial Number</Label>
+              <Input
+                value={serialNumber}
+                onChange={(_, d) => setSerialNumber(d.value)}
+                placeholder="Enter serial number (e.g. W00123456)"
+                size="large"
+                className={styles.input}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+                disabled={!!editingRecordId}
+              />
+            </div>
 
-        <Button
-          appearance="primary"
-          size="large"
-          className={styles.submitBtn}
-          onClick={handleSave}
-          disabled={!selectedProductId || (!editingRecordId && !serialNumber.trim())}
-        >
-          {editingRecordId ? 'Update & Reprint' : 'Save'}
-        </Button>
+            <Button
+              appearance="primary"
+              size="large"
+              className={styles.submitBtn}
+              onClick={handleSave}
+              disabled={!selectedProductId || (!editingRecordId && !serialNumber.trim())}
+            >
+              {editingRecordId ? 'Update & Reprint' : 'Save'}
+            </Button>
 
-        {editingRecordId && (
-          <Button appearance="secondary" size="large" className={styles.cancelBtn} onClick={handleCancelEdit}>
-            Cancel Edit
-          </Button>
+            {editingRecordId && (
+              <Button appearance="secondary" size="large" className={styles.cancelBtn} onClick={handleCancelEdit}>
+                Cancel Edit
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { NameplateScreen } from './NameplateScreen';
 import type { WorkCenterProps } from '../../components/layout/OperatorLayout';
+import type { ParsedBarcode } from '../../types/barcode';
 
 const mockGetProducts = vi.fn().mockResolvedValue([]);
 const mockCreate = vi.fn();
@@ -43,6 +44,18 @@ describe('NameplateScreen', () => {
   it('has save button', () => {
     renderScreen();
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+  });
+
+  it('hides serial input and save button when external input is enabled', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+    renderScreen({ externalInput: true });
+
+    await waitFor(() => expect(mockGetProducts).toHaveBeenCalled());
+    expect(screen.queryByPlaceholderText(/enter serial number/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/scan finished serial barcode/i)).toBeInTheDocument();
   });
 
   it('save button disabled when no input', () => {
@@ -86,6 +99,41 @@ describe('NameplateScreen', () => {
     await waitFor(() => {
       expect(props.showScanResult).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'success', message: expect.stringContaining('W00100001') }),
+      );
+    });
+  });
+
+  it('auto-saves when external input scans a finished serial', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+    mockCreate.mockResolvedValue({
+      id: 'sn-7', serialNumber: 'W000302100', productId: 'p1',
+      timestamp: new Date().toISOString(), printSucceeded: true, printMessage: null,
+    });
+
+    let barcodeHandler: ((bc: ParsedBarcode | null, raw: string) => void) | null = null;
+    const registerBarcodeHandler = vi.fn((handler: (bc: ParsedBarcode | null, raw: string) => void) => {
+      barcodeHandler = handler;
+    });
+
+    const { props } = renderScreen({ externalInput: true, registerBarcodeHandler });
+    const combobox = await waitFor(() => screen.getByRole('combobox'));
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-120AG' }).click(); });
+
+    expect(barcodeHandler).not.toBeNull();
+    await act(async () => {
+      barcodeHandler?.(null, 'W000302100');
+    });
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        serialNumber: 'W000302100',
+        productId: 'p1',
+      }));
+      expect(props.showScanResult).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'success', message: expect.stringContaining('W000302100') }),
       );
     });
   });

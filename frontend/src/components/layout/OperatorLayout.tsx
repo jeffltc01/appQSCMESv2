@@ -646,7 +646,6 @@ export function OperatorLayout() {
   const supportsExternalInput = !(
     dataEntryType === 'MatQueue-Material' ||
     dataEntryType === 'MatQueue-Fitup' ||
-    dataEntryType === 'DataPlate' ||
     dataEntryType === 'Spot'
   );
 
