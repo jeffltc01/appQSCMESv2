@@ -216,32 +216,24 @@ export function OperatorLayout() {
     return rows;
   }, [currentHour, historyData.hourlyCounts, plannedData]);
 
-  const summaryStatus = useMemo(() => {
-    const comparableRows = summaryRows.filter((row) => row.planned !== null);
-    if (comparableRows.length === 0) {
-      return { label: 'In Progress', className: styles.summaryStatusNeutral };
-    }
-
-    const totals = comparableRows.reduce(
-      (acc, row) => ({
-        planned: acc.planned + (row.planned ?? 0),
-        actual: acc.actual + row.actual,
-      }),
-      { planned: 0, actual: 0 },
-    );
-
-    const delta = totals.actual - totals.planned;
-    if (delta === 0) {
-      return { label: 'On Target', className: styles.summaryStatusOnTarget };
-    }
-    if (Math.abs(delta) <= TARGET_TOLERANCE) {
-      return { label: 'Within Tolerance', className: styles.summaryStatusNeutral };
-    }
-    if (delta > 0) {
-      return { label: 'Over Target', className: styles.summaryStatusOverTarget };
-    }
-    return { label: 'Under Target', className: styles.summaryStatusUnderTarget };
-  }, [summaryRows]);
+  const todayBySizeChips = useMemo(() => {
+    const chips = [...(historyData.tankSizeCounts ?? [])]
+      .sort((left, right) => {
+        const leftValue = left.tankSize ?? Number.MAX_SAFE_INTEGER;
+        const rightValue = right.tankSize ?? Number.MAX_SAFE_INTEGER;
+        return leftValue - rightValue;
+      })
+      .map((item) => ({
+        key: item.tankSize == null ? 'unknown' : String(item.tankSize),
+        label: item.tankSize == null ? 'Unknown' : String(item.tankSize),
+        count: item.count,
+        isTotal: false,
+      }));
+    return [
+      ...chips,
+      { key: 'total', label: '', count: historyData.dayCount, isTotal: true },
+    ];
+  }, [historyData.dayCount, historyData.tankSizeCounts]);
 
   const hasCapacityTarget = useMemo(
     () => summaryRows.some((row) => row.planned !== null),
@@ -797,13 +789,18 @@ export function OperatorLayout() {
         {hasSummaryCard && (
           <section className={styles.summaryFloatingCard} aria-label="Operator capacity indicator">
             <div className={styles.summaryTop}>
-              <div className={styles.summaryTopLeft}>
-                <span className={styles.summaryTopLabel}>Total Count</span>
-                <span className={styles.summaryTopValue}>{historyData.dayCount}</span>
+              <div className={styles.summaryTodayRow}>
+                <span className={styles.summaryTopLabel}>Today</span>
+                {todayBySizeChips.map((chip) => (
+                  <span
+                    key={chip.key}
+                    className={chip.isTotal ? styles.summarySizeChipTotal : styles.summarySizeChip}
+                    data-testid={chip.isTotal ? 'today-total-count-chip' : undefined}
+                  >
+                    {chip.label ? `${chip.label}: ${chip.count}` : chip.count}
+                  </span>
+                ))}
               </div>
-              <span className={`${styles.summaryStatusBadge} ${summaryStatus.className}`}>
-                {summaryStatus.label}
-              </span>
             </div>
 
             <div className={styles.summaryBody}>

@@ -169,9 +169,15 @@ export interface WCHistoryEntry {
   annotationColor?: string;
 }
 
+export interface TankSizeCount {
+  tankSize?: number | null;
+  count: number;
+}
+
 export interface WCHistoryData {
   dayCount: number;
   hourlyCounts?: HourlyCount[];
+  tankSizeCounts?: TankSizeCount[];
   recentRecords: WCHistoryEntry[];
 }
 

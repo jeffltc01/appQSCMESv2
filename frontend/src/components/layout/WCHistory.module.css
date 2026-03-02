@@ -88,6 +88,13 @@
   font-size: 16px;
 }
 
+.tableHeader .colDateTime,
+.tableHeader .colSerial {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
 .dateLine {
   font-weight: 600;
   line-height: 1.1;

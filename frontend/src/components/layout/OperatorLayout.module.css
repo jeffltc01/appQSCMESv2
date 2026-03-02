@@ -52,64 +52,16 @@
 
 .summaryTop {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   border-bottom: 1px solid #dfe2ed;
-  padding-bottom: 6px;
-}
-
-.summaryTopLeft {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  padding-bottom: 8px;
 }
 
 .summaryTopLabel {
   font-size: 16px;
   font-weight: 700;
   color: #495057;
-}
-
-.summaryTopValue {
-  font-size: 28px;
-  line-height: 1;
-  font-weight: 800;
-  color: #2b3b84;
-}
-
-.summaryStatusBadge {
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.2px;
-  border: 1px solid transparent;
-}
-
-.summaryStatusOnTarget {
-  color: #1d7b35;
-  background: linear-gradient(180deg, #ecfbf0 0%, #dff7e7 100%);
-  border-color: #b8e9c6;
-  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.12);
-}
-
-.summaryStatusOverTarget {
-  color: #9a6700;
-  background: linear-gradient(180deg, #fff8e8 0%, #fff2d1 100%);
-  border-color: #f4d18b;
-}
-
-.summaryStatusUnderTarget {
-  color: #a61d24;
-  background: linear-gradient(180deg, #fff0f1 0%, #ffe3e6 100%);
-  border-color: #f4bec4;
-}
-
-.summaryStatusNeutral {
-  color: #495057;
-  background: #f3f5fb;
-  border-color: #dfe2ed;
+  margin-right: 4px;
 }
 
 .summaryBody {
@@ -189,6 +141,31 @@
   font-weight: 600;
   background: #f4f6fb;
   box-shadow: inset 0 0 0 1px #dfe2ed;
+}
+
+.summaryTodayRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.summarySizeChip,
+.summarySizeChipTotal {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  border: 1px solid #d8dce8;
+  background: #f2f4f8;
+  color: #495057;
+}
+
+.summarySizeChipTotal {
+  color: #2b6ea6;
+  border-color: #b8d3ee;
+  background: #e7f2ff;
 }
 
 .hiddenInput {
@@ -450,10 +427,6 @@
     font-size: 14px;
   }
 
-  .summaryTopValue {
-    font-size: 22px;
-  }
-
   .summaryHoursRow,
   .summaryMetricRow {
     grid-template-columns: 54px repeat(5, minmax(0, 1fr));
@@ -476,6 +449,12 @@
   .summaryMetricRow {
     gap: 4px;
     font-size: 12px;
+  }
+
+  .summarySizeChip,
+  .summarySizeChipTotal {
+    font-size: 12px;
+    padding: 2px 7px;
   }
 }
 

@@ -235,9 +235,31 @@ describe('OperatorLayout', () => {
     renderOperatorLayout();
     await waitFor(() => {
       expect(screen.getByLabelText('Operator capacity indicator')).toBeInTheDocument();
-      expect(screen.getByText('Total Count')).toBeInTheDocument();
+      expect(screen.getByText('Today')).toBeInTheDocument();
+      expect(screen.getByTestId('today-total-count-chip')).toHaveTextContent('0');
       expect(screen.getByText('Plan')).toBeInTheDocument();
       expect(screen.getByText('Actual')).toBeInTheDocument();
+    });
+  });
+
+  it('renders dynamic tank-size chips from history data', async () => {
+    const { workCenterApi } = await import('../../api/endpoints');
+    vi.mocked(workCenterApi.getHistory).mockResolvedValueOnce({
+      dayCount: 3,
+      tankSizeCounts: [
+        { tankSize: 250, count: 2 },
+        { tankSize: 500, count: 1 },
+      ],
+      recentRecords: [],
+    });
+
+    renderOperatorLayout();
+
+    await waitFor(() => {
+      expect(screen.getByText(/250:\s*2/)).toBeInTheDocument();
+      expect(screen.getByText(/500:\s*1/)).toBeInTheDocument();
+      expect(screen.getByTestId('today-total-count-chip')).toHaveTextContent('3');
+      expect(screen.queryByText(/Total:\s*/)).not.toBeInTheDocument();
     });
   });
 

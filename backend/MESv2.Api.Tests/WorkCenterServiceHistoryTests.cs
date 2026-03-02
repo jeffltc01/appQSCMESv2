@@ -485,6 +485,68 @@ public class WorkCenterServiceHistoryTests
 
         Assert.Equal(1, result.DayCount);
         Assert.Equal(2, result.RecentRecords.Count);
+        Assert.Single(result.TankSizeCounts);
+        Assert.Equal(120, result.TankSizeCounts[0].TankSize);
+        Assert.Equal(1, result.TankSizeCounts[0].Count);
+    }
+
+    [Fact]
+    public async Task TankSizeCounts_AreGroupedByTodayProduction()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product120 = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 120);
+        var product500 = await db.Products.FirstAsync(p => p.ProductType!.SystemTypeName == "shell" && p.TankSize == 500);
+
+        var serials = new[]
+        {
+            new SerialNumber { Id = Guid.NewGuid(), Serial = "TS-120-A", ProductId = product120.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow },
+            new SerialNumber { Id = Guid.NewGuid(), Serial = "TS-120-B", ProductId = product120.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow },
+            new SerialNumber { Id = Guid.NewGuid(), Serial = "TS-500-A", ProductId = product500.Id, PlantId = TestHelpers.PlantPlt1Id, CreatedAt = DateTime.UtcNow }
+        };
+        db.SerialNumbers.AddRange(serials);
+
+        db.ProductionRecords.AddRange(
+            new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = serials[0].Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+                OperatorId = TestHelpers.TestUserId,
+                Timestamp = DateTime.UtcNow
+            },
+            new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = serials[1].Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+                OperatorId = TestHelpers.TestUserId,
+                Timestamp = DateTime.UtcNow
+            },
+            new ProductionRecord
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = serials[2].Id,
+                WorkCenterId = TestHelpers.wcRollsId,
+                ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+                OperatorId = TestHelpers.TestUserId,
+                Timestamp = DateTime.UtcNow
+            });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        var result = await sut.GetHistoryAsync(
+            TestHelpers.wcRollsId,
+            TestHelpers.PlantPlt1Id,
+            TestHelpers.ProductionLine1Plt1Id,
+            date: null,
+            limit: 10);
+
+        Assert.Equal(3, result.DayCount);
+        Assert.Equal(2, result.TankSizeCounts.Count);
+        Assert.Contains(result.TankSizeCounts, item => item.TankSize == 120 && item.Count == 2);
+        Assert.Contains(result.TankSizeCounts, item => item.TankSize == 500 && item.Count == 1);
     }
 
     [Fact]

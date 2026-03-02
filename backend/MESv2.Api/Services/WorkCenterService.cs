@@ -76,6 +76,13 @@ public class WorkCenterService : IWorkCenterService
             .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
             .CountAsync(cancellationToken);
         var dayHourlyCounts = await BuildProductionHourlyCountsAsync(baseFilter, startOfDay, endOfDay, tz, cancellationToken);
+        var dayTankSizes = await baseFilter
+            .Where(r => r.Timestamp >= startOfDay && r.Timestamp < endOfDay)
+            .Select(r => r.SerialNumber != null && r.SerialNumber.Product != null
+                ? (int?)r.SerialNumber.Product.TankSize
+                : null)
+            .ToListAsync(cancellationToken);
+        var dayTankSizeCounts = BuildTankSizeCountDtos(dayTankSizes);
 
         var recentProdRecords = await baseFilter
             .Include(r => r.SerialNumber)
@@ -84,7 +91,7 @@ public class WorkCenterService : IWorkCenterService
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        return await GetProductionHistoryItems(wcId, dayCount, dayHourlyCounts, recentProdRecords, tz, cancellationToken);
+        return await GetProductionHistoryItems(wcId, dayCount, dayHourlyCounts, dayTankSizeCounts, recentProdRecords, tz, cancellationToken);
     }
 
     private async Task<WCHistoryDto> GetSpotHistoryAsync(
@@ -96,18 +103,29 @@ public class WorkCenterService : IWorkCenterService
         TimeZoneInfo tz,
         CancellationToken cancellationToken)
     {
-        var dayTankTimestamps = await _db.SpotXrayIncrementTanks
+        var dayTankRows = await _db.SpotXrayIncrementTanks
             .Where(t => t.SpotXrayIncrement.ProductionRecord.WorkCenterId == wcId)
             .Where(t => t.SpotXrayIncrement.ProductionRecord.ProductionLineId == productionLineId)
             .Where(t => t.SpotXrayIncrement.ProductionRecord.ProductionLine.PlantId == plantId)
-            .Select(t => t.SpotXrayIncrement.CreatedDateTime ?? t.SpotXrayIncrement.ProductionRecord.Timestamp)
-            .Where(ts => ts >= startOfDay && ts < endOfDay)
+            .Select(t => new
+            {
+                Timestamp = t.SpotXrayIncrement.CreatedDateTime ?? t.SpotXrayIncrement.ProductionRecord.Timestamp,
+                SerialTankSize = t.SerialNumber != null && t.SerialNumber.Product != null
+                    ? (int?)t.SerialNumber.Product.TankSize
+                    : null,
+                IncrementTankSize = t.SpotXrayIncrement.TankSize
+            })
+            .Where(row => row.Timestamp >= startOfDay && row.Timestamp < endOfDay)
             .ToListAsync(cancellationToken);
+        var dayTankTimestamps = dayTankRows.Select(row => row.Timestamp).ToList();
+        var dayTankSizeCounts = BuildTankSizeCountDtos(
+            dayTankRows.Select(row => row.SerialTankSize ?? row.IncrementTankSize));
 
         return new WCHistoryDto
         {
             DayCount = dayTankTimestamps.Count,
             HourlyCounts = BuildHourlyCountDtos(dayTankTimestamps, tz),
+            TankSizeCounts = dayTankSizeCounts,
             RecentRecords = new List<WCHistoryEntryDto>()
         };
     }
@@ -126,6 +144,20 @@ public class WorkCenterService : IWorkCenterService
         return result;
     }
 
+    private static List<TankSizeCountDto> BuildTankSizeCountDtos(IEnumerable<int?> tankSizes)
+    {
+        return tankSizes
+            .GroupBy(size => size)
+            .Select(group => new TankSizeCountDto
+            {
+                TankSize = group.Key,
+                Count = group.Count()
+            })
+            .OrderBy(item => item.TankSize == null ? 1 : 0)
+            .ThenBy(item => item.TankSize)
+            .ToList();
+    }
+
     private async Task<List<HourlyCountDto>> BuildProductionHourlyCountsAsync(
         IQueryable<ProductionRecord> baseFilter,
         DateTime startOfDay,
@@ -142,7 +174,7 @@ public class WorkCenterService : IWorkCenterService
     }
 
     private async Task<WCHistoryDto> GetProductionHistoryItems(
-        Guid wcId, int dayCount, List<HourlyCountDto> dayHourlyCounts, List<ProductionRecord> recentProdRecords,
+        Guid wcId, int dayCount, List<HourlyCountDto> dayHourlyCounts, List<TankSizeCountDto> dayTankSizeCounts, List<ProductionRecord> recentProdRecords,
         TimeZoneInfo tz, CancellationToken cancellationToken)
     {
         var recordIds = recentProdRecords.Select(r => r.Id).ToList();
@@ -220,7 +252,13 @@ public class WorkCenterService : IWorkCenterService
             };
         }).ToList();
 
-        return new WCHistoryDto { DayCount = dayCount, HourlyCounts = dayHourlyCounts, RecentRecords = recentRecords };
+        return new WCHistoryDto
+        {
+            DayCount = dayCount,
+            HourlyCounts = dayHourlyCounts,
+            TankSizeCounts = dayTankSizeCounts,
+            RecentRecords = recentRecords
+        };
     }
 
     private async Task<WCHistoryDto> GetInspectionHistoryItems(

@@ -24,7 +24,14 @@ public class WCHistoryDto
 {
     public int DayCount { get; set; }
     public List<HourlyCountDto> HourlyCounts { get; set; } = new();
+    public List<TankSizeCountDto> TankSizeCounts { get; set; } = new();
     public List<WCHistoryEntryDto> RecentRecords { get; set; } = new();
+}
+
+public class TankSizeCountDto
+{
+    public int? TankSize { get; set; }
+    public int Count { get; set; }
 }
 
 public class FaultReportDto
