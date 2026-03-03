@@ -13,7 +13,9 @@ export async function openDialogByTrigger(
   dialogName: string | RegExp,
 ) {
   await user.click(trigger);
-  return screen.findByRole('dialog', { name: dialogName });
+  const dialog = await screen.findByRole('dialog');
+  await within(dialog).findByRole('heading', { name: dialogName });
+  return dialog;
 }
 
 /**
