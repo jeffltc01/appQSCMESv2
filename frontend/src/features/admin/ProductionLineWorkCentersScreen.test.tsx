@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { ProductionLineWorkCentersScreen } from './ProductionLineWorkCentersScreen.tsx';
 import { adminWorkCenterApi, productionLineApi, downtimeConfigApi, downtimeReasonCategoryApi } from '../../api/endpoints.ts';
+import { openDialogByTrigger } from '../../test/dialogTestUtils.ts';
 
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => ({
@@ -246,13 +247,11 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('No per-line overrides configured.')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Add Config' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Add Production Line Config')).toBeInTheDocument();
-    });
-
-    const dialog = await screen.findByRole('dialog', { name: 'Add Production Line Config' });
+    const dialog = await openDialogByTrigger(
+      user,
+      screen.getByRole('button', { name: 'Add Config' }),
+      'Add Production Line Config',
+    );
     const [workCenterCombobox, productionLineCombobox] = within(dialog).getAllByRole('combobox');
 
     await user.click(workCenterCombobox);
