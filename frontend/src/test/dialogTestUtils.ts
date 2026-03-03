@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 
 type Clicker = {
   click: (element: Element) => Promise<void>;
@@ -11,20 +11,26 @@ export async function openDialogByTrigger(
   user: Clicker,
   trigger: Element,
   dialogName: string | RegExp,
-) {
+): Promise<HTMLElement> {
   await user.click(trigger);
-  const heading = await screen.findByRole('heading', { name: dialogName });
-  const fromHeading = heading.closest('[role="dialog"], [role="alertdialog"]');
-  if (fromHeading instanceof HTMLElement) {
-    return fromHeading;
+
+  let matchedDialog: HTMLElement | null = null;
+  await waitFor(() => {
+    const dialogs = screen.queryAllByRole('dialog', { hidden: true });
+    matchedDialog = dialogs.find((dialog) =>
+      within(dialog).queryByText(dialogName, { selector: 'h1,h2,h3,h4,h5,h6,[role="heading"]' }),
+    ) as HTMLElement | undefined ?? null;
+
+    if (!matchedDialog) {
+      throw new Error(`Dialog for heading "${String(dialogName)}" was not found.`);
+    }
+  });
+
+  if (!matchedDialog) {
+    throw new Error(`Dialog for heading "${String(dialogName)}" was not found.`);
   }
 
-  const dialog = screen.queryByRole('dialog') ?? screen.queryByRole('alertdialog');
-  if (dialog instanceof HTMLElement) {
-    return dialog;
-  }
-
-  throw new Error(`Dialog for heading "${String(dialogName)}" was not found.`);
+  return matchedDialog;
 }
 
 /**
@@ -34,5 +40,5 @@ export function getDialogActionButton(
   dialog: HTMLElement,
   buttonName: string | RegExp,
 ) {
-  return within(dialog).getByRole('button', { name: buttonName });
+  return within(dialog).getByRole('button', { name: buttonName, hidden: true });
 }

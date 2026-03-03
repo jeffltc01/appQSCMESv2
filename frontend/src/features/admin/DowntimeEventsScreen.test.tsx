@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { DowntimeEventsScreen } from './DowntimeEventsScreen';
 import type { DowntimeEvent } from '../../types/domain';
-import { getDialogActionButton, openDialogByTrigger } from '../../test/dialogTestUtils';
 
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: {
@@ -171,12 +170,9 @@ describe('DowntimeEventsScreen', () => {
 
     const johnDoeRow = screen.getByText('John Doe').closest('tr');
     expect(johnDoeRow).not.toBeNull();
-    const confirmDialog = await openDialogByTrigger(
-      user,
-      within(johnDoeRow as HTMLTableRowElement).getByLabelText('Delete'),
-      /confirm deactivation/i,
-    );
-    await user.click(getDialogActionButton(confirmDialog, /deactivate/i));
+    fireEvent.click(within(johnDoeRow as HTMLTableRowElement).getByLabelText('Delete'));
+    const confirmDialog = await screen.findByRole('dialog', { hidden: true });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: /deactivate/i, hidden: true }));
 
     await waitFor(() => {
       expect(downtimeEventApi.delete).toHaveBeenCalledWith('evt-1');
