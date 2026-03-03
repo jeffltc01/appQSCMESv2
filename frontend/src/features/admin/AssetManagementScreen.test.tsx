@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { AssetManagementScreen } from './AssetManagementScreen.tsx';
@@ -169,9 +169,10 @@ describe('AssetManagementScreen', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Deactivate Asset 1' }));
-    expect(screen.getByText('Confirm Deactivation')).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { hidden: true });
+    expect(within(dialog).getByText('Confirm Deactivation')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Deactivate', hidden: true }));
 
     await waitFor(() => {
       expect(adminAssetApi.remove).toHaveBeenCalledWith('1');

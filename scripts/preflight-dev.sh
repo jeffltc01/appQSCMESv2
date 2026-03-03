@@ -4,15 +4,45 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-echo "Running dev preflight checks (CI-aligned)..."
+TIER="parity"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tier)
+      TIER="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
-echo "[1/6] Restore backend dependencies"
+if [[ "$TIER" == "tier1" ]]; then
+  echo "Running fast verify tier (tier1)..."
+  cd frontend
+  echo "[1/2] Run targeted brittle-test guardrail suite"
+  npm run test -- src/components/layout/TopBar.test.tsx src/features/admin/DowntimeEventsScreen.test.tsx src/features/admin/ProductionLineWorkCentersScreen.test.tsx
+  echo "[2/2] Run frontend typecheck"
+  npm run typecheck
+  echo "Tier1 verify passed."
+  exit 0
+fi
+
+if [[ "$TIER" != "parity" ]]; then
+  echo "Invalid tier '${TIER}'. Expected 'tier1' or 'parity'." >&2
+  exit 1
+fi
+
+echo "Running parity preflight checks (CI-aligned)..."
+
+echo "[1/5] Restore backend dependencies"
 dotnet restore backend/MESv2.sln
 
-echo "[2/6] Build backend release artifact"
+echo "[2/5] Build backend release artifact"
 dotnet publish backend/MESv2.Api -c Release -o ./publish/backend
 
-echo "[3/6] Run backend tests (Release + coverage collector)"
+echo "[3/5] Run backend tests (Release + coverage collector)"
 dotnet test backend/MESv2.Api.Tests \
   --configuration Release \
   --verbosity normal \
@@ -22,13 +52,10 @@ dotnet test backend/MESv2.Api.Tests \
 
 cd frontend
 
-echo "[4/6] Install frontend dependencies"
+echo "[4/5] Install frontend dependencies"
 npm ci
 
-echo "[5/6] Build frontend (typecheck + vite build)"
-npm run build
+echo "[5/5] Run frontend CI verify (build + coverage tests)"
+npm run ci:verify
 
-echo "[6/6] Run frontend tests with coverage"
-npm run test:coverage
-
-echo "Dev preflight passed."
+echo "Parity preflight passed."

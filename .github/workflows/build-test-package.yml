@@ -84,25 +84,10 @@ jobs:
           cache: npm
           cache-dependency-path: ${{ env.FRONTEND_PATH }}/package-lock.json
 
-      - name: Build backend
-        run: dotnet publish ${{ env.BACKEND_PATH }} -c Release -o ./publish/backend
-
-      - name: Build frontend
-        working-directory: ${{ env.FRONTEND_PATH }}
+      - name: Run parity preflight chain
         env:
           VITE_API_URL: ${{ inputs.backend_url }}
-        run: |
-          npm ci
-          npm run build
-
-      - name: Run backend tests with coverage
-        run: |
-          dotnet test backend/MESv2.Api.Tests \
-            --configuration Release \
-            --verbosity normal \
-            --settings backend/MESv2.Api.Tests/coverage.runsettings \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./TestResults
+        run: bash scripts/preflight-dev.sh --tier parity
 
       - name: Generate backend HTML coverage report
         run: |
@@ -111,12 +96,6 @@ jobs:
             -reports:./TestResults/**/coverage.cobertura.xml \
             -targetdir:./coverage-reports/backend \
             -reporttypes:HtmlInline
-
-      - name: Run frontend tests with coverage
-        working-directory: ${{ env.FRONTEND_PATH }}
-        run: |
-          npm ci
-          npm run test:coverage
 
       - name: Assemble coverage reports
         run: |
