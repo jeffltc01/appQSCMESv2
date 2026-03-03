@@ -252,7 +252,7 @@ describe('ProductionLineWorkCentersScreen', () => {
       expect(screen.getByText('Add Production Line Config')).toBeInTheDocument();
     });
 
-    const dialog = screen.getByRole('dialog', { name: 'Add Production Line Config' });
+    const dialog = await screen.findByRole('dialog', { name: 'Add Production Line Config' });
     const [workCenterCombobox, productionLineCombobox] = within(dialog).getAllByRole('combobox');
 
     await user.click(workCenterCombobox);
