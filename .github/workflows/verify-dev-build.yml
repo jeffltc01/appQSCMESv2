@@ -14,6 +14,11 @@ jobs:
     outputs:
       backend_url: ${{ steps.capture-vars.outputs.backend_url }}
       frontend_url: ${{ steps.capture-vars.outputs.frontend_url }}
+      smoke_admin_emp_no: ${{ steps.capture-vars.outputs.smoke_admin_emp_no }}
+      smoke_operator_emp_no: ${{ steps.capture-vars.outputs.smoke_operator_emp_no }}
+      smoke_welder_emp_no: ${{ steps.capture-vars.outputs.smoke_welder_emp_no }}
+      smoke_supervisor_emp_no: ${{ steps.capture-vars.outputs.smoke_supervisor_emp_no }}
+      smoke_supervisor_display_name: ${{ steps.capture-vars.outputs.smoke_supervisor_display_name }}
     steps:
       - name: Validate required variables
         shell: bash
@@ -22,8 +27,10 @@ jobs:
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           SMOKE_ADMIN_EMP_NO: ${{ vars.SMOKE_ADMIN_EMP_NO }}
           SMOKE_OPERATOR_EMP_NO: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
+          SMOKE_WELDER_EMP_NO: ${{ vars.SMOKE_WELDER_EMP_NO }}
           SMOKE_SUPERVISOR_EMP_NO: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
           SMOKE_SUPERVISOR_PIN: ${{ secrets.SMOKE_SUPERVISOR_PIN }}
+          SMOKE_SUPERVISOR_DISPLAY_NAME: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
           PERF_EMP_NO: ${{ secrets.PERF_EMP_NO }}
           PERF_PIN: ${{ secrets.PERF_PIN }}
           PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
@@ -42,10 +49,20 @@ jobs:
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          SMOKE_ADMIN_EMP_NO: ${{ vars.SMOKE_ADMIN_EMP_NO }}
+          SMOKE_OPERATOR_EMP_NO: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
+          SMOKE_WELDER_EMP_NO: ${{ vars.SMOKE_WELDER_EMP_NO }}
+          SMOKE_SUPERVISOR_EMP_NO: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
+          SMOKE_SUPERVISOR_DISPLAY_NAME: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
         run: |
           set -euo pipefail
           echo "backend_url=${BACKEND_URL}" >> "$GITHUB_OUTPUT"
           echo "frontend_url=${FRONTEND_URL}" >> "$GITHUB_OUTPUT"
+          echo "smoke_admin_emp_no=${SMOKE_ADMIN_EMP_NO}" >> "$GITHUB_OUTPUT"
+          echo "smoke_operator_emp_no=${SMOKE_OPERATOR_EMP_NO}" >> "$GITHUB_OUTPUT"
+          echo "smoke_welder_emp_no=${SMOKE_WELDER_EMP_NO}" >> "$GITHUB_OUTPUT"
+          echo "smoke_supervisor_emp_no=${SMOKE_SUPERVISOR_EMP_NO}" >> "$GITHUB_OUTPUT"
+          echo "smoke_supervisor_display_name=${SMOKE_SUPERVISOR_DISPLAY_NAME}" >> "$GITHUB_OUTPUT"
 
   detect-operator-impact:
     name: Detect operator-impacting changes
@@ -94,11 +111,11 @@ jobs:
       backend_url: ${{ needs.validate-verify-inputs.outputs.backend_url }}
       frontend_url: ${{ needs.validate-verify-inputs.outputs.frontend_url }}
       run_e2e: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' }}
-      smoke_admin_emp_no: ${{ vars.SMOKE_ADMIN_EMP_NO }}
-      smoke_operator_emp_no: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
-      smoke_welder_emp_no: ${{ vars.SMOKE_WELDER_EMP_NO }}
-      smoke_supervisor_emp_no: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
-      smoke_supervisor_display_name: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
+      smoke_admin_emp_no: ${{ needs.validate-verify-inputs.outputs.smoke_admin_emp_no }}
+      smoke_operator_emp_no: ${{ needs.validate-verify-inputs.outputs.smoke_operator_emp_no }}
+      smoke_welder_emp_no: ${{ needs.validate-verify-inputs.outputs.smoke_welder_emp_no }}
+      smoke_supervisor_emp_no: ${{ needs.validate-verify-inputs.outputs.smoke_supervisor_emp_no }}
+      smoke_supervisor_display_name: ${{ needs.validate-verify-inputs.outputs.smoke_supervisor_display_name }}
       operator_smoke_timeout_minutes: 8
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit
