@@ -38,6 +38,9 @@ e2e/artifacts/**/downloads/
 e2e/blob-report/
 .vscode/
 .cursor/
+!.cursor/
+!.cursor/environment.json
+!AGENTS.md
 frontend/.vite/
 frontend/.cache/
 e2e/.playwright/
