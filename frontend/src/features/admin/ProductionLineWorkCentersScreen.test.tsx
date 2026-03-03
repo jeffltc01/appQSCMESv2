@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
@@ -222,6 +222,56 @@ describe('ProductionLineWorkCentersScreen', () => {
     renderScreen();
     await waitFor(() => {
       expect(screen.getByText('No per-line overrides configured.')).toBeInTheDocument();
+    });
+  });
+
+  it('allows creating first per-line override from top-level add action', async () => {
+    vi.mocked(adminWorkCenterApi.getProductionLineConfigs).mockResolvedValue([]);
+    vi.mocked(adminWorkCenterApi.createProductionLineConfig).mockResolvedValue({
+      id: 'wcpl-new',
+      workCenterId: 'g1',
+      productionLineId: 'pl1',
+      productionLineName: 'Line 1',
+      plantName: 'Cleveland',
+      displayName: 'Rolls 1',
+      numberOfWelders: 0,
+      downtimeTrackingEnabled: false,
+      downtimeThresholdMinutes: 5,
+    });
+
+    renderScreen();
+    const user = userEvent.setup();
+
+    await waitFor(() => {
+      expect(screen.getByText('No per-line overrides configured.')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Add Config' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Add Production Line Config')).toBeInTheDocument();
+    });
+
+    const dialog = screen.getByRole('dialog', { name: 'Add Production Line Config' });
+    const [workCenterCombobox, productionLineCombobox] = within(dialog).getAllByRole('combobox');
+
+    await user.click(workCenterCombobox);
+    await user.click(await screen.findByRole('option', { name: 'Rolls 1' }));
+
+    await user.click(productionLineCombobox);
+    await user.click(await screen.findByRole('option', { name: 'Line 1 (Cleveland)' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(adminWorkCenterApi.createProductionLineConfig).toHaveBeenCalledWith('g1', {
+        productionLineId: 'pl1',
+        displayName: 'Rolls 1',
+        numberOfWelders: 0,
+        enableWorkCenterChecklist: false,
+        enableSafetyChecklist: false,
+      });
+      expect(screen.getByText('Line 1 / Rolls 1')).toBeInTheDocument();
     });
   });
 

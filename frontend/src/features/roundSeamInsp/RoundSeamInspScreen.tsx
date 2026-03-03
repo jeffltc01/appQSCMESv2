@@ -257,7 +257,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
   const nextInstruction = (() => {
     if (screenState === 'WaitingForShell') {
       return {
-        title: 'NEXT: Scan shell label',
+        title: 'Scan shell label',
         detail: '',
         isActive: true,
       };
@@ -265,7 +265,7 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
 
     if (hasPendingDefect) {
       return {
-        title: 'NEXT: Complete current defect entry',
+        title: 'Complete current defect entry',
         detail: '',
         isActive: true,
       };
@@ -273,14 +273,14 @@ export function RoundSeamInspScreen(props: WorkCenterProps) {
 
     if (defects.length === 0) {
       return {
-        title: 'NEXT: Scan defect + characteristic + location, or scan Save',
+        title: 'Scan defect + characteristic + location, or scan Save',
         detail: '',
         isActive: true,
       };
     }
 
     return {
-      title: 'NEXT: Scan another defect, or scan Save',
+      title: 'Scan another defect, or scan Save',
       detail: '',
       isActive: true,
     };

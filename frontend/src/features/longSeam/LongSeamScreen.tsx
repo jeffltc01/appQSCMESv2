@@ -77,11 +77,11 @@ export function LongSeamScreen(props: WorkCenterProps) {
 
   const nextInstruction = props.externalInput
     ? {
-        title: 'NEXT: Scan shell label',
+        title: 'Scan shell label',
         isActive: true,
       }
     : {
-        title: 'NEXT: Enter shell serial and tap Submit',
+        title: 'Enter shell serial and tap Submit',
         isActive: false,
       };
 

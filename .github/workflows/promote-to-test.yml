@@ -4,13 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "yes" to confirm promoting to Test (copies Prod DB, deploys code)'
+        description: 'Type "yes" to confirm promoting to Test'
         required: true
         type: string
       source_run_id:
         description: "Run ID from 'Build & Deploy to Dev' that produced release artifacts"
         required: true
         type: string
+      db_strategy:
+        description: "Database strategy for Test"
+        required: true
+        type: choice
+        default: seed-only
+        options:
+          - seed-only
+          - copy-prod
 
 env:
   PROD_RESOURCE_GROUP: rg-qscmes-prod
@@ -32,6 +40,7 @@ jobs:
       - name: Validate required variables and secrets
         shell: bash
         env:
+          DB_STRATEGY: ${{ github.event.inputs.db_strategy }}
           BACKEND_URL: ${{ vars.BACKEND_URL }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           BACKEND_APP_NAME: ${{ vars.BACKEND_APP_NAME }}
@@ -39,6 +48,8 @@ jobs:
           SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id }}
           AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
           SWA_DEPLOYMENT_TOKEN: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          SQL_ADMIN_USER: ${{ secrets.SQL_ADMIN_USER }}
+          SQL_ADMIN_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
         run: |
           set -euo pipefail
           for name in BACKEND_URL FRONTEND_URL BACKEND_APP_NAME SMOKE_EMP_NO SOURCE_RUN_ID AZURE_CREDENTIALS SWA_DEPLOYMENT_TOKEN; do
@@ -48,10 +59,19 @@ jobs:
             fi
           done
 
+          if [[ "${DB_STRATEGY}" == "copy-prod" ]]; then
+            for name in SQL_ADMIN_USER SQL_ADMIN_PASSWORD; do
+              if [[ -z "${!name:-}" ]]; then
+                echo "Missing required value for copy-prod strategy: ${name}" >&2
+                exit 1
+              fi
+            done
+          fi
+
   copy-prod-db:
     name: Copy Prod DB to Test
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.confirm == 'yes' }}
+    if: ${{ github.event.inputs.confirm == 'yes' && github.event.inputs.db_strategy == 'copy-prod' }}
     needs: [validate-promotion-inputs]
     environment: test
 
@@ -113,7 +133,8 @@ jobs:
 
   deploy-test:
     name: Deploy to Test
-    needs: [copy-prod-db]
+    needs: [validate-promotion-inputs, copy-prod-db]
+    if: ${{ always() && github.event.inputs.confirm == 'yes' && (github.event.inputs.db_strategy != 'copy-prod' || needs.copy-prod-db.result == 'success') }}
     runs-on: ubuntu-latest
     environment: test
     concurrency:
@@ -205,7 +226,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Source run ID**: \`${{ github.event.inputs.source_run_id }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Release SHA**: \`${{ steps.manifest.outputs.release_sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Prod DB copied to Test** — EF migrations will run on app startup" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event.inputs.db_strategy }}" == "copy-prod" ]]; then
+            echo "- **DB strategy**: Prod DB copied to Test — EF migrations will run on app startup" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **DB strategy**: Seed-only (no Prod DB copy) — EF migrations will run on app startup" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Backend deployed** to \`${{ vars.BACKEND_APP_NAME }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend deployed** to Test Static Web App" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

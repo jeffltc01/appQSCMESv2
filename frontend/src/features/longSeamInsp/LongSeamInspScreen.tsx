@@ -295,35 +295,35 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
 
   const nextInstruction = props.externalInput
     ? {
-        title: 'NEXT: Scan shell label',
+        title: 'Scan shell label',
         isActive: true,
       }
     : {
-        title: 'NEXT: Enter shell serial and tap Submit',
+        title: 'Enter shell serial and tap Submit',
         isActive: false,
       };
 
   const awaitingInstruction = (() => {
     if (pending.defectCodeId && !pending.locationId) {
       return {
-        title: 'NEXT: Scan Location',
+        title: 'Scan Location',
         isActive: true,
       };
     }
     if (!pending.defectCodeId && pending.locationId) {
       return {
-        title: 'NEXT: Scan Defect Code',
+        title: 'Scan Defect Code',
         isActive: true,
       };
     }
 
     return props.externalInput
       ? {
-          title: 'NEXT: Scan defect + location, or scan Save',
+          title: 'Scan defect + location, or scan Save',
           isActive: true,
         }
       : {
-          title: 'NEXT: Add defect + location, or tap Save',
+          title: 'Add defect + location, or tap Save',
           isActive: false,
         };
   })();

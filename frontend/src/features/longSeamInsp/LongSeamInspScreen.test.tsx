@@ -68,7 +68,7 @@ describe('LongSeamInspScreen', () => {
 
   it('starts in WaitingForShell state', () => {
     renderInspection();
-    expect(screen.getByText(/next: enter shell serial and tap submit/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter shell serial and tap submit/i)).toBeInTheDocument();
   });
 
   it('transitions to AwaitingDefects after shell scan', async () => {
@@ -86,7 +86,7 @@ describe('LongSeamInspScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('SH001')).toBeInTheDocument();
-      expect(screen.getByText(/next: add defect \+ location, or tap save/i)).toBeInTheDocument();
+      expect(screen.getByText(/add defect \+ location, or tap save/i)).toBeInTheDocument();
     });
   });
 
@@ -183,7 +183,7 @@ describe('LongSeamInspScreen', () => {
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/next: enter shell serial and tap submit/i)).toBeInTheDocument();
+      expect(screen.getByText(/enter shell serial and tap submit/i)).toBeInTheDocument();
     });
   });
 
@@ -210,7 +210,7 @@ describe('LongSeamInspScreen', () => {
 
   it('shows external-input NEXT instruction and hides manual waiting form', () => {
     renderInspection({ externalInput: true });
-    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
+    expect(screen.getByText(/scan shell label/i)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/enter serial number/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
   });
@@ -228,13 +228,13 @@ describe('LongSeamInspScreen', () => {
     barcodeHandler?.({ prefix: 'SC', value: 'SH001', raw: 'SC;SH001' }, 'SC;SH001');
 
     await waitFor(() => {
-      expect(screen.getByText(/next: scan defect \+ location, or scan save/i)).toBeInTheDocument();
+      expect(screen.getByText(/scan defect \+ location, or scan save/i)).toBeInTheDocument();
     });
 
     barcodeHandler?.({ prefix: 'D', value: '042', raw: 'D;042' }, 'D;042');
 
     await waitFor(() => {
-      expect(screen.getByText(/next: scan location/i)).toBeInTheDocument();
+      expect(screen.getByText(/^scan location$/i)).toBeInTheDocument();
     });
   });
 });

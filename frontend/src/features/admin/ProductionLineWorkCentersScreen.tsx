@@ -22,6 +22,7 @@ export function ProductionLineWorkCentersScreen() {
   const [plModalOpen, setPlModalOpen] = useState(false);
   const [plEditing, setPlEditing] = useState<WorkCenterProductionLine | null>(null);
   const [plWcId, setPlWcId] = useState('');
+  const [plWcLocked, setPlWcLocked] = useState(false);
   const [plProductionLineId, setPlProductionLineId] = useState('');
   const [plDisplayName, setPlDisplayName] = useState('');
   const [plNumberOfWelders, setPlNumberOfWelders] = useState('0');
@@ -87,10 +88,12 @@ export function ProductionLineWorkCentersScreen() {
     }
   }, []);
 
-  const openPlAdd = (wcId: string) => {
-    const wc = groups.find((g) => g.groupId === wcId);
+  const openPlAdd = (wcId?: string) => {
+    const resolvedWcId = wcId ?? '';
+    const wc = groups.find((g) => g.groupId === resolvedWcId);
     setPlEditing(null);
-    setPlWcId(wcId);
+    setPlWcId(resolvedWcId);
+    setPlWcLocked(!!wcId);
     setPlProductionLineId('');
     setPlDisplayName(wc?.baseName ?? '');
     setPlNumberOfWelders('0');
@@ -107,6 +110,7 @@ export function ProductionLineWorkCentersScreen() {
   const openPlEdit = (wcId: string, config: WorkCenterProductionLine) => {
     setPlEditing(config);
     setPlWcId(wcId);
+    setPlWcLocked(true);
     setPlProductionLineId(config.productionLineId);
     setPlDisplayName(config.displayName);
     setPlNumberOfWelders(String(config.numberOfWelders));
@@ -121,6 +125,14 @@ export function ProductionLineWorkCentersScreen() {
   };
 
   const handlePlSave = async () => {
+    if (!plEditing && !plWcId) {
+      setPlError('Select a work center.');
+      return;
+    }
+    if (!plEditing && !plProductionLineId) {
+      setPlError('Select a production line.');
+      return;
+    }
     if (plDowntimeEnabled && plSelectedReasonIds.length === 0) {
       setPlError('Select at least one downtime reason when downtime tracking is enabled.');
       return;
@@ -229,7 +241,11 @@ export function ProductionLineWorkCentersScreen() {
   );
 
   return (
-    <AdminLayout title="Production Line Work Centers">
+    <AdminLayout
+      title="Production Line Work Centers"
+      onAdd={isQualityManagerOrAbove ? () => openPlAdd() : undefined}
+      addLabel="Add Config"
+    >
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
@@ -331,10 +347,33 @@ export function ProductionLineWorkCentersScreen() {
       >
         {!plEditing && (
           <>
+            <Label>Work Center</Label>
+            <Dropdown
+              value={groups.find((g) => g.groupId === plWcId)?.baseName ?? ''}
+              selectedOptions={[plWcId]}
+              disabled={plWcLocked}
+              onOptionSelect={(_, d) => {
+                const wcId = d.optionValue ?? '';
+                setPlWcId(wcId);
+                const wc = groups.find((g) => g.groupId === wcId);
+                setPlDisplayName(wc?.baseName ?? '');
+                setPlProductionLineId('');
+                setPlReasonCategories([]);
+                setPlSelectedReasonIds([]);
+              }}
+              placeholder="Select a work center..."
+            >
+              {groups.map((group) => (
+                <Option key={group.groupId} value={group.groupId} text={group.baseName}>
+                  {group.baseName}
+                </Option>
+              ))}
+            </Dropdown>
             <Label>Production Line</Label>
             <Dropdown
               value={allProductionLines.find((pl) => pl.id === plProductionLineId)?.name ?? ''}
               selectedOptions={[plProductionLineId]}
+              disabled={!plWcId}
               onOptionSelect={(_, d) => {
                 const id = d.optionValue ?? '';
                 setPlProductionLineId(id);

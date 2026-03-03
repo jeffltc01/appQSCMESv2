@@ -356,27 +356,27 @@ export function RollsScreen(props: WorkCenterProps) {
   const scanInstruction = (() => {
     if (scanState === 'idle' && !activeMaterial) {
       return {
-        title: 'NEXT: Advance the material queue to begin',
+        title: 'Advance the material queue to begin',
         detail: '',
         isActive: false,
       };
     }
     if (scanState === 'scanLabel1') {
       return {
-        title: 'NEXT: Scan Label 1',
+        title: 'Scan Label 1',
         detail: '',
         isActive: true,
       };
     }
     if (scanState === 'scanLabel2') {
       return {
-        title: 'NEXT: Scan Label 2',
+        title: 'Scan Label 2',
         detail: `Label 1: ${label1Serial || '—'}`,
         isActive: true,
       };
     }
     return {
-      title: 'NEXT: Follow on-screen instructions',
+      title: 'Follow on-screen instructions',
       detail: '',
       isActive: false,
     };

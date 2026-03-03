@@ -51,7 +51,7 @@ describe('LongSeamScreen', () => {
 
   it('shows long seam specific NEXT instruction in external input mode', () => {
     renderLongSeam({ externalInput: true });
-    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
+    expect(screen.getByText(/scan shell label/i)).toBeInTheDocument();
   });
 
   it('has serial number input in manual mode', () => {
@@ -66,7 +66,7 @@ describe('LongSeamScreen', () => {
 
   it('shows manual-mode NEXT instruction when external input is off', () => {
     renderLongSeam({ externalInput: false });
-    expect(screen.getByText(/next: enter shell serial and tap submit/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter shell serial and tap submit/i)).toBeInTheDocument();
   });
 
   it('hides manual input section in external input mode', () => {

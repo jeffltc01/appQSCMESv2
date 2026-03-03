@@ -309,7 +309,7 @@ export function HydroScreen(props: WorkCenterProps) {
     if (state === 'WaitingForScans') {
       if (tankSizeMismatch) {
         return {
-          title: 'NEXT: Tank size mismatch - rescan Shell or Nameplate',
+          title: 'Tank size mismatch - rescan Shell or Nameplate',
           detail: `Shell: ${assemblyTankSize != null ? `${assemblyTankSize} gal` : '—'} | Nameplate: ${nameplateTankSize != null ? `${nameplateTankSize} gal` : '—'}`,
           isActive: true,
         };
@@ -317,7 +317,7 @@ export function HydroScreen(props: WorkCenterProps) {
 
       if (!shellSerial && !noShellMode && !nameplateSerial) {
         return {
-          title: 'NEXT: Scan Shell or Nameplate to begin',
+          title: 'Scan Shell or Nameplate to begin',
           detail: '',
           isActive: false,
         };
@@ -325,7 +325,7 @@ export function HydroScreen(props: WorkCenterProps) {
 
       if ((shellSerial || noShellMode) && !nameplateSerial) {
         return {
-          title: 'NEXT: Scan Nameplate',
+          title: 'Scan Nameplate',
           detail: noShellMode ? 'No shell mode selected' : `Shell: ${shellSerial}`,
           isActive: true,
         };
@@ -333,7 +333,7 @@ export function HydroScreen(props: WorkCenterProps) {
 
       if (!shellSerial && !noShellMode && nameplateSerial) {
         return {
-          title: 'NEXT: Scan Shell',
+          title: 'Scan Shell',
           detail: `Nameplate: ${nameplateSerial}`,
           isActive: true,
         };
@@ -347,14 +347,14 @@ export function HydroScreen(props: WorkCenterProps) {
           ? 'Select Characteristic'
           : 'Select Location';
       return {
-        title: 'NEXT: Complete defect wizard',
+        title: 'Complete defect wizard',
         detail: stepLabel,
         isActive: true,
       };
     }
 
     return {
-      title: 'NEXT: Accept No Defects or Add Defect',
+      title: 'Accept No Defects or Add Defect',
       detail: '',
       isActive: true,
     };

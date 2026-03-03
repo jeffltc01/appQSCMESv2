@@ -125,21 +125,21 @@ export function NameplateScreen(props: WorkCenterProps) {
     if (externalInput) {
       if (editingRecordId) {
         return {
-          title: 'NEXT: Toggle External Input off to edit this record',
+          title: 'Toggle External Input off to edit this record',
           detail: 'Editing existing records requires manual mode.',
           isActive: true,
         };
       }
       return {
         title: selectedProductId
-          ? 'NEXT: Scan finished serial barcode'
-          : 'NEXT: Select Tank Size / Type, then scan finished serial barcode',
+          ? 'Scan finished serial barcode'
+          : 'Select Tank Size / Type, then scan finished serial barcode',
         detail: 'Scanning auto-saves and prints the barcode label.',
         isActive: true,
       };
     }
     return {
-      title: 'NEXT: Select Tank Size / Type, enter serial, then Save',
+      title: 'Select Tank Size / Type, enter serial, then Save',
       detail: '',
       isActive: false,
     };

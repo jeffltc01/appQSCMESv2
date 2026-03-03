@@ -44,7 +44,7 @@ describe('RoundSeamInspScreen', () => {
 
   it('renders waiting state', () => {
     renderScreen();
-    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
+    expect(screen.getByText(/scan shell label/i)).toBeInTheDocument();
   });
 
   it('registers barcode handler', () => {
@@ -104,12 +104,12 @@ describe('RoundSeamInspScreen', () => {
     await waitFor(() => expect(screen.getByText(/tank size/i)).toBeInTheDocument());
 
     expect(mockGetCharacteristics).toHaveBeenCalledWith('wc-rsi', 500);
-    expect(screen.getByText(/next: scan defect \+ characteristic \+ location, or scan save/i)).toBeInTheDocument();
+    expect(screen.getByText(/scan defect \+ characteristic \+ location, or scan save/i)).toBeInTheDocument();
   });
 
   it('shows external-input NEXT guidance while waiting', () => {
     renderScreen({ externalInput: true });
-    expect(screen.getByText(/next: scan shell label/i)).toBeInTheDocument();
+    expect(screen.getByText(/scan shell label/i)).toBeInTheDocument();
   });
 
   it('includes selected assetId when saving inspection', async () => {

@@ -14,12 +14,19 @@ param location string = resourceGroup().location
 @description('Azure region for Static Web App (SWA is not available in all regions)')
 param swaLocation string = 'eastus2'
 
+@description('Use externally managed SQL connection string instead of provisioning SQL resources')
+param useExternalSql bool = false
+
+@secure()
+@description('External SQL connection string to use when useExternalSql=true')
+param externalSqlConnectionString string = ''
+
 @description('SQL Server administrator login')
-param sqlAdminUser string
+param sqlAdminUser string = 'mesadmin'
 
 @secure()
 @description('SQL Server administrator password')
-param sqlAdminPassword string
+param sqlAdminPassword string = ''
 
 @secure()
 @description('JWT signing key (min 32 chars)')
@@ -43,7 +50,7 @@ module appInsights 'modules/appInsights.bicep' = {
 // ---------------------------------------------------------------------------
 // SQL Server + Database
 // ---------------------------------------------------------------------------
-module sql 'modules/sqlServer.bicep' = {
+module sql 'modules/sqlServer.bicep' = if (!useExternalSql) {
   name: 'sql-${environmentName}'
   params: {
     environmentName: environmentName
@@ -86,7 +93,7 @@ module keyVault 'modules/keyVault.bicep' = {
     environmentName: environmentName
     location: location
     appServicePrincipalId: appService.outputs.webAppPrincipalId
-    sqlConnectionString: sql.outputs.connectionString
+    sqlConnectionString: useExternalSql ? externalSqlConnectionString : sql.outputs.connectionString
     jwtKey: jwtKey
     appInsightsConnectionString: appInsights.outputs.connectionString
     corsAllowedOrigin: 'https://${swa.outputs.defaultHostname}'
@@ -100,6 +107,7 @@ module keyVault 'modules/keyVault.bicep' = {
 module storage 'modules/storage.bicep' = {
   name: 'storage-${environmentName}'
   params: {
+    storageAccountName: 'qscmesbacpacs${environmentName}'
     location: location
   }
 }
@@ -118,7 +126,7 @@ output appServiceHostname string = appService.outputs.webAppHostname
 output swaHostname string = swa.outputs.defaultHostname
 
 @description('SQL Server FQDN')
-output sqlServerFqdn string = sql.outputs.sqlServerFqdn
+output sqlServerFqdn string = useExternalSql ? '' : sql.outputs.sqlServerFqdn
 
 @description('Database name')
-output databaseName string = sql.outputs.databaseName
+output databaseName string = useExternalSql ? '' : sql.outputs.databaseName

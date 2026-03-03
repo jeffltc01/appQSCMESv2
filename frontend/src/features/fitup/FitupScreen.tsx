@@ -708,8 +708,8 @@ export function FitupScreen(props: WorkCenterProps) {
     if (reassemblyMode) {
       return {
         title: props.externalInput
-          ? 'NEXT: Reassembly mode active'
-          : 'NEXT: Select a component in Proposed and enter replacement',
+          ? 'Reassembly mode active'
+          : 'Select a component in Proposed and enter replacement',
         isActive: props.externalInput,
       };
     }
@@ -717,8 +717,8 @@ export function FitupScreen(props: WorkCenterProps) {
     if (reassemblyPrompt) {
       return {
         title: props.externalInput
-          ? 'NEXT: Scan Yes or No for reassembly'
-          : 'NEXT: Confirm reassembly (Yes or No)',
+          ? 'Scan Yes or No for reassembly'
+          : 'Confirm reassembly (Yes or No)',
         isActive,
       };
     }
@@ -726,8 +726,8 @@ export function FitupScreen(props: WorkCenterProps) {
     if (tankSize === 0 || shells.length === 0) {
       return {
         title: props.externalInput
-          ? 'NEXT: Scan first shell'
-          : 'NEXT: Enter first shell serial and tap Add Shell',
+          ? 'Scan first shell'
+          : 'Enter first shell serial and tap Add Shell',
         isActive,
       };
     }
@@ -736,8 +736,8 @@ export function FitupScreen(props: WorkCenterProps) {
     if (missingShells > 0) {
       return {
         title: props.externalInput
-          ? `NEXT: Scan ${missingShells} more shell${missingShells > 1 ? 's' : ''}`
-          : `NEXT: Add ${missingShells} more shell${missingShells > 1 ? 's' : ''}`,
+          ? `Scan ${missingShells} more shell${missingShells > 1 ? 's' : ''}`
+          : `Add ${missingShells} more shell${missingShells > 1 ? 's' : ''}`,
         isActive,
       };
     }
@@ -745,8 +745,8 @@ export function FitupScreen(props: WorkCenterProps) {
     if (!leftHead || !rightHead) {
       return {
         title: props.externalInput
-          ? 'NEXT: Scan head kanban card'
-          : 'NEXT: Scan or select head kanban card',
+          ? 'Scan head kanban card'
+          : 'Scan or select head kanban card',
         isActive,
       };
     }
@@ -756,15 +756,15 @@ export function FitupScreen(props: WorkCenterProps) {
     const hasShellMismatch = shells.some((s) => s.filled && isComponentMismatch(tankSize, s.tankSize));
     if (hasHeadMismatch || hasShellMismatch) {
       return {
-        title: 'NEXT: Fix component size mismatch',
+        title: 'Fix component size mismatch',
         isActive,
       };
     }
 
     return {
       title: props.externalInput
-        ? 'NEXT: Scan Save'
-        : 'NEXT: Tap Save',
+        ? 'Scan Save'
+        : 'Tap Save',
       isActive,
     };
   })();

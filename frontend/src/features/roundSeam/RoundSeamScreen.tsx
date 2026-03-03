@@ -298,14 +298,14 @@ export function RoundSeamScreen(props: WorkCenterProps) {
   const scanInstruction = (() => {
     if (!setup?.isComplete) {
       return {
-        title: 'NEXT: Complete Roundseam Setup',
+        title: 'Complete Roundseam Setup',
         detail: 'Tap "Roundseam Setup", assign welders, then save setup.',
         isActive: false,
       };
     }
 
     return {
-      title: 'NEXT: Scan shell barcode',
+      title: 'Scan shell barcode',
       detail: `Setup ready for ${setup.tankSize} (${seamCountForSize(setup.tankSize)} seams)`,
       isActive: true,
     };

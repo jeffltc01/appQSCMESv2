@@ -54,12 +54,12 @@ describe('RoundSeamScreen', () => {
 
   it('shows NEXT guidance to complete setup when setup is incomplete', async () => {
     renderScreen();
-    expect(await screen.findByText(/next: complete roundseam setup/i)).toBeInTheDocument();
+    expect(await screen.findByText(/complete roundseam setup/i)).toBeInTheDocument();
   });
 
   it('renders NEXT guidance above setup button', async () => {
     renderScreen();
-    const nextGuidance = await screen.findByText(/next: complete roundseam setup/i);
+    const nextGuidance = await screen.findByText(/complete roundseam setup/i);
     const setupButton = screen.getByRole('button', { name: /roundseam setup/i });
     const relation = nextGuidance.compareDocumentPosition(setupButton);
     expect((relation & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
@@ -137,7 +137,7 @@ describe('RoundSeamScreen', () => {
       rs3WelderId: 'w1',
     });
     renderScreen();
-    expect(await screen.findByText(/next: scan shell barcode/i)).toBeInTheDocument();
+    expect(await screen.findByText(/scan shell barcode/i)).toBeInTheDocument();
   });
 
   it('shows tank size and seam assignments directly under NEXT area', async () => {
@@ -149,7 +149,7 @@ describe('RoundSeamScreen', () => {
     });
     renderScreen();
 
-    const nextGuidance = await screen.findByText(/next: scan shell barcode/i);
+    const nextGuidance = await screen.findByText(/scan shell barcode/i);
     expect(screen.getByText(/tank size:/i)).toBeInTheDocument();
     expect(screen.getByText(/seams:/i)).toBeInTheDocument();
     expect(screen.getByText(/seam 1 =/i)).toBeInTheDocument();
