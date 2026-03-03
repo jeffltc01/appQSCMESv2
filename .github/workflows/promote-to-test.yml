@@ -160,7 +160,11 @@ jobs:
         id: manifest
         shell: bash
         run: |
-          MANIFEST_FILE="$(ls ./release/*.json | head -1)"
+          MANIFEST_FILE="$(find ./release -name '*.json' | head -1)"
+          if [[ -z "${MANIFEST_FILE}" ]]; then
+            echo "No manifest JSON found under ./release after artifact download." >&2
+            exit 1
+          fi
           RELEASE_SHA="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['releaseSha'])" "$MANIFEST_FILE")"
           BACKEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['backendArtifact'])" "$MANIFEST_FILE")"
           FRONTEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['frontendArtifact'])" "$MANIFEST_FILE")"
