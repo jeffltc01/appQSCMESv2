@@ -29,7 +29,7 @@ jobs:
           PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
         run: |
           set -euo pipefail
-          for name in BACKEND_URL FRONTEND_URL SMOKE_ADMIN_EMP_NO SMOKE_OPERATOR_EMP_NO SMOKE_SUPERVISOR_EMP_NO SMOKE_SUPERVISOR_PIN PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
+          for name in BACKEND_URL FRONTEND_URL SMOKE_ADMIN_EMP_NO SMOKE_OPERATOR_EMP_NO SMOKE_SUPERVISOR_EMP_NO PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing required value: ${name}" >&2
               exit 1

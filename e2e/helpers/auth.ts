@@ -1,10 +1,19 @@
 import { type Page, expect } from '@playwright/test';
 
 export const FRONTEND_BASE_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const DEPLOY_SMOKE = process.env.DEPLOY_SMOKE === 'true';
 
 function readEnv(name: string, fallback: string): string {
   const value = process.env[name]?.trim();
   return value && value.length > 0 ? value : fallback;
+}
+
+function readOptionalPin(name: string, fallback?: string): string | undefined {
+  const raw = process.env[name];
+  if (raw == null) return fallback;
+  const value = raw.trim();
+  if (value === '' || /^(none|null|no-pin)$/i.test(value)) return undefined;
+  return value;
 }
 
 export const TEST_USERS = {
@@ -19,7 +28,7 @@ export const TEST_USERS = {
   },
   supervisor: {
     empNo: readEnv('SMOKE_SUPERVISOR_EMP_NO', 'EMP005'),
-    pin: readEnv('SMOKE_SUPERVISOR_PIN', '1234'),
+    pin: readOptionalPin('SMOKE_SUPERVISOR_PIN', DEPLOY_SMOKE ? undefined : '1234'),
     displayName: readEnv('SMOKE_SUPERVISOR_DISPLAY_NAME', 'Lisa Chen'),
   },
 } as const;
