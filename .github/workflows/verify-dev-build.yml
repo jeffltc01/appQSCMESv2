@@ -94,6 +94,11 @@ jobs:
       backend_url: ${{ needs.validate-verify-inputs.outputs.backend_url }}
       frontend_url: ${{ needs.validate-verify-inputs.outputs.frontend_url }}
       run_e2e: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' }}
+      smoke_admin_emp_no: ${{ vars.SMOKE_ADMIN_EMP_NO }}
+      smoke_operator_emp_no: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
+      smoke_welder_emp_no: ${{ vars.SMOKE_WELDER_EMP_NO }}
+      smoke_supervisor_emp_no: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
+      smoke_supervisor_display_name: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
       operator_smoke_timeout_minutes: 8
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit

@@ -20,6 +20,31 @@ on:
         required: false
         type: boolean
         default: false
+      smoke_admin_emp_no:
+        description: Employee number for admin smoke login.
+        required: false
+        type: string
+        default: ""
+      smoke_operator_emp_no:
+        description: Employee number for operator smoke login.
+        required: false
+        type: string
+        default: ""
+      smoke_welder_emp_no:
+        description: Optional employee number for welder smoke login.
+        required: false
+        type: string
+        default: ""
+      smoke_supervisor_emp_no:
+        description: Employee number for supervisor smoke login.
+        required: false
+        type: string
+        default: ""
+      smoke_supervisor_display_name:
+        description: Optional display name assertion for supervisor smoke login.
+        required: false
+        type: string
+        default: ""
       operator_smoke_timeout_minutes:
         description: Max minutes for operator smoke step before hard timeout.
         required: false
@@ -184,12 +209,12 @@ jobs:
           DEPLOY_SMOKE: "true"
           BACKEND_URL: ${{ inputs.backend_url }}
           FRONTEND_URL: ${{ inputs.frontend_url }}
-          SMOKE_ADMIN_EMP_NO: ${{ vars.SMOKE_ADMIN_EMP_NO }}
-          SMOKE_OPERATOR_EMP_NO: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
-          SMOKE_WELDER_EMP_NO: ${{ vars.SMOKE_WELDER_EMP_NO }}
-          SMOKE_SUPERVISOR_EMP_NO: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
+          SMOKE_ADMIN_EMP_NO: ${{ inputs.smoke_admin_emp_no }}
+          SMOKE_OPERATOR_EMP_NO: ${{ inputs.smoke_operator_emp_no }}
+          SMOKE_WELDER_EMP_NO: ${{ inputs.smoke_welder_emp_no }}
+          SMOKE_SUPERVISOR_EMP_NO: ${{ inputs.smoke_supervisor_emp_no }}
           SMOKE_SUPERVISOR_PIN: ${{ secrets.SMOKE_SUPERVISOR_PIN }}
-          SMOKE_SUPERVISOR_DISPLAY_NAME: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
+          SMOKE_SUPERVISOR_DISPLAY_NAME: ${{ inputs.smoke_supervisor_display_name }}
         run: npm run test:operator-smoke
 
       - name: Upload Playwright report
