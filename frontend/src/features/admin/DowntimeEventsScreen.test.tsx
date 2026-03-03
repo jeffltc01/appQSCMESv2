@@ -5,6 +5,7 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { DowntimeEventsScreen } from './DowntimeEventsScreen';
 import type { DowntimeEvent } from '../../types/domain';
+import { getDialogActionButton, openDialogByTrigger } from '../../test/dialogTestUtils';
 
 vi.mock('../../api/endpoints', () => ({
   workCenterApi: {
@@ -168,15 +169,14 @@ describe('DowntimeEventsScreen', () => {
       expect(screen.getByText('John Doe')).toBeInTheDocument();
     });
 
-    const deleteButtons = screen.getAllByLabelText('Delete');
-    await user.click(deleteButtons[0]);
-
-    await waitFor(() => {
-      expect(screen.getByText(/confirm deactivation/i)).toBeInTheDocument();
-    });
-
-    const confirmDialog = await screen.findByRole('dialog', { name: /confirm deactivation/i });
-    await user.click(within(confirmDialog).getByRole('button', { name: /deactivate/i }));
+    const johnDoeRow = screen.getByText('John Doe').closest('tr');
+    expect(johnDoeRow).not.toBeNull();
+    const confirmDialog = await openDialogByTrigger(
+      user,
+      within(johnDoeRow as HTMLTableRowElement).getByLabelText('Delete'),
+      /confirm deactivation/i,
+    );
+    await user.click(getDialogActionButton(confirmDialog, /deactivate/i));
 
     await waitFor(() => {
       expect(downtimeEventApi.delete).toHaveBeenCalledWith('evt-1');

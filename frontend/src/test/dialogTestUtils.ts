@@ -13,9 +13,18 @@ export async function openDialogByTrigger(
   dialogName: string | RegExp,
 ) {
   await user.click(trigger);
-  const dialog = await screen.findByRole('dialog');
-  await within(dialog).findByRole('heading', { name: dialogName });
-  return dialog;
+  const heading = await screen.findByRole('heading', { name: dialogName });
+  const fromHeading = heading.closest('[role="dialog"], [role="alertdialog"]');
+  if (fromHeading instanceof HTMLElement) {
+    return fromHeading;
+  }
+
+  const dialog = screen.queryByRole('dialog') ?? screen.queryByRole('alertdialog');
+  if (dialog instanceof HTMLElement) {
+    return dialog;
+  }
+
+  throw new Error(`Dialog for heading "${String(dialogName)}" was not found.`);
 }
 
 /**
