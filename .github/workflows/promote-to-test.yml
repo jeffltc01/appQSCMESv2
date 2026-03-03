@@ -146,14 +146,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download release manifest
-        uses: actions/download-artifact@v5
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          pattern: release-manifest-*
-          path: ./release
-          merge-multiple: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./release
+          gh run download "$RUN_ID" --repo "$REPOSITORY" --pattern "release-manifest-*" --dir ./release
 
       - name: Read manifest metadata
         id: manifest
@@ -169,31 +170,57 @@ jobs:
           echo "frontend_artifact=${FRONTEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
 
       - name: Download backend artifact
-        uses: actions/download-artifact@v5
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          name: ${{ steps.manifest.outputs.backend_artifact }}
-          path: ./backend
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+          ARTIFACT_NAME: ${{ steps.manifest.outputs.backend_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./backend
+          for attempt in 1 2 3 4 5; do
+            if gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT_NAME" --dir ./backend; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "Failed to download backend artifact '$ARTIFACT_NAME' after $attempt attempts." >&2
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Download frontend artifact
-        uses: actions/download-artifact@v5
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          name: ${{ steps.manifest.outputs.frontend_artifact }}
-          path: ./frontend
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+          ARTIFACT_NAME: ${{ steps.manifest.outputs.frontend_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./frontend
+          for attempt in 1 2 3 4 5; do
+            if gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT_NAME" --dir ./frontend; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "Failed to download frontend artifact '$ARTIFACT_NAME' after $attempt attempts." >&2
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Download SLO perf artifacts
-        uses: actions/download-artifact@v5
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          name: perf-artifacts
-          path: ./perf/artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./perf/artifacts
+          gh run download "$RUN_ID" --repo "$REPOSITORY" --name perf-artifacts --dir ./perf/artifacts
 
       - name: Enforce SLO gate before test promotion
         run: python3 .github/scripts/evaluate-slo-gates.py
