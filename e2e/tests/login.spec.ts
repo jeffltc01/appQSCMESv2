@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { loginViaUI, TEST_USERS } from '../helpers/auth';
 
+const SKIP_UI_LOGIN_SMOKE = process.env.SKIP_UI_LOGIN_SMOKE === 'true';
+
 test.describe('Login', () => {
+  test.skip(SKIP_UI_LOGIN_SMOKE, 'UI login assertions are excluded from blocking operator smoke lane.');
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });

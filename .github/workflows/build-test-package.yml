@@ -207,6 +207,7 @@ jobs:
         working-directory: e2e
         env:
           DEPLOY_SMOKE: "true"
+          SKIP_UI_LOGIN_SMOKE: "true"
           BACKEND_URL: ${{ inputs.backend_url }}
           FRONTEND_URL: ${{ inputs.frontend_url }}
           SMOKE_ADMIN_EMP_NO: ${{ inputs.smoke_admin_emp_no }}
