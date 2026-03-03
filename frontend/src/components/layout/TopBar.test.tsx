@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { TopBar } from './TopBar';
+import { getDialogActionButton, openDialogByTrigger } from '../../test/dialogTestUtils.ts';
 
 vi.mock('../../api/endpoints.ts', () => ({
   workCenterApi: {
@@ -84,12 +85,16 @@ describe('TopBar', () => {
     const onAddWelder = vi.fn();
     renderTopBar({ onAddWelder });
 
-    await user.click(screen.getByLabelText('Add welder'));
-    const dialog = await screen.findByRole('dialog', { hidden: true });
+    const dialog = await openDialogByTrigger(
+      user,
+      screen.getByLabelText('Add welder'),
+      'Add Welder',
+    );
 
-    await user.type(screen.getByPlaceholderText('Employee Number'), '12345');
-    await user.click(within(dialog).getByRole('button', { name: 'Add Welder', hidden: true }));
+    await user.type(within(dialog).getByPlaceholderText('Employee Number'), '12345');
+    await user.click(getDialogActionButton(dialog, 'Add Welder'));
 
-    expect(onAddWelder).toHaveBeenCalledWith('12345');
+    await waitFor(() => expect(onAddWelder).toHaveBeenCalledTimes(1));
+    expect(onAddWelder.mock.calls[0]?.[0]).toBe('12345');
   });
 });
