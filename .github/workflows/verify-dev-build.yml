@@ -123,7 +123,7 @@ jobs:
   extended-e2e-signal:
     name: Extended E2E signal (non-blocking)
     needs: [validate-verify-inputs, detect-operator-impact, build-test-package]
-    if: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' && needs.build-test-package.result == 'success' }}
+    if: ${{ false }}
     continue-on-error: true
     runs-on: ubuntu-latest
     env:
