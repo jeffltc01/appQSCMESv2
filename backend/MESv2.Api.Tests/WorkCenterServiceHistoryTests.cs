@@ -576,7 +576,7 @@ public class WorkCenterServiceHistoryTests
             Timestamp = DateTime.UtcNow
         });
 
-        var annotationTypeId = Guid.Parse("a1000003-0000-0000-0000-000000000003"); // Defect - red
+        var annotationTypeId = Guid.Parse("a1000005-0000-0000-0000-000000000005"); // Correction Needed - yellow
         db.Annotations.Add(new Annotation
         {
             Id = Guid.NewGuid(),
@@ -597,7 +597,7 @@ public class WorkCenterServiceHistoryTests
 
         Assert.Single(result.RecentRecords);
         Assert.True(result.RecentRecords[0].HasAnnotation);
-        Assert.Equal("#ff0000", result.RecentRecords[0].AnnotationColor);
+        Assert.Equal("#ffff00", result.RecentRecords[0].AnnotationColor);
     }
 
     [Fact]

@@ -433,12 +433,12 @@ public class WorkCenterServiceTests
             PlantGearId = TestPlantGearId
         });
 
-        var defectTypeId = Guid.Parse("a1000003-0000-0000-0000-000000000003");
+        var annotationTypeId = Guid.Parse("a1000005-0000-0000-0000-000000000005");
         db.Annotations.Add(new Annotation
         {
             Id = Guid.NewGuid(),
             ProductionRecordId = prId,
-            AnnotationTypeId = defectTypeId,
+            AnnotationTypeId = annotationTypeId,
             Status = AnnotationStatus.Open,
             Notes = "Test defect",
             InitiatedByUserId = TestHelpers.TestUserId,
@@ -450,7 +450,7 @@ public class WorkCenterServiceTests
 
         Assert.Single(result.RecentRecords);
         Assert.True(result.RecentRecords[0].HasAnnotation);
-        Assert.Equal("#ff0000", result.RecentRecords[0].AnnotationColor);
+        Assert.Equal("#ffff00", result.RecentRecords[0].AnnotationColor);
     }
 
     [Fact]

@@ -403,7 +403,6 @@ public class DemoDataAdminService : IDemoDataAdminService
         var defectLocation = await _db.DefectLocations
             .FirstOrDefaultAsync(dl => dl.Code == "1", ct)
             ?? await _db.DefectLocations.FirstAsync(ct);
-        var annotationTypeDefect = await _db.AnnotationTypes.FirstAsync(a => a.Name == "Defect", ct);
         var annotationTypeCorrection = await _db.AnnotationTypes.FirstAsync(a => a.Name == "Correction Needed", ct);
         var plantGear = await _db.PlantGears
             .FirstOrDefaultAsync(pg => pg.PlantId == plant.Id && pg.Level == 4, ct)
@@ -829,7 +828,7 @@ public class DemoDataAdminService : IDemoDataAdminService
                     Id = Guid.NewGuid(),
                     ProductionRecordId = longSeamInspRecord.Id,
                     SerialNumberId = shellSn.Id,
-                    AnnotationTypeId = annotationTypeDefect.Id,
+                    AnnotationTypeId = annotationTypeCorrection.Id,
                     Status = AnnotationStatus.Open,
                     Notes = "Demo quality hold for supervisor follow-up.",
                     InitiatedByUserId = op.Id,

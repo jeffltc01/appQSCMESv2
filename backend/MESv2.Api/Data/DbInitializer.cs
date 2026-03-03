@@ -44,7 +44,6 @@ public static class DbInitializer
             context.AnnotationTypes.AddRange(
                 new AnnotationType { Id = Guid.Parse("a1000001-0000-0000-0000-000000000001"), Name = "Note", Abbreviation = "N", RequiresResolution = false, OperatorCanCreate = true, DisplayColor = "#cc00ff" },
                 new AnnotationType { Id = Guid.Parse("a1000002-0000-0000-0000-000000000002"), Name = "AI Review", Abbreviation = "AI", RequiresResolution = false, OperatorCanCreate = false, DisplayColor = "#33cc33" },
-                new AnnotationType { Id = Guid.Parse("a1000003-0000-0000-0000-000000000003"), Name = "Defect", Abbreviation = "D", RequiresResolution = true, OperatorCanCreate = true, DisplayColor = "#ff0000" },
                 new AnnotationType { Id = Guid.Parse("a1000004-0000-0000-0000-000000000004"), Name = "Internal Review", Abbreviation = "IR", RequiresResolution = false, OperatorCanCreate = false, DisplayColor = "#0099ff" },
                 new AnnotationType { Id = Guid.Parse("a1000005-0000-0000-0000-000000000005"), Name = "Correction Needed", Abbreviation = "C", RequiresResolution = true, OperatorCanCreate = true, DisplayColor = "#ffff00" }
             );
@@ -272,7 +271,6 @@ public static class DbInitializer
         context.AnnotationTypes.AddRange(
             new AnnotationType { Id = Guid.Parse("a1000001-0000-0000-0000-000000000001"), Name = "Note", Abbreviation = "N", RequiresResolution = false, OperatorCanCreate = true, DisplayColor = "#cc00ff" },
             new AnnotationType { Id = Guid.Parse("a1000002-0000-0000-0000-000000000002"), Name = "AI Review", Abbreviation = "AI", RequiresResolution = false, OperatorCanCreate = false, DisplayColor = "#33cc33" },
-            new AnnotationType { Id = Guid.Parse("a1000003-0000-0000-0000-000000000003"), Name = "Defect", Abbreviation = "D", RequiresResolution = true, OperatorCanCreate = true, DisplayColor = "#ff0000" },
             new AnnotationType { Id = Guid.Parse("a1000004-0000-0000-0000-000000000004"), Name = "Internal Review", Abbreviation = "IR", RequiresResolution = false, OperatorCanCreate = false, DisplayColor = "#0099ff" },
             new AnnotationType { Id = Guid.Parse("a1000005-0000-0000-0000-000000000005"), Name = "Correction Needed", Abbreviation = "C", RequiresResolution = true, OperatorCanCreate = true, DisplayColor = "#ffff00" }
         );
