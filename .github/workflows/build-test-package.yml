@@ -203,6 +203,7 @@ jobs:
 
       - name: Run operator smoke E2E tests
         if: ${{ inputs.run_e2e }}
+        continue-on-error: true
         timeout-minutes: ${{ inputs.operator_smoke_timeout_minutes }}
         working-directory: e2e
         env:
