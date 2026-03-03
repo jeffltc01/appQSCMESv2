@@ -14,6 +14,7 @@ This specification is focused only on Hold Tags and their integration boundary w
 - Hold tag number needs to be available quickly, possibly even before saving if possible, because they have to write the number on the shell or product.
 - Hold Tags are attached to production records in manufacturing context (serial/work center/line context required), but they could also be created without that much context as well, for the most part they should have at least a serial number.
 - Hold Tag creation captures minimal required data to keep floor workflow fast.
+- Defect codes could use the current defect code model, but would need to identify codes that only show up for Hold Tags.
 - Quality and Team Lead are notified when a Hold Tag is created.
 - Disposition is selected by Quality.
 - Disposition options:
@@ -22,6 +23,7 @@ This specification is focused only on Hold Tags and their integration boundary w
   - `Scrap`
 - `Repair` and `Scrap` require NCR handoff before Hold Tag closure.
 - Hold Tag can be resolved only after all disposition-specific requirements are complete.
+- Quality would like a mobile phone formatted screen for quickly responding / dispositionng Hold Tags.  Should consider things like pre-built notes for easily selecting a dispostion and selecting a note without having to type on a phone.
 
 ### Out of Scope (Initial Release)
 
@@ -53,7 +55,7 @@ This specification is focused only on Hold Tags and their integration boundary w
 - `Status` (`AwaitingDisposition`, `InDisposition`, `NcrRequired`, `Resolved`, `Voided`)
 - `SiteCode` (required)
 - `ProductionLineId` (required)
-- `WorkCenterId` (required)
+- `WorkCenterId` (optional)
 - `SerialNumberMasterId` (required)
 - `ProblemDescription` (required)
 - `DefectCodeId` (optional, but recommended)
@@ -67,7 +69,7 @@ This specification is focused only on Hold Tags and their integration boundary w
 - `Disposition` (`ReleaseAsIs`, `Repair`, `Scrap`)
 - `DispositionSetByUserId` (Quality role required)
 - `DispositionSetAtUtc` (UTC)
-- `DispositionNotes` (optional general notes)
+- `DispositionNotes` (optional general notes, should be required for ReleaseAsIs)
 
 ### Disposition-Specific Required Fields
 
