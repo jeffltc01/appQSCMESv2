@@ -184,6 +184,7 @@ jobs:
           set -euo pipefail
           mkdir -p ./backend
           for attempt in 1 2 3 4 5; do
+            rm -rf ./backend/*
             if gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT_NAME" --dir ./backend; then
               exit 0
             fi
@@ -205,6 +206,7 @@ jobs:
           set -euo pipefail
           mkdir -p ./frontend
           for attempt in 1 2 3 4 5; do
+            rm -rf ./frontend/*
             if gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT_NAME" --dir ./frontend; then
               exit 0
             fi
