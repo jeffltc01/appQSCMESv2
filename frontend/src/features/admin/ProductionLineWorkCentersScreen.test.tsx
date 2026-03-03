@@ -252,7 +252,7 @@ describe('ProductionLineWorkCentersScreen', () => {
       screen.getByRole('button', { name: 'Add Config' }),
       'Add Production Line Config',
     );
-    const [workCenterCombobox, productionLineCombobox] = within(dialog).getAllByRole('combobox');
+    const [workCenterCombobox, productionLineCombobox] = within(dialog).getAllByRole('combobox', { hidden: true });
 
     await user.click(workCenterCombobox);
     await user.click(await screen.findByRole('option', { name: 'Rolls 1' }));
@@ -260,7 +260,7 @@ describe('ProductionLineWorkCentersScreen', () => {
     await user.click(productionLineCombobox);
     await user.click(await screen.findByRole('option', { name: 'Line 1 (Cleveland)' }));
 
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save', hidden: true }));
 
     await waitFor(() => {
       expect(adminWorkCenterApi.createProductionLineConfig).toHaveBeenCalledWith('g1', {

@@ -60,3 +60,11 @@ Before triggering Promote/Test:
 - Tier 2 must pass locally at minimum.
 - Full parity should pass for high-risk or cross-cutting changes.
 - Record command outputs and durations in PR notes when possible.
+
+## 6) Playwright Lane Split
+
+- Blocking lane in Verify: `test:operator-smoke` (critical journeys only).
+- Non-blocking lane in Verify: `test:extended-ci` (broader signal with artifact report).
+- Local equivalent for broad signal:
+  - `cd e2e`
+  - `npm run test:extended-ci`

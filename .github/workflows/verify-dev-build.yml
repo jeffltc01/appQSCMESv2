@@ -97,3 +97,60 @@ jobs:
       operator_smoke_timeout_minutes: 8
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit
+
+  extended-e2e-signal:
+    name: Extended E2E signal (non-blocking)
+    needs: [validate-verify-inputs, detect-operator-impact, build-test-package]
+    if: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' && needs.build-test-package.result == 'success' }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: "20"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install Playwright dependencies
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run extended Playwright scenarios
+        timeout-minutes: 12
+        working-directory: e2e
+        env:
+          CI: "true"
+          DEPLOY_SMOKE: "true"
+          BACKEND_URL: ${{ needs.validate-verify-inputs.outputs.backend_url }}
+          FRONTEND_URL: ${{ needs.validate-verify-inputs.outputs.frontend_url }}
+          SMOKE_ADMIN_EMP_NO: ${{ vars.SMOKE_ADMIN_EMP_NO }}
+          SMOKE_OPERATOR_EMP_NO: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
+          SMOKE_WELDER_EMP_NO: ${{ vars.SMOKE_WELDER_EMP_NO }}
+          SMOKE_SUPERVISOR_EMP_NO: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
+          SMOKE_SUPERVISOR_PIN: ${{ secrets.SMOKE_SUPERVISOR_PIN }}
+          SMOKE_SUPERVISOR_DISPLAY_NAME: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
+        run: npm run test:extended-ci
+
+      - name: Upload extended Playwright report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-extended
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Append extended E2E summary
+        if: ${{ always() }}
+        run: |
+          echo "## Extended E2E Signal" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- This lane is non-blocking by design." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Artifact: \`playwright-report-extended\`" >> "$GITHUB_STEP_SUMMARY"
