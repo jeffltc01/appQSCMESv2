@@ -1,7 +1,27 @@
 import { type Page, expect } from '@playwright/test';
 
 export const FRONTEND_BASE_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const BACKEND_BASE_URL = process.env.BACKEND_URL?.trim();
 const DEPLOY_SMOKE = process.env.DEPLOY_SMOKE === 'true';
+const API_BASE_URL = DEPLOY_SMOKE && BACKEND_BASE_URL
+  ? BACKEND_BASE_URL
+  : FRONTEND_BASE_URL;
+const deployRoutedPages = new WeakSet<Page>();
+
+async function ensureDeployApiRouting(page: Page): Promise<void> {
+  if (!DEPLOY_SMOKE || !BACKEND_BASE_URL || deployRoutedPages.has(page)) {
+    return;
+  }
+
+  // In deployed-smoke mode, force browser `/api/*` calls to backend directly.
+  await page.route('**/api/**', async (route) => {
+    const source = new URL(route.request().url());
+    const target = new URL(`${source.pathname}${source.search}`, BACKEND_BASE_URL);
+    await route.continue({ url: target.toString() });
+  });
+
+  deployRoutedPages.add(page);
+}
 
 function readEnv(name: string, fallback: string): string {
   const value = process.env[name]?.trim();
@@ -42,6 +62,7 @@ export async function loginViaUI(
   empNo: string,
   pin?: string,
 ) {
+  await ensureDeployApiRouting(page);
   await page.goto('/');
 
   const responsePromise = page.waitForResponse((r) =>
@@ -69,17 +90,18 @@ export async function loginViaUI(
  * Requires the backend to be running with seed data (Development mode).
  */
 export async function loginViaAPI(page: Page, empNo: string, pin?: string) {
+  await ensureDeployApiRouting(page);
   await page.goto('/');
 
   const configResp = await page.request.get(
     `/api/users/login-config?empNo=${empNo}`,
-    { baseURL: FRONTEND_BASE_URL },
+    { baseURL: API_BASE_URL },
   );
   expect(configResp.ok(), `login-config for ${empNo} failed (${configResp.status()}). Is the backend running with seed data?`).toBeTruthy();
   const config = await configResp.json();
 
   const loginResp = await page.request.post('/api/auth/login', {
-    baseURL: FRONTEND_BASE_URL,
+    baseURL: API_BASE_URL,
     data: {
       employeeNumber: empNo,
       pin: pin ?? null,
