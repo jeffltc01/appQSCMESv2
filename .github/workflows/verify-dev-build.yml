@@ -20,12 +20,16 @@ jobs:
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          SMOKE_ADMIN_EMP_NO: ${{ vars.SMOKE_ADMIN_EMP_NO }}
+          SMOKE_OPERATOR_EMP_NO: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
+          SMOKE_SUPERVISOR_EMP_NO: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
+          SMOKE_SUPERVISOR_PIN: ${{ secrets.SMOKE_SUPERVISOR_PIN }}
           PERF_EMP_NO: ${{ secrets.PERF_EMP_NO }}
           PERF_PIN: ${{ secrets.PERF_PIN }}
           PERF_SITE_ID: ${{ secrets.PERF_SITE_ID }}
         run: |
           set -euo pipefail
-          for name in BACKEND_URL FRONTEND_URL PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
+          for name in BACKEND_URL FRONTEND_URL SMOKE_ADMIN_EMP_NO SMOKE_OPERATOR_EMP_NO SMOKE_SUPERVISOR_EMP_NO SMOKE_SUPERVISOR_PIN PERF_EMP_NO PERF_PIN PERF_SITE_ID; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing required value: ${name}" >&2
               exit 1
@@ -90,5 +94,6 @@ jobs:
       backend_url: ${{ needs.validate-verify-inputs.outputs.backend_url }}
       frontend_url: ${{ needs.validate-verify-inputs.outputs.frontend_url }}
       run_e2e: ${{ needs.detect-operator-impact.outputs.run_operator_smoke == 'true' }}
+      operator_smoke_timeout_minutes: 8
       coverage_storage_connection_string: ${{ vars.COVERAGE_STORAGE_CONNECTION_STRING }}
     secrets: inherit

@@ -4,6 +4,8 @@
   "scripts": {
     "test": "playwright test",
     "test:operator-smoke": "playwright test tests/login.spec.ts tests/tablet-setup.spec.ts tests/operator-longseam.spec.ts tests/operator-nameplate.spec.ts --project=chromium",
+    "smoke:deploy": "node scripts/run-deploy-smoke.mjs",
+    "smoke:deploy:dry-run": "node scripts/run-deploy-smoke.mjs --dry-run",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "capture:rolls-training": "playwright test tests/rolls-training-capture.spec.ts --project=chromium",

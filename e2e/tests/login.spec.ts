@@ -31,7 +31,7 @@ test.describe('Login', () => {
     await page.getByRole('button', { name: 'Login' }).click();
 
     await expect(page).toHaveURL('/menu');
-    await expect(page.getByText('Lisa Chen')).toBeVisible();
+    await expect(page.getByText(TEST_USERS.supervisor.displayName)).toBeVisible();
   });
 
   test('operator without tablet cache lands on /tablet-setup', async ({ page }) => {
@@ -67,7 +67,8 @@ test.describe('Login', () => {
   });
 
   test('wrong PIN shows login error', async ({ page }) => {
-    const { empNo } = TEST_USERS.supervisor;
+    const { empNo, pin } = TEST_USERS.supervisor;
+    const wrongPin = pin === '9999' ? '0000' : '9999';
 
     const responsePromise = page.waitForResponse((r) =>
       r.url().includes('/api/users/login-config') && r.status() === 200,
@@ -76,7 +77,7 @@ test.describe('Login', () => {
     await page.locator('#emp-input').blur();
     await responsePromise;
 
-    await page.locator('#pin-input').fill('9999');
+    await page.locator('#pin-input').fill(wrongPin);
     await page.getByRole('button', { name: 'Login' }).click();
 
     await expect(page.getByText(/login failed/i)).toBeVisible({ timeout: 5000 });

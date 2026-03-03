@@ -2,11 +2,26 @@ import { type Page, expect } from '@playwright/test';
 
 export const FRONTEND_BASE_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
+function readEnv(name: string, fallback: string): string {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : fallback;
+}
+
 export const TEST_USERS = {
-  admin: { empNo: 'EMP001' },
-  operator: { empNo: 'EMP002' },
-  welder: { empNo: 'EMP003' },
-  supervisor: { empNo: 'EMP005', pin: '1234' },
+  admin: {
+    empNo: readEnv('SMOKE_ADMIN_EMP_NO', 'EMP001'),
+  },
+  operator: {
+    empNo: readEnv('SMOKE_OPERATOR_EMP_NO', 'EMP002'),
+  },
+  welder: {
+    empNo: readEnv('SMOKE_WELDER_EMP_NO', 'EMP003'),
+  },
+  supervisor: {
+    empNo: readEnv('SMOKE_SUPERVISOR_EMP_NO', 'EMP005'),
+    pin: readEnv('SMOKE_SUPERVISOR_PIN', '1234'),
+    displayName: readEnv('SMOKE_SUPERVISOR_DISPLAY_NAME', 'Lisa Chen'),
+  },
 } as const;
 
 /**

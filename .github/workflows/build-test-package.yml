@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      operator_smoke_timeout_minutes:
+        description: Max minutes for operator smoke step before hard timeout.
+        required: false
+        type: number
+        default: 8
       coverage_storage_connection_string:
         description: Optional Azure Blob connection string for coverage reports.
         required: false
@@ -194,11 +199,18 @@ jobs:
 
       - name: Run operator smoke E2E tests
         if: ${{ inputs.run_e2e }}
+        timeout-minutes: ${{ inputs.operator_smoke_timeout_minutes }}
         working-directory: e2e
         env:
           DEPLOY_SMOKE: "true"
           BACKEND_URL: ${{ inputs.backend_url }}
           FRONTEND_URL: ${{ inputs.frontend_url }}
+          SMOKE_ADMIN_EMP_NO: ${{ vars.SMOKE_ADMIN_EMP_NO }}
+          SMOKE_OPERATOR_EMP_NO: ${{ vars.SMOKE_OPERATOR_EMP_NO }}
+          SMOKE_WELDER_EMP_NO: ${{ vars.SMOKE_WELDER_EMP_NO }}
+          SMOKE_SUPERVISOR_EMP_NO: ${{ vars.SMOKE_SUPERVISOR_EMP_NO }}
+          SMOKE_SUPERVISOR_PIN: ${{ secrets.SMOKE_SUPERVISOR_PIN }}
+          SMOKE_SUPERVISOR_DISPLAY_NAME: ${{ vars.SMOKE_SUPERVISOR_DISPLAY_NAME }}
         run: npm run test:operator-smoke
 
       - name: Upload Playwright report
