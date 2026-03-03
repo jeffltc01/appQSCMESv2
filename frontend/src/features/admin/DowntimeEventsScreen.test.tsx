@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
@@ -175,7 +175,8 @@ describe('DowntimeEventsScreen', () => {
       expect(screen.getByText(/confirm deactivation/i)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: /deactivate/i }));
+    const confirmDialog = await screen.findByRole('dialog', { name: /confirm deactivation/i });
+    await user.click(within(confirmDialog).getByRole('button', { name: /deactivate/i }));
 
     await waitFor(() => {
       expect(downtimeEventApi.delete).toHaveBeenCalledWith('evt-1');
