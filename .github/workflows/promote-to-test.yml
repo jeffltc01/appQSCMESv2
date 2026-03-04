@@ -168,10 +168,12 @@ jobs:
           RELEASE_SHA="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['releaseSha'])" "$MANIFEST_FILE")"
           BACKEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['backendArtifact'])" "$MANIFEST_FILE")"
           FRONTEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['frontendArtifact'])" "$MANIFEST_FILE")"
+          SOURCE_BACKEND_URL="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('backendUrl',''))" "$MANIFEST_FILE")"
 
           echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
           echo "backend_artifact=${BACKEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
           echo "frontend_artifact=${FRONTEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "source_backend_url=${SOURCE_BACKEND_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Download backend artifact
         shell: bash
@@ -216,6 +218,41 @@ jobs:
             fi
             sleep $((attempt * 5))
           done
+
+      - name: Retarget frontend API URL for test environment
+        shell: bash
+        env:
+          SOURCE_BACKEND_URL: ${{ steps.manifest.outputs.source_backend_url }}
+          TARGET_BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          set -euo pipefail
+          python3 - "$SOURCE_BACKEND_URL" "$TARGET_BACKEND_URL" <<'PY'
+          import sys
+          from pathlib import Path
+
+          source = (sys.argv[1] or "").strip()
+          target = (sys.argv[2] or "").strip()
+          if not target:
+            raise SystemExit("TARGET_BACKEND_URL is empty.")
+          if not source or source == target:
+            print("No frontend API URL retarget needed.")
+            raise SystemExit(0)
+
+          replaced_files = 0
+          for path in Path("frontend").rglob("*"):
+            if not path.is_file():
+              continue
+            try:
+              text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+              continue
+            if source not in text:
+              continue
+            path.write_text(text.replace(source, target), encoding="utf-8")
+            replaced_files += 1
+
+          print(f"Retargeted frontend API URL in {replaced_files} file(s): {source} -> {target}")
+          PY
 
       - name: Download SLO perf artifacts
         shell: bash

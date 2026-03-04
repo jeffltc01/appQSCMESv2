@@ -113,41 +113,110 @@ jobs:
         id: manifest
         shell: bash
         run: |
-          MANIFEST_FILE="$(ls ./release/*.json | head -1)"
+          MANIFEST_FILE="$(find ./release -name '*.json' | head -1)"
+          if [[ -z "${MANIFEST_FILE}" ]]; then
+            echo "No manifest JSON found under ./release after artifact download." >&2
+            exit 1
+          fi
           RELEASE_SHA="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['releaseSha'])" "$MANIFEST_FILE")"
           BACKEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['backendArtifact'])" "$MANIFEST_FILE")"
           FRONTEND_ARTIFACT="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['frontendArtifact'])" "$MANIFEST_FILE")"
+          SOURCE_BACKEND_URL="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('backendUrl',''))" "$MANIFEST_FILE")"
 
           echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
           echo "backend_artifact=${BACKEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
           echo "frontend_artifact=${FRONTEND_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          echo "source_backend_url=${SOURCE_BACKEND_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          name: ${{ steps.manifest.outputs.backend_artifact }}
-          path: ./backend
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+          ARTIFACT_NAME: ${{ steps.manifest.outputs.backend_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./backend
+          for attempt in 1 2 3 4 5; do
+            rm -rf ./backend/*
+            if gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT_NAME" --dir ./backend; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "Failed to download backend artifact '$ARTIFACT_NAME' after $attempt attempts." >&2
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
 
       - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          name: ${{ steps.manifest.outputs.frontend_artifact }}
-          path: ./frontend
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+          ARTIFACT_NAME: ${{ steps.manifest.outputs.frontend_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./frontend
+          for attempt in 1 2 3 4 5; do
+            rm -rf ./frontend/*
+            if gh run download "$RUN_ID" --repo "$REPOSITORY" --name "$ARTIFACT_NAME" --dir ./frontend; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "Failed to download frontend artifact '$ARTIFACT_NAME' after $attempt attempts." >&2
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+
+      - name: Retarget frontend API URL for production environment
+        shell: bash
+        env:
+          SOURCE_BACKEND_URL: ${{ steps.manifest.outputs.source_backend_url }}
+          TARGET_BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          set -euo pipefail
+          python3 - "$SOURCE_BACKEND_URL" "$TARGET_BACKEND_URL" <<'PY'
+          import sys
+          from pathlib import Path
+
+          source = (sys.argv[1] or "").strip()
+          target = (sys.argv[2] or "").strip()
+          if not target:
+            raise SystemExit("TARGET_BACKEND_URL is empty.")
+          if not source or source == target:
+            print("No frontend API URL retarget needed.")
+            raise SystemExit(0)
+
+          replaced_files = 0
+          for path in Path("frontend").rglob("*"):
+            if not path.is_file():
+              continue
+            try:
+              text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+              continue
+            if source not in text:
+              continue
+            path.write_text(text.replace(source, target), encoding="utf-8")
+            replaced_files += 1
+
+          print(f"Retargeted frontend API URL in {replaced_files} file(s): {source} -> {target}")
+          PY
 
       - name: Download SLO perf artifacts
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ github.event.inputs.source_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          name: perf-artifacts
-          path: ./perf/artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.source_run_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./perf/artifacts
+          gh run download "$RUN_ID" --repo "$REPOSITORY" --name perf-artifacts --dir ./perf/artifacts
 
       - name: Enforce SLO gate before production promotion
         run: python3 .github/scripts/evaluate-slo-gates.py
