@@ -203,6 +203,11 @@ export function FitupScreen(props: WorkCenterProps) {
 
       try {
         const ctx = await serialNumberApi.getContext(serial);
+        if (ctx.isBlockedForProcessing) {
+          const reason = ctx.blockingReasons?.join(' | ') ?? 'Open Hold Tag/NCR exists for this serial.';
+          showScanResult({ type: 'error', message: `Serial ${serial} is blocked. ${reason}` });
+          return;
+        }
 
         if (ctx.existingAssembly) {
           setReassemblyPrompt({ alphaCode: ctx.existingAssembly.alphaCode, context: ctx.existingAssembly });
@@ -481,6 +486,11 @@ export function FitupScreen(props: WorkCenterProps) {
 
     try {
       const ctx = await serialNumberApi.getContext(shellSerial);
+      if (ctx.isBlockedForProcessing) {
+        const reason = ctx.blockingReasons?.join(' | ') ?? 'Open Hold Tag/NCR exists for this serial.';
+        showScanResult({ type: 'error', message: `Serial ${shellSerial} is blocked. ${reason}` });
+        return;
+      }
       if (ctx.existingAssembly && ctx.existingAssembly.alphaCode !== reassemblyMode.sourceAlphaCode) {
         showScanResult({ type: 'error', message: `Shell ${shellSerial} already belongs to ${ctx.existingAssembly.alphaCode}` });
         return;

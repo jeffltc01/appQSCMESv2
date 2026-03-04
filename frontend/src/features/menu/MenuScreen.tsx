@@ -76,6 +76,8 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Defect Locations', icon: <LocationRegular />, minRoleTier: 3, route: '/menu/defect-locations', implemented: true },
       { label: 'Characteristics', icon: <ClipboardTextLtrRegular />, minRoleTier: 3, route: '/menu/characteristics', implemented: true },
       { label: 'Control Plans', icon: <ListRegular />, minRoleTier: 3, route: '/menu/control-plans', implemented: true },
+      { label: 'Hold Tags', icon: <TagRegular />, minRoleTier: 5, route: '/menu/hold-tags', implemented: true },
+      { label: 'NCR Runtime', icon: <ClipboardTextLtrRegular />, minRoleTier: 3, route: '/menu/ncr', implemented: true },
       { label: 'Kanban Card Mgmt', icon: <TagRegular />, minRoleTier: 5, route: '/menu/kanban-cards', implemented: true },
       { label: 'Sellable Tank Status', icon: <CheckmarkCircleRegular />, minRoleTier: 4, route: '/menu/sellable-tank-status', implemented: true },
       { label: 'Where Used', icon: <SearchRegular />, minRoleTier: 5, route: '/menu/where-used', implemented: true },
@@ -95,6 +97,8 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Downtime Log', icon: <TimerRegular />, minRoleTier: 5, route: '/menu/downtime-events', implemented: true },
       { label: 'Shift Schedule', icon: <CalendarRegular />, minRoleTier: 3, route: '/menu/shift-schedule', implemented: true },
       { label: 'Capacity Targets', icon: <GaugeRegular />, minRoleTier: 3, route: '/menu/capacity-targets', implemented: true },
+      { label: 'Workflow Definitions', icon: <BranchRegular />, minRoleTier: 2, route: '/menu/workflow-definitions', implemented: true },
+      { label: 'NCR Types', icon: <ClipboardTextLtrRegular />, minRoleTier: 2, route: '/menu/ncr-types', implemented: true },
     ],
   },
   {

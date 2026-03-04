@@ -10,7 +10,7 @@ import { useHeartbeat } from '../../hooks/useHeartbeat.ts';
 import { useInactivityTracker } from '../../hooks/useInactivityTracker.ts';
 import { parseBarcode, type ParsedBarcode } from '../../types/barcode.ts';
 import type { Welder, WCHistoryData, WCHistoryEntry, QueueTransaction, DowntimeConfig, HourlyCount } from '../../types/domain.ts';
-import { workCenterApi, adminWorkCenterApi, adminPlantGearApi, downtimeConfigApi, downtimeEventApi, supervisorDashboardApi } from '../../api/endpoints.ts';
+import { workCenterApi, adminWorkCenterApi, adminPlantGearApi, downtimeConfigApi, downtimeEventApi, supervisorDashboardApi, productionLineApi, holdTagApi } from '../../api/endpoints.ts';
 import { TopBar } from './TopBar.tsx';
 import { BottomBar } from './BottomBar.tsx';
 import { LeftPanel } from './LeftPanel.tsx';
@@ -23,6 +23,7 @@ import { useCurrentHelpArticle } from '../../help/useCurrentHelpArticle.ts';
 import { reportException, reportTelemetry } from '../../telemetry/telemetryClient.ts';
 import { normalizeTimeZoneId } from '../../utils/dateFormat.ts';
 import styles from './OperatorLayout.module.css';
+import { canShowCreateHoldTagButton } from './holdTagVisibility.ts';
 
 const namedLazy = <T extends Record<string, React.ComponentType<any>>>(
   loader: () => Promise<T>,
@@ -166,6 +167,12 @@ export function OperatorLayout() {
     enableWorkCenterChecklist: false,
     enableSafetyChecklist: false,
   });
+  const [showCreateHoldTagButton, setShowCreateHoldTagButton] = useState(false);
+  const [showHoldTagCreateDialog, setShowHoldTagCreateDialog] = useState(false);
+  const [holdTagSerial, setHoldTagSerial] = useState('');
+  const [holdTagProblem, setHoldTagProblem] = useState('');
+  const [holdTagCreateError, setHoldTagCreateError] = useState('');
+  const [holdTagCreateSaving, setHoldTagCreateSaving] = useState(false);
   const autoLogoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const AUTO_LOGOUT_MINUTES = 60;
@@ -389,6 +396,33 @@ export function OperatorLayout() {
       loadHistory();
     }
   }, [cache?.cachedWorkCenterId, isQueueScreen, loadQueueTransactions, loadHistory]);
+
+  useEffect(() => {
+    if (!user?.defaultSiteId || !cache?.cachedProductionLineId) {
+      setShowCreateHoldTagButton(false);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const lines = await productionLineApi.getProductionLines(user.defaultSiteId);
+        const line = lines.find((x) => x.id === cache.cachedProductionLineId);
+        const lineEnabled = !!line?.isHoldTagEnabled;
+
+        if (!cache?.cachedWorkCenterId) {
+          setShowCreateHoldTagButton(canShowCreateHoldTagButton(lineEnabled, false, false));
+          return;
+        }
+
+        const wcs = await workCenterApi.getWorkCenters();
+        const wc = wcs.find((x) => x.id === cache.cachedWorkCenterId);
+        const wcEnabled = !!wc?.isHoldTagEnabled;
+        setShowCreateHoldTagButton(canShowCreateHoldTagButton(lineEnabled, true, wcEnabled));
+      } catch {
+        setShowCreateHoldTagButton(false);
+      }
+    })();
+  }, [user?.defaultSiteId, cache?.cachedProductionLineId, cache?.cachedWorkCenterId]);
 
   useEffect(() => {
     if (!cache?.cachedWorkCenterId) return;
@@ -747,9 +781,16 @@ export function OperatorLayout() {
           kioskMode={kioskMode}
           showScheduleButton={showScheduleButton}
           showChecklistButton={checklistEnabled}
+          showCreateHoldTagButton={showCreateHoldTagButton}
           onChecklistClick={() => {
             setSelectedChecklistType(null);
             setShowChecklistOverlay(true);
+          }}
+          onCreateHoldTag={() => {
+            setHoldTagCreateError('');
+            setHoldTagSerial('');
+            setHoldTagProblem('');
+            setShowHoldTagCreateDialog(true);
           }}
         />
 
@@ -905,6 +946,57 @@ export function OperatorLayout() {
               ) : (
                 <div className={styles.checklistPickPrompt}>Select checklist type to begin.</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHoldTagCreateDialog && (
+        <div className={styles.checklistOverlay}>
+          <div className={styles.checklistPanel}>
+            <div className={styles.checklistPanelHeader}>
+              <h2>Create Hold Tag</h2>
+              <Button
+                appearance="subtle"
+                icon={<DismissRegular />}
+                onClick={() => setShowHoldTagCreateDialog(false)}
+                aria-label="Close hold tag create"
+              />
+            </div>
+            <div style={{ padding: '1rem' }}>
+              <Label>Serial Number</Label>
+              <Input value={holdTagSerial} onChange={(_, d) => setHoldTagSerial(d.value)} placeholder="Scan or type serial" />
+              <Label style={{ marginTop: 8 }}>Problem Description</Label>
+              <Input value={holdTagProblem} onChange={(_, d) => setHoldTagProblem(d.value)} placeholder="Brief issue description" />
+              {holdTagCreateError && <div style={{ color: '#dc3545', marginTop: 8 }}>{holdTagCreateError}</div>}
+              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                <Button
+                  appearance="primary"
+                  disabled={!holdTagSerial.trim() || !holdTagProblem.trim() || holdTagCreateSaving}
+                  onClick={() => {
+                    if (!user?.id || !user?.plantCode) return;
+                    setHoldTagCreateSaving(true);
+                    setHoldTagCreateError('');
+                    void holdTagApi.create({
+                      siteCode: user.plantCode,
+                      productionLineId: cache?.cachedProductionLineId || undefined,
+                      workCenterId: cache?.cachedWorkCenterId || undefined,
+                      serialNumberText: holdTagSerial.trim(),
+                      problemDescription: holdTagProblem.trim(),
+                      actorUserId: user.id,
+                    })
+                      .then(() => {
+                        setShowHoldTagCreateDialog(false);
+                        showScanResult({ type: 'success', message: 'Hold Tag created' });
+                      })
+                      .catch((e: { message?: string }) => setHoldTagCreateError(e.message ?? 'Unable to create hold tag.'))
+                      .finally(() => setHoldTagCreateSaving(false));
+                  }}
+                >
+                  Create
+                </Button>
+                <Button appearance="secondary" onClick={() => setShowHoldTagCreateDialog(false)}>Cancel</Button>
+              </div>
             </div>
           </div>
         </div>

@@ -32,7 +32,8 @@ public class WorkCenterService : IWorkCenterService
             WorkCenterTypeName = w.WorkCenterType.Name,
             NumberOfWelders = w.NumberOfWelders,
             DataEntryType = w.DataEntryType,
-            MaterialQueueForWCId = w.MaterialQueueForWCId
+            MaterialQueueForWCId = w.MaterialQueueForWCId,
+            IsHoldTagEnabled = w.IsHoldTagEnabled
         }).ToList();
     }
 

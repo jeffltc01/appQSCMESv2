@@ -5,6 +5,7 @@ public class ProductionLine
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public Guid PlantId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 
     public Plant Plant { get; set; } = null!;
 }

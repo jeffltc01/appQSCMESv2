@@ -134,6 +134,10 @@ export interface SerialNumberContextResponse {
   serialNumber: string;
   tankSize: number;
   shellSize?: string;
+  isBlockedForProcessing?: boolean;
+  openHoldTagNumbers?: number[];
+  openNcrNumbers?: number[];
+  blockingReasons?: string[];
   existingAssembly?: {
     alphaCode: string;
     tankSize: number;
@@ -374,6 +378,7 @@ export interface UpdateWorkCenterConfigRequest {
   productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
+  isHoldTagEnabled: boolean;
 }
 
 export interface UpdateWorkCenterGroupRequest {
@@ -381,6 +386,7 @@ export interface UpdateWorkCenterGroupRequest {
   productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
+  isHoldTagEnabled: boolean;
 }
 
 export interface CreateWorkCenterRequest {
@@ -389,6 +395,7 @@ export interface CreateWorkCenterRequest {
   productionSequence?: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
+  isHoldTagEnabled: boolean;
 }
 
 export interface CreateWorkCenterProductionLineRequest {
@@ -493,11 +500,13 @@ export interface CreateActiveSessionRequest {
 export interface CreateProductionLineRequest {
   name: string;
   plantId: string;
+  isHoldTagEnabled: boolean;
 }
 
 export interface UpdateProductionLineRequest {
   name: string;
   plantId: string;
+  isHoldTagEnabled: boolean;
 }
 
 export interface CreateAnnotationTypeRequest {
@@ -872,4 +881,164 @@ export interface FrontendTelemetryIngestRequest {
 
 export interface FrontendTelemetryArchiveRequest {
   keepRows: number;
+}
+
+// ---- Workflow / Hold Tag / NCR ----
+export interface WorkflowStepDefinitionRequest {
+  id?: string;
+  stepCode: string;
+  stepName: string;
+  sequence: number;
+  requiredFields: string[];
+  requiredChecklistTemplateIds: string[];
+  approvalMode: 'None' | 'AnyOne' | 'All';
+  approvalAssignments: string[];
+  allowReject: boolean;
+  onApproveNextStepCode?: string;
+  onRejectTargetStepCode?: string;
+}
+
+export interface UpsertWorkflowDefinitionRequest {
+  sourceDefinitionIdForNewVersion?: string;
+  workflowType: string;
+  isActive: boolean;
+  startStepCode: string;
+  steps: WorkflowStepDefinitionRequest[];
+}
+
+export interface StartWorkflowRequest {
+  entityType: string;
+  entityId: string;
+  workflowType: string;
+}
+
+export interface AdvanceStepRequest {
+  workflowInstanceId: string;
+  actionCode: string;
+  actorUserId: string;
+  payloadJson?: string;
+  idempotencyKey?: string;
+}
+
+export interface ApproveRejectRequest {
+  workflowInstanceId: string;
+  stepCode: string;
+  actorUserId: string;
+  comments?: string;
+  idempotencyKey?: string;
+}
+
+export interface CompleteWorkItemRequest {
+  workItemId: string;
+  actorUserId: string;
+  payloadJson?: string;
+  idempotencyKey?: string;
+}
+
+export interface CreateHoldTagRequest {
+  siteCode: string;
+  productionLineId?: string;
+  workCenterId?: string;
+  serialNumberMasterId?: string;
+  serialNumberText?: string;
+  problemDescription: string;
+  defectCodeId?: string;
+  actorUserId: string;
+}
+
+export interface SetHoldTagDispositionRequest {
+  holdTagId: string;
+  disposition: 'ReleaseAsIs' | 'Repair' | 'Scrap';
+  dispositionNotes?: string;
+  releaseJustification?: string;
+  repairInstructionTemplateId?: string;
+  repairInstructionNotes?: string;
+  scrapReasonCode?: string;
+  scrapReasonText?: string;
+  actorUserId: string;
+}
+
+export interface LinkHoldTagNcrRequest {
+  holdTagId: string;
+  linkedNcrId: string;
+  actorUserId: string;
+}
+
+export interface ResolveHoldTagRequest {
+  holdTagId: string;
+  actorUserId: string;
+}
+
+export interface VoidHoldTagRequest {
+  holdTagId: string;
+  reason: string;
+  actorUserId: string;
+}
+
+export interface UpsertNcrTypeRequest {
+  id?: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  isVendorRelated: boolean;
+  description?: string;
+  workflowDefinitionId: string;
+}
+
+export interface CreateNcrRequest {
+  sourceType: 'DirectQuality' | 'HoldTagEscalation';
+  sourceEntityId?: string;
+  siteCode: string;
+  detectedByUserId: string;
+  submitterUserId: string;
+  coordinatorUserId: string;
+  ncrTypeId: string;
+  dateUtc: string;
+  problemDescription: string;
+  createdByUserId: string;
+  vendorId?: string;
+  poNumber?: string;
+  quantity?: number;
+  heatNumber?: string;
+  coilOrSlabNumber?: string;
+}
+
+export interface UpdateNcrDataRequest {
+  ncrId: string;
+  coordinatorUserId: string;
+  problemDescription: string;
+  vendorId?: string;
+  poNumber?: string;
+  quantity?: number;
+  heatNumber?: string;
+  coilOrSlabNumber?: string;
+  actorUserId: string;
+}
+
+export interface SubmitNcrStepRequest {
+  ncrId: string;
+  actionCode: string;
+  actorUserId: string;
+  payloadJson?: string;
+}
+
+export interface NcrDecisionRequest {
+  ncrId: string;
+  stepCode: string;
+  actorUserId: string;
+  comments?: string;
+}
+
+export interface VoidNcrRequest {
+  ncrId: string;
+  reason: string;
+  actorUserId: string;
+}
+
+export interface AddNcrAttachmentRequest {
+  ncrId: string;
+  fileName: string;
+  contentType: string;
+  storagePath: string;
+  uploadedByUserId: string;
 }

@@ -12,9 +12,6 @@ public static class DbInitializer
     /// </summary>
     public static void SeedReferenceData(MesDbContext context)
     {
-        if (context.WorkCenterTypes.Any())
-            return;
-
         var wctRollsId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var wctLongSeamId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         var wctInspectionId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
@@ -26,18 +23,21 @@ public static class DbInitializer
         var wctSpotXrayId = Guid.Parse("f3f3f3f3-f3f3-f3f3-f3f3-f3f3f3f3f3f3");
         var wctMaterialQueueId = Guid.Parse("f4f4f4f4-f4f4-f4f4-f4f4-f4f4f4f4f4f4");
 
-        context.WorkCenterTypes.AddRange(
-            new WorkCenterType { Id = wctRollsId, Name = "Rolls" },
-            new WorkCenterType { Id = wctLongSeamId, Name = "Long Seam" },
-            new WorkCenterType { Id = wctInspectionId, Name = "Inspection" },
-            new WorkCenterType { Id = wctFitupId, Name = "Fitup" },
-            new WorkCenterType { Id = wctRoundSeamId, Name = "Round Seam" },
-            new WorkCenterType { Id = wctNameplateId, Name = "Nameplate" },
-            new WorkCenterType { Id = wctHydroId, Name = "Hydro" },
-            new WorkCenterType { Id = wctXrayId, Name = "X-Ray" },
-            new WorkCenterType { Id = wctSpotXrayId, Name = "Spot X-Ray" },
-            new WorkCenterType { Id = wctMaterialQueueId, Name = "Material Queue" }
-        );
+        if (!context.WorkCenterTypes.Any())
+        {
+            context.WorkCenterTypes.AddRange(
+                new WorkCenterType { Id = wctRollsId, Name = "Rolls" },
+                new WorkCenterType { Id = wctLongSeamId, Name = "Long Seam" },
+                new WorkCenterType { Id = wctInspectionId, Name = "Inspection" },
+                new WorkCenterType { Id = wctFitupId, Name = "Fitup" },
+                new WorkCenterType { Id = wctRoundSeamId, Name = "Round Seam" },
+                new WorkCenterType { Id = wctNameplateId, Name = "Nameplate" },
+                new WorkCenterType { Id = wctHydroId, Name = "Hydro" },
+                new WorkCenterType { Id = wctXrayId, Name = "X-Ray" },
+                new WorkCenterType { Id = wctSpotXrayId, Name = "Spot X-Ray" },
+                new WorkCenterType { Id = wctMaterialQueueId, Name = "Material Queue" }
+            );
+        }
 
         if (!context.AnnotationTypes.Any())
         {
@@ -61,6 +61,7 @@ public static class DbInitializer
             );
         }
 
+        SeedWorkflowAndQualitySystems(context);
         context.SaveChanges();
     }
 
@@ -70,7 +71,11 @@ public static class DbInitializer
     public static void Seed(MesDbContext context)
     {
         if (context.Plants.Any())
+        {
+            SeedWorkflowAndQualitySystems(context);
+            context.SaveChanges();
             return;
+        }
 
         var plant1Id = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var plant2Id = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -113,11 +118,11 @@ public static class DbInitializer
         var line1Plt3 = Guid.Parse("e1333333-3333-3333-3333-333333333333");
 
         context.ProductionLines.AddRange(
-            new ProductionLine { Id = line1Plt1, Name = "Line 1", PlantId = plant1Id },
-            new ProductionLine { Id = line2Plt1, Name = "Line 2", PlantId = plant1Id },
-            new ProductionLine { Id = line1Plt2, Name = "Inside Line", PlantId = plant2Id },
-            new ProductionLine { Id = line2Plt2, Name = "Outside Line", PlantId = plant2Id },
-            new ProductionLine { Id = line1Plt3, Name = "Main Line", PlantId = plant3Id }
+            new ProductionLine { Id = line1Plt1, Name = "Line 1", PlantId = plant1Id, IsHoldTagEnabled = true },
+            new ProductionLine { Id = line2Plt1, Name = "Line 2", PlantId = plant1Id, IsHoldTagEnabled = false },
+            new ProductionLine { Id = line1Plt2, Name = "Inside Line", PlantId = plant2Id, IsHoldTagEnabled = true },
+            new ProductionLine { Id = line2Plt2, Name = "Outside Line", PlantId = plant2Id, IsHoldTagEnabled = false },
+            new ProductionLine { Id = line1Plt3, Name = "Main Line", PlantId = plant3Id, IsHoldTagEnabled = true }
         );
 
         var wcRolls = Guid.Parse("f1111111-1111-1111-1111-111111111111");
@@ -134,16 +139,16 @@ public static class DbInitializer
         var wcFitupQueue = Guid.Parse("fc111111-1111-1111-1111-111111111111");
 
         context.WorkCenters.AddRange(
-            new WorkCenter { Id = wcRolls, Name = "Rolls", WorkCenterTypeId = wctRollsId, NumberOfWelders = 1, DataEntryType = "Rolls" },
+            new WorkCenter { Id = wcRolls, Name = "Rolls", WorkCenterTypeId = wctRollsId, NumberOfWelders = 1, DataEntryType = "Rolls", IsHoldTagEnabled = true },
             new WorkCenter { Id = wcLongSeam, Name = "Long Seam", WorkCenterTypeId = wctLongSeamId, NumberOfWelders = 1, DataEntryType = "Barcode-LongSeam" },
             new WorkCenter { Id = wcLongSeamInsp, Name = "Long Seam Inspection", WorkCenterTypeId = wctInspectionId, NumberOfWelders = 0, DataEntryType = "Barcode-LongSeamInsp" },
             new WorkCenter { Id = wcRtXrayQueue, Name = "RT X-ray Queue", WorkCenterTypeId = wctXrayId, NumberOfWelders = 0, DataEntryType = "MatQueue-Shell" },
-            new WorkCenter { Id = wcFitup, Name = "Fitup", WorkCenterTypeId = wctFitupId, NumberOfWelders = 1, DataEntryType = "Fitup" },
+            new WorkCenter { Id = wcFitup, Name = "Fitup", WorkCenterTypeId = wctFitupId, NumberOfWelders = 1, DataEntryType = "Fitup", IsHoldTagEnabled = true },
             new WorkCenter { Id = wcRoundSeam, Name = "Round Seam", WorkCenterTypeId = wctRoundSeamId, NumberOfWelders = 1, DataEntryType = "Barcode-RoundSeam" },
             new WorkCenter { Id = wcRoundSeamInsp, Name = "Round Seam Inspection", WorkCenterTypeId = wctInspectionId, NumberOfWelders = 0, DataEntryType = "Barcode-RoundSeamInsp" },
             new WorkCenter { Id = wcSpotXray, Name = "Spot X-ray", WorkCenterTypeId = wctSpotXrayId, NumberOfWelders = 0, DataEntryType = "Spot" },
             new WorkCenter { Id = wcNameplate, Name = "Nameplate", WorkCenterTypeId = wctNameplateId, NumberOfWelders = 0, DataEntryType = "DataPlate" },
-            new WorkCenter { Id = wcHydro, Name = "Hydro", WorkCenterTypeId = wctHydroId, NumberOfWelders = 1, DataEntryType = "Hydro" },
+            new WorkCenter { Id = wcHydro, Name = "Hydro", WorkCenterTypeId = wctHydroId, NumberOfWelders = 1, DataEntryType = "Hydro", IsHoldTagEnabled = false },
             new WorkCenter { Id = wcRollsMaterial, Name = "Rolls Material", WorkCenterTypeId = wctMaterialQueueId, NumberOfWelders = 0, DataEntryType = "MatQueue-Material", MaterialQueueForWCId = wcRolls },
             new WorkCenter { Id = wcFitupQueue, Name = "Fitup Queue", WorkCenterTypeId = wctMaterialQueueId, NumberOfWelders = 0, DataEntryType = "MatQueue-Fitup", MaterialQueueForWCId = wcFitup }
         );
@@ -205,7 +210,12 @@ public static class DbInitializer
             new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888802"), EmployeeNumber = "EMP003", FirstName = "Mike", LastName = "Rodriguez", DisplayName = "Mike Rodriguez", RoleTier = 6.0m, RoleName = "Operator", DefaultSiteId = plant1Id, IsCertifiedWelder = true, RequirePinForLogin = false, PinHash = null },
             new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888803"), EmployeeNumber = "EMP004", FirstName = "Tom", LastName = "Wilson", DisplayName = "Tom Wilson", RoleTier = 6.0m, RoleName = "Operator", DefaultSiteId = plant2Id, IsCertifiedWelder = true, RequirePinForLogin = false, PinHash = null },
             new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888804"), EmployeeNumber = "EMP005", FirstName = "Lisa", LastName = "Chen", DisplayName = "Lisa Chen", RoleTier = 4.0m, RoleName = "Supervisor", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = true, PinHash = BCrypt.Net.BCrypt.HashPassword("1234") },
-            new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888805"), EmployeeNumber = "AI99001", FirstName = "Bob", LastName = "Harrison", DisplayName = "Bob Harrison", RoleTier = 5.5m, RoleName = "Authorized Inspector", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false, PinHash = null, UserType = UserType.AuthorizedInspector }
+            new User { Id = Guid.Parse("88888888-8888-8888-8888-888888888805"), EmployeeNumber = "AI99001", FirstName = "Bob", LastName = "Harrison", DisplayName = "Bob Harrison", RoleTier = 5.5m, RoleName = "Authorized Inspector", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false, PinHash = null, UserType = UserType.AuthorizedInspector },
+            new User { Id = Guid.Parse("77777777-7777-7777-7777-777777777701"), EmployeeNumber = "EMP100", FirstName = "Casey", LastName = "Creator", DisplayName = "Casey Creator", RoleTier = 6.0m, RoleName = "Operator", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false },
+            new User { Id = Guid.Parse("77777777-7777-7777-7777-777777777702"), EmployeeNumber = "EMP101", FirstName = "Quinn", LastName = "Quality", DisplayName = "Quinn Quality", RoleTier = 3.0m, RoleName = "Quality Manager", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false },
+            new User { Id = Guid.Parse("77777777-7777-7777-7777-777777777703"), EmployeeNumber = "EMP102", FirstName = "Taylor", LastName = "Lead", DisplayName = "Taylor Lead", RoleTier = 5.0m, RoleName = "Team Lead", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false },
+            new User { Id = Guid.Parse("77777777-7777-7777-7777-777777777704"), EmployeeNumber = "EMP103", FirstName = "Alex", LastName = "Approver", DisplayName = "Alex Approver", RoleTier = 2.0m, RoleName = "Quality Director", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false },
+            new User { Id = Guid.Parse("77777777-7777-7777-7777-777777777705"), EmployeeNumber = "EMP104", FirstName = "Avery", LastName = "NcrAdmin", DisplayName = "Avery NCR Admin", RoleTier = 1.0m, RoleName = "Administrator", DefaultSiteId = plant1Id, IsCertifiedWelder = false, RequirePinForLogin = false }
         );
 
         context.Vendors.AddRange(
@@ -403,7 +413,74 @@ public static class DbInitializer
             new WorkCenterProductionLine { Id = Guid.Parse("d0030001-0000-0000-0000-000000000005"), WorkCenterId = wcHydro, ProductionLineId = line1Plt3, DisplayName = "Hydro", NumberOfWelders = 1 }
         );
 
+        SeedWorkflowAndQualitySystems(context);
         context.SaveChanges();
+    }
+
+    private static void SeedWorkflowAndQualitySystems(MesDbContext context)
+    {
+        if (!context.WorkflowDefinitions.Any())
+        {
+            var holdTagV1 = new WorkflowDefinition
+            {
+                Id = Guid.Parse("91000000-0000-0000-0000-000000000001"),
+                WorkflowType = "HoldTag",
+                Version = 1,
+                IsActive = false,
+                StartStepCode = "TagCreated",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            var holdTagV2 = new WorkflowDefinition
+            {
+                Id = Guid.Parse("91000000-0000-0000-0000-000000000002"),
+                WorkflowType = "HoldTag",
+                Version = 2,
+                IsActive = true,
+                StartStepCode = "TagCreated",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            var ncrV1 = new WorkflowDefinition
+            {
+                Id = Guid.Parse("92000000-0000-0000-0000-000000000001"),
+                WorkflowType = "Ncr",
+                Version = 1,
+                IsActive = true,
+                StartStepCode = "DraftIntake",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+            context.WorkflowDefinitions.AddRange(holdTagV1, holdTagV2, ncrV1);
+            context.WorkflowStepDefinitions.AddRange(
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV1.Id, StepCode = "TagCreated", StepName = "Tag Created", Sequence = 1, RequiredFieldsJson = "[\"ProblemDescription\"]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = true, OnApproveNextStepCode = "QualityDisposition", OnRejectTargetStepCode = null },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV1.Id, StepCode = "QualityDisposition", StepName = "Quality Disposition", Sequence = 2, RequiredFieldsJson = "[\"Disposition\"]", ApprovalMode = "AnyOne", ApprovalAssignmentsJson = "[\"role:3\"]", AllowReject = true, OnApproveNextStepCode = "FinalizeDisposition", OnRejectTargetStepCode = "TagCreated" },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV1.Id, StepCode = "FinalizeDisposition", StepName = "Finalize Disposition", Sequence = 3, RequiredFieldsJson = "[]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = false, OnApproveNextStepCode = null, OnRejectTargetStepCode = null },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV2.Id, StepCode = "TagCreated", StepName = "Tag Created", Sequence = 1, RequiredFieldsJson = "[\"ProblemDescription\"]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = true, OnApproveNextStepCode = "QualityDisposition", OnRejectTargetStepCode = null },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV2.Id, StepCode = "QualityDisposition", StepName = "Quality Disposition", Sequence = 2, RequiredFieldsJson = "[\"Disposition\"]", ApprovalMode = "AnyOne", ApprovalAssignmentsJson = "[\"role:3\",\"role:5\"]", AllowReject = true, OnApproveNextStepCode = "NcrLinkRequired", OnRejectTargetStepCode = "TagCreated" },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV2.Id, StepCode = "NcrLinkRequired", StepName = "NCR Link Required", Sequence = 3, RequiredFieldsJson = "[\"LinkedNcrId\"]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = true, OnApproveNextStepCode = "FinalizeDisposition", OnRejectTargetStepCode = "QualityDisposition" },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = holdTagV2.Id, StepCode = "FinalizeDisposition", StepName = "Finalize Disposition", Sequence = 4, RequiredFieldsJson = "[]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = false, OnApproveNextStepCode = null, OnRejectTargetStepCode = null },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = ncrV1.Id, StepCode = "DraftIntake", StepName = "Draft Intake", Sequence = 1, RequiredFieldsJson = "[\"ProblemDescription\",\"CoordinatorUserId\"]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = true, OnApproveNextStepCode = "ContainmentAndAnalysis", OnRejectTargetStepCode = null },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = ncrV1.Id, StepCode = "ContainmentAndAnalysis", StepName = "Containment And Analysis", Sequence = 2, RequiredFieldsJson = "[]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = true, OnApproveNextStepCode = "ApprovalGate", OnRejectTargetStepCode = "DraftIntake" },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = ncrV1.Id, StepCode = "ApprovalGate", StepName = "Approval Gate", Sequence = 3, RequiredFieldsJson = "[]", ApprovalMode = "All", ApprovalAssignmentsJson = "[\"role:2\",\"role:3\"]", AllowReject = true, OnApproveNextStepCode = "CorrectiveAction", OnRejectTargetStepCode = "ContainmentAndAnalysis" },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = ncrV1.Id, StepCode = "CorrectiveAction", StepName = "Corrective Action", Sequence = 4, RequiredFieldsJson = "[]", ApprovalMode = "None", ApprovalAssignmentsJson = "[]", AllowReject = true, OnApproveNextStepCode = "FinalApproval", OnRejectTargetStepCode = "ContainmentAndAnalysis" },
+                new WorkflowStepDefinition { Id = Guid.NewGuid(), WorkflowDefinitionId = ncrV1.Id, StepCode = "FinalApproval", StepName = "Final Approval", Sequence = 5, RequiredFieldsJson = "[]", ApprovalMode = "AnyOne", ApprovalAssignmentsJson = "[\"role:2\"]", AllowReject = true, OnApproveNextStepCode = null, OnRejectTargetStepCode = "CorrectiveAction" }
+            );
+        }
+
+        if (!context.NotificationRules.Any())
+        {
+            context.NotificationRules.AddRange(
+                new NotificationRule { Id = Guid.Parse("93000000-0000-0000-0000-000000000001"), WorkflowType = "HoldTag", TriggerEvent = "Created", RecipientMode = "Roles", RecipientConfigJson = "[\"3\",\"5\"]", TemplateKey = "HoldTag.Created", ClearPolicy = "OnEntityComplete", IsActive = true },
+                new NotificationRule { Id = Guid.Parse("93000000-0000-0000-0000-000000000002"), WorkflowType = "Ncr", TriggerEvent = "Created", RecipientMode = "Roles", RecipientConfigJson = "[\"3\"]", TemplateKey = "Ncr.Created", ClearPolicy = "OnEntityComplete", IsActive = true },
+                new NotificationRule { Id = Guid.Parse("93000000-0000-0000-0000-000000000003"), WorkflowType = "Ncr", TriggerEvent = "Rejected", RecipientMode = "Roles", RecipientConfigJson = "[\"3\"]", TemplateKey = "Ncr.Rejected", ClearPolicy = "OnStepExit", IsActive = true }
+            );
+        }
+
+        if (!context.NcrTypes.Any())
+        {
+            context.NcrTypes.AddRange(
+                new NcrType { Id = Guid.Parse("94000000-0000-0000-0000-000000000001"), Code = "DIRECT_STD", Name = "Direct Quality Standard", IsActive = true, IsVendorRelated = false, Description = "Direct quality NCR standard path", WorkflowDefinitionId = Guid.Parse("92000000-0000-0000-0000-000000000001") },
+                new NcrType { Id = Guid.Parse("94000000-0000-0000-0000-000000000002"), Code = "VENDOR_STD", Name = "Vendor Related", IsActive = true, IsVendorRelated = true, Description = "Vendor related NCR path", WorkflowDefinitionId = Guid.Parse("92000000-0000-0000-0000-000000000001") }
+            );
+        }
     }
 
     /// <summary>

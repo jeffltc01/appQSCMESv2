@@ -18,7 +18,21 @@ public class InspectionRecordsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<InspectionRecordResponseDto>> Create([FromBody] CreateInspectionRecordDto dto, CancellationToken cancellationToken)
     {
-        var result = await _inspectionRecordService.CreateAsync(dto, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _inspectionRecordService.CreateAsync(dto, cancellationToken);
+            return Ok(result);
+        }
+        catch (SerialProcessingBlockedException ex)
+        {
+            return Conflict(new
+            {
+                message = "Serial is blocked for processing due to open Hold Tag/NCR.",
+                serialNumber = ex.SerialNumber,
+                openHoldTagNumbers = ex.BlockResult.OpenHoldTagNumbers,
+                openNcrNumbers = ex.BlockResult.OpenNcrNumbers,
+                reasons = ex.BlockResult.Reasons
+            });
+        }
     }
 }

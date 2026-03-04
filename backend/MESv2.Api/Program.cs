@@ -69,6 +69,10 @@ builder.Services.AddScoped<IAdminWorkCenterService, AdminWorkCenterService>();
 builder.Services.AddScoped<IChecklistService, ChecklistService>();
 builder.Services.AddScoped<INaturalLanguageQueryService, NaturalLanguageQueryService>();
 builder.Services.AddScoped<INlqToolExecutor, NaturalLanguageQueryToolExecutor>();
+builder.Services.AddScoped<IWorkflowEngineService, WorkflowEngineService>();
+builder.Services.AddScoped<IHoldTagService, HoldTagService>();
+builder.Services.AddScoped<INcrService, NcrService>();
+builder.Services.AddScoped<ISerialProcessingGateService, SerialProcessingGateService>();
 builder.Services.Configure<DemoDataAdminOptions>(builder.Configuration.GetSection("DemoDataAdmin"));
 
 builder.Services.Configure<NaturalLanguageQueryOptions>(builder.Configuration.GetSection("NaturalLanguageQuery"));

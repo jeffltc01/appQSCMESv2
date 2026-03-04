@@ -9,6 +9,7 @@ export interface ProductionLine {
   id: string;
   name: string;
   plantId: string;
+  isHoldTagEnabled?: boolean;
 }
 
 export interface ProductionLineAdmin {
@@ -16,6 +17,7 @@ export interface ProductionLineAdmin {
   name: string;
   plantId: string;
   plantName: string;
+  isHoldTagEnabled?: boolean;
 }
 
 export interface WorkCenter {
@@ -26,6 +28,7 @@ export interface WorkCenter {
   numberOfWelders: number;
   dataEntryType?: string;
   materialQueueForWCId?: string;
+  isHoldTagEnabled?: boolean;
 }
 
 export interface Asset {
@@ -375,6 +378,7 @@ export interface AdminWorkCenter {
   dataEntryType?: string;
   materialQueueForWCId?: string;
   materialQueueForWCName?: string;
+  isHoldTagEnabled?: boolean;
 }
 
 export interface WorkCenterType {
@@ -388,6 +392,7 @@ export interface AdminWorkCenterGroup {
   workCenterTypeName: string;
   productionSequence?: number;
   dataEntryType?: string;
+  isHoldTagEnabled?: boolean;
   siteConfigs: WorkCenterSiteConfig[];
 }
 
@@ -1271,4 +1276,116 @@ export interface NaturalLanguageQueryResponse {
   dataPoints: NaturalLanguageQueryDataPoint[];
   followUps: string[];
   trace: NaturalLanguageQueryTrace;
+}
+
+export interface WorkflowStepDefinition {
+  id: string;
+  stepCode: string;
+  stepName: string;
+  sequence: number;
+  requiredFields: string[];
+  requiredChecklistTemplateIds: string[];
+  approvalMode: 'None' | 'AnyOne' | 'All';
+  approvalAssignments: string[];
+  allowReject: boolean;
+  onApproveNextStepCode?: string;
+  onRejectTargetStepCode?: string;
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  workflowType: string;
+  version: number;
+  isActive: boolean;
+  startStepCode: string;
+  steps: WorkflowStepDefinition[];
+}
+
+export interface WorkflowInstance {
+  id: string;
+  workflowDefinitionId: string;
+  workflowType: string;
+  workflowDefinitionVersion: number;
+  entityType: string;
+  entityId: string;
+  status: string;
+  currentStepCode: string;
+  startedAtUtc: string;
+  completedAtUtc?: string;
+}
+
+export interface WorkflowEvent {
+  id: string;
+  eventType: string;
+  eventAtUtc: string;
+  actorUserId?: string;
+  payloadJson: string;
+}
+
+export interface WorkflowWorkItem {
+  id: string;
+  workflowInstanceId: string;
+  entityType: string;
+  entityId: string;
+  workItemType: string;
+  title: string;
+  instructions?: string;
+  assignedUserId?: string;
+  assignedRoleTier?: number;
+  status: string;
+  priority: string;
+  dueAtUtc?: string;
+  createdAtUtc: string;
+}
+
+export interface NotificationRule {
+  id: string;
+  workflowType: string;
+  triggerEvent: string;
+  recipientMode: string;
+  recipientConfigJson: string;
+  templateKey: string;
+  clearPolicy: string;
+  isActive: boolean;
+}
+
+export interface HoldTag {
+  id: string;
+  holdTagNumber: number;
+  siteCode: string;
+  productionLineId?: string;
+  workCenterId?: string;
+  serialNumberMasterId: string;
+  problemDescription: string;
+  defectCodeId?: string;
+  disposition?: 'ReleaseAsIs' | 'Repair' | 'Scrap';
+  businessStatus: string;
+  workflowInstanceId: string;
+  linkedNcrId?: string;
+  createdAtUtc: string;
+}
+
+export interface NcrType {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+  isVendorRelated: boolean;
+  description?: string;
+  workflowDefinitionId: string;
+}
+
+export interface Ncr {
+  id: string;
+  ncrNumber: number;
+  sourceType: string;
+  sourceEntityId?: string;
+  siteCode: string;
+  submitterUserId: string;
+  coordinatorUserId: string;
+  ncrTypeId: string;
+  currentStepCode: string;
+  workflowInstanceId: string;
+  problemDescription: string;
+  dateUtc: string;
 }

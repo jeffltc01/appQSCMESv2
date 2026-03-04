@@ -1067,6 +1067,125 @@ namespace MESv2.Api.Migrations
                     b.ToTable("FrontendTelemetryEvents");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.HoldTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BusinessStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DefectCodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Disposition")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DispositionNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DispositionSetAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DispositionSetByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("HoldTagNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LastModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LinkedNcrId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProblemDescription")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ProductionLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReleaseJustification")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RepairInstructionNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("RepairInstructionTemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ScrapReasonCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ScrapReasonText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("SerialNumberMasterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SiteCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("WorkCenterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkflowInstanceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HoldTagNumber")
+                        .IsUnique();
+
+                    b.ToTable("HoldTags");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.IdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyRecords");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.InspectionRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1228,6 +1347,195 @@ namespace MESv2.Api.Migrations
                     b.HasIndex("WorkCenterId", "Status");
 
                     b.ToTable("MaterialQueueItems");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.Ncr", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CoilOrSlabNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("CoordinatorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrentStepCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DateUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DetectedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("HeatNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("LastModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LastModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("NcrNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("NcrTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PoNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProblemDescription")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("SiteCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SourceEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("SubmitterUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("VendorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkflowInstanceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NcrNumber")
+                        .IsUnique();
+
+                    b.HasIndex("NcrTypeId");
+
+                    b.ToTable("Ncrs");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.NcrAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("NcrId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NcrId");
+
+                    b.ToTable("NcrAttachments");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.NcrType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsVendorRelated")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("NcrTypes");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.NotificationRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClearPolicy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RecipientConfigJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecipientMode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TriggerEvent")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WorkflowType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("NotificationRules");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.Plant", b =>
@@ -1438,6 +1746,9 @@ namespace MESv2.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsHoldTagEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1645,6 +1956,27 @@ namespace MESv2.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("ScoreTypeValues");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.SequenceCounter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CurrentValue")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("SequenceCounters");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.SerialNumber", b =>
@@ -2340,6 +2672,9 @@ namespace MESv2.Api.Migrations
                     b.Property<string>("DataEntryType")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsHoldTagEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<Guid?>("MaterialQueueForWCId")
                         .HasColumnType("uniqueidentifier");
 
@@ -2472,6 +2807,318 @@ namespace MESv2.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("WorkCenterTypes");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("AssignedRoleTier")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CompletedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DueAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Instructions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WorkItemType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowInstanceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowInstanceId");
+
+                    b.ToTable("WorkItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkItems_Assignee", "([AssignedUserId] IS NOT NULL AND [AssignedRoleTier] IS NULL) OR ([AssignedUserId] IS NULL AND [AssignedRoleTier] IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("StartStepCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkflowType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowType", "Version")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowDefinitions");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EventAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsOutboxDispatched")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowInstanceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowInstanceId");
+
+                    b.ToTable("WorkflowEvents");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrentStepCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("WorkflowDefinitionVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WorkflowType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.ToTable("WorkflowInstances");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("AssignedRoleTier")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("AssignedUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AssignmentType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowStepInstanceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowStepInstanceId", "AssignmentType", "AssignedUserId", "AssignedRoleTier")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowStepApprovals", t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkflowStepApprovals_Assignee", "([AssignedUserId] IS NOT NULL AND [AssignedRoleTier] IS NULL) OR ([AssignedUserId] IS NULL AND [AssignedRoleTier] IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AllowReject")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ApprovalAssignmentsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ApprovalMode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OnApproveNextStepCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OnRejectTargetStepCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequiredChecklistTemplateIdsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequiredFieldsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StepCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("StepName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowDefinitionId", "StepCode")
+                        .IsUnique();
+
+                    b.ToTable("WorkflowStepDefinitions");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("CompletedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StepCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("WorkflowInstanceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkflowInstanceId");
+
+                    b.ToTable("WorkflowStepInstances");
                 });
 
             modelBuilder.Entity("MESv2.Api.Models.XrayQueueItem", b =>
@@ -3112,6 +3759,28 @@ namespace MESv2.Api.Migrations
                     b.Navigation("WorkCenter");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.Ncr", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.NcrType", "NcrType")
+                        .WithMany()
+                        .HasForeignKey("NcrTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NcrType");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.NcrAttachment", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.Ncr", "Ncr")
+                        .WithMany("Attachments")
+                        .HasForeignKey("NcrId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Ncr");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.Plant", b =>
                 {
                     b.HasOne("MESv2.Api.Models.PlantGear", "CurrentPlantGear")
@@ -3710,6 +4379,72 @@ namespace MESv2.Api.Migrations
                     b.Navigation("WorkCenterProductionLine");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.WorkItem", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.WorkflowInstance", "WorkflowInstance")
+                        .WithMany("WorkItems")
+                        .HasForeignKey("WorkflowInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowInstance");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowEvent", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.WorkflowInstance", "WorkflowInstance")
+                        .WithMany("Events")
+                        .HasForeignKey("WorkflowInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowInstance");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowInstance", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany("Instances")
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowDefinition");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepApproval", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.WorkflowStepInstance", "WorkflowStepInstance")
+                        .WithMany("Approvals")
+                        .HasForeignKey("WorkflowStepInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowStepInstance");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepDefinition", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany("Steps")
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowDefinition");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepInstance", b =>
+                {
+                    b.HasOne("MESv2.Api.Models.WorkflowInstance", "WorkflowInstance")
+                        .WithMany("StepInstances")
+                        .HasForeignKey("WorkflowInstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WorkflowInstance");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.XrayQueueItem", b =>
                 {
                     b.HasOne("MESv2.Api.Models.User", "Operator")
@@ -3806,6 +4541,11 @@ namespace MESv2.Api.Migrations
                     b.Navigation("DowntimeReasons");
                 });
 
+            modelBuilder.Entity("MESv2.Api.Models.Ncr", b =>
+                {
+                    b.Navigation("Attachments");
+                });
+
             modelBuilder.Entity("MESv2.Api.Models.Plant", b =>
                 {
                     b.Navigation("PlantGears");
@@ -3896,6 +4636,27 @@ namespace MESv2.Api.Migrations
             modelBuilder.Entity("MESv2.Api.Models.WorkCenterType", b =>
                 {
                     b.Navigation("WorkCenters");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowDefinition", b =>
+                {
+                    b.Navigation("Instances");
+
+                    b.Navigation("Steps");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowInstance", b =>
+                {
+                    b.Navigation("Events");
+
+                    b.Navigation("StepInstances");
+
+                    b.Navigation("WorkItems");
+                });
+
+            modelBuilder.Entity("MESv2.Api.Models.WorkflowStepInstance", b =>
+                {
+                    b.Navigation("Approvals");
                 });
 #pragma warning restore 612, 618
         }

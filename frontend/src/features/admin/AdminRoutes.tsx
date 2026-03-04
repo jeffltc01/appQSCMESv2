@@ -45,6 +45,10 @@ const AuditLogScreen = named(() => import('./AuditLogScreen.tsx'), 'AuditLogScre
 const FrontendTelemetryScreen = named(() => import('./FrontendTelemetryScreen.tsx'), 'FrontendTelemetryScreen');
 const TestCoverageScreen = named(() => import('./TestCoverageScreen.tsx'), 'TestCoverageScreen');
 const DemoDataResetScreen = named(() => import('./DemoDataResetScreen.tsx'), 'DemoDataResetScreen');
+const WorkflowDefinitionsScreen = named(() => import('./WorkflowDefinitionsScreen.tsx'), 'WorkflowDefinitionsScreen');
+const NcrTypesMaintenanceScreen = named(() => import('./NcrTypesMaintenanceScreen.tsx'), 'NcrTypesMaintenanceScreen');
+const HoldTagsScreen = named(() => import('../quality/HoldTagsScreen.tsx'), 'HoldTagsScreen');
+const NcrScreen = named(() => import('../quality/NcrScreen.tsx'), 'NcrScreen');
 
 function AdminFallbackRoute() {
   useEffect(() => {
@@ -103,6 +107,10 @@ export function AdminRoutes() {
         <Route path="frontend-telemetry" element={<FrontendTelemetryScreen />} />
         <Route path="test-coverage" element={<TestCoverageScreen />} />
         <Route path="demo-data" element={<DemoDataResetScreen />} />
+        <Route path="workflow-definitions" element={<WorkflowDefinitionsScreen />} />
+        <Route path="ncr-types" element={<NcrTypesMaintenanceScreen />} />
+        <Route path="hold-tags" element={<HoldTagsScreen />} />
+        <Route path="ncr" element={<NcrScreen />} />
         <Route path="*" element={<AdminFallbackRoute />} />
       </Routes>
     </Suspense>

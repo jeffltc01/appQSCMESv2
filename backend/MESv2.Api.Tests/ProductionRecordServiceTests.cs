@@ -556,4 +556,43 @@ public class ProductionRecordServiceTests
         Assert.Equal(1, updated!.QuantityCompleted);
         Assert.Equal("completed", updated.Status);
     }
+
+    [Fact]
+    public async Task Create_ThrowsSerialProcessingBlockedException_WhenOpenHoldTagExists()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var serial = new SerialNumber
+        {
+            Id = Guid.NewGuid(),
+            Serial = "SN-BLOCK-HT",
+            PlantId = TestHelpers.PlantPlt1Id,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.SerialNumbers.Add(serial);
+        db.HoldTags.Add(new HoldTag
+        {
+            Id = Guid.NewGuid(),
+            HoldTagNumber = 9001,
+            SiteCode = "PLT1",
+            SerialNumberMasterId = serial.Id,
+            ProblemDescription = "Open hold tag",
+            CreatedByUserId = TestHelpers.TestUserId,
+            CreatedAtUtc = DateTime.UtcNow,
+            LastModifiedByUserId = TestHelpers.TestUserId,
+            LastModifiedAtUtc = DateTime.UtcNow,
+            BusinessStatus = "Open",
+            WorkflowInstanceId = Guid.NewGuid()
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new ProductionRecordService(db);
+        await Assert.ThrowsAsync<SerialProcessingBlockedException>(() => sut.CreateAsync(new CreateProductionRecordDto
+        {
+            SerialNumber = "SN-BLOCK-HT",
+            WorkCenterId = TestHelpers.wcRollsId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId,
+            WelderIds = new List<Guid>()
+        }));
+    }
 }

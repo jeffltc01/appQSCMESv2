@@ -27,7 +27,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
                 ProductionSequence = w.ProductionSequence,
                 DataEntryType = w.DataEntryType,
                 MaterialQueueForWCId = w.MaterialQueueForWCId,
-                MaterialQueueForWCName = w.MaterialQueueForWC != null ? w.MaterialQueueForWC.Name : null
+                MaterialQueueForWCName = w.MaterialQueueForWC != null ? w.MaterialQueueForWC.Name : null,
+                IsHoldTagEnabled = w.IsHoldTagEnabled
             })
             .ToListAsync(ct);
     }
@@ -79,6 +80,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
                     WorkCenterTypeName = w.WorkCenterType.Name,
                     ProductionSequence = w.ProductionSequence,
                     DataEntryType = w.DataEntryType,
+                    IsHoldTagEnabled = w.IsHoldTagEnabled,
                     SiteConfigs = siteConfigs
                 };
             })
@@ -112,6 +114,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             ProductionSequence = dto.ProductionSequence,
             DataEntryType = dto.DataEntryType,
             MaterialQueueForWCId = dto.MaterialQueueForWCId,
+            IsHoldTagEnabled = dto.IsHoldTagEnabled,
         };
 
         _db.WorkCenters.Add(wc);
@@ -128,6 +131,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             WorkCenterTypeName = wcType.Name,
             ProductionSequence = wc.ProductionSequence,
             DataEntryType = wc.DataEntryType,
+            IsHoldTagEnabled = wc.IsHoldTagEnabled,
             SiteConfigs = new List<WorkCenterSiteConfigDto>
             {
                 new()
@@ -154,6 +158,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
         wc.ProductionSequence = dto.ProductionSequence;
         wc.DataEntryType = dto.DataEntryType;
         wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
+        wc.IsHoldTagEnabled = dto.IsHoldTagEnabled;
 
         await _db.SaveChangesAsync(ct);
 
@@ -168,6 +173,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             WorkCenterTypeName = wc.WorkCenterType.Name,
             ProductionSequence = wc.ProductionSequence,
             DataEntryType = wc.DataEntryType,
+            IsHoldTagEnabled = wc.IsHoldTagEnabled,
             SiteConfigs = new List<WorkCenterSiteConfigDto>
             {
                 new()
@@ -193,6 +199,7 @@ public class AdminWorkCenterService : IAdminWorkCenterService
         wc.ProductionSequence = dto.ProductionSequence;
         wc.DataEntryType = dto.DataEntryType;
         wc.MaterialQueueForWCId = dto.MaterialQueueForWCId;
+        wc.IsHoldTagEnabled = dto.IsHoldTagEnabled;
         await _db.SaveChangesAsync(ct);
 
         string? mqName = null;
@@ -208,7 +215,8 @@ public class AdminWorkCenterService : IAdminWorkCenterService
             ProductionSequence = wc.ProductionSequence,
             DataEntryType = wc.DataEntryType,
             MaterialQueueForWCId = wc.MaterialQueueForWCId,
-            MaterialQueueForWCName = mqName
+            MaterialQueueForWCName = mqName,
+            IsHoldTagEnabled = wc.IsHoldTagEnabled
         };
     }
 

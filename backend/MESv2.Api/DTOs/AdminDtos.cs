@@ -193,6 +193,7 @@ public class AdminWorkCenterDto
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
     public string? MaterialQueueForWCName { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class UpdateWorkCenterConfigDto
@@ -201,6 +202,7 @@ public class UpdateWorkCenterConfigDto
     public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class AdminWorkCenterGroupDto
@@ -210,6 +212,7 @@ public class AdminWorkCenterGroupDto
     public string WorkCenterTypeName { get; set; } = string.Empty;
     public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
     public List<WorkCenterSiteConfigDto> SiteConfigs { get; set; } = new();
 }
 
@@ -228,6 +231,7 @@ public class UpdateWorkCenterGroupDto
     public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class CreateWorkCenterDto
@@ -237,6 +241,7 @@ public class CreateWorkCenterDto
     public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class WorkCenterTypeDto
@@ -489,12 +494,14 @@ public class CreateProductionLineDto
 {
     public string Name { get; set; } = string.Empty;
     public Guid PlantId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class UpdateProductionLineDto
 {
     public string Name { get; set; } = string.Empty;
     public Guid PlantId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 // ---- Role reference ----

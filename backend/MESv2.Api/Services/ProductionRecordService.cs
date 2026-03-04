@@ -8,10 +8,17 @@ namespace MESv2.Api.Services;
 public class ProductionRecordService : IProductionRecordService
 {
     private readonly MesDbContext _db;
+    private readonly ISerialProcessingGateService _serialProcessingGate;
 
     public ProductionRecordService(MesDbContext db)
+        : this(db, new SerialProcessingGateService(db))
+    {
+    }
+
+    public ProductionRecordService(MesDbContext db, ISerialProcessingGateService serialProcessingGate)
     {
         _db = db;
+        _serialProcessingGate = serialProcessingGate;
     }
 
     public async Task<CreateProductionRecordResponseDto> CreateAsync(CreateProductionRecordDto dto, CancellationToken cancellationToken = default)
@@ -90,6 +97,10 @@ public class ProductionRecordService : IProductionRecordService
         }
         else
         {
+            var block = await _serialProcessingGate.EvaluateBySerialIdAsync(serial.Id, cancellationToken);
+            if (block.IsBlocked)
+                throw new SerialProcessingBlockedException(serial.Serial, block);
+
             if (serial.ProductId == null && resolvedProductId != null)
                 serial.ProductId = resolvedProductId;
             if (!string.IsNullOrEmpty(dto.CoilNumber))

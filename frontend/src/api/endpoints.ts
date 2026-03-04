@@ -93,6 +93,23 @@ import type {
   SubmitChecklistResponsesRequest,
   GetChecklistReviewSummaryRequest,
   GetChecklistQuestionResponsesRequest,
+  UpsertWorkflowDefinitionRequest,
+  StartWorkflowRequest,
+  AdvanceStepRequest,
+  ApproveRejectRequest,
+  CompleteWorkItemRequest,
+  CreateHoldTagRequest,
+  SetHoldTagDispositionRequest,
+  LinkHoldTagNcrRequest,
+  ResolveHoldTagRequest,
+  VoidHoldTagRequest,
+  UpsertNcrTypeRequest,
+  CreateNcrRequest,
+  UpdateNcrDataRequest,
+  SubmitNcrStepRequest,
+  NcrDecisionRequest,
+  VoidNcrRequest,
+  AddNcrAttachmentRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -177,6 +194,14 @@ import type {
   ChecklistEntry,
   ChecklistReviewSummary,
   ChecklistQuestionResponses,
+  WorkflowDefinition,
+  WorkflowInstance,
+  WorkflowWorkItem,
+  WorkflowEvent,
+  NotificationRule,
+  HoldTag,
+  NcrType,
+  Ncr,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -844,4 +869,82 @@ export const frontendTelemetryApi = {
     api.get<FrontendTelemetryCount>(`/frontend-telemetry/count?warningThreshold=${warningThreshold}`),
   archiveOldest: (req: FrontendTelemetryArchiveRequest) =>
     api.post<FrontendTelemetryArchiveResult>('/frontend-telemetry/archive', req),
+};
+
+export const workflowApi = {
+  getDefinitions: (workflowType?: string) =>
+    api.get<WorkflowDefinition[]>(`/workflows/definitions${workflowType ? `?workflowType=${encodeURIComponent(workflowType)}` : ''}`),
+  upsertDefinition: (req: UpsertWorkflowDefinitionRequest) =>
+    api.post<WorkflowDefinition>('/workflows/definitions', req),
+  validateDefinition: (req: UpsertWorkflowDefinitionRequest) =>
+    api.post<{ isExecutable: boolean; errors: string[] }>('/workflows/definitions/validate', req),
+  getNotificationRules: (workflowType?: string) =>
+    api.get<NotificationRule[]>(`/workflows/notification-rules${workflowType ? `?workflowType=${encodeURIComponent(workflowType)}` : ''}`),
+  upsertNotificationRule: (req: NotificationRule) =>
+    api.post<NotificationRule>('/workflows/notification-rules', req),
+  start: (req: StartWorkflowRequest) =>
+    api.post<WorkflowInstance>('/workflows/start', req),
+  advance: (req: AdvanceStepRequest) =>
+    api.post<WorkflowInstance>('/workflows/advance', req),
+  approve: (req: ApproveRejectRequest) =>
+    api.post<WorkflowInstance>('/workflows/approve', req),
+  reject: (req: ApproveRejectRequest) =>
+    api.post<WorkflowInstance>('/workflows/reject', req),
+  getOpenWorkItems: (userId: string, roleTiers: number[]) => {
+    const params = new URLSearchParams({ userId });
+    for (const roleTier of roleTiers) {
+      params.append('roleTiers', String(roleTier));
+    }
+    return api.get<WorkflowWorkItem[]>(`/workflows/work-items/open?${params.toString()}`);
+  },
+  completeWorkItem: (req: CompleteWorkItemRequest) =>
+    api.post<WorkflowInstance>('/workflows/work-items/complete', req),
+  getEvents: (workflowInstanceId: string) =>
+    api.get<WorkflowEvent[]>(`/workflows/${workflowInstanceId}/events`),
+};
+
+export const holdTagApi = {
+  getList: (siteCode?: string) =>
+    api.get<HoldTag[]>(`/hold-tags${siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : ''}`),
+  getById: (id: string) =>
+    api.get<HoldTag>(`/hold-tags/${id}`),
+  create: (req: CreateHoldTagRequest) =>
+    api.post<HoldTag>('/hold-tags', req),
+  setDisposition: (req: SetHoldTagDispositionRequest) =>
+    api.post<HoldTag>('/hold-tags/disposition', req),
+  linkNcr: (req: LinkHoldTagNcrRequest) =>
+    api.post<HoldTag>('/hold-tags/link-ncr', req),
+  resolve: (req: ResolveHoldTagRequest) =>
+    api.post<HoldTag>('/hold-tags/resolve', req),
+  void: (req: VoidHoldTagRequest) =>
+    api.post<HoldTag>('/hold-tags/void', req),
+  getEvents: (id: string) =>
+    api.get<WorkflowEvent[]>(`/hold-tags/${id}/events`),
+};
+
+export const ncrApi = {
+  getNcrTypes: (includeInactive = false) =>
+    api.get<NcrType[]>(`/ncr-types?includeInactive=${includeInactive ? 'true' : 'false'}`),
+  upsertNcrType: (req: UpsertNcrTypeRequest) =>
+    api.post<NcrType>('/ncr-types', req),
+  getList: (siteCode?: string) =>
+    api.get<Ncr[]>(`/ncr${siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : ''}`),
+  getById: (id: string) =>
+    api.get<Ncr>(`/ncr/${id}`),
+  create: (req: CreateNcrRequest) =>
+    api.post<Ncr>('/ncr', req),
+  updateData: (req: UpdateNcrDataRequest) =>
+    api.put<Ncr>('/ncr/data', req),
+  submitStep: (req: SubmitNcrStepRequest) =>
+    api.post<Ncr>('/ncr/submit', req),
+  approveStep: (req: NcrDecisionRequest) =>
+    api.post<Ncr>('/ncr/approve', req),
+  rejectStep: (req: NcrDecisionRequest) =>
+    api.post<Ncr>('/ncr/reject', req),
+  voidNcr: (req: VoidNcrRequest) =>
+    api.post<Ncr>('/ncr/void', req),
+  addAttachment: (req: AddNcrAttachmentRequest) =>
+    api.post<void>('/ncr/attachments', req),
+  getEvents: (id: string) =>
+    api.get<WorkflowEvent[]>(`/ncr/${id}/events`),
 };

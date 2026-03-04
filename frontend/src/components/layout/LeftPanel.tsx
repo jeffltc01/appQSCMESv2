@@ -5,6 +5,7 @@ import {
   WrenchRegular,
   TabletRegular,
   CalendarRegular,
+  TagRegular,
   SettingsRegular,
   SignOutRegular,
   ClipboardTaskListLtrRegular,
@@ -20,6 +21,8 @@ interface LeftPanelProps {
   showScheduleButton?: boolean;
   showChecklistButton?: boolean;
   onChecklistClick?: () => void;
+  showCreateHoldTagButton?: boolean;
+  onCreateHoldTag?: () => void;
 }
 
 export function LeftPanel({
@@ -29,6 +32,8 @@ export function LeftPanel({
   showScheduleButton = true,
   showChecklistButton = false,
   onChecklistClick,
+  showCreateHoldTagButton = false,
+  onCreateHoldTag,
 }: LeftPanelProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -92,6 +97,19 @@ export function LeftPanel({
             disabled={disabled}
             aria-label="Checklist"
             onClick={onChecklistClick}
+          />
+        </Tooltip>
+      )}
+
+      {showCreateHoldTagButton && (
+        <Tooltip content="Create Hold Tag" relationship="label" positioning="after">
+          <Button
+            appearance="subtle"
+            icon={<TagRegular fontSize={60} />}
+            className={styles.iconBtn}
+            disabled={disabled}
+            aria-label="Create Hold Tag"
+            onClick={onCreateHoldTag}
           />
         </Tooltip>
       )}

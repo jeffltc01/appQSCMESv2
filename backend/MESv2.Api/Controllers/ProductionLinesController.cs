@@ -23,7 +23,7 @@ public class ProductionLinesController : ControllerBase
         var list = await _db.ProductionLines
             .Where(l => l.PlantId == plantId)
             .OrderBy(l => l.Name)
-            .Select(l => new ProductionLineDto { Id = l.Id, Name = l.Name, PlantId = l.PlantId })
+            .Select(l => new ProductionLineDto { Id = l.Id, Name = l.Name, PlantId = l.PlantId, IsHoldTagEnabled = l.IsHoldTagEnabled })
             .ToListAsync(cancellationToken);
         return Ok(list);
     }
@@ -34,7 +34,7 @@ public class ProductionLinesController : ControllerBase
         var list = await _db.ProductionLines
             .Include(l => l.Plant)
             .OrderBy(l => l.Plant.Code).ThenBy(l => l.Name)
-            .Select(l => new ProductionLineAdminDto { Id = l.Id, Name = l.Name, PlantId = l.PlantId, PlantName = l.Plant.Name })
+            .Select(l => new ProductionLineAdminDto { Id = l.Id, Name = l.Name, PlantId = l.PlantId, PlantName = l.Plant.Name, IsHoldTagEnabled = l.IsHoldTagEnabled })
             .ToListAsync(cancellationToken);
         return Ok(list);
     }
@@ -50,6 +50,7 @@ public class ProductionLinesController : ControllerBase
             Id = Guid.NewGuid(),
             Name = dto.Name,
             PlantId = dto.PlantId,
+            IsHoldTagEnabled = dto.IsHoldTagEnabled,
         };
         _db.ProductionLines.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
@@ -60,6 +61,7 @@ public class ProductionLinesController : ControllerBase
             Name = entity.Name,
             PlantId = entity.PlantId,
             PlantName = plant.Name,
+            IsHoldTagEnabled = entity.IsHoldTagEnabled,
         });
     }
 
@@ -83,6 +85,7 @@ public class ProductionLinesController : ControllerBase
 
         entity.Name = dto.Name;
         entity.PlantId = dto.PlantId;
+        entity.IsHoldTagEnabled = dto.IsHoldTagEnabled;
         await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(new ProductionLineAdminDto
@@ -91,6 +94,7 @@ public class ProductionLinesController : ControllerBase
             Name = entity.Name,
             PlantId = entity.PlantId,
             PlantName = plant.Name,
+            IsHoldTagEnabled = entity.IsHoldTagEnabled,
         });
     }
 

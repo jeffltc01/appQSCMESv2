@@ -78,6 +78,11 @@ export function LongSeamInspScreen(props: WorkCenterProps) {
     async (serial: string) => {
       try {
         const ctx = await serialNumberApi.getContext(serial);
+        if (ctx.isBlockedForProcessing) {
+          const reason = ctx.blockingReasons?.join(' | ') ?? 'Open Hold Tag/NCR exists for this serial.';
+          showScanResult({ type: 'error', message: `Serial ${serial} is blocked. ${reason}` });
+          return;
+        }
         setSerialNumber(serial);
         setTankSize(ctx.tankSize);
         setScreenState('AwaitingDefects');

@@ -428,4 +428,82 @@ public class InspectionRecordServiceTests
         Assert.Equal(prodRecord.Id, defect.ProductionRecordId);
     }
 
+    [Fact]
+    public async Task Create_ThrowsSerialProcessingBlockedException_WhenOpenNcrExistsForSerial()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var (snId, _) = SeedSerialAndProdRecord(db, "SN-BLOCK-NCR", TestHelpers.wcLongSeamId);
+        var cpId = SeedControlPlan(db);
+
+        var holdTagId = Guid.NewGuid();
+        var ncrWorkflowDefinitionId = Guid.NewGuid();
+        var ncrWorkflowInstanceId = Guid.NewGuid();
+        db.WorkflowDefinitions.Add(new WorkflowDefinition
+        {
+            Id = ncrWorkflowDefinitionId,
+            WorkflowType = "NCR",
+            Version = 1,
+            IsActive = true,
+            StartStepCode = "Start",
+            CreatedAtUtc = DateTime.UtcNow
+        });
+        db.HoldTags.Add(new HoldTag
+        {
+            Id = holdTagId,
+            HoldTagNumber = 9101,
+            SiteCode = "PLT1",
+            SerialNumberMasterId = snId,
+            ProblemDescription = "Escalated issue",
+            CreatedByUserId = TestHelpers.TestUserId,
+            CreatedAtUtc = DateTime.UtcNow,
+            LastModifiedByUserId = TestHelpers.TestUserId,
+            LastModifiedAtUtc = DateTime.UtcNow,
+            BusinessStatus = "Resolved",
+            WorkflowInstanceId = Guid.NewGuid()
+        });
+        db.WorkflowInstances.Add(new WorkflowInstance
+        {
+            Id = ncrWorkflowInstanceId,
+            WorkflowDefinitionId = ncrWorkflowDefinitionId,
+            WorkflowType = "NCR",
+            WorkflowDefinitionVersion = 1,
+            EntityType = "NCR",
+            EntityId = Guid.NewGuid(),
+            CurrentStepCode = "Review",
+            Status = "InProgress",
+            StartedAtUtc = DateTime.UtcNow
+        });
+        var ncrType = db.NcrTypes.First();
+        db.Ncrs.Add(new Ncr
+        {
+            Id = Guid.NewGuid(),
+            NcrNumber = 9201,
+            SourceType = "HoldTagEscalation",
+            SourceEntityId = holdTagId,
+            NcrTypeId = ncrType.Id,
+            SiteCode = "PLT1",
+            DetectedByUserId = TestHelpers.TestUserId,
+            SubmitterUserId = TestHelpers.TestUserId,
+            CoordinatorUserId = TestHelpers.TestUserId,
+            DateUtc = DateTime.UtcNow,
+            ProblemDescription = "Open NCR",
+            CurrentStepCode = "Review",
+            CreatedByUserId = TestHelpers.TestUserId,
+            CreatedAtUtc = DateTime.UtcNow,
+            LastModifiedByUserId = TestHelpers.TestUserId,
+            LastModifiedAtUtc = DateTime.UtcNow,
+            WorkflowInstanceId = ncrWorkflowInstanceId
+        });
+        await db.SaveChangesAsync();
+
+        var sut = new InspectionRecordService(db);
+        await Assert.ThrowsAsync<SerialProcessingBlockedException>(() => sut.CreateAsync(new CreateInspectionRecordDto
+        {
+            SerialNumber = "SN-BLOCK-NCR",
+            WorkCenterId = TestHelpers.wcLongSeamInspId,
+            OperatorId = TestHelpers.TestUserId,
+            Results = new List<InspectionResultEntryDto> { new() { ControlPlanId = cpId, ResultText = "Pass" } }
+        }));
+    }
+
 }

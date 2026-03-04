@@ -64,9 +64,56 @@ public class MesDbContext : DbContext
     public DbSet<ChecklistEntryItemResponse> ChecklistEntryItemResponses => Set<ChecklistEntryItemResponse>();
     public DbSet<ScoreType> ScoreTypes => Set<ScoreType>();
     public DbSet<ScoreTypeValue> ScoreTypeValues => Set<ScoreTypeValue>();
+    public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
+    public DbSet<WorkflowStepDefinition> WorkflowStepDefinitions => Set<WorkflowStepDefinition>();
+    public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
+    public DbSet<WorkflowStepInstance> WorkflowStepInstances => Set<WorkflowStepInstance>();
+    public DbSet<WorkflowStepApproval> WorkflowStepApprovals => Set<WorkflowStepApproval>();
+    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
+    public DbSet<NotificationRule> NotificationRules => Set<NotificationRule>();
+    public DbSet<WorkflowEvent> WorkflowEvents => Set<WorkflowEvent>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<HoldTag> HoldTags => Set<HoldTag>();
+    public DbSet<Ncr> Ncrs => Set<Ncr>();
+    public DbSet<NcrType> NcrTypes => Set<NcrType>();
+    public DbSet<NcrAttachment> NcrAttachments => Set<NcrAttachment>();
+    public DbSet<SequenceCounter> SequenceCounters => Set<SequenceCounter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(MesDbContext).Assembly);
+
+        modelBuilder.Entity<WorkflowDefinition>()
+            .HasIndex(x => new { x.WorkflowType, x.Version })
+            .IsUnique();
+        modelBuilder.Entity<WorkflowStepDefinition>()
+            .HasIndex(x => new { x.WorkflowDefinitionId, x.StepCode })
+            .IsUnique();
+        modelBuilder.Entity<WorkflowInstance>()
+            .Property(x => x.RowVersion)
+            .IsRowVersion();
+        modelBuilder.Entity<WorkflowStepApproval>()
+            .HasIndex(x => new { x.WorkflowStepInstanceId, x.AssignmentType, x.AssignedUserId, x.AssignedRoleTier })
+            .HasFilter(null)
+            .IsUnique();
+        modelBuilder.Entity<WorkflowStepApproval>()
+            .HasCheckConstraint("CK_WorkflowStepApprovals_Assignee", "([AssignedUserId] IS NOT NULL AND [AssignedRoleTier] IS NULL) OR ([AssignedUserId] IS NULL AND [AssignedRoleTier] IS NOT NULL)");
+        modelBuilder.Entity<WorkItem>()
+            .HasCheckConstraint("CK_WorkItems_Assignee", "([AssignedUserId] IS NOT NULL AND [AssignedRoleTier] IS NULL) OR ([AssignedUserId] IS NULL AND [AssignedRoleTier] IS NOT NULL)");
+        modelBuilder.Entity<IdempotencyRecord>()
+            .HasIndex(x => x.Key)
+            .IsUnique();
+        modelBuilder.Entity<HoldTag>()
+            .HasIndex(x => x.HoldTagNumber)
+            .IsUnique();
+        modelBuilder.Entity<Ncr>()
+            .HasIndex(x => x.NcrNumber)
+            .IsUnique();
+        modelBuilder.Entity<NcrType>()
+            .HasIndex(x => x.Code)
+            .IsUnique();
+        modelBuilder.Entity<SequenceCounter>()
+            .HasIndex(x => x.Name)
+            .IsUnique();
     }
 }

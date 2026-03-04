@@ -6,6 +6,10 @@ public class SerialNumberContextDto
     public int TankSize { get; set; }
     public string? ShellSize { get; set; }
     public ExistingAssemblyDto? ExistingAssembly { get; set; }
+    public bool IsBlockedForProcessing { get; set; }
+    public List<int> OpenHoldTagNumbers { get; set; } = new();
+    public List<int> OpenNcrNumbers { get; set; } = new();
+    public List<string> BlockingReasons { get; set; } = new();
 }
 
 public class ExistingAssemblyDto

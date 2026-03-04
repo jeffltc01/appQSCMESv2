@@ -9,6 +9,7 @@ public class WorkCenter
     public decimal? ProductionSequence { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 
     public WorkCenterType WorkCenterType { get; set; } = null!;
     public WorkCenter? MaterialQueueForWC { get; set; }

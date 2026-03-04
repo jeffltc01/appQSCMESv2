@@ -8,10 +8,17 @@ namespace MESv2.Api.Services;
 public class SerialNumberService : ISerialNumberService
 {
     private readonly MesDbContext _db;
+    private readonly ISerialProcessingGateService _serialProcessingGate;
 
     public SerialNumberService(MesDbContext db)
+        : this(db, new SerialProcessingGateService(db))
+    {
+    }
+
+    public SerialNumberService(MesDbContext db, ISerialProcessingGateService serialProcessingGate)
     {
         _db = db;
+        _serialProcessingGate = serialProcessingGate;
     }
 
     public async Task<SerialNumberContextDto?> GetContextAsync(string serial, CancellationToken cancellationToken = default)
@@ -152,12 +159,18 @@ public class SerialNumberService : ISerialNumberService
             }
         }
 
+        var block = await _serialProcessingGate.EvaluateBySerialIdAsync(sn.Id, cancellationToken);
+
         return new SerialNumberContextDto
         {
             SerialNumber = sn.Serial,
             TankSize = tankSize,
             ShellSize = shellSize,
-            ExistingAssembly = existingAssembly
+            ExistingAssembly = existingAssembly,
+            IsBlockedForProcessing = block.IsBlocked,
+            OpenHoldTagNumbers = block.OpenHoldTagNumbers,
+            OpenNcrNumbers = block.OpenNcrNumbers,
+            BlockingReasons = block.Reasons
         };
     }
 

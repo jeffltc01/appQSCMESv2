@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner } from '@fluentui/react-components';
+import { Button, Input, Label, Dropdown, Option, Spinner, Switch } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../auth/AuthContext.tsx';
 import { AdminLayout } from './AdminLayout.tsx';
@@ -30,6 +30,7 @@ export function WorkCenterConfigScreen() {
   const [productionSequence, setProductionSequence] = useState('');
   const [dataEntryType, setDataEntryType] = useState('');
   const [materialQueueForWCId, setMaterialQueueForWCId] = useState('');
+  const [isHoldTagEnabled, setIsHoldTagEnabled] = useState(false);
 
   // Create work center modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -38,6 +39,7 @@ export function WorkCenterConfigScreen() {
   const [createProductionSequence, setCreateProductionSequence] = useState('');
   const [createDataEntryType, setCreateDataEntryType] = useState('');
   const [createMqId, setCreateMqId] = useState('');
+  const [createIsHoldTagEnabled, setCreateIsHoldTagEnabled] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
   const [createError, setCreateError] = useState('');
 
@@ -67,6 +69,7 @@ export function WorkCenterConfigScreen() {
     setProductionSequence(group.productionSequence != null ? String(group.productionSequence) : '');
     setDataEntryType(group.dataEntryType ?? '');
     setMaterialQueueForWCId(group.siteConfigs[0]?.materialQueueForWCId ?? '');
+    setIsHoldTagEnabled(group.isHoldTagEnabled ?? false);
     setError(''); setModalOpen(true);
   };
 
@@ -79,6 +82,7 @@ export function WorkCenterConfigScreen() {
         productionSequence: productionSequence.trim() === '' ? undefined : Number(productionSequence),
         dataEntryType: dataEntryType || undefined,
         materialQueueForWCId: materialQueueForWCId || undefined,
+        isHoldTagEnabled,
       });
       setGroups(prev => prev.map(g => g.groupId === updated.groupId ? updated : g));
       setModalOpen(false);
@@ -92,6 +96,7 @@ export function WorkCenterConfigScreen() {
     setCreateProductionSequence('');
     setCreateDataEntryType('');
     setCreateMqId('');
+    setCreateIsHoldTagEnabled(false);
     setCreateError('');
     setCreateModalOpen(true);
   };
@@ -106,6 +111,7 @@ export function WorkCenterConfigScreen() {
         productionSequence: createProductionSequence.trim() === '' ? undefined : Number(createProductionSequence),
         dataEntryType: createDataEntryType || undefined,
         materialQueueForWCId: createMqId || undefined,
+        isHoldTagEnabled: createIsHoldTagEnabled,
       });
       setGroups(prev => [...prev, created].sort((a, b) => a.baseName.localeCompare(b.baseName)));
       setCreateModalOpen(false);
@@ -156,6 +162,12 @@ export function WorkCenterConfigScreen() {
                   <span className={styles.cardFieldValue}>{group.siteConfigs[0].materialQueueForWCName}</span>
                 </div>
               )}
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Hold Tag Enabled</span>
+                <span className={styles.cardFieldValue}>
+                  {group.isHoldTagEnabled ? 'Yes' : 'No'}
+                </span>
+              </div>
             </div>
           ))}
         </div>
@@ -211,6 +223,11 @@ export function WorkCenterConfigScreen() {
             </Dropdown>
           </>
         )}
+        <Switch
+          label="Enable Hold Tag Entry"
+          checked={isHoldTagEnabled}
+          onChange={(_, d) => setIsHoldTagEnabled(d.checked)}
+        />
       </AdminModal>
 
       {/* Create Work Center Modal (Admin only) */}
@@ -266,6 +283,11 @@ export function WorkCenterConfigScreen() {
             </Dropdown>
           </>
         )}
+        <Switch
+          label="Enable Hold Tag Entry"
+          checked={createIsHoldTagEnabled}
+          onChange={(_, d) => setCreateIsHoldTagEnabled(d.checked)}
+        />
       </AdminModal>
     </AdminLayout>
   );

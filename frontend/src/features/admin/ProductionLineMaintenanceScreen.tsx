@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner, SearchBox } from '@fluentui/react-components';
+import { Button, Input, Label, Dropdown, Option, Spinner, SearchBox, Switch } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
@@ -26,6 +26,7 @@ export function ProductionLineMaintenanceScreen() {
 
   const [name, setName] = useState('');
   const [plantId, setPlantId] = useState('');
+  const [isHoldTagEnabled, setIsHoldTagEnabled] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,6 +45,7 @@ export function ProductionLineMaintenanceScreen() {
     setEditing(null);
     setName('');
     setPlantId(isSiteScoped ? (authUser?.defaultSiteId ?? '') : '');
+    setIsHoldTagEnabled(false);
     setError(''); setModalOpen(true);
   };
 
@@ -51,6 +53,7 @@ export function ProductionLineMaintenanceScreen() {
     setEditing(item);
     setName(item.name);
     setPlantId(item.plantId);
+    setIsHoldTagEnabled(item.isHoldTagEnabled ?? false);
     setError(''); setModalOpen(true);
   };
 
@@ -58,10 +61,10 @@ export function ProductionLineMaintenanceScreen() {
     setSaving(true); setError('');
     try {
       if (editing) {
-        const updated = await adminProductionLineApi.update(editing.id, { name, plantId });
+        const updated = await adminProductionLineApi.update(editing.id, { name, plantId, isHoldTagEnabled });
         setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
       } else {
-        const created = await adminProductionLineApi.create({ name, plantId });
+        const created = await adminProductionLineApi.create({ name, plantId, isHoldTagEnabled });
         setItems(prev => [...prev, created]);
       }
       setModalOpen(false);
@@ -132,6 +135,10 @@ export function ProductionLineMaintenanceScreen() {
                 <span className={styles.cardFieldLabel}>Site</span>
                 <span className={styles.cardFieldValue}>{item.plantName}</span>
               </div>
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Hold Tag Enabled</span>
+                <span className={styles.cardFieldValue}>{item.isHoldTagEnabled ? 'Yes' : 'No'}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -159,6 +166,11 @@ export function ProductionLineMaintenanceScreen() {
         >
           {visibleSites.map(s => <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>{s.name} ({s.code})</Option>)}
         </Dropdown>
+        <Switch
+          label="Enable Hold Tag Entry on this Production Line"
+          checked={isHoldTagEnabled}
+          onChange={(_, d) => setIsHoldTagEnabled(d.checked)}
+        />
       </AdminModal>
 
       <ConfirmDeleteDialog

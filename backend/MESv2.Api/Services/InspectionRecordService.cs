@@ -15,10 +15,17 @@ public class InspectionRecordService : IInspectionRecordService
     };
 
     private readonly MesDbContext _db;
+    private readonly ISerialProcessingGateService _serialProcessingGate;
 
     public InspectionRecordService(MesDbContext db)
+        : this(db, new SerialProcessingGateService(db))
+    {
+    }
+
+    public InspectionRecordService(MesDbContext db, ISerialProcessingGateService serialProcessingGate)
     {
         _db = db;
+        _serialProcessingGate = serialProcessingGate;
     }
 
     public async Task<InspectionRecordResponseDto> CreateAsync(CreateInspectionRecordDto dto, CancellationToken cancellationToken = default)
@@ -26,6 +33,9 @@ public class InspectionRecordService : IInspectionRecordService
         var sn = await _db.SerialNumbers
             .FirstOrDefaultAsync(s => s.Serial == dto.SerialNumber, cancellationToken)
             ?? throw new ArgumentException($"Serial number '{dto.SerialNumber}' not found.");
+        var block = await _serialProcessingGate.EvaluateBySerialIdAsync(sn.Id, cancellationToken);
+        if (block.IsBlocked)
+            throw new SerialProcessingBlockedException(sn.Serial, block);
 
         var upstreamRecord = await _db.ProductionRecords
             .Where(r => r.SerialNumberId == sn.Id)

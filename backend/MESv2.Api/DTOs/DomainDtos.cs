@@ -14,6 +14,7 @@ public class ProductionLineDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public Guid PlantId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class ProductionLineAdminDto
@@ -22,6 +23,7 @@ public class ProductionLineAdminDto
     public string Name { get; set; } = string.Empty;
     public Guid PlantId { get; set; }
     public string PlantName { get; set; } = string.Empty;
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class WorkCenterDto
@@ -33,6 +35,7 @@ public class WorkCenterDto
     public int NumberOfWelders { get; set; }
     public string? DataEntryType { get; set; }
     public Guid? MaterialQueueForWCId { get; set; }
+    public bool IsHoldTagEnabled { get; set; }
 }
 
 public class WorkCenterProductionLineDto
