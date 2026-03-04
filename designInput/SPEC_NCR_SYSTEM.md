@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Define the NCR workflow engine, data contract, NCR Type configuration model, approval behavior, and lifecycle rules for MES v2.
+Define NCR domain behavior for MES v2 using the shared workflow engine core.
 
-This system supports NCRs created directly by Quality and NCRs created from Hold Tag escalation.
+This spec is domain-specific. Reusable workflow mechanics (step engine, approvals, work items/todos, notifications, and event audit) are defined in:
+
+- `SPEC_WORKFLOW_ENGINE_CORE.md`
 
 ## Scope
 
@@ -13,75 +15,65 @@ This system supports NCRs created directly by Quality and NCRs created from Hold
 - NCR creation by Quality roles.
 - NCR creation from Hold Tag context with prefilled fields.
 - Integer incremental NCR numbering.
-- Type-driven process flow (stages, required data, checklists, approval timing).
-- Type-driven approvals (users and/or roles).
-- Electronic approval/rejection with audit data.
-- Rejection and resubmission loops when configured by NCR Type.
+- NCR Type-driven workflow process and approval timing.
+- Step-level approvals with user and/or role assignment.
+- Rejection/resubmission behavior as configured by NCR Type.
 - Required image attachments.
 
 ### Out of Scope (Initial Release)
 
 - Red Tag integration.
-- Post-final-close reopen flow.
-- Delegation/substitution logic during active approval (unless explicitly modeled later).
+- Reopen flow after final completion.
+- Delegation/substitution policies beyond explicit config.
 
 ## Key Design Decision
 
-NCR workflow is controlled by **NCR Type**.  
-Each NCR Type defines its process steps, required approvals, and approval timing.
+NCR flow is controlled by **NCR Type process definition**.  
+Each NCR Type defines step sequence, required fields/checklists, and where approvals occur (including pre-work approvals).
 
-This allows business users to change process behavior by type without code changes.
-
-## Roles and Responsibilities
+## Domain Roles
 
 - **Submitter**
-  - User who creates the NCR record.
-  - Can be direct Quality creator or system-mediated create from Hold Tag flow.
+  - User who creates the NCR.
 - **Coordinator**
-  - Primary responsible user for completing NCR content and progressing workflow.
-  - Must be a quality role in initial release.
-- **Approver**
-  - User or role-based resolved user required at one or more defined steps.
-  - Performs approve/reject actions with signature intent capture.
-- **Quality Director / Admin Maintainer**
-  - Maintains NCR Types and their process definitions.
+  - Primary responsible user for data completion and progression.
+  - Must be quality role in initial release.
+- **Approver(s)**
+  - Resolved from explicit users and/or roles at approval steps.
+- **NCR Type Maintainer**
+  - Quality Director/authorized admin role maintaining NCR type definitions.
 
 ## Numbering
 
-- Field: `NcrNumber` (int, system generated).
-- Sequence behavior:
-  - Global incremental integer sequence.
-  - Monotonic increase across all plants/types.
-  - No yearly reset in initial release.
-- Number is assigned on create and does not change.
+- `NcrNumber` is a global incremental `int`.
+- No yearly reset in initial release.
+- Number assigned at create and immutable.
 
-## Data Contract
+## Domain Data Contract
 
 ### NCR Header
 
-- `Id` (GUID, system generated)
+- `Id` (GUID)
 - `NcrNumber` (int, system generated)
-- `Status` (see lifecycle)
 - `SourceType` (`DirectQuality`, `HoldTagEscalation`)
-- `SourceEntityId` (nullable GUID; required for Hold Tag source)
+- `SourceEntityId` (required when `HoldTagEscalation`)
 - `SiteCode` (required)
 - `DetectedByUserId` (required)
 - `SubmitterUserId` (required)
 - `CoordinatorUserId` (required, quality role)
 - `NcrTypeId` (required)
-- `DateUtc` (required, UTC)
+- `DateUtc` (required)
 - `ProblemDescription` (required)
-- `CurrentStepCode` (required, from type-driven process)
-- `CreatedByUserId` / `CreatedAtUtc` / `LastModifiedByUserId` / `LastModifiedAtUtc` (required audit fields)
+- `CurrentStepCode` (managed by workflow engine)
+- `CreatedByUserId` / `CreatedAtUtc` / `LastModifiedByUserId` / `LastModifiedAtUtc`
 
 ### Required Attachments
 
-- One or more image attachments required before first process step that requires submit/approval.
-- Attachments are retained for audit traceability.
+- One or more image attachments required before first configured approval gate.
 
 ### Conditional Vendor Fields
 
-When NCR Type is vendor-related, required fields include:
+Required when selected NCR Type is vendor-related:
 
 - `VendorId`
 - `PoNumber`
@@ -89,154 +81,113 @@ When NCR Type is vendor-related, required fields include:
 - `HeatNumber`
 - `CoilOrSlabNumber`
 
-### Type-Driven Additional Fields
+## NCR Type Configuration (Domain Layer on Core Workflow)
 
-NCR Type may define additional required fields at specific steps.
-Examples:
+Each `NcrType` maps to one workflow definition/version with configured steps.
 
-- containment action summary
-- disposition code
-- corrective action owner
-- due dates
+NCR Type metadata:
 
-## NCR Type Configuration Model
-
-### NCR Type Entity
-
-- `Id`
 - `Code`
 - `Name`
 - `IsActive`
 - `IsVendorRelated`
 - `Description`
+- `WorkflowDefinitionId`
 
-### NCR Type Process Definition
+NCR Type step requirements are represented through workflow step definitions in core spec:
 
-Each NCR Type contains ordered process steps.  
-Each step defines:
+- required fields
+- required checklists
+- approval mode (`None`, `AnyOne`, `All`)
+- approver assignments
+- approve/reject transitions
 
-- `StepCode` (unique within type)
-- `StepName`
-- `Sequence`
-- `RequiredFields` (field keys)
-- `RequiredChecklistTemplateIds` (0..n)
-- `ApprovalMode` (`None`, `AnyOne`, `All`)
-- `ApprovalAssignments` (users and/or roles)
-- `AllowReject` (bool)
-- `OnRejectTargetStepCode` (nullable)
-- `OnApproveNextStepCode` (nullable; null means complete)
+## NCR Workflow Shape (Domain Mapping)
 
-### Approval Timing by Type
+Reference full transition semantics in `SPEC_WORKFLOW_ENGINE_CORE.md`.
 
-Approvals can occur at any step defined by NCR Type, including pre-work approvals before corrective action starts.
+Recommended `WorkflowType = Ncr` baseline shape:
 
-Examples:
+1. `DraftIntake`
+2. `ContainmentAndAnalysis`
+3. `ApprovalGate` (can appear multiple times per type)
+4. `CorrectiveAction`
+5. `FinalApproval`
+6. `Completed` (terminal)
+7. `Voided` (terminal)
 
-- Type A: approve before containment work.
-- Type B: approve after corrective action proposal.
-- Type C: two-stage approvals (Supervisor, then AI).
+Actual steps and ordering are type-driven and versioned.
 
-## Lifecycle
+## Work Items (Todo Model Usage)
 
-Base statuses:
+Use shared `WorkItem` model from core spec.
 
-- `Draft`
-- `InProgress`
-- `PendingApproval`
-- `Rejected`
-- `Approved`
-- `Completed`
-- `Voided`
+Typical NCR work items:
 
-Notes:
+- `CompleteNcrData` assigned to Coordinator.
+- `CompleteChecklist` assigned to Coordinator/role.
+- `ApproveNcrStep` assigned to approver users/roles.
+- `AddressRejection` assigned to Coordinator when rejected.
 
-- Exact transitions are constrained by the active step in NCR Type process definition.
-- `Completed` is terminal for initial release.
-- `Voided` is terminal for records canceled by authorized quality roles.
+Work items are generated by step entry and approval events, and cleared by configured clear policy.
 
-## Workflow
+## Notification Rules (Domain Mapping)
 
-1. Submitter creates NCR (directly or from Hold Tag).
-2. System assigns `NcrNumber` and initializes process at first step for selected type.
-3. Coordinator completes required fields/checklists for current step.
-4. If current step requires approval:
-   - status becomes `PendingApproval`.
-   - assigned approvers are resolved from users/roles at that step.
-5. Approvers approve or reject:
-   - approve path advances to configured next step.
-   - reject path follows `OnRejectTargetStepCode` and captures required comments.
-6. Process repeats until terminal completion step.
-7. System sets status to `Completed` when final step requirements are satisfied.
+Use shared `NotificationRule` model from core spec.
 
-## Approval and Signature Rules
+Required initial notifications:
 
-- Approval requirements are step-specific and NCR Type driven.
-- Approver assignment supports:
-  - explicit users
-  - role-based dynamic resolution
-- Approval decision audit payload:
-  - approver user
-  - decision (`Approve` or `Reject`)
-  - timestamp UTC
-  - comments (required for reject; optional for approve)
-  - signature intent flag
-- If step requires `All`, all resolved approvers must approve.
-- If step requires `AnyOne`, first approval can complete the step.
+- NCR created -> notify Coordinator.
+- Step enters approval -> notify resolved approvers.
+- Step rejected -> notify Coordinator with comments.
+- NCR completed -> notify Submitter and Coordinator.
 
-## Hold Tag Integration
+## Hold Tag Integration Boundary
 
-- For Hold Tag-origin NCR:
+- Hold Tag-origin NCR stores:
   - `SourceType = HoldTagEscalation`
   - `SourceEntityId = HoldTag.Id`
-  - prefill site/serial/problem context from Hold Tag.
+- Prefill context from Hold Tag (site/serial/problem summary).
 - NCR lifecycle remains independent once created.
-- Hold Tag system uses `NcrId` linkage for closure gate logic.
-
-## Notifications
-
-Use the general notification platform for these events:
-
-- NCR created -> notify coordinator.
-- Step submitted for approval -> notify current step approvers.
-- Rejected -> notify coordinator with rejection comments.
-- Completed -> notify submitter and coordinator.
 
 ## Access Rules
 
 - Create NCR: Quality Tech, Quality Manager, Quality Director, Administrator.
-- Set/Change coordinator: quality leadership roles per security policy.
-- Edit NCR content: coordinator and authorized quality leadership while not terminal.
-- Approve/Reject: only users resolved as approvers for current step.
-- Terminal records (`Completed`, `Voided`) are read-only.
+- Update coordinator and edit content: coordinator and authorized quality leadership while non-terminal.
+- Approve/reject: only resolved approvers for active approval step.
+- Terminal NCR records are read-only.
 
 ## Validation Rules
 
-- `NcrTypeId` is required.
+- `NcrTypeId` required.
 - `CoordinatorUserId` must be quality role.
-- Required step fields/checklists must be complete before step submission.
-- Vendor-required fields enforced when `IsVendorRelated = true`.
-- At least one image attachment required before first approval step.
-- Reject actions require comments.
-- Invalid step/state transitions are blocked.
-- All server timestamps are UTC.
+- Step required fields/checklists must pass before advancing.
+- Vendor-required fields enforced when type is vendor-related.
+- At least one image required before first approval gate.
+- Reject decisions require comments.
+- Invalid transitions blocked by workflow engine + domain validation.
 
-## Implementation Notes
+## API and Service Notes
 
-- Keep controllers thin; workflow execution in service layer/state engine.
-- Snapshot resolved approvers at step submission time for deterministic audit.
-- Store process definition version reference on each NCR to preserve historical behavior if type config later changes.
-- Emit domain events for notifications and change logging.
+- Keep controllers thin.
+- Use workflow core service for transition orchestration, approval handling, work item generation, and notifications.
+- Domain actions:
+  - `CreateNcr`
+  - `UpdateNcrData`
+  - `SubmitNcrStep`
+  - `ApproveNcrStep`
+  - `RejectNcrStep`
+  - `VoidNcr`
 
-## Initial Acceptance Criteria
+## Acceptance Criteria
 
-1. NCR receives an integer incremental `NcrNumber` on create.
-2. Submitter and Coordinator are separate concepts in API and UI.
-3. NCR Type defines process steps, approval points, and transitions.
-4. Step-level approvals support explicit users and role-based assignments.
-5. Pre-work approvals are supported when configured by NCR Type.
-6. Reject path is enforced when configured and requires comments.
-7. Vendor-related NCR Types enforce vendor-required fields.
-8. NCR created from Hold Tag stores source linkage and prefilled context.
-9. Terminal NCRs are immutable.
-10. Lifecycle, approvals, and transitions are fully auditable.
+1. NCR uses shared workflow engine core for all transitions and approvals.
+2. Submitter and Coordinator are distinct roles in data contract and UI behavior.
+3. NCR Type controls process steps and approval timing.
+4. Pre-work approvals are supported when configured in the NCR Type workflow.
+5. Rejection comments are required and drive configured rework path.
+6. Vendor-related types enforce vendor-required fields.
+7. Hold Tag-origin linkage is preserved and auditable.
+8. Notifications and work items are generated from workflow events.
+9. Terminal records are immutable and auditable.
 
