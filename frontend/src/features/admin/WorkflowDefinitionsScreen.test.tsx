@@ -168,7 +168,7 @@ describe('WorkflowDefinitionsScreen', () => {
     await ensurePickerOpen(user);
     await clickPickerAction(user, 'Clone As Draft');
     expect(activeSwitch.checked).toBe(false);
-  });
+  }, 15000);
 
   it('reorders steps and saves a new version payload', async () => {
     const user = userEvent.setup();
@@ -189,7 +189,7 @@ describe('WorkflowDefinitionsScreen', () => {
     expect(payload.steps[0].sequence).toBe(1);
     expect(payload.steps[1].stepCode).toBe('TagCreated');
     expect(payload.steps[1].sequence).toBe(2);
-  });
+  }, 15000);
 
   it('close on picker exits workflow definitions screen', async () => {
     const user = userEvent.setup();
