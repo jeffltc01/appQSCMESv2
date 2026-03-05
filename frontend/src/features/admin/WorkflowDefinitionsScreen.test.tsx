@@ -120,6 +120,7 @@ describe('WorkflowDefinitionsScreen', () => {
     const user = userEvent.setup();
     renderScreen();
 
+    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('HoldTag v3')).toBeInTheDocument());
 
@@ -138,6 +139,8 @@ describe('WorkflowDefinitionsScreen', () => {
     const user = userEvent.setup();
     renderScreen();
 
+    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('HoldTag v3')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Edit As New Version' }));
 
