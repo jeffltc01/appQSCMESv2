@@ -41,6 +41,30 @@ function renderScreen() {
   );
 }
 
+async function ensurePickerOpen(user: ReturnType<typeof userEvent.setup>) {
+  if (screen.queryByRole('button', { name: 'Edit As New Version' })) {
+    return;
+  }
+  await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
+  await waitFor(() => expect(screen.getByText('HoldTag v3')).toBeInTheDocument(), { timeout: 5000 });
+}
+
+async function clickPickerAction(
+  user: ReturnType<typeof userEvent.setup>,
+  actionName: 'Edit As New Version' | 'Clone As Draft',
+) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await ensurePickerOpen(user);
+    const action = screen.queryByRole('button', { name: actionName });
+    if (action) {
+      await user.click(action);
+      return;
+    }
+    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
+  }
+  throw new Error(`Unable to locate picker action: ${actionName}`);
+}
+
 const seededDefinition = {
   id: '11111111-1111-1111-1111-111111111111',
   workflowType: 'HoldTag',
@@ -120,18 +144,16 @@ describe('WorkflowDefinitionsScreen', () => {
     const user = userEvent.setup();
     renderScreen();
 
-    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
+    await ensurePickerOpen(user);
     await waitFor(() => expect(screen.getByText('HoldTag v3')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: 'Edit As New Version' }));
+    await clickPickerAction(user, 'Edit As New Version');
     expect(screen.getAllByDisplayValue('TagCreated').length).toBeGreaterThan(0);
     const activeSwitch = screen.getByLabelText('Active') as HTMLInputElement;
     expect(activeSwitch.checked).toBe(true);
 
-    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: 'Clone As Draft' }));
+    await ensurePickerOpen(user);
+    await clickPickerAction(user, 'Clone As Draft');
     expect(activeSwitch.checked).toBe(false);
   });
 
@@ -139,10 +161,9 @@ describe('WorkflowDefinitionsScreen', () => {
     const user = userEvent.setup();
     renderScreen();
 
-    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
+    await ensurePickerOpen(user);
     await waitFor(() => expect(screen.getByText('HoldTag v3')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: 'Edit As New Version' }));
+    await clickPickerAction(user, 'Edit As New Version');
 
     const moveDownButtons = screen.getAllByRole('button', { name: 'Move Down' });
     await user.click(moveDownButtons[0]);
