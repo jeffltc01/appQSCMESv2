@@ -1531,3 +1531,31 @@ export interface SupermarketQuantityStatus {
   hasOpenStockout: boolean;
   lastCapturedAtUtc: string;
 }
+
+export type WorkCenterBreakdownDimension = 'TankSize' | 'TankType' | 'Color' | 'FinishedPartNumber';
+
+export interface WorkCenterBreakdownConfig {
+  id: string;
+  siteCode: string;
+  productionLineId: string;
+  workCenterId: string;
+  workCenterName: string;
+  groupingDimensions: WorkCenterBreakdownDimension[];
+}
+
+export interface WorkCenterScheduleBreakdownRow {
+  plannedDateLocal: string;
+  plannedQty: number;
+  dimensionValues: Record<string, string>;
+}
+
+export interface WorkCenterScheduleBreakdown {
+  scheduleId: string;
+  siteCode: string;
+  productionLineId: string;
+  workCenterId: string;
+  workCenterName: string;
+  weekStartDateLocal: string;
+  groupingDimensions: WorkCenterBreakdownDimension[];
+  rows: WorkCenterScheduleBreakdownRow[];
+}

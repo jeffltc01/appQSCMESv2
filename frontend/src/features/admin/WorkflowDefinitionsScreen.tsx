@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
   Dropdown,
   Input,
   Label,
@@ -83,6 +90,7 @@ const nodeTypes: NodeTypes = {
 };
 
 export function WorkflowDefinitionsScreen() {
+  const navigate = useNavigate();
   const [workflowType, setWorkflowType] = useState('HoldTag');
   const [items, setItems] = useState<WorkflowDefinition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,6 +106,7 @@ export function WorkflowDefinitionsScreen() {
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(true);
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(0);
   const [draftPositionKey, setDraftPositionKey] = useState<string>('workflow-draft:new:HoldTag');
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowBuilderNodeData>([]);
@@ -379,25 +388,15 @@ export function WorkflowDefinitionsScreen() {
     addStep(stepType);
   };
 
+  const closeScreen = () => {
+    navigate('/menu');
+  };
+
   return (
     <AdminLayout title="Workflow Definitions">
       <div className={styles.builderShell}>
         <div className={styles.topToolbar}>
           <div className={styles.topToolbarLeft}>
-            <div className={styles.toolbarField}>
-              <Label>Type</Label>
-              <Dropdown
-                value={workflowType}
-                selectedOptions={[workflowType]}
-                onOptionSelect={(_, d) => {
-                  const next = d.optionValue ?? 'HoldTag';
-                  setWorkflowType(next);
-                  resetEditor(next);
-                }}
-              >
-                {selectableWorkflowTypes.map((t) => <Option key={t} value={t}>{t}</Option>)}
-              </Dropdown>
-            </div>
             <div className={styles.toolbarField}>
               <Label>Start Step</Label>
               <Dropdown
@@ -412,6 +411,7 @@ export function WorkflowDefinitionsScreen() {
             <Switch label="Active" checked={editor.isActive} onChange={(_, d) => setEditor((prev) => ({ ...prev, isActive: d.checked }))} />
           </div>
           <div className={styles.topToolbarActions}>
+            <Button onClick={() => setIsPickerOpen(true)}>Select Workflow</Button>
             <Button onClick={validateDefinition} disabled={saving}>Validate</Button>
             <Button appearance="primary" onClick={saveDefinition} disabled={saving}>Save New Version</Button>
           </div>
@@ -463,20 +463,6 @@ export function WorkflowDefinitionsScreen() {
                 </button>
               ))}
             </div>
-            <div className={styles.definitionCards}>
-              {sorted.map((item) => (
-                <div key={item.id} className={styles.definitionCard}>
-                  <div className={styles.definitionTitle}>{item.workflowType} v{item.version}</div>
-                  <div className={styles.definitionMeta}>Start: {item.startStepCode}</div>
-                  <div className={styles.definitionMeta}>Active: {item.isActive ? 'Yes' : 'No'}</div>
-                  <div className={styles.definitionActions}>
-                    <Button size="small" onClick={() => loadDefinition(item, true)}>Edit As New Version</Button>
-                    <Button size="small" onClick={() => loadDefinition(item, false)}>Clone As Draft</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Button onClick={() => resetEditor(workflowType)}>New Empty Draft</Button>
           </aside>
 
           <section className={styles.canvasPanel}>
@@ -579,6 +565,83 @@ export function WorkflowDefinitionsScreen() {
           </aside>
         </div>
       </div>
+
+      <Dialog open={isPickerOpen} onOpenChange={(_, data) => setIsPickerOpen(data.open)}>
+        <DialogSurface className={styles.workflowPickerSurface}>
+          <DialogBody>
+            <DialogTitle>Select Workflow Definition</DialogTitle>
+            <DialogContent className={styles.workflowPickerContent}>
+              <div className={styles.workflowPickerLayout}>
+                <div className={styles.workflowPickerToolbarSection}>
+                  <Label>Workflow Type</Label>
+                  <Dropdown
+                    className={styles.workflowPickerTypeDropdown}
+                    value={workflowType}
+                    selectedOptions={[workflowType]}
+                    onOptionSelect={(_, d) => {
+                      const next = d.optionValue ?? 'HoldTag';
+                      setWorkflowType(next);
+                      resetEditor(next);
+                    }}
+                  >
+                    {selectableWorkflowTypes.map((t) => <Option key={`picker-${t}`} value={t}>{t}</Option>)}
+                  </Dropdown>
+                </div>
+
+                {loading && <div>Loading definitions...</div>}
+                {error && <div className={styles.error}>{error}</div>}
+                {!loading && !error && sorted.length === 0 && (
+                  <div className={styles.emptyState}>No workflow definitions are available for {workflowType}.</div>
+                )}
+                {!loading && !error && sorted.length > 0 && (
+                  <div className={styles.definitionListScroll}>
+                    <div className={styles.definitionCards}>
+                      {sorted.map((item) => (
+                        <div key={item.id} className={styles.definitionCard}>
+                          <div className={styles.definitionTitle}>{item.workflowType} v{item.version}</div>
+                          <div className={styles.definitionMeta}>Start: {item.startStepCode}</div>
+                          <div className={styles.definitionMeta}>Active: {item.isActive ? 'Yes' : 'No'}</div>
+                          <div className={styles.definitionActions}>
+                            <Button
+                              size="small"
+                              onClick={() => {
+                                loadDefinition(item, true);
+                                setIsPickerOpen(false);
+                              }}
+                            >
+                              Edit As New Version
+                            </Button>
+                            <Button
+                              size="small"
+                              onClick={() => {
+                                loadDefinition(item, false);
+                                setIsPickerOpen(false);
+                              }}
+                            >
+                              Clone As Draft
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                onClick={() => {
+                  resetEditor(workflowType);
+                  setIsPickerOpen(false);
+                }}
+              >
+                New Empty Draft
+              </Button>
+              <Button onClick={closeScreen}>Close</Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </AdminLayout>
   );
 }

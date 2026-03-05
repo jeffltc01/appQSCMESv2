@@ -1130,3 +1130,10 @@ export interface FinalScanExecutionRequest {
   shortfallReasonCode?: string;
   idempotencyKey: string;
 }
+
+export interface UpsertWorkCenterBreakdownConfigRequest {
+  siteCode: string;
+  productionLineId: string;
+  workCenterId: string;
+  groupingDimensions: string[];
+}

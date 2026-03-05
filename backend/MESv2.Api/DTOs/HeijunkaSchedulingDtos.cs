@@ -54,6 +54,49 @@ public class GenerateScheduleDraftRequestDto
     public string PlanningResourceId { get; set; } = "default";
 }
 
+public class UpsertWorkCenterBreakdownConfigRequestDto
+{
+    public string SiteCode { get; set; } = string.Empty;
+    public Guid ProductionLineId { get; set; }
+    public Guid WorkCenterId { get; set; }
+    public List<string> GroupingDimensions { get; set; } = new();
+}
+
+public class WorkCenterBreakdownConfigDto
+{
+    public Guid Id { get; set; }
+    public string SiteCode { get; set; } = string.Empty;
+    public Guid ProductionLineId { get; set; }
+    public Guid WorkCenterId { get; set; }
+    public string WorkCenterName { get; set; } = string.Empty;
+    public List<string> GroupingDimensions { get; set; } = new();
+}
+
+public class WorkCenterScheduleBreakdownRequestDto
+{
+    public Guid ScheduleId { get; set; }
+    public Guid WorkCenterId { get; set; }
+}
+
+public class WorkCenterScheduleBreakdownRowDto
+{
+    public DateTime PlannedDateLocal { get; set; }
+    public decimal PlannedQty { get; set; }
+    public Dictionary<string, string> DimensionValues { get; set; } = new();
+}
+
+public class WorkCenterScheduleBreakdownDto
+{
+    public Guid ScheduleId { get; set; }
+    public string SiteCode { get; set; } = string.Empty;
+    public Guid ProductionLineId { get; set; }
+    public Guid WorkCenterId { get; set; }
+    public string WorkCenterName { get; set; } = string.Empty;
+    public DateTime WeekStartDateLocal { get; set; }
+    public List<string> GroupingDimensions { get; set; } = new();
+    public List<WorkCenterScheduleBreakdownRowDto> Rows { get; set; } = new();
+}
+
 public class ScheduleLineDto
 {
     public Guid Id { get; set; }

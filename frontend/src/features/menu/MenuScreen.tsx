@@ -90,15 +90,12 @@ const MENU_GROUPS: MenuGroup[] = [
     accentColor: '#606ca3',
     tiles: [
       { label: 'Plant Gear', icon: <TopSpeedRegular />, minRoleTier: 3, route: '/menu/plant-gear', implemented: true },
-      { label: 'Production Line Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/production-line-workcenters', implemented: true },
-      { label: 'Checklist Templates', icon: <ClipboardTextLtrRegular />, minRoleTier: 6, route: '/menu/checklists', implemented: true },
-      { label: 'Checklist Response Review', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/checklist-response-review', implemented: true },
-      { label: 'Checklist Score Types', icon: <ClipboardTextLtrRegular />, minRoleTier: 2, route: '/menu/checklist-score-types', implemented: true },
-      { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },
-      { label: 'Downtime Log', icon: <TimerRegular />, minRoleTier: 5, route: '/menu/downtime-events', implemented: true },
       { label: 'Shift Schedule', icon: <CalendarRegular />, minRoleTier: 3, route: '/menu/shift-schedule', implemented: true },
       { label: 'Capacity Targets', icon: <GaugeRegular />, minRoleTier: 3, route: '/menu/capacity-targets', implemented: true },
       { label: 'Heijunka Planner', icon: <CalendarRegular />, minRoleTier: 5, route: '/menu/heijunka-planner', implemented: true },
+      { label: 'Downtime Log', icon: <TimerRegular />, minRoleTier: 5, route: '/menu/downtime-events', implemented: true },
+      { label: 'Downtime Reasons', icon: <ClockRegular />, minRoleTier: 3, route: '/menu/downtime-reasons', implemented: true },
+      { label: 'Production Line Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/production-line-workcenters', implemented: true },
     ],
   },
   {
@@ -111,6 +108,9 @@ const MENU_GROUPS: MenuGroup[] = [
       { label: 'Work Centers', icon: <SettingsRegular />, minRoleTier: 2, route: '/menu/workcenters', implemented: true },
       { label: 'Production Lines', icon: <LineHorizontal3Regular />, minRoleTier: 3, route: '/menu/production-lines', implemented: true },
       { label: 'Annotation Types', icon: <DocumentTextRegular />, minRoleTier: 3, route: '/menu/annotation-types', implemented: true },
+      { label: 'Checklist Templates', icon: <ClipboardTextLtrRegular />, minRoleTier: 6, route: '/menu/checklists', implemented: true },
+      { label: 'Checklist Response Review', icon: <DataBarVerticalRegular />, minRoleTier: 5, route: '/menu/checklist-response-review', implemented: true },
+      { label: 'Checklist Score Types', icon: <ClipboardTextLtrRegular />, minRoleTier: 2, route: '/menu/checklist-score-types', implemented: true },
     ],
   },
   {

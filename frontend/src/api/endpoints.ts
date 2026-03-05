@@ -119,6 +119,7 @@ import type {
   MoveScheduleLineRequest,
   ResolveUnmappedDemandExceptionRequest,
   FinalScanExecutionRequest,
+  UpsertWorkCenterBreakdownConfigRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -222,6 +223,8 @@ import type {
   HeijunkaPhase1Kpis,
   DispatchWeekOrderCoverage,
   SupermarketQuantityStatus,
+  WorkCenterBreakdownConfig,
+  WorkCenterScheduleBreakdown,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -978,6 +981,12 @@ export const heijunkaApi = {
     api.get<ErpSkuPlanningGroupMapping[]>(`/heijunka-scheduling/mappings${siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : ''}`),
   upsertMapping: (request: UpsertErpSkuMappingRequest) =>
     api.post<ErpSkuPlanningGroupMapping>('/heijunka-scheduling/mappings', request),
+  getWorkCenterBreakdownConfigs: (siteCode: string, productionLineId: string) =>
+    api.get<WorkCenterBreakdownConfig[]>(`/heijunka-scheduling/work-center-breakdown-configs?siteCode=${encodeURIComponent(siteCode)}&productionLineId=${encodeURIComponent(productionLineId)}`),
+  upsertWorkCenterBreakdownConfig: (request: UpsertWorkCenterBreakdownConfigRequest) =>
+    api.post<WorkCenterBreakdownConfig>('/heijunka-scheduling/work-center-breakdown-configs', request),
+  getWorkCenterBreakdown: (scheduleId: string, workCenterId: string) =>
+    api.get<WorkCenterScheduleBreakdown>(`/heijunka-scheduling/work-center-breakdown?scheduleId=${encodeURIComponent(scheduleId)}&workCenterId=${encodeURIComponent(workCenterId)}`),
   generateDraft: (request: GenerateHeijunkaDraftRequest) =>
     api.post<HeijunkaSchedule>('/heijunka-scheduling/drafts/generate', request),
   getSchedule: (scheduleId: string) =>

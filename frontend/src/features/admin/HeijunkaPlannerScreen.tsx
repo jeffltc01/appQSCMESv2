@@ -4,7 +4,7 @@ import { LockOpenRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import { heijunkaApi, productionLineApi, shiftScheduleApi } from '../../api/endpoints.ts';
+import { heijunkaApi, productionLineApi, shiftScheduleApi, workCenterApi } from '../../api/endpoints.ts';
 import type {
   DispatchWeekOrderCoverage,
   DispatchRiskSummary,
@@ -15,8 +15,21 @@ import type {
   ShiftSchedule,
   SupermarketQuantityStatus,
   UnmappedDemandException,
+  WorkCenter,
+  WorkCenterBreakdownConfig,
+  WorkCenterBreakdownDimension,
+  WorkCenterScheduleBreakdown,
 } from '../../types/domain.ts';
 import styles from './HeijunkaPlannerScreen.module.css';
+
+const BREAKDOWN_DIMENSIONS: WorkCenterBreakdownDimension[] = ['TankSize', 'TankType', 'Color', 'FinishedPartNumber'];
+type ScheduleLineView = HeijunkaSchedule['lines'][number];
+type CalendarPlanningGroup = {
+  groupKey: string;
+  displayGroup: string;
+  totalQty: number;
+  lines: ScheduleLineView[];
+};
 
 function getWeekStart(input: Date): string {
   const date = new Date(input);
@@ -38,7 +51,7 @@ function getWeekDates(weekStartIso: string): string[] {
 export function HeijunkaPlannerScreen() {
   const { user } = useAuth();
   const [weekStartDateLocal, setWeekStartDateLocal] = useState(getWeekStart(new Date()));
-  const [planningResourceId, setPlanningResourceId] = useState('paint-final-scan');
+  const planningResourceId = 'paint-final-scan';
   const [freezeHours, setFreezeHours] = useState(24);
   const [loading, setLoading] = useState(false);
   const [schedule, setSchedule] = useState<HeijunkaSchedule | null>(null);
@@ -49,6 +62,11 @@ export function HeijunkaPlannerScreen() {
   const [kpis, setKpis] = useState<HeijunkaPhase1Kpis | null>(null);
   const [dispatchWeekOrders, setDispatchWeekOrders] = useState<DispatchWeekOrderCoverage[]>([]);
   const [supermarketQuantities, setSupermarketQuantities] = useState<SupermarketQuantityStatus[]>([]);
+  const [workCenters, setWorkCenters] = useState<WorkCenter[]>([]);
+  const [breakdownConfigs, setBreakdownConfigs] = useState<WorkCenterBreakdownConfig[]>([]);
+  const [selectedBreakdownWorkCenterId, setSelectedBreakdownWorkCenterId] = useState('');
+  const [selectedBreakdownDimensions, setSelectedBreakdownDimensions] = useState<WorkCenterBreakdownDimension[]>([]);
+  const [workCenterBreakdown, setWorkCenterBreakdown] = useState<WorkCenterScheduleBreakdown | null>(null);
   const [shiftSchedules, setShiftSchedules] = useState<ShiftSchedule[]>([]);
   const [showNonWorkingDays, setShowNonWorkingDays] = useState(false);
   const [changeHistory, setChangeHistory] = useState<HeijunkaScheduleChangeLog[]>([]);
@@ -69,6 +87,20 @@ export function HeijunkaPlannerScreen() {
     if (!siteCode) return;
     const data = await heijunkaApi.getExceptions(siteCode);
     setExceptions(data);
+  };
+
+  const loadBreakdownConfigs = async (site: string, lineId: string) => {
+    if (!site || !lineId) {
+      setBreakdownConfigs([]);
+      return;
+    }
+    const configsRaw = await heijunkaApi.getWorkCenterBreakdownConfigs(site, lineId);
+    const configs = Array.isArray(configsRaw) ? configsRaw : [];
+    setBreakdownConfigs(configs);
+    setSelectedBreakdownWorkCenterId((current) => {
+      if (current && configs.some((cfg) => cfg.workCenterId === current)) return current;
+      return configs[0]?.workCenterId ?? current;
+    });
   };
 
   const refreshRiskAndKpis = async (scheduleData: HeijunkaSchedule) => {
@@ -104,6 +136,7 @@ export function HeijunkaPlannerScreen() {
       setProductionLines([]);
       setSelectedProductionLineId('');
       setShiftSchedules([]);
+      setWorkCenters([]);
       return;
     }
 
@@ -131,6 +164,15 @@ export function HeijunkaPlannerScreen() {
         if (isCancelled) return;
         setShiftSchedules([]);
       }
+
+      try {
+        const allWorkCenters = await workCenterApi.getWorkCenters();
+        if (isCancelled) return;
+        setWorkCenters(allWorkCenters);
+      } catch {
+        if (isCancelled) return;
+        setWorkCenters([]);
+      }
     };
 
     loadPlannerContext().catch(() => undefined);
@@ -138,6 +180,33 @@ export function HeijunkaPlannerScreen() {
       isCancelled = true;
     };
   }, [user?.defaultSiteId]);
+
+  useEffect(() => {
+    if (!siteCode || !selectedProductionLineId) {
+      setBreakdownConfigs([]);
+      return;
+    }
+    loadBreakdownConfigs(siteCode, selectedProductionLineId).catch(() => setBreakdownConfigs([]));
+  }, [siteCode, selectedProductionLineId]);
+
+  useEffect(() => {
+    if (!selectedBreakdownWorkCenterId) {
+      setSelectedBreakdownDimensions([]);
+      return;
+    }
+    const config = breakdownConfigs.find((item) => item.workCenterId === selectedBreakdownWorkCenterId);
+    setSelectedBreakdownDimensions(config?.groupingDimensions ?? []);
+  }, [selectedBreakdownWorkCenterId, breakdownConfigs]);
+
+  useEffect(() => {
+    if (!schedule || !selectedBreakdownWorkCenterId) {
+      setWorkCenterBreakdown(null);
+      return;
+    }
+    heijunkaApi.getWorkCenterBreakdown(schedule.id, selectedBreakdownWorkCenterId)
+      .then(setWorkCenterBreakdown)
+      .catch(() => setWorkCenterBreakdown(null));
+  }, [schedule, selectedBreakdownWorkCenterId]);
 
   const handleGenerateDraft = async () => {
     if (!canEdit || !siteCode || !selectedProductionLineId) {
@@ -193,6 +262,30 @@ export function HeijunkaPlannerScreen() {
       await loadExceptions();
     } catch (err: any) {
       setError(err?.message ?? 'Unable to resolve exception.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveBreakdownConfig = async () => {
+    if (!canEdit || !schedule || !selectedBreakdownWorkCenterId) return;
+    setLoading(true);
+    setError('');
+    try {
+      const saved = await heijunkaApi.upsertWorkCenterBreakdownConfig({
+        siteCode: schedule.siteCode,
+        productionLineId: schedule.productionLineId,
+        workCenterId: selectedBreakdownWorkCenterId,
+        groupingDimensions: selectedBreakdownDimensions,
+      });
+      setBreakdownConfigs((prev) => {
+        const others = prev.filter((item) => item.workCenterId !== saved.workCenterId);
+        return [...others, saved].sort((a, b) => a.workCenterName.localeCompare(b.workCenterName));
+      });
+      const breakdown = await heijunkaApi.getWorkCenterBreakdown(schedule.id, selectedBreakdownWorkCenterId);
+      setWorkCenterBreakdown(breakdown);
+    } catch (err: any) {
+      setError(err?.message ?? 'Unable to save work center breakdown config.');
     } finally {
       setLoading(false);
     }
@@ -277,6 +370,26 @@ export function HeijunkaPlannerScreen() {
     acc[key].push(line);
     return acc;
   }, {});
+  const planningGroupsByDate = orderedLines.reduce<Record<string, CalendarPlanningGroup[]>>((acc, line) => {
+    const dateKey = line.plannedDateLocal.slice(0, 10);
+    if (!acc[dateKey]) acc[dateKey] = [];
+
+    const groupKey = line.mesPlanningGroupId?.trim() || '__UNSPECIFIED__';
+    const existing = acc[dateKey].find((group) => group.groupKey === groupKey);
+    if (existing) {
+      existing.lines.push(line);
+      existing.totalQty += line.plannedQty;
+      return acc;
+    }
+
+    acc[dateKey].push({
+      groupKey,
+      displayGroup: line.mesPlanningGroupId?.trim() || '-',
+      totalQty: line.plannedQty,
+      lines: [line],
+    });
+    return acc;
+  }, {});
 
   const dispatchOrdersByDate = dispatchWeekOrders.reduce<Record<string, number>>((acc, item) => {
     const key = item.dispatchDateLocal.slice(0, 10);
@@ -299,6 +412,10 @@ export function HeijunkaPlannerScreen() {
   });
 
   const calendarDatesToRender = visibleWeekDates.length > 0 ? visibleWeekDates : weekDates;
+  const availableWorkCenters = workCenters
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const selectedBreakdownWorkCenter = availableWorkCenters.find((item) => item.id === selectedBreakdownWorkCenterId);
 
   const handleCalendarDropMove = async (targetLineId: string) => {
     if (!dragLineId || !schedule || dragLineId === targetLineId) return;
@@ -373,10 +490,6 @@ export function HeijunkaPlannerScreen() {
             Freeze Hours
             <Input type="number" value={String(freezeHours)} onChange={(_, d) => setFreezeHours(Number(d.value || 24))} />
           </label>
-          <label>
-            Planning Resource
-            <Input value={planningResourceId} onChange={(_, d) => setPlanningResourceId(d.value)} />
-          </label>
           <Button appearance="primary" onClick={handleGenerateDraft} disabled={loading || !canEdit || !selectedProductionLineId}>
             Generate Draft
           </Button>
@@ -410,7 +523,7 @@ export function HeijunkaPlannerScreen() {
                     <thead>
                       <tr>
                         <th>SKU</th>
-                        <th>Load Group</th>
+                        <th>Load No.</th>
                         <th>Dispatch Date</th>
                         <th>Qty</th>
                         <th>Status</th>
@@ -462,7 +575,7 @@ export function HeijunkaPlannerScreen() {
                 ) : (
                   <div className={styles.calendarGrid}>
                     {calendarDatesToRender.map((dateKey) => {
-                      const dayLines = linesByDate[dateKey] ?? [];
+                      const dayPlanningGroups = planningGroupsByDate[dateKey] ?? [];
                       const dayLabel = new Date(`${dateKey}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short' });
                       return (
                         <div
@@ -478,56 +591,67 @@ export function HeijunkaPlannerScreen() {
                             <strong>{dayLabel}</strong>
                             <span>{dateKey}</span>
                           </div>
-                          {dayLines.length === 0 ? (
+                          {dayPlanningGroups.length === 0 ? (
                             <div className={styles.calendarEmpty}>No planned lines</div>
                           ) : (
-                            dayLines.map((line) => (
-                              <div
-                                key={line.id}
-                                data-testid={`calendar-item-${line.id}`}
-                                className={`${styles.calendarItem} ${dragOverLineId === line.id ? styles.calendarDragOverItem : ''}`}
-                                draggable={canEdit && schedule.status === 'Draft'}
-                                onDragStart={() => setDragLineId(line.id)}
-                                onDragOver={(event) => {
-                                  event.preventDefault();
-                                  setDragOverLineId(line.id);
-                                }}
-                                onDrop={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  handleCalendarDropMove(line.id);
-                                }}
-                                onDragEnd={() => {
-                                  setDragLineId(null);
-                                  setDragOverLineId(null);
-                                }}
-                              >
-                                <div className={styles.calendarItemTopRow}>
-                                  <div>{line.mesPlanningGroupId ?? '-'}</div>
-                                  {canFreezeOverride && (
-                                    <Button
-                                      size="small"
-                                      appearance="subtle"
-                                      icon={<LockOpenRegular />}
-                                      className={styles.calendarFreezeOverrideButton}
-                                      aria-label={`Freeze override ${line.mesPlanningGroupId ?? line.id}`}
-                                      title="Freeze Override"
-                                      disabled={loading}
-                                      onPointerDown={(event) => {
-                                        event.stopPropagation();
-                                      }}
-                                      onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        openOverrideModal(line.id, line.plannedDateLocal, line.plannedQty);
-                                      }}
-                                    />
-                                  )}
+                            dayPlanningGroups.map((group) => {
+                              const lines = group.lines;
+                              const representativeLine = lines[0];
+                              const loadSummary = Array.from(
+                                new Set(lines.map((item) => item.loadGroupId).filter((value): value is string => !!value)),
+                              ).join(', ');
+                              return (
+                                <div
+                                  key={`${dateKey}-${group.groupKey}`}
+                                  data-testid={`calendar-item-${representativeLine.id}`}
+                                  className={`${styles.calendarItem} ${dragOverLineId === representativeLine.id ? styles.calendarDragOverItem : ''}`}
+                                  draggable={canEdit && schedule.status === 'Draft'}
+                                  onDragStart={() => setDragLineId(representativeLine.id)}
+                                  onDragOver={(event) => {
+                                    event.preventDefault();
+                                    setDragOverLineId(representativeLine.id);
+                                  }}
+                                  onDrop={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleCalendarDropMove(representativeLine.id);
+                                  }}
+                                  onDragEnd={() => {
+                                    setDragLineId(null);
+                                    setDragOverLineId(null);
+                                  }}
+                                >
+                                  <div className={styles.calendarItemTopRow}>
+                                    <div>{group.displayGroup}</div>
+                                    {canFreezeOverride && (
+                                      <Button
+                                        size="small"
+                                        appearance="subtle"
+                                        icon={<LockOpenRegular />}
+                                        className={styles.calendarFreezeOverrideButton}
+                                        aria-label={`Freeze override ${group.displayGroup}`}
+                                        title="Freeze Override"
+                                        disabled={loading}
+                                        onPointerDown={(event) => {
+                                          event.stopPropagation();
+                                        }}
+                                        onClick={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          openOverrideModal(
+                                            representativeLine.id,
+                                            representativeLine.plannedDateLocal,
+                                            representativeLine.plannedQty,
+                                          );
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                  <div>Qty {group.totalQty}</div>
+                                  <div>{loadSummary || 'No Load No.'}</div>
                                 </div>
-                                <div>Seq {line.sequenceIndex ?? '-'} • Qty {line.plannedQty}</div>
-                                <div>{line.loadGroupId ?? 'No load group'}</div>
-                              </div>
-                            ))
+                              );
+                            })
                           )}
                         </div>
                       );
@@ -539,6 +663,85 @@ export function HeijunkaPlannerScreen() {
 
             <div className={styles.rightColumn}>
               <section className={styles.card}>
+                <h3>Work Center Breakdown</h3>
+                {!schedule ? (
+                  <p>Generate a schedule to configure and view work center breakdown summaries.</p>
+                ) : (
+                  <>
+                    <div className={styles.calendarToolbar}>
+                      <label>
+                        Work Center
+                        <Dropdown
+                          value={selectedBreakdownWorkCenter?.name ?? ''}
+                          selectedOptions={selectedBreakdownWorkCenterId ? [selectedBreakdownWorkCenterId] : []}
+                          onOptionSelect={(_, data) => setSelectedBreakdownWorkCenterId(data.optionValue ?? '')}
+                        >
+                          {availableWorkCenters.map((workCenter) => (
+                            <Option key={workCenter.id} value={workCenter.id}>
+                              {workCenter.name}
+                            </Option>
+                          ))}
+                        </Dropdown>
+                      </label>
+                    </div>
+                    <div className={styles.calendarToolbar}>
+                      {BREAKDOWN_DIMENSIONS.map((dimension) => (
+                        <label key={dimension} className={styles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={selectedBreakdownDimensions.includes(dimension)}
+                            onChange={(event) => {
+                              setSelectedBreakdownDimensions((prev) => {
+                                if (event.currentTarget.checked) return [...prev, dimension];
+                                return prev.filter((item) => item !== dimension);
+                              });
+                            }}
+                          />
+                          {dimension}
+                        </label>
+                      ))}
+                      <Button
+                        size="small"
+                        appearance="secondary"
+                        disabled={loading || !canEdit || !selectedBreakdownWorkCenterId}
+                        onClick={handleSaveBreakdownConfig}
+                      >
+                        Save Breakdown Config
+                      </Button>
+                    </div>
+                    {!workCenterBreakdown ? (
+                      <p>Select a work center to view breakdown rows.</p>
+                    ) : workCenterBreakdown.rows.length === 0 ? (
+                      <p>No breakdown rows available for this schedule and work center.</p>
+                    ) : (
+                      <table className={styles.table}>
+                        <thead>
+                          <tr>
+                            <th>Planned Date</th>
+                            {workCenterBreakdown.groupingDimensions.map((dimension) => (
+                              <th key={dimension}>{dimension}</th>
+                            ))}
+                            <th>Planned Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {workCenterBreakdown.rows.map((row, idx) => (
+                            <tr key={`${row.plannedDateLocal}-${idx}`}>
+                              <td>{row.plannedDateLocal.slice(0, 10)}</td>
+                              {workCenterBreakdown.groupingDimensions.map((dimension) => (
+                                <td key={dimension}>{row.dimensionValues[dimension] ?? '-'}</td>
+                              ))}
+                              <td>{row.plannedQty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </>
+                )}
+              </section>
+
+              <section className={styles.card}>
                 <h3>Dispatch Week Orders</h3>
                 {!schedule ? (
                   <p>Generate a schedule to view dispatch-week demand orders.</p>
@@ -548,20 +751,23 @@ export function HeijunkaPlannerScreen() {
                   <table className={styles.table}>
                     <thead>
                       <tr>
+                        <th>Coverage</th>
                         <th>Dispatch Date</th>
-                        <th>Load Group</th>
+                        <th>Load No.</th>
                         <th>Order</th>
                         <th>SKU</th>
                         <th>Mapped Group</th>
                         <th>Order Qty</th>
-                        <th>Load Group Req</th>
-                        <th>Load Group Plan</th>
-                        <th>Coverage</th>
+                        <th>Load No. Req</th>
+                        <th>Load No. Plan</th>
                       </tr>
                     </thead>
                     <tbody>
                       {dispatchWeekOrders.map((item, idx) => (
                         <tr key={`${item.erpSalesOrderId}-${item.erpSalesOrderLineId}-${item.loadGroupId}-${idx}`}>
+                          <td className={item.loadGroupCovered ? styles.readinessPass : styles.readinessFail}>
+                            {item.loadGroupCovered ? 'Covered' : 'Gap'}
+                          </td>
                           <td>{item.dispatchDateLocal.slice(0, 10)}</td>
                           <td>{item.loadGroupId}</td>
                           <td>{item.erpSalesOrderId}-{item.erpSalesOrderLineId}</td>
@@ -570,9 +776,6 @@ export function HeijunkaPlannerScreen() {
                           <td>{item.requiredQty}</td>
                           <td>{item.loadGroupRequiredQty}</td>
                           <td>{item.loadGroupPlannedQty}</td>
-                          <td className={item.loadGroupCovered ? styles.readinessPass : styles.readinessFail}>
-                            {item.loadGroupCovered ? 'Covered' : 'Gap'}
-                          </td>
                         </tr>
                       ))}
                     </tbody>

@@ -87,6 +87,7 @@ public class MesDbContext : DbContext
     public DbSet<UnmappedDemandException> UnmappedDemandExceptions => Set<UnmappedDemandException>();
     public DbSet<ScheduleExecutionEvent> ScheduleExecutionEvents => Set<ScheduleExecutionEvent>();
     public DbSet<SupermarketPositionSnapshot> SupermarketPositionSnapshots => Set<SupermarketPositionSnapshot>();
+    public DbSet<HeijunkaWorkCenterBreakdownConfig> HeijunkaWorkCenterBreakdownConfigs => Set<HeijunkaWorkCenterBreakdownConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -156,5 +157,8 @@ public class MesDbContext : DbContext
             .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.ExecutionDateLocal });
         modelBuilder.Entity<SupermarketPositionSnapshot>()
             .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.ProductId, x.CapturedAtUtc });
+        modelBuilder.Entity<HeijunkaWorkCenterBreakdownConfig>()
+            .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.WorkCenterId })
+            .IsUnique();
     }
 }

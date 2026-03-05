@@ -157,3 +157,16 @@ public class SupermarketPositionSnapshot
     public DateTime? StockoutEndUtc { get; set; }
     public DateTime CapturedAtUtc { get; set; } = DateTime.UtcNow;
 }
+
+public class HeijunkaWorkCenterBreakdownConfig
+{
+    public Guid Id { get; set; }
+    public string SiteCode { get; set; } = string.Empty;
+    public Guid ProductionLineId { get; set; }
+    public Guid WorkCenterId { get; set; }
+    public string GroupingDimensionsJson { get; set; } = "[]";
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public Guid CreatedByUserId { get; set; }
+    public DateTime LastModifiedAtUtc { get; set; } = DateTime.UtcNow;
+    public Guid LastModifiedByUserId { get; set; }
+}

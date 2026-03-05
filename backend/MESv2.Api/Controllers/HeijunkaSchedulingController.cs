@@ -33,6 +33,32 @@ public class HeijunkaSchedulingController : ControllerBase
         return Ok(await _service.UpsertSkuMappingAsync(request, GetUserId(), ct));
     }
 
+    [HttpGet("work-center-breakdown-configs")]
+    public async Task<ActionResult<IReadOnlyList<WorkCenterBreakdownConfigDto>>> GetWorkCenterBreakdownConfigs([FromQuery] string siteCode, [FromQuery] Guid productionLineId, CancellationToken ct)
+    {
+        if (!CanAccessSite(siteCode)) return Forbid();
+        return Ok(await _service.GetWorkCenterBreakdownConfigsAsync(siteCode, productionLineId, ct));
+    }
+
+    [HttpPost("work-center-breakdown-configs")]
+    public async Task<ActionResult<WorkCenterBreakdownConfigDto>> UpsertWorkCenterBreakdownConfig([FromBody] UpsertWorkCenterBreakdownConfigRequestDto request, CancellationToken ct)
+    {
+        if (!CanPlan()) return Forbid();
+        if (!CanAccessSite(request.SiteCode)) return Forbid();
+        return Ok(await _service.UpsertWorkCenterBreakdownConfigAsync(request, GetUserId(), ct));
+    }
+
+    [HttpGet("work-center-breakdown")]
+    public async Task<ActionResult<WorkCenterScheduleBreakdownDto>> GetWorkCenterBreakdown([FromQuery] Guid scheduleId, [FromQuery] Guid workCenterId, CancellationToken ct)
+    {
+        if (!CanPlan()) return Forbid();
+        return Ok(await _service.GetWorkCenterScheduleBreakdownAsync(new WorkCenterScheduleBreakdownRequestDto
+        {
+            ScheduleId = scheduleId,
+            WorkCenterId = workCenterId
+        }, ct));
+    }
+
     [HttpPost("drafts/generate")]
     public async Task<ActionResult<ScheduleDto>> GenerateDraft([FromBody] GenerateScheduleDraftRequestDto request, CancellationToken ct)
     {

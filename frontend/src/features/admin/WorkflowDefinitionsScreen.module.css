@@ -123,8 +123,6 @@
 .definitionCards {
   display: grid;
   gap: 8px;
-  max-height: 260px;
-  overflow: auto;
 }
 
 .definitionCard {
@@ -282,6 +280,45 @@
 .emptyState {
   color: #6c757d;
   font-style: italic;
+}
+
+.workflowPickerSurface {
+  width: 80vw;
+  max-width: 80vw;
+  height: 80vh;
+  max-height: 80vh;
+}
+
+.workflowPickerContent {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workflowPickerLayout {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+}
+
+.workflowPickerToolbarSection {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dfe2ed;
+}
+
+.workflowPickerTypeDropdown {
+  max-width: 260px;
+}
+
+.definitionListScroll {
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 @media (max-width: 1280px) {

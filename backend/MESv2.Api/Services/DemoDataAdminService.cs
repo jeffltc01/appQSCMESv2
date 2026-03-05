@@ -54,6 +54,8 @@ public class DemoDataAdminService : IDemoDataAdminService
             await DeleteAllAsync<ChecklistEntry>("ChecklistEntries", deleted, ct);
             await DeleteAllAsync<ChecklistTemplateItem>("ChecklistTemplateItems", deleted, ct);
             await DeleteAllAsync<ChecklistTemplate>("ChecklistTemplates", deleted, ct);
+            await DeleteAllAsync<ScoreTypeValue>("ScoreTypeValues", deleted, ct);
+            await DeleteAllAsync<ScoreType>("ScoreTypes", deleted, ct);
             await DeleteAllAsync<AuditLog>("AuditLogs", deleted, ct);
             await DeleteAllAsync<FrontendTelemetryEvent>("FrontendTelemetryEvents", deleted, ct);
             await DeleteAllAsync<ChangeLog>("ChangeLogs", deleted, ct);
@@ -351,6 +353,8 @@ public class DemoDataAdminService : IDemoDataAdminService
         const int roundSeamInspectionCount = 120;
         const int sellableCount = 120;
         const int queueSeedCount = 20;
+        const int rollsBoostHours = 5;
+        const int rollsBoostPerHour = 8;
 
         var plant = await _db.Plants
             .FirstOrDefaultAsync(p => p.Code == targetPlantCode, ct)
@@ -1182,6 +1186,38 @@ public class DemoDataAdminService : IDemoDataAdminService
             }
         }
 
+        // Seed additional recent Rolls-only throughput so dashboard "Actual" values
+        // are closer to capacity targets in demo mode without changing downstream flow.
+        var rollsBoostWindowEnd = baseUtc.AddHours(shellCount).AddMinutes(130);
+        var rollsBoostSerialCounter = 1;
+        for (var hourOffset = rollsBoostHours - 1; hourOffset >= 0; hourOffset--)
+        {
+            var hourStart = rollsBoostWindowEnd.AddHours(-hourOffset).AddMinutes(-54);
+            for (var sample = 0; sample < rollsBoostPerHour; sample++)
+            {
+                var rollsStamp = hourStart.AddMinutes(sample * 7);
+                var boostedShell = new SerialNumber
+                {
+                    Id = Guid.NewGuid(),
+                    Serial = $"RB{rollsBoostSerialCounter:00000}",
+                    PlantId = plant.Id,
+                    ProductId = shellProduct.Id,
+                    HeatNumber = $"RBH{rollsBoostSerialCounter:00000}",
+                    CoilNumber = $"RBC{rollsBoostSerialCounter:00000}",
+                    LotNumber = $"RBL{rollsBoostSerialCounter:00000}",
+                    CreatedAt = rollsStamp.AddMinutes(-1),
+                    CreatedByUserId = op.Id,
+                };
+                rollsBoostSerialCounter++;
+                _db.SerialNumbers.Add(boostedShell);
+
+                var boostedRollsRecord = CreateProductionRecord(
+                    boostedShell.Id, rollsWc.Id, line.Id, op.Id, plantGear.Id, rollsStamp);
+                _db.ProductionRecords.Add(boostedRollsRecord);
+                AttachPlateToShell(boostedShell.Id, boostedRollsRecord.Id, rollsStamp);
+            }
+        }
+
         var hasSourceQueueData = await _db.MaterialQueueItems.AnyAsync(i => i.WorkCenterId == queueWc.Id, ct);
         if (!hasSourceQueueData)
         {
@@ -1322,6 +1358,28 @@ public class DemoDataAdminService : IDemoDataAdminService
             .Where(w => w.DataEntryType == "MatQueue-Material" || w.DataEntryType == "MatQueue-Fitup")
             .Select(w => w.Id)
             .ToListAsync(ct);
+        var workCenterKeys = await _db.WorkCenters
+            .AsNoTracking()
+            .Select(w => new WorkCenterSnapshotKey
+            {
+                Id = w.Id,
+                DataEntryType = w.DataEntryType,
+                Name = w.Name,
+            })
+            .ToListAsync(ct);
+        var productionLineKeys = await _db.ProductionLines
+            .AsNoTracking()
+            .Join(
+                _db.Plants.AsNoTracking(),
+                line => line.PlantId,
+                plant => plant.Id,
+                (line, plant) => new ProductionLineSnapshotKey
+                {
+                    Id = line.Id,
+                    PlantCode = plant.Code,
+                    Name = line.Name,
+                })
+            .ToListAsync(ct);
         var materialQueueItems = await _db.MaterialQueueItems
             .AsNoTracking()
             .Where(i => queueWorkCenterIds.Contains(i.WorkCenterId))
@@ -1352,6 +1410,8 @@ public class DemoDataAdminService : IDemoDataAdminService
             Assets = await _db.Assets.AsNoTracking().ToListAsync(ct),
             QueueSerialNumbers = queueSerialNumbers,
             MaterialQueueItems = materialQueueItems,
+            WorkCenterKeys = workCenterKeys,
+            ProductionLineKeys = productionLineKeys,
         };
     }
 
@@ -1385,13 +1445,82 @@ public class DemoDataAdminService : IDemoDataAdminService
                 await _db.VendorPlants.AddRangeAsync(snapshot.VendorPlants, ct);
         }
 
+        var restoredWorkCenterProductionLines = new List<WorkCenterProductionLine>();
         if (snapshot.WorkCenterProductionLines.Count > 0)
         {
             await ClearSetAsync(_db.WorkCenterCapacityTargets, ct);
             await ClearSetAsync(_db.WorkCenterProductionLines, ct);
-            await _db.WorkCenterProductionLines.AddRangeAsync(snapshot.WorkCenterProductionLines, ct);
-            if (snapshot.WorkCenterCapacityTargets.Count > 0)
-                await _db.WorkCenterCapacityTargets.AddRangeAsync(snapshot.WorkCenterCapacityTargets, ct);
+            var currentWorkCenters = await _db.WorkCenters
+                .AsNoTracking()
+                .Select(w => new { w.Id, w.DataEntryType, w.Name })
+                .ToListAsync(ct);
+            var currentProductionLines = await _db.ProductionLines
+                .AsNoTracking()
+                .Join(
+                    _db.Plants.AsNoTracking(),
+                    line => line.PlantId,
+                    plant => plant.Id,
+                    (line, plant) => new { line.Id, line.Name, PlantCode = plant.Code })
+                .ToListAsync(ct);
+
+            var workCenterIdMap = new Dictionary<Guid, Guid>();
+            foreach (var oldWc in snapshot.WorkCenterKeys)
+            {
+                var mapped = currentWorkCenters.FirstOrDefault(w =>
+                    !string.IsNullOrWhiteSpace(oldWc.DataEntryType) &&
+                    string.Equals(w.DataEntryType, oldWc.DataEntryType, StringComparison.OrdinalIgnoreCase))
+                    ?? currentWorkCenters.FirstOrDefault(w =>
+                        string.Equals(w.Name, oldWc.Name, StringComparison.OrdinalIgnoreCase));
+                if (mapped is not null)
+                    workCenterIdMap[oldWc.Id] = mapped.Id;
+            }
+
+            var productionLineIdMap = new Dictionary<Guid, Guid>();
+            foreach (var oldLine in snapshot.ProductionLineKeys)
+            {
+                var mapped = currentProductionLines.FirstOrDefault(line =>
+                    string.Equals(line.PlantCode, oldLine.PlantCode, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(line.Name, oldLine.Name, StringComparison.OrdinalIgnoreCase));
+                if (mapped is not null)
+                    productionLineIdMap[oldLine.Id] = mapped.Id;
+            }
+
+            var validWorkCenterProductionLines = new List<WorkCenterProductionLine>();
+            foreach (var link in snapshot.WorkCenterProductionLines)
+            {
+                if (!workCenterIdMap.TryGetValue(link.WorkCenterId, out var mappedWorkCenterId) ||
+                    !productionLineIdMap.TryGetValue(link.ProductionLineId, out var mappedProductionLineId))
+                    continue;
+
+                validWorkCenterProductionLines.Add(new WorkCenterProductionLine
+                {
+                    Id = link.Id,
+                    WorkCenterId = mappedWorkCenterId,
+                    ProductionLineId = mappedProductionLineId,
+                    DisplayName = link.DisplayName,
+                    NumberOfWelders = link.NumberOfWelders,
+                    DowntimeTrackingEnabled = link.DowntimeTrackingEnabled,
+                    DowntimeThresholdMinutes = link.DowntimeThresholdMinutes,
+                    EnableWorkCenterChecklist = link.EnableWorkCenterChecklist,
+                    EnableSafetyChecklist = link.EnableSafetyChecklist,
+                });
+            }
+
+            if (validWorkCenterProductionLines.Count > 0)
+            {
+                await _db.WorkCenterProductionLines.AddRangeAsync(validWorkCenterProductionLines, ct);
+                restoredWorkCenterProductionLines.AddRange(validWorkCenterProductionLines);
+
+                if (snapshot.WorkCenterCapacityTargets.Count > 0)
+                {
+                    var validWcplIds = validWorkCenterProductionLines.Select(link => link.Id).ToHashSet();
+                    var validCapacityTargets = snapshot.WorkCenterCapacityTargets
+                        .Where(target => validWcplIds.Contains(target.WorkCenterProductionLineId))
+                        .ToList();
+                    if (validCapacityTargets.Count > 0)
+                        await _db.WorkCenterCapacityTargets.AddRangeAsync(validCapacityTargets, ct);
+                }
+            }
         }
 
         await ClearSetAsync(_db.ControlPlans, ct);
@@ -1406,7 +1535,9 @@ public class DemoDataAdminService : IDemoDataAdminService
         if (snapshot.DefectLocations.Count > 0)
             await _db.DefectLocations.AddRangeAsync(snapshot.DefectLocations, ct);
         if (snapshot.ControlPlans.Count > 0)
-            await _db.ControlPlans.AddRangeAsync(snapshot.ControlPlans, ct);
+            await _db.ControlPlans.AddRangeAsync(snapshot.ControlPlans
+                .Where(plan => restoredWorkCenterProductionLines.Any(link => link.Id == plan.WorkCenterProductionLineId))
+                .ToList(), ct);
 
         if (snapshot.Assets.Count > 0)
         {
@@ -1505,6 +1636,22 @@ public class DemoDataAdminService : IDemoDataAdminService
         public List<Asset> Assets { get; init; } = new();
         public List<SerialNumber> QueueSerialNumbers { get; init; } = new();
         public List<MaterialQueueItem> MaterialQueueItems { get; init; } = new();
+        public List<WorkCenterSnapshotKey> WorkCenterKeys { get; init; } = new();
+        public List<ProductionLineSnapshotKey> ProductionLineKeys { get; init; } = new();
+    }
+
+    private sealed class WorkCenterSnapshotKey
+    {
+        public Guid Id { get; init; }
+        public string? DataEntryType { get; init; }
+        public string Name { get; init; } = string.Empty;
+    }
+
+    private sealed class ProductionLineSnapshotKey
+    {
+        public Guid Id { get; init; }
+        public string PlantCode { get; init; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
     }
 
     private static ProductionRecord CreateProductionRecord(

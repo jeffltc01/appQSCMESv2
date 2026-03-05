@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { MemoryRouter } from 'react-router-dom';
 import { MenuScreen } from './MenuScreen';
@@ -74,6 +74,19 @@ describe('MenuScreen', () => {
     expect(screen.getByText('AI Review')).toBeInTheDocument();
     expect(screen.getByText('Operator View')).toBeInTheDocument();
     expect(screen.getByText('Checklist Score Types')).toBeInTheDocument();
+  });
+
+  it('renders checklist management tiles under Master Data', () => {
+    mockUseAuth.mockReturnValue(authValue({ roleTier: 1 }));
+    renderScreen();
+
+    const masterDataSection = screen.getByRole('heading', { name: 'Master Data' }).closest('section');
+    expect(masterDataSection).not.toBeNull();
+
+    const scope = within(masterDataSection as HTMLElement);
+    expect(scope.getByText('Checklist Templates')).toBeInTheDocument();
+    expect(scope.getByText('Checklist Response Review')).toBeInTheDocument();
+    expect(scope.getByText('Checklist Score Types')).toBeInTheDocument();
   });
 
   it('operator (roleTier 7) sees only Log Viewer from Dashboards & Insights', () => {

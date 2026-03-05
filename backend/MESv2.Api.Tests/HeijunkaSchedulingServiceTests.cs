@@ -558,4 +558,83 @@ public class HeijunkaSchedulingServiceTests
         Assert.Equal(moving.Id, first.Id);
         Assert.Equal(weekStart, first.PlannedDateLocal.Date);
     }
+
+    [Fact]
+    public async Task WorkCenterBreakdown_UsesConfiguredDimensionsAndReturnsDailyRows()
+    {
+        using var db = TestHelpers.CreateInMemoryContext();
+        var svc = new HeijunkaSchedulingService(db);
+        var actor = TestHelpers.TestUserId;
+        var weekStart = new DateTime(2026, 3, 9);
+
+        await svc.UpsertSkuMappingAsync(new UpsertErpSkuMappingRequestDto
+        {
+            ErpSkuCode = "120 AG",
+            MesPlanningGroupId = "PG-120AG",
+            SiteCode = "000",
+            EffectiveFromUtc = DateTime.UtcNow.AddDays(-1),
+            IsActive = true
+        }, actor);
+
+        await svc.IngestErpDemandAsync(new IngestErpDemandRequestDto
+        {
+            Rows =
+            [
+                new ErpDemandRawIngestDto
+                {
+                    ErpSalesOrderId = "SO-BD-1",
+                    ErpSalesOrderLineId = "1",
+                    ErpSkuCode = "120 AG",
+                    SiteCode = "000",
+                    ErpLoadNumberRaw = "LOAD-BD-1-0",
+                    DispatchDateLocal = weekStart,
+                    RequiredQty = 2,
+                    OrderStatus = "Open",
+                    SourceExtractedAtUtc = DateTime.UtcNow
+                },
+                new ErpDemandRawIngestDto
+                {
+                    ErpSalesOrderId = "SO-BD-2",
+                    ErpSalesOrderLineId = "1",
+                    ErpSkuCode = "120 AG",
+                    SiteCode = "000",
+                    ErpLoadNumberRaw = "LOAD-BD-2-0",
+                    DispatchDateLocal = weekStart.AddDays(1),
+                    RequiredQty = 3,
+                    OrderStatus = "Open",
+                    SourceExtractedAtUtc = DateTime.UtcNow.AddSeconds(1)
+                }
+            ]
+        }, actor);
+
+        var draft = await svc.GenerateDraftAsync(new GenerateScheduleDraftRequestDto
+        {
+            SiteCode = "000",
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            WeekStartDateLocal = weekStart
+        }, actor);
+
+        await svc.UpsertWorkCenterBreakdownConfigAsync(new UpsertWorkCenterBreakdownConfigRequestDto
+        {
+            SiteCode = "000",
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            WorkCenterId = TestHelpers.wcHydroId,
+            GroupingDimensions = ["TankSize", "TankType", "FinishedPartNumber"]
+        }, actor);
+
+        var breakdown = await svc.GetWorkCenterScheduleBreakdownAsync(new WorkCenterScheduleBreakdownRequestDto
+        {
+            ScheduleId = draft.Id,
+            WorkCenterId = TestHelpers.wcHydroId
+        });
+
+        Assert.Equal(["TankSize", "TankType", "FinishedPartNumber"], breakdown.GroupingDimensions);
+        Assert.Equal(2, breakdown.Rows.Count);
+        Assert.All(breakdown.Rows, row =>
+        {
+            Assert.Equal("120", row.DimensionValues["TankSize"]);
+            Assert.Equal("Sellable", row.DimensionValues["TankType"]);
+            Assert.Equal("120 AG", row.DimensionValues["FinishedPartNumber"]);
+        });
+    }
 }

@@ -9,6 +9,14 @@ namespace MESv2.Api.Services;
 public class HeijunkaSchedulingService : IHeijunkaSchedulingService
 {
     private readonly MesDbContext _db;
+    private static readonly HashSet<string> AllowedBreakdownDimensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TankSize",
+        "TankType",
+        "Color",
+        "FinishedPartNumber"
+    };
+    private const string Unspecified = "UNSPECIFIED";
 
     public HeijunkaSchedulingService(MesDbContext db)
     {
@@ -141,6 +149,206 @@ public class HeijunkaSchedulingService : IHeijunkaSchedulingService
         if (!string.IsNullOrWhiteSpace(siteCode))
             query = query.Where(x => x.SiteCode == siteCode || x.SiteCode == null);
         return await query.OrderBy(x => x.ErpSkuCode).Select(x => Map(x)).ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<WorkCenterBreakdownConfigDto>> GetWorkCenterBreakdownConfigsAsync(string siteCode, Guid productionLineId, CancellationToken ct = default)
+    {
+        return await _db.HeijunkaWorkCenterBreakdownConfigs
+            .Where(x => x.SiteCode == siteCode && x.ProductionLineId == productionLineId)
+            .Join(_db.WorkCenters, cfg => cfg.WorkCenterId, wc => wc.Id, (cfg, wc) => new { cfg, wc.Name })
+            .OrderBy(x => x.Name)
+            .Select(x => new WorkCenterBreakdownConfigDto
+            {
+                Id = x.cfg.Id,
+                SiteCode = x.cfg.SiteCode,
+                ProductionLineId = x.cfg.ProductionLineId,
+                WorkCenterId = x.cfg.WorkCenterId,
+                WorkCenterName = x.Name,
+                GroupingDimensions = ParseDimensions(x.cfg.GroupingDimensionsJson)
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<WorkCenterBreakdownConfigDto> UpsertWorkCenterBreakdownConfigAsync(UpsertWorkCenterBreakdownConfigRequestDto request, Guid actorUserId, CancellationToken ct = default)
+    {
+        var normalizedDimensions = NormalizeDimensions(request.GroupingDimensions);
+        var workCenter = await _db.WorkCenters.FirstOrDefaultAsync(x => x.Id == request.WorkCenterId, ct)
+            ?? throw new InvalidOperationException("Work center was not found.");
+
+        var existing = await _db.HeijunkaWorkCenterBreakdownConfigs.FirstOrDefaultAsync(x =>
+            x.SiteCode == request.SiteCode &&
+            x.ProductionLineId == request.ProductionLineId &&
+            x.WorkCenterId == request.WorkCenterId, ct);
+
+        if (existing == null)
+        {
+            existing = new HeijunkaWorkCenterBreakdownConfig
+            {
+                Id = Guid.NewGuid(),
+                SiteCode = request.SiteCode,
+                ProductionLineId = request.ProductionLineId,
+                WorkCenterId = request.WorkCenterId,
+                CreatedAtUtc = DateTime.UtcNow,
+                CreatedByUserId = actorUserId
+            };
+            _db.HeijunkaWorkCenterBreakdownConfigs.Add(existing);
+        }
+
+        existing.GroupingDimensionsJson = JsonSerializer.Serialize(normalizedDimensions);
+        existing.LastModifiedAtUtc = DateTime.UtcNow;
+        existing.LastModifiedByUserId = actorUserId;
+
+        await _db.SaveChangesAsync(ct);
+        return new WorkCenterBreakdownConfigDto
+        {
+            Id = existing.Id,
+            SiteCode = existing.SiteCode,
+            ProductionLineId = existing.ProductionLineId,
+            WorkCenterId = existing.WorkCenterId,
+            WorkCenterName = workCenter.Name,
+            GroupingDimensions = normalizedDimensions
+        };
+    }
+
+    public async Task<WorkCenterScheduleBreakdownDto> GetWorkCenterScheduleBreakdownAsync(WorkCenterScheduleBreakdownRequestDto request, CancellationToken ct = default)
+    {
+        var schedule = await _db.Schedules
+            .Include(x => x.Lines)
+            .FirstOrDefaultAsync(x => x.Id == request.ScheduleId, ct)
+            ?? throw new InvalidOperationException("Schedule was not found.");
+
+        var workCenter = await _db.WorkCenters.FirstOrDefaultAsync(x => x.Id == request.WorkCenterId, ct)
+            ?? throw new InvalidOperationException("Work center was not found.");
+
+        var config = await _db.HeijunkaWorkCenterBreakdownConfigs.FirstOrDefaultAsync(x =>
+            x.SiteCode == schedule.SiteCode &&
+            x.ProductionLineId == schedule.ProductionLineId &&
+            x.WorkCenterId == request.WorkCenterId, ct);
+
+        var groupingDimensions = config == null
+            ? []
+            : NormalizeDimensions(ParseDimensions(config.GroupingDimensionsJson));
+
+        var weekStart = schedule.WeekStartDateLocal.Date;
+        var weekEnd = weekStart.AddDays(6);
+        var lines = schedule.Lines
+            .Where(x => x.PlannedDateLocal.Date >= weekStart && x.PlannedDateLocal.Date <= weekEnd)
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            return new WorkCenterScheduleBreakdownDto
+            {
+                ScheduleId = schedule.Id,
+                SiteCode = schedule.SiteCode,
+                ProductionLineId = schedule.ProductionLineId,
+                WorkCenterId = request.WorkCenterId,
+                WorkCenterName = workCenter.Name,
+                WeekStartDateLocal = weekStart,
+                GroupingDimensions = groupingDimensions
+            };
+        }
+
+        var loadGroups = lines
+            .Select(x => x.LoadGroupId)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .Distinct()
+            .ToList();
+
+        var planningGroups = lines
+            .Select(x => x.MesPlanningGroupId)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .Distinct()
+            .ToList();
+
+        var snapshots = await _db.ErpDemandSnapshots
+            .Where(x => x.SiteCode == schedule.SiteCode &&
+                        x.DispatchDateLocal >= weekStart &&
+                        x.DispatchDateLocal <= weekEnd &&
+                        x.OrderStatus != "Cancelled" &&
+                        loadGroups.Contains(x.LoadGroupId) &&
+                        x.MesPlanningGroupId != null &&
+                        planningGroups.Contains(x.MesPlanningGroupId))
+            .ToListAsync(ct);
+
+        var skuCodes = snapshots
+            .Select(x => x.ErpSkuCode)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var products = await _db.Products
+            .Where(x =>
+                (x.SageItemNumber != null && skuCodes.Contains(x.SageItemNumber)) ||
+                skuCodes.Contains(x.ProductNumber))
+            .Select(x => new { x.SageItemNumber, x.ProductNumber, x.TankSize, x.TankType })
+            .ToListAsync(ct);
+
+        var productBySku = products
+            .GroupBy(x => !string.IsNullOrWhiteSpace(x.SageItemNumber) ? x.SageItemNumber! : x.ProductNumber, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        var contributions = new List<(DateTime PlannedDate, decimal PlannedQty, string TankSize, string TankType, string Color, string FinishedPartNumber)>();
+        foreach (var line in lines)
+        {
+            var lineSnapshots = snapshots
+                .Where(x => string.Equals(x.LoadGroupId, line.LoadGroupId, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(x.MesPlanningGroupId, line.MesPlanningGroupId, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (lineSnapshots.Count == 0)
+            {
+                contributions.Add((line.PlannedDateLocal.Date, line.PlannedQty, Unspecified, Unspecified, Unspecified, Unspecified));
+                continue;
+            }
+
+            var totalRequired = lineSnapshots.Sum(x => x.RequiredQty);
+            foreach (var snapshot in lineSnapshots)
+            {
+                var allocationWeight = totalRequired > 0m ? snapshot.RequiredQty / totalRequired : 1m / lineSnapshots.Count;
+                var allocatedQty = line.PlannedQty * allocationWeight;
+                var finishedPartNumber = string.IsNullOrWhiteSpace(snapshot.ErpSkuCode) ? Unspecified : snapshot.ErpSkuCode;
+                var tankSize = Unspecified;
+                var tankType = Unspecified;
+                if (!string.IsNullOrWhiteSpace(snapshot.ErpSkuCode) && productBySku.TryGetValue(snapshot.ErpSkuCode, out var product))
+                {
+                    tankSize = product.TankSize.ToString();
+                    tankType = string.IsNullOrWhiteSpace(product.TankType) ? Unspecified : product.TankType;
+                }
+
+                contributions.Add((line.PlannedDateLocal.Date, allocatedQty, tankSize, tankType, Unspecified, finishedPartNumber));
+            }
+        }
+
+        var rows = contributions
+            .GroupBy(x => new
+            {
+                x.PlannedDate,
+                DimensionKey = BuildDimensionKey(groupingDimensions, x.TankSize, x.TankType, x.Color, x.FinishedPartNumber)
+            })
+            .Select(group => new WorkCenterScheduleBreakdownRowDto
+            {
+                PlannedDateLocal = group.Key.PlannedDate,
+                PlannedQty = Math.Round(group.Sum(x => x.PlannedQty), 2),
+                DimensionValues = BuildDimensionValues(groupingDimensions, group.First().TankSize, group.First().TankType, group.First().Color, group.First().FinishedPartNumber)
+            })
+            .OrderBy(x => x.PlannedDateLocal)
+            .ThenBy(x => BuildDimensionSortKey(groupingDimensions, x.DimensionValues))
+            .ToList();
+
+        return new WorkCenterScheduleBreakdownDto
+        {
+            ScheduleId = schedule.Id,
+            SiteCode = schedule.SiteCode,
+            ProductionLineId = schedule.ProductionLineId,
+            WorkCenterId = request.WorkCenterId,
+            WorkCenterName = workCenter.Name,
+            WeekStartDateLocal = weekStart,
+            GroupingDimensions = groupingDimensions,
+            Rows = rows
+        };
     }
 
     public async Task<ScheduleDto> GenerateDraftAsync(GenerateScheduleDraftRequestDto request, Guid actorUserId, CancellationToken ct = default)
@@ -844,6 +1052,61 @@ public class HeijunkaSchedulingService : IHeijunkaSchedulingService
         }
 
         return response;
+    }
+
+    private static List<string> ParseDimensions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static List<string> NormalizeDimensions(IEnumerable<string>? dimensions)
+    {
+        if (dimensions == null) return [];
+        var normalized = new List<string>();
+        foreach (var dimension in dimensions)
+        {
+            if (string.IsNullOrWhiteSpace(dimension)) continue;
+            var canonical = AllowedBreakdownDimensions.FirstOrDefault(x => string.Equals(x, dimension.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (canonical == null)
+                throw new InvalidOperationException($"Unsupported grouping dimension: {dimension}");
+            if (!normalized.Contains(canonical, StringComparer.OrdinalIgnoreCase))
+                normalized.Add(canonical);
+        }
+        return normalized;
+    }
+
+    private static string BuildDimensionKey(IReadOnlyList<string> groupingDimensions, string tankSize, string tankType, string color, string finishedPartNumber)
+        => string.Join("|", groupingDimensions.Select(dim => GetDimensionValue(dim, tankSize, tankType, color, finishedPartNumber)));
+
+    private static Dictionary<string, string> BuildDimensionValues(IReadOnlyList<string> groupingDimensions, string tankSize, string tankType, string color, string finishedPartNumber)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dim in groupingDimensions)
+            values[dim] = GetDimensionValue(dim, tankSize, tankType, color, finishedPartNumber);
+        return values;
+    }
+
+    private static string BuildDimensionSortKey(IReadOnlyList<string> groupingDimensions, IReadOnlyDictionary<string, string> values)
+        => string.Join("|", groupingDimensions.Select(dim => values.TryGetValue(dim, out var val) ? val : Unspecified));
+
+    private static string GetDimensionValue(string dimension, string tankSize, string tankType, string color, string finishedPartNumber)
+    {
+        return dimension switch
+        {
+            "TankSize" => string.IsNullOrWhiteSpace(tankSize) ? Unspecified : tankSize,
+            "TankType" => string.IsNullOrWhiteSpace(tankType) ? Unspecified : tankType,
+            "Color" => string.IsNullOrWhiteSpace(color) ? Unspecified : color,
+            "FinishedPartNumber" => string.IsNullOrWhiteSpace(finishedPartNumber) ? Unspecified : finishedPartNumber,
+            _ => Unspecified
+        };
     }
 
     private async Task<ErpSkuPlanningGroupMapping?> ResolveMappingAsync(string erpSkuCode, string siteCode, CancellationToken ct)

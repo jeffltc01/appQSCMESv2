@@ -7,6 +7,9 @@ public interface IHeijunkaSchedulingService
     Task<IngestErpDemandResultDto> IngestErpDemandAsync(IngestErpDemandRequestDto request, Guid actorUserId, CancellationToken ct = default);
     Task<ErpSkuMappingDto> UpsertSkuMappingAsync(UpsertErpSkuMappingRequestDto request, Guid actorUserId, CancellationToken ct = default);
     Task<IReadOnlyList<ErpSkuMappingDto>> GetSkuMappingsAsync(string? siteCode, CancellationToken ct = default);
+    Task<IReadOnlyList<WorkCenterBreakdownConfigDto>> GetWorkCenterBreakdownConfigsAsync(string siteCode, Guid productionLineId, CancellationToken ct = default);
+    Task<WorkCenterBreakdownConfigDto> UpsertWorkCenterBreakdownConfigAsync(UpsertWorkCenterBreakdownConfigRequestDto request, Guid actorUserId, CancellationToken ct = default);
+    Task<WorkCenterScheduleBreakdownDto> GetWorkCenterScheduleBreakdownAsync(WorkCenterScheduleBreakdownRequestDto request, CancellationToken ct = default);
     Task<ScheduleDto> GenerateDraftAsync(GenerateScheduleDraftRequestDto request, Guid actorUserId, CancellationToken ct = default);
     Task<ScheduleDto?> GetScheduleAsync(Guid scheduleId, CancellationToken ct = default);
     Task<ScheduleDto?> PublishScheduleAsync(Guid scheduleId, Guid actorUserId, CancellationToken ct = default);

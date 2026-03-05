@@ -9,7 +9,7 @@ vi.mock('../../api/endpoints');
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext', () => ({ useAuth: () => mockUseAuth() }));
 
-const { heijunkaApi, productionLineApi, shiftScheduleApi } = await import('../../api/endpoints');
+const { heijunkaApi, productionLineApi, shiftScheduleApi, workCenterApi } = await import('../../api/endpoints');
 
 function renderScreen() {
   return render(
@@ -63,8 +63,20 @@ describe('HeijunkaPlannerScreen', () => {
     });
     vi.mocked(heijunkaApi.getDispatchWeekOrders).mockResolvedValue([]);
     vi.mocked(heijunkaApi.getSupermarketQuantities).mockResolvedValue([]);
+    vi.mocked(heijunkaApi.getWorkCenterBreakdownConfigs).mockResolvedValue([]);
+    vi.mocked(heijunkaApi.getWorkCenterBreakdown).mockResolvedValue({
+      scheduleId: 'sch-1',
+      siteCode: '000',
+      productionLineId: 'line-1',
+      workCenterId: 'wc-1',
+      workCenterName: 'Hydro',
+      weekStartDateLocal: '2026-03-09',
+      groupingDimensions: [],
+      rows: [],
+    });
     vi.mocked(heijunkaApi.getChangeHistory).mockResolvedValue([]);
     vi.mocked(shiftScheduleApi.getAll).mockResolvedValue([]);
+    vi.mocked(workCenterApi.getWorkCenters).mockResolvedValue([]);
     vi.mocked(heijunkaApi.moveLine).mockResolvedValue({
       id: 'sch-1',
       siteCode: '000',
@@ -113,7 +125,7 @@ describe('HeijunkaPlannerScreen', () => {
       expect(screen.getAllByText('PG-100').length).toBeGreaterThan(0);
       expect(screen.getByText('Draft')).toBeInTheDocument();
       expect(screen.getByText('Weekly Calendar')).toBeInTheDocument();
-      expect(screen.getByText((content) => content.includes('Seq 1') && content.includes('Qty 4'))).toBeInTheDocument();
+      expect(screen.getByText('Qty 4')).toBeInTheDocument();
     });
   });
 
@@ -215,7 +227,7 @@ describe('HeijunkaPlannerScreen', () => {
 
     const freezeButton = await screen.findByLabelText('Freeze override PG-A');
     await waitFor(() => expect(freezeButton).toBeEnabled());
-    await user.click(freezeButton);
+    fireEvent.click(freezeButton);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Apply Override' })).toBeInTheDocument();
@@ -280,6 +292,50 @@ describe('HeijunkaPlannerScreen', () => {
           changeReasonCode: 'CalendarDragDrop',
         }),
       );
+    });
+  });
+
+  it('groups calendar cards by plan group per day', async () => {
+    vi.mocked(heijunkaApi.generateDraft).mockResolvedValue({
+      id: 'sch-grouped',
+      siteCode: '000',
+      productionLineId: 'line-1',
+      weekStartDateLocal: '2026-03-09T00:00:00',
+      status: 'Draft',
+      freezeHours: 24,
+      revisionNumber: 1,
+      lines: [
+        {
+          id: 'line-a',
+          plannedDateLocal: '2026-03-10T00:00:00',
+          sequenceIndex: 1,
+          planningClass: 'Wheel',
+          plannedQty: 3,
+          loadGroupId: 'LOAD-A',
+          mesPlanningGroupId: 'PG-500',
+        },
+        {
+          id: 'line-b',
+          plannedDateLocal: '2026-03-10T00:00:00',
+          sequenceIndex: 2,
+          planningClass: 'Wheel',
+          plannedQty: 4,
+          loadGroupId: 'LOAD-B',
+          mesPlanningGroupId: 'PG-500',
+        },
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderScreen();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Generate Draft' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Generate Draft' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('calendar-item-line-a')).toBeInTheDocument();
+      expect(screen.queryByTestId('calendar-item-line-b')).not.toBeInTheDocument();
+      expect(screen.getByText('Qty 7')).toBeInTheDocument();
+      expect(screen.getByText((content) => content.includes('LOAD-A') && content.includes('LOAD-B'))).toBeInTheDocument();
     });
   });
 

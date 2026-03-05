@@ -6,6 +6,15 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { WorkflowDefinitionsScreen } from './WorkflowDefinitionsScreen.tsx';
 import { workflowApi } from '../../api/endpoints.ts';
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
 const mockUseAuth = vi.fn();
 vi.mock('../../auth/AuthContext.tsx', () => ({
   useAuth: () => mockUseAuth(),
@@ -65,9 +74,31 @@ const seededDefinition = {
   ],
 };
 
+const seededNcrDefinition = {
+  id: '22222222-2222-2222-2222-222222222222',
+  workflowType: 'Ncr',
+  version: 1,
+  isActive: true,
+  startStepCode: 'NcrOpen',
+  steps: [
+    {
+      id: 'n1',
+      stepCode: 'NcrOpen',
+      stepName: 'NCR Opened',
+      sequence: 1,
+      requiredFields: [],
+      requiredChecklistTemplateIds: [],
+      approvalMode: 'None' as const,
+      approvalAssignments: [],
+      allowReject: false,
+    },
+  ],
+};
+
 describe('WorkflowDefinitionsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNavigate.mockReset();
     mockUseAuth.mockReturnValue({
       user: {
         id: 'user-1',
@@ -78,7 +109,9 @@ describe('WorkflowDefinitionsScreen', () => {
       },
       logout: vi.fn(),
     });
-    vi.mocked(workflowApi.getDefinitions).mockResolvedValue([seededDefinition]);
+    vi.mocked(workflowApi.getDefinitions).mockImplementation(async (type?: string) => (
+      type === 'Ncr' ? [seededNcrDefinition] : [seededDefinition]
+    ));
     vi.mocked(workflowApi.upsertDefinition).mockResolvedValue(seededDefinition);
     vi.mocked(workflowApi.validateDefinition).mockResolvedValue({ isExecutable: true, errors: [] });
   });
@@ -87,6 +120,7 @@ describe('WorkflowDefinitionsScreen', () => {
     const user = userEvent.setup();
     renderScreen();
 
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
     await waitFor(() => expect(screen.getByText('HoldTag v3')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: 'Edit As New Version' }));
@@ -94,6 +128,8 @@ describe('WorkflowDefinitionsScreen', () => {
     const activeSwitch = screen.getByLabelText('Active') as HTMLInputElement;
     expect(activeSwitch.checked).toBe(true);
 
+    await user.click(screen.getByRole('button', { name: 'Select Workflow' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Clone As Draft' }));
     expect(activeSwitch.checked).toBe(false);
   });
@@ -117,4 +153,15 @@ describe('WorkflowDefinitionsScreen', () => {
     expect(payload.steps[1].stepCode).toBe('TagCreated');
     expect(payload.steps[1].sequence).toBe(2);
   });
+
+  it('close on picker exits workflow definitions screen', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Select Workflow Definition' })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/menu');
+  });
+
 });
