@@ -27,6 +27,11 @@ export function NameplateScreen(props: WorkCenterProps) {
   const [serialNumber, setSerialNumber] = useState('');
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
+  const isDryRunSuppressed = useCallback((message?: string | null): boolean => {
+    if (!message) return false;
+    return message.toLowerCase().includes('suppressed');
+  }, []);
+
   const getSerialPrefixValidationError = useCallback((value: string): string | null => {
     const normalizedPlantCode = plantCode?.trim();
     const normalizedSerial = value.trim().toUpperCase();
@@ -75,6 +80,11 @@ export function NameplateScreen(props: WorkCenterProps) {
         });
         if (result.printSucceeded) {
           showScanResult({ type: 'success', message: `Serial ${serialToSave} updated. Label reprinting.` });
+        } else if (isDryRunSuppressed(result.printMessage)) {
+          showScanResult({
+            type: 'warning',
+            message: `Serial ${serialToSave} updated. Live printing is disabled in this environment (dry-run mode).`,
+          });
         } else {
           showScanResult({ type: 'warning', message: `Serial updated but print failed: ${result.printMessage ?? 'Unknown error'}` });
         }
@@ -88,6 +98,11 @@ export function NameplateScreen(props: WorkCenterProps) {
         });
         if (result.printSucceeded) {
           showScanResult({ type: 'success', message: `Serial ${serialToSave} saved. Label printing.` });
+        } else if (isDryRunSuppressed(result.printMessage)) {
+          showScanResult({
+            type: 'warning',
+            message: `Serial ${serialToSave} saved. Live printing is disabled in this environment (dry-run mode).`,
+          });
         } else {
           showScanResult({ type: 'warning', message: `Serial saved but print failed: ${result.printMessage ?? 'Unknown error'}` });
         }
@@ -99,7 +114,7 @@ export function NameplateScreen(props: WorkCenterProps) {
     } catch (err: any) {
       showScanResult({ type: 'error', message: err?.message ?? (editingRecordId ? 'Failed to update nameplate record' : 'Failed to save nameplate record') });
     }
-  }, [selectedProductId, serialNumber, editingRecordId, getSerialPrefixValidationError, workCenterId, productionLineId, operatorId, showScanResult, refreshHistory, clearSelectedHistoryRecord]);
+  }, [selectedProductId, serialNumber, editingRecordId, getSerialPrefixValidationError, workCenterId, productionLineId, operatorId, showScanResult, refreshHistory, clearSelectedHistoryRecord, isDryRunSuppressed]);
 
   const handleSave = useCallback(async () => {
     await saveRecord();

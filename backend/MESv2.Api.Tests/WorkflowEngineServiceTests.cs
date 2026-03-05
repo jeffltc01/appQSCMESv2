@@ -201,4 +201,147 @@ public class WorkflowEngineServiceTests
         Assert.Equal("Done", final.CurrentStepCode);
         Assert.Equal("InProgress", final.Status);
     }
+
+    [Fact]
+    public async Task UpsertDefinition_WithSourceDefinition_CreatesNextVersionForSameWorkflowType()
+    {
+        using var db = TestHelpers.CreateInMemoryContext();
+        var svc = new WorkflowEngineService(db);
+
+        var baseDefinition = await svc.UpsertDefinitionAsync(new UpsertWorkflowDefinitionDto
+        {
+            WorkflowType = "CloneFlow",
+            IsActive = true,
+            StartStepCode = "Start",
+            Steps =
+            [
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "Start",
+                    StepName = "Start",
+                    Sequence = 1,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false
+                }
+            ]
+        }, TestHelpers.TestUserId);
+
+        var cloned = await svc.UpsertDefinitionAsync(new UpsertWorkflowDefinitionDto
+        {
+            SourceDefinitionIdForNewVersion = baseDefinition.Id,
+            WorkflowType = "IgnoredByServiceWhenSourcePresent",
+            IsActive = false,
+            StartStepCode = "Start",
+            Steps =
+            [
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "Start",
+                    StepName = "Start Updated",
+                    Sequence = 1,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false
+                }
+            ]
+        }, TestHelpers.TestUserId);
+
+        Assert.Equal("CloneFlow", cloned.WorkflowType);
+        Assert.Equal(2, cloned.Version);
+        Assert.False(cloned.IsActive);
+    }
+
+    [Fact]
+    public async Task UpsertDefinition_WhenNewVersionInactive_PreservesExistingActiveDefinition()
+    {
+        using var db = TestHelpers.CreateInMemoryContext();
+        var svc = new WorkflowEngineService(db);
+
+        var v1 = await svc.UpsertDefinitionAsync(new UpsertWorkflowDefinitionDto
+        {
+            WorkflowType = "ActivationFlow",
+            IsActive = true,
+            StartStepCode = "A",
+            Steps =
+            [
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "A",
+                    StepName = "A",
+                    Sequence = 1,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false
+                }
+            ]
+        }, TestHelpers.TestUserId);
+
+        var v2 = await svc.UpsertDefinitionAsync(new UpsertWorkflowDefinitionDto
+        {
+            WorkflowType = "ActivationFlow",
+            IsActive = false,
+            StartStepCode = "A",
+            Steps =
+            [
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "A",
+                    StepName = "A copy",
+                    Sequence = 1,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false
+                }
+            ]
+        }, TestHelpers.TestUserId);
+
+        var all = await svc.GetDefinitionsAsync("ActivationFlow");
+        var activeVersions = all.Where(x => x.IsActive).Select(x => x.Version).ToList();
+
+        Assert.Equal(1, v1.Version);
+        Assert.Equal(2, v2.Version);
+        Assert.Single(activeVersions);
+        Assert.Equal(1, activeVersions[0]);
+    }
+
+    [Fact]
+    public async Task GetDefinitions_OrdersStepsBySequence()
+    {
+        using var db = TestHelpers.CreateInMemoryContext();
+        var svc = new WorkflowEngineService(db);
+
+        await svc.UpsertDefinitionAsync(new UpsertWorkflowDefinitionDto
+        {
+            WorkflowType = "ReorderFlow",
+            IsActive = true,
+            StartStepCode = "S2",
+            Steps =
+            [
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "S2",
+                    StepName = "Second",
+                    Sequence = 2,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false
+                },
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "S1",
+                    StepName = "First",
+                    Sequence = 1,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false
+                }
+            ]
+        }, TestHelpers.TestUserId);
+
+        var definitions = await svc.GetDefinitionsAsync("ReorderFlow");
+        var stepCodes = definitions.Single().Steps.Select(x => x.StepCode).ToList();
+
+        Assert.Equal(["S1", "S2"], stepCodes);
+    }
 }

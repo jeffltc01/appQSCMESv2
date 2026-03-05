@@ -110,6 +110,15 @@ import type {
   NcrDecisionRequest,
   VoidNcrRequest,
   AddNcrAttachmentRequest,
+  IngestErpDemandRequest,
+  IngestErpDemandResult,
+  UpsertErpSkuMappingRequest,
+  GenerateHeijunkaDraftRequest,
+  FreezeOverrideRequest,
+  ResequenceScheduleLineRequest,
+  MoveScheduleLineRequest,
+  ResolveUnmappedDemandExceptionRequest,
+  FinalScanExecutionRequest,
 } from '../types/api.ts';
 import type {
   Plant,
@@ -153,6 +162,8 @@ import type {
   AdminAnnotationType,
   AdminAnnotation,
   AdminPlantPrinter,
+  NiceLabelDocument,
+  NiceLabelPrinter,
   SerialNumberLookup,
   SellableTankStatus,
   WhereUsedResult,
@@ -202,6 +213,15 @@ import type {
   HoldTag,
   NcrType,
   Ncr,
+  HeijunkaSchedule,
+  HeijunkaScheduleChangeLog,
+  ErpSkuPlanningGroupMapping,
+  UnmappedDemandException,
+  DispatchRiskSummary,
+  HeijunkaExecutionEvent,
+  HeijunkaPhase1Kpis,
+  DispatchWeekOrderCoverage,
+  SupermarketQuantityStatus,
 } from '../types/domain.ts';
 
 export const authApi = {
@@ -565,6 +585,8 @@ export const adminProductionLineApi = {
 
 export const adminPlantPrinterApi = {
   getAll: () => api.get<AdminPlantPrinter[]>('/plant-printers'),
+  getNiceLabelPrinters: () => api.get<NiceLabelPrinter[]>('/plant-printers/nicelabel-printers'),
+  getNiceLabelDocuments: () => api.get<NiceLabelDocument[]>('/plant-printers/nicelabel-documents'),
   create: (req: CreatePlantPrinterRequest) => api.post<AdminPlantPrinter>('/plant-printers', req),
   update: (id: string, req: UpdatePlantPrinterRequest) => api.put<AdminPlantPrinter>(`/plant-printers/${id}`, req),
   remove: (id: string) => api.delete<void>(`/plant-printers/${id}`),
@@ -947,4 +969,45 @@ export const ncrApi = {
     api.post<void>('/ncr/attachments', req),
   getEvents: (id: string) =>
     api.get<WorkflowEvent[]>(`/ncr/${id}/events`),
+};
+
+export const heijunkaApi = {
+  ingestErpDemand: (request: IngestErpDemandRequest) =>
+    api.post<IngestErpDemandResult>('/heijunka-scheduling/erp/ingest', request),
+  getMappings: (siteCode?: string) =>
+    api.get<ErpSkuPlanningGroupMapping[]>(`/heijunka-scheduling/mappings${siteCode ? `?siteCode=${encodeURIComponent(siteCode)}` : ''}`),
+  upsertMapping: (request: UpsertErpSkuMappingRequest) =>
+    api.post<ErpSkuPlanningGroupMapping>('/heijunka-scheduling/mappings', request),
+  generateDraft: (request: GenerateHeijunkaDraftRequest) =>
+    api.post<HeijunkaSchedule>('/heijunka-scheduling/drafts/generate', request),
+  getSchedule: (scheduleId: string) =>
+    api.get<HeijunkaSchedule>(`/heijunka-scheduling/${scheduleId}`),
+  publish: (scheduleId: string) =>
+    api.post<HeijunkaSchedule>(`/heijunka-scheduling/${scheduleId}/publish`, {}),
+  close: (scheduleId: string) =>
+    api.post<HeijunkaSchedule>(`/heijunka-scheduling/${scheduleId}/close`, {}),
+  reopen: (scheduleId: string) =>
+    api.post<HeijunkaSchedule>(`/heijunka-scheduling/${scheduleId}/reopen`, {}),
+  freezeOverride: (request: FreezeOverrideRequest) =>
+    api.post<HeijunkaSchedule>('/heijunka-scheduling/freeze-override', request),
+  resequence: (request: ResequenceScheduleLineRequest) =>
+    api.post<HeijunkaSchedule>('/heijunka-scheduling/resequence', request),
+  moveLine: (request: MoveScheduleLineRequest) =>
+    api.post<HeijunkaSchedule>('/heijunka-scheduling/calendar-move', request),
+  getChangeHistory: (scheduleId: string) =>
+    api.get<HeijunkaScheduleChangeLog[]>(`/heijunka-scheduling/${scheduleId}/change-history`),
+  getExceptions: (siteCode: string) =>
+    api.get<UnmappedDemandException[]>(`/heijunka-scheduling/exceptions?siteCode=${encodeURIComponent(siteCode)}`),
+  resolveException: (request: ResolveUnmappedDemandExceptionRequest) =>
+    api.post<UnmappedDemandException>('/heijunka-scheduling/exceptions/resolve', request),
+  getRiskSummary: (siteCode: string, productionLineId: string, weekStartDateLocal: string) =>
+    api.get<DispatchRiskSummary>(`/heijunka-scheduling/risk-summary?siteCode=${encodeURIComponent(siteCode)}&productionLineId=${encodeURIComponent(productionLineId)}&weekStartDateLocal=${encodeURIComponent(weekStartDateLocal)}`),
+  getDispatchWeekOrders: (siteCode: string, productionLineId: string, weekStartDateLocal: string, scheduleId: string) =>
+    api.get<DispatchWeekOrderCoverage[]>(`/heijunka-scheduling/dispatch-week-orders?siteCode=${encodeURIComponent(siteCode)}&productionLineId=${encodeURIComponent(productionLineId)}&weekStartDateLocal=${encodeURIComponent(weekStartDateLocal)}&scheduleId=${encodeURIComponent(scheduleId)}`),
+  getSupermarketQuantities: (siteCode: string, productionLineId: string, weekStartDateLocal: string) =>
+    api.get<SupermarketQuantityStatus[]>(`/heijunka-scheduling/supermarket-quantities?siteCode=${encodeURIComponent(siteCode)}&productionLineId=${encodeURIComponent(productionLineId)}&weekStartDateLocal=${encodeURIComponent(weekStartDateLocal)}`),
+  recordFinalScan: (request: FinalScanExecutionRequest) =>
+    api.post<HeijunkaExecutionEvent>('/heijunka-scheduling/execution/final-scan', request),
+  getPhase1Kpis: (siteCode: string, productionLineId: string, fromDateLocal: string, toDateLocal: string) =>
+    api.get<HeijunkaPhase1Kpis>(`/heijunka-scheduling/kpis?siteCode=${encodeURIComponent(siteCode)}&productionLineId=${encodeURIComponent(productionLineId)}&fromDateLocal=${encodeURIComponent(fromDateLocal)}&toDateLocal=${encodeURIComponent(toDateLocal)}`),
 };

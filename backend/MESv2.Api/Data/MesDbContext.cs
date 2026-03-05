@@ -78,6 +78,15 @@ public class MesDbContext : DbContext
     public DbSet<NcrType> NcrTypes => Set<NcrType>();
     public DbSet<NcrAttachment> NcrAttachments => Set<NcrAttachment>();
     public DbSet<SequenceCounter> SequenceCounters => Set<SequenceCounter>();
+    public DbSet<Schedule> Schedules => Set<Schedule>();
+    public DbSet<ScheduleLine> ScheduleLines => Set<ScheduleLine>();
+    public DbSet<ScheduleChangeLog> ScheduleChangeLogs => Set<ScheduleChangeLog>();
+    public DbSet<ErpSalesOrderDemandRaw> ErpSalesOrderDemandRows => Set<ErpSalesOrderDemandRaw>();
+    public DbSet<ErpDemandSnapshot> ErpDemandSnapshots => Set<ErpDemandSnapshot>();
+    public DbSet<ErpSkuPlanningGroupMapping> ErpSkuPlanningGroupMappings => Set<ErpSkuPlanningGroupMapping>();
+    public DbSet<UnmappedDemandException> UnmappedDemandExceptions => Set<UnmappedDemandException>();
+    public DbSet<ScheduleExecutionEvent> ScheduleExecutionEvents => Set<ScheduleExecutionEvent>();
+    public DbSet<SupermarketPositionSnapshot> SupermarketPositionSnapshots => Set<SupermarketPositionSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,5 +124,37 @@ public class MesDbContext : DbContext
         modelBuilder.Entity<SequenceCounter>()
             .HasIndex(x => x.Name)
             .IsUnique();
+        modelBuilder.Entity<Schedule>()
+            .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.WeekStartDateLocal, x.RevisionNumber })
+            .IsUnique();
+        modelBuilder.Entity<Schedule>()
+            .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.WeekStartDateLocal })
+            .HasFilter("[Status] = 'Published'")
+            .IsUnique();
+        modelBuilder.Entity<Schedule>()
+            .Property(x => x.RowVersion)
+            .IsRowVersion();
+        modelBuilder.Entity<ScheduleLine>()
+            .HasIndex(x => new { x.ScheduleId, x.PlannedDateLocal, x.SequenceIndex });
+        modelBuilder.Entity<ScheduleChangeLog>()
+            .HasIndex(x => new { x.ScheduleId, x.ChangedAtUtc });
+        modelBuilder.Entity<ErpSalesOrderDemandRaw>()
+            .HasIndex(x => new { x.ErpSalesOrderId, x.ErpSalesOrderLineId, x.SourceExtractedAtUtc })
+            .IsUnique();
+        modelBuilder.Entity<ErpDemandSnapshot>()
+            .HasIndex(x => new { x.ErpSalesOrderId, x.ErpSalesOrderLineId, x.CapturedAtUtc })
+            .IsUnique();
+        modelBuilder.Entity<ErpSkuPlanningGroupMapping>()
+            .HasIndex(x => new { x.ErpSkuCode, x.SiteCode, x.EffectiveFromUtc })
+            .IsUnique();
+        modelBuilder.Entity<UnmappedDemandException>()
+            .HasIndex(x => new { x.SiteCode, x.ExceptionStatus, x.DispatchDateLocal });
+        modelBuilder.Entity<ScheduleExecutionEvent>()
+            .HasIndex(x => x.IdempotencyKey)
+            .IsUnique();
+        modelBuilder.Entity<ScheduleExecutionEvent>()
+            .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.ExecutionDateLocal });
+        modelBuilder.Entity<SupermarketPositionSnapshot>()
+            .HasIndex(x => new { x.SiteCode, x.ProductionLineId, x.ProductId, x.CapturedAtUtc });
     }
 }

@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 using MESv2.Api.DTOs;
 using MESv2.Api.Models;
 using MESv2.Api.Services;
@@ -8,10 +10,27 @@ namespace MESv2.Api.Tests;
 
 public class NameplateServiceTests
 {
-    private static NameplateService CreateService(Data.MesDbContext db, Mock<INiceLabelService>? mockNiceLabel = null)
+    private static NameplateService CreateService(
+        Data.MesDbContext db,
+        Mock<INiceLabelService>? mockNiceLabel = null,
+        bool allowLivePrintInNonProd = false,
+        string environmentName = "Production")
     {
         var mock = mockNiceLabel ?? new Mock<INiceLabelService>();
-        return new NameplateService(db, NullLogger<NameplateService>.Instance, mock.Object);
+        var mockHostEnvironment = new Mock<IHostEnvironment>();
+        mockHostEnvironment.SetupGet(x => x.EnvironmentName).Returns(environmentName);
+
+        var options = Options.Create(new NiceLabelOptions
+        {
+            AllowLivePrintInNonProd = allowLivePrintInNonProd
+        });
+
+        return new NameplateService(
+            db,
+            NullLogger<NameplateService>.Instance,
+            mock.Object,
+            mockHostEnvironment.Object,
+            options);
     }
 
     [Fact]
@@ -114,6 +133,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             PlantId = TestHelpers.PlantPlt1Id,
             PrinterName = "NP-Printer-1",
+            DocumentPath = "/Solutions/MES/DataPlateFoilLabel.nlbl",
             PrintLocation = "Nameplate",
             Enabled = true
         });
@@ -122,7 +142,7 @@ public class NameplateServiceTests
         var mockNiceLabel = new Mock<INiceLabelService>();
         mockNiceLabel
             .Setup(x => x.PrintNameplateAsync(
-                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync((true, (string?)null));
 
@@ -139,7 +159,7 @@ public class NameplateServiceTests
         Assert.True(result.PrintSucceeded);
 
         mockNiceLabel.Verify(x => x.PrintNameplateAsync(
-            "NP-Printer-1", 1, It.IsAny<string>(),
+            "NP-Printer-1", "/Solutions/MES/DataPlateFoilLabel.nlbl", 1, It.IsAny<string>(),
             product.TankType, product.TankSize, "W00200001"), Times.Once);
 
         var printLog = db.PrintLogs.FirstOrDefault(pl => pl.PrinterName == "NP-Printer-1");
@@ -169,10 +189,87 @@ public class NameplateServiceTests
         Assert.Contains("No printer configured", result.PrintMessage);
 
         mockNiceLabel.Verify(x => x.PrintNameplateAsync(
-            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
             It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
 
         Assert.Empty(db.PrintLogs.ToList());
+    }
+
+    [Fact]
+    public async Task Create_NoDocumentConfigured_SkipsPrintAndReturnsFalse()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+
+        db.PlantPrinters.Add(new PlantPrinter
+        {
+            Id = Guid.NewGuid(),
+            PlantId = TestHelpers.PlantPlt1Id,
+            PrinterName = "NP-NoDoc",
+            PrintLocation = "Nameplate",
+            Enabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var mockNiceLabel = new Mock<INiceLabelService>();
+        var sut = CreateService(db, mockNiceLabel);
+
+        var result = await sut.CreateAsync(new CreateNameplateRecordDto
+        {
+            SerialNumber = "W00200009",
+            ProductId = product.Id,
+            WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId
+        });
+
+        Assert.False(result.PrintSucceeded);
+        Assert.Contains("No document configured", result.PrintMessage);
+
+        mockNiceLabel.Verify(x => x.PrintNameplateAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_NonProdLivePrintDisabled_SuppressesPrint()
+    {
+        await using var db = TestHelpers.CreateInMemoryContext();
+        var product = db.Products.First(p => p.ProductType!.SystemTypeName == "sellable" && p.TankSize == 120);
+
+        db.PlantPrinters.Add(new PlantPrinter
+        {
+            Id = Guid.NewGuid(),
+            PlantId = TestHelpers.PlantPlt1Id,
+            PrinterName = "NP-NonProd",
+            DocumentPath = "/Solutions/MES/DataPlateFoilLabel.nlbl",
+            PrintLocation = "Nameplate",
+            Enabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var mockNiceLabel = new Mock<INiceLabelService>();
+        var sut = CreateService(
+            db,
+            mockNiceLabel,
+            allowLivePrintInNonProd: false,
+            environmentName: Environments.Development);
+
+        var result = await sut.CreateAsync(new CreateNameplateRecordDto
+        {
+            SerialNumber = "W00200010",
+            ProductId = product.Id,
+            WorkCenterId = TestHelpers.wcNameplateId,
+            ProductionLineId = TestHelpers.ProductionLine1Plt1Id,
+            OperatorId = TestHelpers.TestUserId
+        });
+
+        Assert.False(result.PrintSucceeded);
+        Assert.Contains("suppressed", result.PrintMessage, StringComparison.OrdinalIgnoreCase);
+
+        mockNiceLabel.Verify(x => x.PrintNameplateAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -186,6 +283,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             PlantId = TestHelpers.PlantPlt1Id,
             PrinterName = "NP-Printer-Fail",
+            DocumentPath = "/Solutions/MES/DataPlateFoilLabel.nlbl",
             PrintLocation = "Nameplate",
             Enabled = true
         });
@@ -194,7 +292,7 @@ public class NameplateServiceTests
         var mockNiceLabel = new Mock<INiceLabelService>();
         mockNiceLabel
             .Setup(x => x.PrintNameplateAsync(
-                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync((false, (string?)"Printer offline"));
 
@@ -232,6 +330,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             PlantId = TestHelpers.PlantPlt1Id,
             PrinterName = "NP-Disabled",
+            DocumentPath = "/Solutions/MES/DataPlateFoilLabel.nlbl",
             PrintLocation = "Nameplate",
             Enabled = false
         });
@@ -251,7 +350,7 @@ public class NameplateServiceTests
 
         Assert.False(result.PrintSucceeded);
         mockNiceLabel.Verify(x => x.PrintNameplateAsync(
-            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
             It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -276,6 +375,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             PlantId = TestHelpers.PlantPlt1Id,
             PrinterName = "NP-Reprint",
+            DocumentPath = "/Solutions/MES/DataPlateFoilLabel.nlbl",
             PrintLocation = "Nameplate",
             Enabled = true
         });
@@ -284,7 +384,7 @@ public class NameplateServiceTests
         var mockNiceLabel = new Mock<INiceLabelService>();
         mockNiceLabel
             .Setup(x => x.PrintNameplateAsync(
-                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync((true, (string?)null));
 
@@ -295,7 +395,7 @@ public class NameplateServiceTests
         Assert.Equal("W00300001", result.SerialNumber);
 
         mockNiceLabel.Verify(x => x.PrintNameplateAsync(
-            "NP-Reprint", 1, It.IsAny<string>(),
+            "NP-Reprint", "/Solutions/MES/DataPlateFoilLabel.nlbl", 1, It.IsAny<string>(),
             product.TankType, product.TankSize, "W00300001"), Times.Once);
     }
 
@@ -331,6 +431,7 @@ public class NameplateServiceTests
             Id = Guid.NewGuid(),
             PlantId = TestHelpers.PlantPlt1Id,
             PrinterName = "NP-Update",
+            DocumentPath = "/Solutions/MES/DataPlateFoilLabel.nlbl",
             PrintLocation = "Nameplate",
             Enabled = true
         });
@@ -339,7 +440,7 @@ public class NameplateServiceTests
         var mockNiceLabel = new Mock<INiceLabelService>();
         mockNiceLabel
             .Setup(x => x.PrintNameplateAsync(
-                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
             .ReturnsAsync((true, (string?)null));
 
@@ -359,7 +460,7 @@ public class NameplateServiceTests
         Assert.Equal(product250.Id, serial.ProductId);
 
         mockNiceLabel.Verify(x => x.PrintNameplateAsync(
-            "NP-Update", 1, It.IsAny<string>(),
+            "NP-Update", "/Solutions/MES/DataPlateFoilLabel.nlbl", 1, It.IsAny<string>(),
             product250.TankType, product250.TankSize, "W00400001"), Times.Once);
     }
 

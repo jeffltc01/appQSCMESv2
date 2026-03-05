@@ -73,6 +73,7 @@ builder.Services.AddScoped<IWorkflowEngineService, WorkflowEngineService>();
 builder.Services.AddScoped<IHoldTagService, HoldTagService>();
 builder.Services.AddScoped<INcrService, NcrService>();
 builder.Services.AddScoped<ISerialProcessingGateService, SerialProcessingGateService>();
+builder.Services.AddScoped<IHeijunkaSchedulingService, HeijunkaSchedulingService>();
 builder.Services.Configure<DemoDataAdminOptions>(builder.Configuration.GetSection("DemoDataAdmin"));
 
 builder.Services.Configure<NaturalLanguageQueryOptions>(builder.Configuration.GetSection("NaturalLanguageQuery"));

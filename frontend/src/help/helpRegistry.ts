@@ -53,7 +53,7 @@ export const helpArticles: HelpArticle[] = [
   { slug: 'serial-lookup', title: 'Serial Number Lookup', category: 'admin', routeMatch: '/menu/serial-lookup' },
   { slug: 'sellable-tank-status', title: 'Sellable Tank Status', category: 'admin', routeMatch: '/menu/sellable-tank-status' },
   { slug: 'where-used', title: 'Where Used', category: 'admin', routeMatch: '/menu/where-used' },
-  { slug: 'plant-printers', title: 'Plant Printers', category: 'admin', routeMatch: '/menu/plant-printers' },
+  { slug: 'plant-printers', title: 'Print Routes', category: 'admin', routeMatch: '/menu/plant-printers' },
   { slug: 'issues', title: 'Issues', category: 'admin', routeMatch: '/menu/issues' },
   { slug: 'ai-review', title: 'AI Review', category: 'admin', routeMatch: '/menu/ai-review' },
   { slug: 'production-logs', title: 'Log Viewer', category: 'admin', routeMatch: '/menu/production-logs' },

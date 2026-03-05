@@ -1,0 +1,296 @@
+.builderShell {
+  display: grid;
+  gap: 12px;
+}
+
+.topToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #f7f9fc;
+  border: 1px solid #dfe2ed;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.topToolbarLeft {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.toolbarField {
+  min-width: 160px;
+  display: grid;
+  gap: 4px;
+}
+
+.topToolbarActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.builderGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(420px, 1fr) minmax(260px, 320px);
+  gap: 12px;
+  min-height: 620px;
+}
+
+.leftPanel,
+.rightPanel {
+  background: #fff;
+  border: 1px solid #dfe2ed;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.canvasPanel {
+  background: #fff;
+  border: 1px solid #dfe2ed;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 620px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+.statusBar {
+  border-top: 1px solid #dfe2ed;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #2f7d32;
+  background: #f7fff7;
+}
+
+.panelTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2b3b84;
+}
+
+.libraryTypes {
+  display: grid;
+  gap: 6px;
+}
+
+.libraryType {
+  border: 1px solid #dfe2ed;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 12px;
+  background: #f7f9fc;
+  cursor: grab;
+  user-select: none;
+}
+
+.stepList {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.stepListItem {
+  border: 1px solid #dfe2ed;
+  border-radius: 6px;
+  background: #fff;
+  padding: 7px 8px;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.stepListItemActive {
+  border-color: #2b3b84;
+  box-shadow: 0 0 0 1px #2b3b84 inset;
+}
+
+.stepListMeta {
+  color: #6c757d;
+  font-size: 11px;
+}
+
+.definitionCards {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.definitionCard {
+  border: 1px solid #dfe2ed;
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.definitionTitle {
+  font-weight: 700;
+}
+
+.definitionMeta {
+  font-size: 12px;
+  color: #495057;
+}
+
+.definitionActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.propertiesForm {
+  display: grid;
+  gap: 8px;
+}
+
+.sourceText {
+  font-size: 12px;
+  color: #495057;
+}
+
+.inlineActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.canvasNode {
+  width: 210px;
+  border: 1px solid #dfe2ed;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
+  padding: 10px;
+}
+
+.canvasNodeSelected {
+  border-color: #2b3b84;
+  box-shadow: 0 0 0 1px #2b3b84 inset;
+}
+
+.canvasNodeTerminal {
+  border-left: 4px solid #dc3545;
+  background: #fff1f3;
+}
+
+.canvasNodeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvasNodeTitle {
+  font-weight: 700;
+}
+
+.canvasNodeSub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #495057;
+}
+
+.canvasNodeMeta {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #6c757d;
+}
+
+.canvasDecisionWrap {
+  width: 210px;
+  height: 170px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasDecision {
+  width: 130px;
+  height: 130px;
+  border: 1px solid #dfe2ed;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
+  transform: rotate(45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasDecisionInner {
+  width: 140px;
+  transform: rotate(-45deg);
+  text-align: center;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.nodeBadge {
+  font-size: 10px;
+  font-weight: 700;
+  background: #2b3b84;
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+.nodeHandle {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
+  background: #2b3b84;
+}
+
+.nodeHandleReject {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
+  background: #dc3545;
+}
+
+.error {
+  color: #dc3545;
+  font-size: 13px;
+}
+
+.success {
+  color: #2f7d32;
+  font-size: 13px;
+}
+
+.errorList {
+  color: #dc3545;
+  font-size: 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.emptyState {
+  color: #6c757d;
+  font-style: italic;
+}
+
+@media (max-width: 1280px) {
+  .builderGrid {
+    grid-template-columns: 1fr;
+    min-height: unset;
+  }
+
+  .canvasPanel {
+    min-height: 500px;
+  }
+}

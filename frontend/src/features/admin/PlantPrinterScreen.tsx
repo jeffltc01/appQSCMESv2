@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Input, Label, Dropdown, Option, Spinner, Switch } from '@fluentui/react-components';
+import { Button, Label, Dropdown, Option, Spinner, Switch } from '@fluentui/react-components';
 import { EditRegular, DeleteRegular } from '@fluentui/react-icons';
 import { AdminLayout } from './AdminLayout.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog.tsx';
 import { adminPlantPrinterApi, siteApi } from '../../api/endpoints.ts';
 import { useAuth } from '../../auth/AuthContext.tsx';
-import type { AdminPlantPrinter, Plant } from '../../types/domain.ts';
+import type { AdminPlantPrinter, NiceLabelDocument, Plant } from '../../types/domain.ts';
 import styles from './CardList.module.css';
 
 const PRINT_LOCATIONS = ['Nameplate', 'Setdown', 'Rolls', 'Receiving'];
@@ -24,8 +24,13 @@ export function PlantPrinterScreen() {
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<AdminPlantPrinter | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [printerLoadError, setPrinterLoadError] = useState('');
+  const [availableDocuments, setAvailableDocuments] = useState<NiceLabelDocument[]>([]);
+  const [documentLoadError, setDocumentLoadError] = useState('');
 
   const [printerName, setPrinterName] = useState('');
+  const [documentPath, setDocumentPath] = useState('');
   const [plantId, setPlantId] = useState('');
   const [printLocation, setPrintLocation] = useState('');
   const [enabled, setEnabled] = useState(true);
@@ -33,12 +38,25 @@ export function PlantPrinterScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [printers, siteList] = await Promise.all([
-        adminPlantPrinterApi.getAll(), siteApi.getSites()
+      const [printers, siteList, niceLabelPrinters, niceLabelDocuments] = await Promise.all([
+        adminPlantPrinterApi.getAll(),
+        siteApi.getSites(),
+        adminPlantPrinterApi.getNiceLabelPrinters(),
+        adminPlantPrinterApi.getNiceLabelDocuments()
       ]);
       setItems(printers);
       setSites(siteList);
-    } catch { setError('Failed to load plant printers.'); }
+      setAvailablePrinters(niceLabelPrinters.map(p => p.printerName));
+      setAvailableDocuments(niceLabelDocuments);
+      setPrinterLoadError('');
+      setDocumentLoadError('');
+    } catch {
+      setError('Failed to load plant printers.');
+      setAvailablePrinters([]);
+      setAvailableDocuments([]);
+      setPrinterLoadError('Failed to load NiceLabel printers.');
+      setDocumentLoadError('Failed to load NiceLabel documents.');
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -46,13 +64,14 @@ export function PlantPrinterScreen() {
 
   const openAdd = () => {
     setEditing(null);
-    setPrinterName(''); setPlantId(''); setPrintLocation(''); setEnabled(true);
+    setPrinterName(''); setDocumentPath(''); setPlantId(''); setPrintLocation(''); setEnabled(true);
     setError(''); setModalOpen(true);
   };
 
   const openEdit = (item: AdminPlantPrinter) => {
     setEditing(item);
     setPrinterName(item.printerName);
+    setDocumentPath(item.documentPath);
     setPlantId(item.plantId);
     setPrintLocation(item.printLocation);
     setEnabled(item.enabled);
@@ -64,12 +83,12 @@ export function PlantPrinterScreen() {
     try {
       if (editing) {
         const updated = await adminPlantPrinterApi.update(editing.id, {
-          printerName, enabled, printLocation,
+          printerName, documentPath, enabled, printLocation,
         });
         setItems(prev => prev.map(p => p.id === updated.id ? updated : p));
       } else {
         const created = await adminPlantPrinterApi.create({
-          plantId, printerName, enabled, printLocation,
+          plantId, printerName, documentPath, enabled, printLocation,
         });
         setItems(prev => [...prev, created]);
       }
@@ -91,13 +110,23 @@ export function PlantPrinterScreen() {
     finally { setDeleting(false); }
   };
 
+  const printerOptions = availablePrinters.includes(printerName)
+    ? availablePrinters
+    : (printerName ? [...availablePrinters, printerName] : availablePrinters);
+  const documentOptions = availableDocuments.some(d => d.itemPath === documentPath)
+    ? availableDocuments
+    : (documentPath
+      ? [...availableDocuments, { name: documentPath, itemPath: documentPath }]
+      : availableDocuments);
+  const selectedDocument = documentOptions.find(d => d.itemPath === documentPath);
+
   return (
-    <AdminLayout title="Plant Printers" onAdd={isAdmin ? openAdd : undefined} addLabel="Add Printer">
+    <AdminLayout title="Print Routes" onAdd={isAdmin ? openAdd : undefined} addLabel="Add Print Route">
       {loading ? (
         <div className={styles.loadingState}><Spinner size="medium" label="Loading..." /></div>
       ) : (
         <div className={styles.grid}>
-          {items.length === 0 && <div className={styles.emptyState}>No plant printers found.</div>}
+          {items.length === 0 && <div className={styles.emptyState}>No print routes found.</div>}
           {items.map(item => (
             <div key={item.id} className={`${styles.card} ${!item.enabled ? styles.cardInactive : ''}`}>
               <div className={styles.cardHeader}>
@@ -117,6 +146,10 @@ export function PlantPrinterScreen() {
                 <span className={styles.cardFieldLabel}>Location</span>
                 <span className={styles.cardFieldValue}>{item.printLocation || '—'}</span>
               </div>
+              <div className={styles.cardField}>
+                <span className={styles.cardFieldLabel}>Document</span>
+                <span className={styles.cardFieldValue}>{item.documentPath || '—'}</span>
+              </div>
               <span className={`${styles.badge} ${item.enabled ? styles.badgeGreen : styles.badgeRed}`}>
                 {item.enabled ? 'Enabled' : 'Disabled'}
               </span>
@@ -127,13 +160,13 @@ export function PlantPrinterScreen() {
 
       <AdminModal
         open={modalOpen}
-        title={editing ? 'Edit Printer' : 'Add Printer'}
+        title={editing ? 'Edit Print Route' : 'Add Print Route'}
         onConfirm={handleSave}
         onCancel={() => setModalOpen(false)}
         confirmLabel={editing ? 'Save' : 'Add'}
         loading={saving}
         error={error}
-        confirmDisabled={!printerName || !plantId || !printLocation}
+        confirmDisabled={!printerName || !documentPath || !plantId || !printLocation}
       >
         <Label>Plant</Label>
         <Dropdown
@@ -145,7 +178,27 @@ export function PlantPrinterScreen() {
           {sites.map(s => <Option key={s.id} value={s.id} text={`${s.name} (${s.code})`}>{s.name} ({s.code})</Option>)}
         </Dropdown>
         <Label>Printer Name</Label>
-        <Input value={printerName} onChange={(_, d) => setPrinterName(d.value)} />
+        <Dropdown
+          value={printerName}
+          selectedOptions={printerName ? [printerName] : []}
+          onOptionSelect={(_, d) => { if (d.optionValue) setPrinterName(d.optionValue); }}
+        >
+          {printerOptions.map(name => <Option key={name} value={name} text={name}>{name}</Option>)}
+        </Dropdown>
+        {printerLoadError && <p style={{ margin: '6px 0 0', color: '#b10e1e' }}>{printerLoadError}</p>}
+        <Label>Label Document</Label>
+        <Dropdown
+          value={selectedDocument?.name ?? documentPath}
+          selectedOptions={documentPath ? [documentPath] : []}
+          onOptionSelect={(_, d) => { if (d.optionValue) setDocumentPath(d.optionValue); }}
+        >
+          {documentOptions.map(doc => (
+            <Option key={doc.itemPath} value={doc.itemPath} text={doc.name}>
+              {doc.name}
+            </Option>
+          ))}
+        </Dropdown>
+        {documentLoadError && <p style={{ margin: '6px 0 0', color: '#b10e1e' }}>{documentLoadError}</p>}
         <Label>Print Location</Label>
         <Dropdown
           value={printLocation}
@@ -167,8 +220,8 @@ export function PlantPrinterScreen() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
         loading={deleting}
-        title="Confirm Delete Printer"
-        confirmLabel="Delete Printer"
+        title="Confirm Delete Print Route"
+        confirmLabel="Delete Print Route"
         message={(
           <p style={{ margin: '0 0 8px' }}>
             Are you sure you want to delete <strong>{deleteTarget?.printerName ?? ''}</strong>?
@@ -176,7 +229,7 @@ export function PlantPrinterScreen() {
         )}
         details={(
           <p style={{ margin: 0, color: '#707070', fontSize: 13 }}>
-            This printer configuration will be permanently removed.
+            This print route configuration will be permanently removed.
           </p>
         )}
       />

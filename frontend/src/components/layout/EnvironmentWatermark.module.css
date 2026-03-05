@@ -1,0 +1,26 @@
+.watermark {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  z-index: 20;
+}
+
+.watermark span {
+  transform: rotate(-28deg);
+  font-family: 'Roboto', Helvetica, Arial, sans-serif;
+  font-size: clamp(7rem, 16vw, 14rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  user-select: none;
+}
+
+.dev span {
+  color: rgba(52, 58, 64, 0.035);
+}
+
+.test span {
+  color: rgba(23, 162, 184, 0.08);
+}

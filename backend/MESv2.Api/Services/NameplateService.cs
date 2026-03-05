@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
 using MESv2.Api.Models;
@@ -10,12 +12,21 @@ public class NameplateService : INameplateService
     private readonly MesDbContext _db;
     private readonly ILogger<NameplateService> _logger;
     private readonly INiceLabelService _niceLabelService;
+    private readonly IHostEnvironment _hostEnvironment;
+    private readonly NiceLabelOptions _niceLabelOptions;
 
-    public NameplateService(MesDbContext db, ILogger<NameplateService> logger, INiceLabelService niceLabelService)
+    public NameplateService(
+        MesDbContext db,
+        ILogger<NameplateService> logger,
+        INiceLabelService niceLabelService,
+        IHostEnvironment hostEnvironment,
+        IOptions<NiceLabelOptions> niceLabelOptions)
     {
         _db = db;
         _logger = logger;
         _niceLabelService = niceLabelService;
+        _hostEnvironment = hostEnvironment;
+        _niceLabelOptions = niceLabelOptions.Value;
     }
 
     public async Task<NameplateRecordResponseDto> CreateAsync(CreateNameplateRecordDto dto, CancellationToken cancellationToken = default)
@@ -189,6 +200,12 @@ public class NameplateService : INameplateService
             return (false, "No printer configured for this plant");
         }
 
+        if (string.IsNullOrWhiteSpace(printer.DocumentPath))
+        {
+            _logger.LogInformation("No Nameplate document configured for plant {PlantId}, skipping print", plantId);
+            return (false, "No document configured for this plant");
+        }
+
         var product = await _db.Products.FindAsync(new object[] { productId }, cancellationToken);
         if (product == null)
         {
@@ -203,8 +220,31 @@ public class NameplateService : INameplateService
         var localNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
         var printedOnText = localNow.ToString("MM/dd/yyyy h:mm tt");
 
+        if (!_hostEnvironment.IsProduction() && !_niceLabelOptions.AllowLivePrintInNonProd)
+        {
+            const string suppressionMessage = "Print suppressed in non-production environment by configuration.";
+            _logger.LogInformation(
+                "Suppressing Nameplate live print in environment {EnvironmentName} for serial {SerialNumberId}",
+                _hostEnvironment.EnvironmentName,
+                serialNumberId);
+
+            _db.PrintLogs.Add(new PrintLog
+            {
+                Id = Guid.NewGuid(),
+                SerialNumberId = serialNumberId,
+                PrinterName = printer.PrinterName,
+                RequestedAt = DateTime.UtcNow,
+                Succeeded = false,
+                ErrorMessage = suppressionMessage,
+                RequestedByUserId = operatorId
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+            return (false, suppressionMessage);
+        }
+
         var (success, errorMessage) = await _niceLabelService.PrintNameplateAsync(
             printer.PrinterName,
+            printer.DocumentPath,
             1,
             printedOnText,
             product.TankType,

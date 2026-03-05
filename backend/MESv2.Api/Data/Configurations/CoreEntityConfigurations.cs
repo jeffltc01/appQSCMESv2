@@ -154,7 +154,7 @@ public class PlantPrinterConfiguration : IEntityTypeConfiguration<PlantPrinter>
             .HasForeignKey(pp => pp.PlantId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(pp => new { pp.PlantId, pp.PrinterName })
+        builder.HasIndex(pp => new { pp.PlantId, pp.PrintLocation })
             .IsUnique();
     }
 }

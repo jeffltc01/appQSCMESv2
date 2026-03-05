@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[TEST] MES v2 - Environment Identity Mockup</title>
+  <style>
+    :root {
+      --qs-primary: #2b3b84;
+      --qs-secondary: #e41e2f;
+      --qs-danger: #dc3545;
+      --qs-info: #17a2b8;
+      --qs-light: #f8f9fa;
+      --qs-body: #212529;
+      --qs-gray: #6c757d;
+      --panel-shadow: 0 10px 24px rgba(0, 0, 0, 0.09);
+      --font: "Roboto", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--qs-body);
+      background: linear-gradient(120deg, #eef2fb 0%, #f7f9fc 55%, #eef2f7 100%);
+    }
+
+    .page {
+      padding: 20px 20px 28px;
+    }
+
+    .top-note {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      font-size: 14px;
+      color: #435269;
+    }
+
+    .legend {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chip {
+      border: 1px solid #d6dce8;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: #fff;
+    }
+
+    .chip.dev { border-left: 6px solid #6b7280; }
+    .chip.test { border-left: 6px solid var(--qs-info); }
+    .chip.prod { border-left: 6px solid var(--qs-danger); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .screen {
+      border: 1px solid #d9dfea;
+      background: #fff;
+      box-shadow: var(--panel-shadow);
+      overflow: hidden;
+      min-height: 720px;
+      position: relative;
+    }
+
+    .screen.nonprod::before {
+      content: attr(data-watermark);
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: rgba(43, 59, 132, 0.09);
+      font-size: 106px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      transform: rotate(-24deg);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .screen.nonprod {
+      background: linear-gradient(180deg, rgba(23, 162, 184, 0.06) 0%, #ffffff 40%);
+    }
+
+    .header {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      background: var(--qs-primary);
+      color: #fff;
+      padding: 12px;
+      border-bottom: 4px solid #222e67;
+    }
+
+    .brand {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .env-badge {
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #fff;
+      letter-spacing: 0.5px;
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .env-badge.dev { background: #68707d; }
+    .env-badge.test { background: #178ca2; }
+    .env-badge.prod { background: var(--qs-danger); }
+
+    .subhead {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e3e8f1;
+      background: #ffffff;
+      font-size: 13px;
+    }
+
+    .identity {
+      padding: 5px 8px;
+      border-left: 4px solid var(--qs-info);
+      background: #f4fbfd;
+      font-weight: 600;
+    }
+
+    .identity.prod {
+      border-left-color: var(--qs-danger);
+      background: #fff4f6;
+    }
+
+    .body {
+      position: relative;
+      z-index: 2;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid #dbe2ee;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: #25324a;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+
+    .btn {
+      border: 1px solid #b7c3da;
+      background: #fff;
+      color: #1f2d46;
+      padding: 9px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: default;
+    }
+
+    .btn.primary {
+      background: var(--qs-primary);
+      border-color: var(--qs-primary);
+      color: #fff;
+    }
+
+    .btn.danger {
+      background: #fff;
+      border-color: var(--qs-danger);
+      color: var(--qs-danger);
+    }
+
+    .guardrail {
+      margin-top: 8px;
+      border-top: 1px dashed #ccd7e6;
+      padding-top: 8px;
+      font-size: 12px;
+      color: #415067;
+      line-height: 1.45;
+    }
+
+    .toast {
+      margin-top: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      border-left: 5px solid #8b95aa;
+      background: #f5f7fb;
+      font-weight: 600;
+    }
+
+    .toast.test {
+      border-left-color: var(--qs-info);
+      background: #ecf9fc;
+    }
+
+    .toast.prod {
+      border-left-color: var(--qs-danger);
+      background: #fff1f3;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border: 1px solid #d7e1ee;
+      background: #f8fbff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .switch {
+      width: 48px;
+      height: 22px;
+      background: #b8c5dc;
+      position: relative;
+      border: 1px solid #9eacc7;
+    }
+
+    .switch.on {
+      background: #7cb7c6;
+      border-color: #5e98a7;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      top: 1px;
+      left: 1px;
+    }
+
+    .switch.on::after { left: 27px; }
+
+    .title-preview {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #596981;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    .icon-preview {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #596981;
+    }
+
+    .fav {
+      width: 16px;
+      height: 16px;
+      border: 1px solid #8fa3c5;
+      display: inline-block;
+      position: relative;
+      background: #f4f8ff;
+    }
+
+    .fav::after {
+      content: attr(data-env);
+      position: absolute;
+      inset: 0;
+      font-size: 8px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      color: #1c2b47;
+    }
+
+    .fav.prod {
+      background: #ffe6ea;
+      border-color: #d47481;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="top-note">
+      <strong>MES v2 Environment Identity Mockup</strong>
+      <div class="legend">
+        <span class="chip dev">DEV = Gray</span>
+        <span class="chip test">TEST = Blue</span>
+        <span class="chip prod">PROD = Red</span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="screen nonprod" data-watermark="DEV">
+        <header class="header">
+          <div class="brand">MES v2</div>
+          <div class="env-badge dev">DEV</div>
+        </header>
+        <div class="subhead">
+          <div class="identity">You are in DEV</div>
+          <small>Login + Menu Identity Block</small>
+        </div>
+        <main class="body">
+          <div class="card">
+            <h4>Risky Actions</h4>
+            <div class="controls">
+              <button class="btn primary">Print Label</button>
+              <button class="btn danger">Delete Batch</button>
+              <button class="btn">Approve</button>
+            </div>
+            <div class="guardrail">Environment cue near actions: <strong>DEV</strong> - non-production safeguards active.</div>
+            <div class="toast">DEV: print suppressed (dry-run)</div>
+          </div>
+          <div class="card">
+            <h4>Visual Safety</h4>
+            <div class="toggle">
+              <span>Non-prod tint/watermark</span>
+              <span class="switch on" aria-hidden="true"></span>
+            </div>
+            <div class="title-preview">Tab title preview: [DEV] MES v2</div>
+            <div class="icon-preview">
+              <span class="fav" data-env="D"></span>
+              <span>Non-prod favicon variant</span>
+            </div>
+          </div>
+        </main>
+      </section>
+
+      <section class="screen nonprod" data-watermark="TEST">
+        <header class="header">
+          <div class="brand">MES v2</div>
+          <div class="env-badge test">TEST</div>
+        </header>
+        <div class="subhead">
+          <div class="identity">You are in TEST</div>
+          <small>Always-visible header + menu context</small>
+        </div>
+        <main class="body">
+          <div class="card">
+            <h4>Risky Actions</h4>
+            <div class="controls">
+              <button class="btn primary">Print Label</button>
+              <button class="btn danger">Delete Batch</button>
+              <button class="btn">Approve</button>
+            </div>
+            <div class="guardrail">Action-level guardrails: show env status in button area and action confirmation copy.</div>
+            <div class="toast test">TEST: print suppressed (dry-run)</div>
+          </div>
+          <div class="card">
+            <h4>Visual Safety</h4>
+            <div class="toggle">
+              <span>Non-prod tint/watermark</span>
+              <span class="switch on" aria-hidden="true"></span>
+            </div>
+            <div class="title-preview">Browser tab text: [TEST] MES v2</div>
+            <div class="icon-preview">
+              <span class="fav" data-env="T"></span>
+              <span>Environment-specific favicon (non-prod)</span>
+            </div>
+          </div>
+        </main>
+      </section>
+
+      <section class="screen" data-watermark="">
+        <header class="header">
+          <div class="brand">MES v2</div>
+          <div class="env-badge prod">PROD</div>
+        </header>
+        <div class="subhead">
+          <div class="identity prod">You are in PROD</div>
+          <small>No non-prod watermark/tint</small>
+        </div>
+        <main class="body">
+          <div class="card">
+            <h4>Risky Actions</h4>
+            <div class="controls">
+              <button class="btn primary">Print Label</button>
+              <button class="btn danger">Delete Batch</button>
+              <button class="btn">Approve</button>
+            </div>
+            <div class="guardrail">Production mode messaging is explicit before irreversible actions.</div>
+            <div class="toast prod">PROD: live action</div>
+          </div>
+          <div class="card">
+            <h4>Visual Safety</h4>
+            <div class="toggle">
+              <span>Non-prod tint/watermark</span>
+              <span class="switch" aria-hidden="true"></span>
+            </div>
+            <div class="title-preview">Browser tab text: MES v2</div>
+            <div class="icon-preview">
+              <span class="fav prod" data-env="P"></span>
+              <span>Default production favicon</span>
+            </div>
+          </div>
+        </main>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

@@ -187,6 +187,35 @@ describe('NameplateScreen', () => {
     });
   });
 
+  it('shows dry-run message when print is suppressed in non-production', async () => {
+    mockGetProducts.mockResolvedValue([
+      { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },
+    ]);
+    mockCreate.mockResolvedValue({
+      id: 'sn-8', serialNumber: 'W00100008', productId: 'p1',
+      timestamp: new Date().toISOString(), printSucceeded: false,
+      printMessage: 'Print suppressed in non-production environment by configuration.',
+    });
+
+    const { props } = renderScreen();
+    const combobox = await waitFor(() => screen.getByRole('combobox'));
+    await act(async () => { combobox.click(); });
+    await act(async () => { screen.getByRole('option', { name: 'PLT-120AG' }).click(); });
+
+    const input = screen.getByPlaceholderText(/enter serial number/i);
+    await userEvent.type(input, 'W00100008');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(props.showScanResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          message: expect.stringContaining('dry-run mode'),
+        }),
+      );
+    });
+  });
+
   it('blocks save for Fremont when serial does not start with F', async () => {
     mockGetProducts.mockResolvedValue([
       { id: 'p1', productNumber: 'PLT-120AG', tankSize: 120, tankType: 'AG', nameplateNumber: null },

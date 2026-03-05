@@ -1,0 +1,216 @@
+.container {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.columns {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.leftColumn {
+  flex: 0 0 calc(67% - 6px);
+}
+
+.rightColumn {
+  flex: 0 0 calc(33% - 6px);
+}
+
+.leftColumn,
+.rightColumn {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #dfe2ed;
+  background: #f8f9fa;
+}
+
+.tabBar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+  color: #212529;
+}
+
+.analyticsColumn {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid #dfe2ed;
+  background: #ffffff;
+  padding: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #e5e5e5;
+  padding: 6px;
+  text-align: left;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.calendarToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.checkboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #212529;
+}
+
+.calendarDay {
+  border: 1px solid #dfe2ed;
+  background: #f8f9fa;
+  min-height: 140px;
+  padding: 8px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.calendarDayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  color: #2b3b84;
+  font-size: 12px;
+}
+
+.calendarItem {
+  border: 1px solid #dfe2ed;
+  background: #ffffff;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.calendarItemTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.calendarFreezeOverrideButton {
+  min-width: auto !important;
+  padding: 0 2px !important;
+}
+
+.calendarDragOverItem {
+  border-color: #2b3b84;
+  background: #dfe2ed;
+}
+
+.calendarEmpty {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.actionsCell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dragOverRow td {
+  background: #dfe2ed;
+}
+
+.error {
+  color: #dc3545;
+  font-weight: 500;
+}
+
+.readinessSummary {
+  margin-bottom: 8px;
+}
+
+.readinessColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.readinessList {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.readinessPass {
+  color: #28a745;
+}
+
+.readinessFail {
+  color: #dc3545;
+}
+
+.readinessWarn {
+  color: #aa121f;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.overrideForm {
+  display: grid;
+  gap: 10px;
+}
+
+.overrideForm label {
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 800px) {
+  .columns {
+    display: block;
+  }
+}

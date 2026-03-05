@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using MESv2.Api.DTOs;
 using MESv2.Api.Services;
@@ -22,6 +23,10 @@ public class WorkflowEngineController : ControllerBase
     [HttpPost("definitions")]
     public async Task<ActionResult<WorkflowDefinitionDto>> UpsertDefinition([FromBody] UpsertWorkflowDefinitionDto dto, CancellationToken ct)
     {
+        var roleGuard = EnsureWorkflowDefinitionManager();
+        if (roleGuard != null)
+            return roleGuard;
+
         var actor = GetActorUserId();
         return Ok(await _workflow.UpsertDefinitionAsync(dto, actor, ct));
     }
@@ -52,7 +57,13 @@ public class WorkflowEngineController : ControllerBase
 
     [HttpPost("notification-rules")]
     public async Task<ActionResult<NotificationRuleDto>> UpsertNotificationRule([FromBody] NotificationRuleDto dto, CancellationToken ct)
-        => Ok(await _workflow.UpsertNotificationRuleAsync(dto, ct));
+    {
+        var roleGuard = EnsureWorkflowDefinitionManager();
+        if (roleGuard != null)
+            return roleGuard;
+
+        return Ok(await _workflow.UpsertNotificationRuleAsync(dto, ct));
+    }
 
     [HttpPost("start")]
     public async Task<ActionResult<WorkflowInstanceDto>> Start([FromBody] StartWorkflowRequestDto dto, CancellationToken ct)
@@ -86,6 +97,18 @@ public class WorkflowEngineController : ControllerBase
     {
         if (Request.Headers.TryGetValue("X-User-Id", out var value) && Guid.TryParse(value, out var actor))
             return actor;
+        return null;
+    }
+
+    private ActionResult? EnsureWorkflowDefinitionManager()
+    {
+        if (!Request.Headers.TryGetValue("X-User-Role-Tier", out var headerValue) ||
+            !decimal.TryParse(headerValue.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var callerRoleTier))
+            return BadRequest(new { message = "Missing X-User-Role-Tier header." });
+        // Security tiers are inclusive upward authority (lower number = higher privilege):
+        // allow Administrator (1.0) and Directors (2.0).
+        if (callerRoleTier > 2m)
+            return Forbid();
         return null;
     }
 }

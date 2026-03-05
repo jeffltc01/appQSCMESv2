@@ -64,6 +64,7 @@ const mockPlants: Plant[] = [
 const mockPrinter: AdminPlantPrinter = {
   id: 'p1',
   printerName: 'Printer A',
+  documentPath: '/Solutions/MES/DataPlateFoilLabel.nlbl',
   plantId: 'site-1',
   plantName: 'Test Plant',
   plantCode: 'TST',
@@ -74,6 +75,7 @@ const mockPrinter: AdminPlantPrinter = {
 const disabledPrinter: AdminPlantPrinter = {
   id: 'p2',
   printerName: 'Printer B',
+  documentPath: '/Solutions/MES/ShippingLabel.nlbl',
   plantId: 'site-1',
   plantName: 'Test Plant',
   plantCode: 'TST',
@@ -107,6 +109,14 @@ describe('PlantPrinterScreen', () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue(authValue({ roleTier: 1 }));
     vi.mocked(siteApi.getSites).mockResolvedValue(mockPlants);
+    vi.mocked(adminPlantPrinterApi.getNiceLabelPrinters).mockResolvedValue([
+      { printerName: 'Printer A' },
+      { printerName: 'Printer B' },
+    ]);
+    vi.mocked(adminPlantPrinterApi.getNiceLabelDocuments).mockResolvedValue([
+      { name: 'DataPlateFoilLabel.nlbl', itemPath: '/Solutions/MES/DataPlateFoilLabel.nlbl' },
+      { name: 'ShippingLabel.nlbl', itemPath: '/Solutions/MES/ShippingLabel.nlbl' },
+    ]);
   });
 
   it('renders loading state', () => {
@@ -124,10 +134,11 @@ describe('PlantPrinterScreen', () => {
       expect(screen.getByText('Printer A')).toBeInTheDocument();
       expect(screen.getByText('Test Plant (TST)')).toBeInTheDocument();
       expect(screen.getByText('Nameplate')).toBeInTheDocument();
+      expect(screen.getByText('/Solutions/MES/DataPlateFoilLabel.nlbl')).toBeInTheDocument();
     });
   });
 
-  it('admin user sees Add Printer, Edit, Delete buttons', async () => {
+  it('admin user sees Add Print Route, Edit, Delete buttons', async () => {
     mockUseAuth.mockReturnValue(authValue({ roleTier: 1 }));
     vi.mocked(adminPlantPrinterApi.getAll).mockResolvedValue([mockPrinter]);
     renderScreen();
@@ -136,13 +147,13 @@ describe('PlantPrinterScreen', () => {
       expect(screen.getByText('Printer A')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Add Printer')).toBeInTheDocument();
+    expect(screen.getByText('Add Print Route')).toBeInTheDocument();
     const buttons = screen.getAllByRole('button');
     const editBtn = buttons.find(b => b.querySelector('svg'));
     expect(editBtn).toBeDefined();
   });
 
-  it('non-admin (roleTier 3) does NOT see Add Printer or Edit/Delete', async () => {
+  it('non-admin (roleTier 3) does NOT see Add Print Route or Edit/Delete', async () => {
     mockUseAuth.mockReturnValue(authValue({ roleTier: 3 }));
     vi.mocked(adminPlantPrinterApi.getAll).mockResolvedValue([mockPrinter]);
     renderScreen();
@@ -151,7 +162,7 @@ describe('PlantPrinterScreen', () => {
       expect(screen.getByText('Printer A')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Add Printer')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add Print Route')).not.toBeInTheDocument();
   });
 
   it('shows empty state when no printers', async () => {
@@ -159,7 +170,7 @@ describe('PlantPrinterScreen', () => {
     renderScreen();
 
     await waitFor(() => {
-      expect(screen.getByText('No plant printers found.')).toBeInTheDocument();
+      expect(screen.getByText('No print routes found.')).toBeInTheDocument();
     });
   });
 

@@ -548,6 +548,7 @@ public class AdminPlantPrinterDto
     public string PlantName { get; set; } = string.Empty;
     public string PlantCode { get; set; } = string.Empty;
     public string PrinterName { get; set; } = string.Empty;
+    public string DocumentPath { get; set; } = string.Empty;
     public bool Enabled { get; set; }
     public string PrintLocation { get; set; } = string.Empty;
 }
@@ -556,6 +557,7 @@ public class CreatePlantPrinterDto
 {
     public Guid PlantId { get; set; }
     public string PrinterName { get; set; } = string.Empty;
+    public string DocumentPath { get; set; } = string.Empty;
     public bool Enabled { get; set; } = true;
     public string PrintLocation { get; set; } = string.Empty;
 }
@@ -563,8 +565,20 @@ public class CreatePlantPrinterDto
 public class UpdatePlantPrinterDto
 {
     public string PrinterName { get; set; } = string.Empty;
+    public string DocumentPath { get; set; } = string.Empty;
     public bool Enabled { get; set; }
     public string PrintLocation { get; set; } = string.Empty;
+}
+
+public class NiceLabelPrinterDto
+{
+    public string PrinterName { get; set; } = string.Empty;
+}
+
+public class NiceLabelDocumentDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string ItemPath { get; set; } = string.Empty;
 }
 
 // ---- Annotations ----

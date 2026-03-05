@@ -47,6 +47,7 @@ const TestCoverageScreen = named(() => import('./TestCoverageScreen.tsx'), 'Test
 const DemoDataResetScreen = named(() => import('./DemoDataResetScreen.tsx'), 'DemoDataResetScreen');
 const WorkflowDefinitionsScreen = named(() => import('./WorkflowDefinitionsScreen.tsx'), 'WorkflowDefinitionsScreen');
 const NcrTypesMaintenanceScreen = named(() => import('./NcrTypesMaintenanceScreen.tsx'), 'NcrTypesMaintenanceScreen');
+const HeijunkaPlannerScreen = named(() => import('./HeijunkaPlannerScreen.tsx'), 'HeijunkaPlannerScreen');
 const HoldTagsScreen = named(() => import('../quality/HoldTagsScreen.tsx'), 'HoldTagsScreen');
 const NcrScreen = named(() => import('../quality/NcrScreen.tsx'), 'NcrScreen');
 
@@ -108,6 +109,7 @@ export function AdminRoutes() {
         <Route path="test-coverage" element={<TestCoverageScreen />} />
         <Route path="demo-data" element={<DemoDataResetScreen />} />
         <Route path="workflow-definitions" element={<WorkflowDefinitionsScreen />} />
+        <Route path="heijunka-planner" element={<HeijunkaPlannerScreen />} />
         <Route path="ncr-types" element={<NcrTypesMaintenanceScreen />} />
         <Route path="hold-tags" element={<HoldTagsScreen />} />
         <Route path="ncr" element={<NcrScreen />} />

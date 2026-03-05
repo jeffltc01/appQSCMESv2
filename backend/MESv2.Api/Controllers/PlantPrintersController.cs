@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MESv2.Api.Data;
 using MESv2.Api.DTOs;
 using MESv2.Api.Models;
+using MESv2.Api.Services;
 
 namespace MESv2.Api.Controllers;
 
@@ -11,10 +12,12 @@ namespace MESv2.Api.Controllers;
 public class PlantPrintersController : ControllerBase
 {
     private readonly MesDbContext _db;
+    private readonly INiceLabelService _niceLabelService;
 
-    public PlantPrintersController(MesDbContext db)
+    public PlantPrintersController(MesDbContext db, INiceLabelService niceLabelService)
     {
         _db = db;
+        _niceLabelService = niceLabelService;
     }
 
     [HttpGet]
@@ -31,11 +34,46 @@ public class PlantPrintersController : ControllerBase
                 PlantName = pp.Plant.Name,
                 PlantCode = pp.Plant.Code,
                 PrinterName = pp.PrinterName,
+                DocumentPath = pp.DocumentPath,
                 Enabled = pp.Enabled,
                 PrintLocation = pp.PrintLocation,
             })
             .ToListAsync(cancellationToken);
         return Ok(list);
+    }
+
+    [HttpGet("nicelabel-printers")]
+    public async Task<ActionResult<IEnumerable<NiceLabelPrinterDto>>> GetNiceLabelPrinters(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var (success, printers, errorMessage) = await _niceLabelService.GetPrintersAsync();
+        if (!success)
+            return StatusCode(502, new { message = $"Failed to fetch printers from NiceLabel. {errorMessage}" });
+
+        var dto = printers
+            .Select(p => new NiceLabelPrinterDto { PrinterName = p })
+            .ToList();
+        return Ok(dto);
+    }
+
+    [HttpGet("nicelabel-documents")]
+    public async Task<ActionResult<IEnumerable<NiceLabelDocumentDto>>> GetNiceLabelDocuments(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var (success, documents, errorMessage) = await _niceLabelService.GetDocumentsAsync();
+        if (!success)
+            return StatusCode(502, new { message = $"Failed to fetch documents from NiceLabel. {errorMessage}" });
+
+        var dto = documents
+            .Select(d => new NiceLabelDocumentDto
+            {
+                Name = d.Name,
+                ItemPath = d.ItemPath
+            })
+            .ToList();
+        return Ok(dto);
     }
 
     [HttpPost]
@@ -46,11 +84,18 @@ public class PlantPrintersController : ControllerBase
         var plant = await _db.Plants.FindAsync(new object[] { dto.PlantId }, cancellationToken);
         if (plant == null) return BadRequest(new { message = "Invalid plant." });
 
+        var locationConflict = await _db.PlantPrinters.AnyAsync(
+            pp => pp.PlantId == dto.PlantId && pp.PrintLocation == dto.PrintLocation,
+            cancellationToken);
+        if (locationConflict)
+            return Conflict(new { message = "A route already exists for this plant and print location." });
+
         var entity = new PlantPrinter
         {
             Id = Guid.NewGuid(),
             PlantId = dto.PlantId,
             PrinterName = dto.PrinterName,
+            DocumentPath = dto.DocumentPath,
             Enabled = dto.Enabled,
             PrintLocation = dto.PrintLocation,
         };
@@ -64,6 +109,7 @@ public class PlantPrintersController : ControllerBase
             PlantName = plant.Name,
             PlantCode = plant.Code,
             PrinterName = entity.PrinterName,
+            DocumentPath = entity.DocumentPath,
             Enabled = entity.Enabled,
             PrintLocation = entity.PrintLocation,
         });
@@ -79,7 +125,14 @@ public class PlantPrintersController : ControllerBase
             .FirstOrDefaultAsync(pp => pp.Id == id, cancellationToken);
         if (entity == null) return NotFound();
 
+        var locationConflict = await _db.PlantPrinters.AnyAsync(
+            pp => pp.Id != id && pp.PlantId == entity.PlantId && pp.PrintLocation == dto.PrintLocation,
+            cancellationToken);
+        if (locationConflict)
+            return Conflict(new { message = "A route already exists for this plant and print location." });
+
         entity.PrinterName = dto.PrinterName;
+        entity.DocumentPath = dto.DocumentPath;
         entity.Enabled = dto.Enabled;
         entity.PrintLocation = dto.PrintLocation;
 
@@ -92,6 +145,7 @@ public class PlantPrintersController : ControllerBase
             PlantName = entity.Plant.Name,
             PlantCode = entity.Plant.Code,
             PrinterName = entity.PrinterName,
+            DocumentPath = entity.DocumentPath,
             Enabled = entity.Enabled,
             PrintLocation = entity.PrintLocation,
         });

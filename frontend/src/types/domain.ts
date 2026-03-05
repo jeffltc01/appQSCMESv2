@@ -709,8 +709,18 @@ export interface AdminPlantPrinter {
   plantName: string;
   plantCode: string;
   printerName: string;
+  documentPath: string;
   enabled: boolean;
   printLocation: string;
+}
+
+export interface NiceLabelPrinter {
+  printerName: string;
+}
+
+export interface NiceLabelDocument {
+  name: string;
+  itemPath: string;
 }
 
 export interface AdminAnnotation {
@@ -1388,4 +1398,136 @@ export interface Ncr {
   workflowInstanceId: string;
   problemDescription: string;
   dateUtc: string;
+}
+
+// ---- Heijunka Scheduling ----
+export interface HeijunkaScheduleLine {
+  id: string;
+  plannedDateLocal: string;
+  sequenceIndex?: number;
+  productId?: string;
+  planningClass: string;
+  plannedQty: number;
+  loadGroupId?: string;
+  dispatchDateLocal?: string;
+  mesPlanningGroupId?: string;
+  planningResourceId?: string;
+  executionResourceId?: string;
+}
+
+export interface HeijunkaSchedule {
+  id: string;
+  siteCode: string;
+  productionLineId: string;
+  weekStartDateLocal: string;
+  status: 'Draft' | 'Published' | 'InExecution' | 'Closed';
+  publishedAtUtc?: string;
+  publishedByUserId?: string;
+  freezeHours: number;
+  revisionNumber: number;
+  lines: HeijunkaScheduleLine[];
+}
+
+export interface HeijunkaScheduleChangeLog {
+  id: string;
+  scheduleLineId?: string;
+  changedAtUtc: string;
+  changedByUserId: string;
+  changeReasonCode: string;
+  fieldName: string;
+  fromValue?: string;
+  toValue?: string;
+}
+
+export interface ErpSkuPlanningGroupMapping {
+  id: string;
+  erpSkuCode: string;
+  mesPlanningGroupId: string;
+  siteCode?: string;
+  effectiveFromUtc: string;
+  effectiveToUtc?: string;
+  isActive: boolean;
+  mappingOwnerUserId: string;
+  lastReviewedAtUtc?: string;
+  requiresReview: boolean;
+}
+
+export interface UnmappedDemandException {
+  id: string;
+  erpSkuCode: string;
+  siteCode: string;
+  loadGroupId: string;
+  dispatchDateLocal: string;
+  requiredQty: number;
+  detectedAtUtc: string;
+  exceptionStatus: 'Open' | 'Resolved' | 'Deferred';
+  resolutionNotes?: string;
+}
+
+export interface DispatchRiskSummary {
+  siteCode: string;
+  productionLineId: string;
+  weekStartDateLocal: string;
+  openUnmappedExceptions: number;
+  loadGroupsDue: number;
+  loadGroupsPlanned: number;
+  hasDispatchRisk: boolean;
+}
+
+export interface HeijunkaExecutionEvent {
+  id: string;
+  scheduleLineId?: string;
+  executionState: 'Completed' | 'Short' | 'Missed' | 'Moved';
+  actualQty: number;
+  executionDateLocal: string;
+  idempotencyKey: string;
+}
+
+export interface KpiMetric {
+  value?: number;
+  nullReasonCode?: string;
+}
+
+export interface HeijunkaPhase1Kpis {
+  siteCode: string;
+  productionLineId: string;
+  fromDateLocal: string;
+  toDateLocal: string;
+  isEligible: boolean;
+  eligibilityReason?: string;
+  scheduleAdherencePercent: KpiMetric;
+  planAttainmentPercent: KpiMetric;
+  loadReadinessPercent: KpiMetric;
+  supermarketStockoutDurationMinutes: KpiMetric;
+}
+
+export interface DispatchWeekOrderCoverage {
+  siteCode: string;
+  productionLineId: string;
+  weekStartDateLocal: string;
+  loadGroupId: string;
+  dispatchDateLocal: string;
+  erpSalesOrderId: string;
+  erpSalesOrderLineId: string;
+  erpSkuCode: string;
+  mesPlanningGroupId?: string;
+  requiredQty: number;
+  loadGroupRequiredQty: number;
+  loadGroupPlannedQty: number;
+  isMapped: boolean;
+  loadGroupCovered: boolean;
+}
+
+export interface SupermarketQuantityStatus {
+  siteCode: string;
+  productionLineId: string;
+  weekStartDateLocal: string;
+  productId?: string;
+  onHandQty: number;
+  inTransitQty: number;
+  demandQty: number;
+  netAvailableQty: number;
+  stockoutDurationMinutes: number;
+  hasOpenStockout: boolean;
+  lastCapturedAtUtc: string;
 }

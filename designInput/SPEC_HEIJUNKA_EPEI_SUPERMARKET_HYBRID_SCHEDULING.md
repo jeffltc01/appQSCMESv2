@@ -400,6 +400,31 @@ If not eligible, KPI returns null with an explicit data-quality reason.
 
 All KPI outputs must include `SiteCode`, `ProductionLineId`, period range, and data-quality status.
 
+### Phase 1 KPI Profile (Pilot Lite)
+
+To reduce startup complexity and focus adoption, Phase 1 should use a minimal operational KPI set.
+
+Required in Phase 1 pilot dashboards and weekly gates:
+
+1. `ScheduleAdherencePercent`
+2. `PlanAttainmentPercent`
+3. `LoadReadinessPercent`
+4. `SupermarketStockoutDurationMinutes`
+
+Phase 1 design intent:
+
+- Keep KPI set limited to metrics that directly trigger planner/supervisor weekly actions.
+- Prefer data that can be sourced from existing planning + final execution signals.
+- Do not block pilot adoption on advanced KPI pipelines that require additional lineage or telemetry not yet stabilized.
+
+Deferred to post-stabilization (recommended after 4 to 8 weeks of stable pilot operation):
+
+- `IntervalStabilityIndex`
+- `DOSBandCompliancePercent`
+- `OnTimeDispatchPercent` (enable when dispatch event timestamps are confirmed reliable)
+- `DemandMappingCoveragePercent` (track as data-quality companion metric during pilot)
+- `UnmappedDemandAgingHoursP95` (track as data-quality companion metric during pilot)
+
 ### KPI Definitions
 
 
@@ -500,7 +525,7 @@ This phase introduces a dedicated **Planner** function at each site.
 - Gate 1: schedule publish on time.
 - Gate 2: freeze-window compliance.
 - Gate 3: execution data completeness and timestamp integrity.
-- Gate 4: KPI stability and plausibility review.
+- Gate 4: KPI stability and plausibility review using the Phase 1 required KPI set.
 - Gate 5: corrective actions assigned for misses and repeated overrides.
 
 ### Expansion Criteria

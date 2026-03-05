@@ -6,6 +6,7 @@ import { isDirectorRole } from './auth/mobilePolicy.ts';
 import { LoginScreen } from './components/login/LoginScreen.tsx';
 import { TabletSetupScreen } from './components/tabletSetup/TabletSetupScreen.tsx';
 import { OperatorLayout } from './components/layout/OperatorLayout.tsx';
+import { EnvironmentWatermark } from './components/layout/EnvironmentWatermark.tsx';
 import { MenuScreen } from './features/menu/MenuScreen.tsx';
 import { AdminRoutes } from './features/admin/AdminRoutes.tsx';
 import { ProductionLogsScreen } from './features/admin/ProductionLogsScreen.tsx';
@@ -25,58 +26,64 @@ export function App() {
 
   if (!isAuthenticated) {
     return (
-      <Routes>
-        <Route path="*" element={<LoginScreen />} />
-      </Routes>
+      <>
+        <EnvironmentWatermark />
+        <Routes>
+          <Route path="*" element={<LoginScreen />} />
+        </Routes>
+      </>
     );
   }
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={kioskMode ? <Navigate to={kioskLandingPath} replace /> : <LoginScreen />}
-      />
-      <Route
-        path="/menu"
-        element={
-          kioskMode
-            ? <Navigate to={kioskLandingPath} replace />
-            : shouldUseMobileAdmin
-              ? <Navigate to="/mobile" replace />
-              : <MenuScreen />
-        }
-      />
-      <Route
-        path="/menu/*"
-        element={
-          kioskMode
-            ? <Navigate to={kioskLandingPath} replace />
-            : shouldUseMobileAdmin
-              ? <Navigate to="/mobile" replace />
-              : <AdminRoutes />
-        }
-      />
-      <Route
-        path="/tablet-setup"
-        element={kioskMode && cachedWcId ? <Navigate to="/operator" replace /> : <TabletSetupScreen />}
-      />
-      <Route
-        path="/operator/*"
-        element={isPhone && kioskMode ? <Navigate to="/mobile/operator-quick-actions" replace /> : <OperatorLayout />}
-      />
-      <Route
-        path="/operator/production-logs"
-        element={isPhone && kioskMode ? <Navigate to="/mobile/operator-quick-actions" replace /> : <ProductionLogsScreen />}
-      />
-      <Route path="/mobile/*" element={<MobileRoutes />} />
-      <Route
-        path="*"
-        element={
-          <DefaultRoute roleTier={roleTier} />
-        }
-      />
-    </Routes>
+    <>
+      <EnvironmentWatermark />
+      <Routes>
+        <Route
+          path="/login"
+          element={kioskMode ? <Navigate to={kioskLandingPath} replace /> : <LoginScreen />}
+        />
+        <Route
+          path="/menu"
+          element={
+            kioskMode
+              ? <Navigate to={kioskLandingPath} replace />
+              : shouldUseMobileAdmin
+                ? <Navigate to="/mobile" replace />
+                : <MenuScreen />
+          }
+        />
+        <Route
+          path="/menu/*"
+          element={
+            kioskMode
+              ? <Navigate to={kioskLandingPath} replace />
+              : shouldUseMobileAdmin
+                ? <Navigate to="/mobile" replace />
+                : <AdminRoutes />
+          }
+        />
+        <Route
+          path="/tablet-setup"
+          element={kioskMode && cachedWcId ? <Navigate to="/operator" replace /> : <TabletSetupScreen />}
+        />
+        <Route
+          path="/operator/*"
+          element={isPhone && kioskMode ? <Navigate to="/mobile/operator-quick-actions" replace /> : <OperatorLayout />}
+        />
+        <Route
+          path="/operator/production-logs"
+          element={isPhone && kioskMode ? <Navigate to="/mobile/operator-quick-actions" replace /> : <ProductionLogsScreen />}
+        />
+        <Route path="/mobile/*" element={<MobileRoutes />} />
+        <Route
+          path="*"
+          element={
+            <DefaultRoute roleTier={roleTier} />
+          }
+        />
+      </Routes>
+    </>
   );
 }
 

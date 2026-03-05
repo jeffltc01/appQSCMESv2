@@ -65,8 +65,16 @@ public class DowntimeEventsController : ControllerBase
 
     private Guid? GetUserId()
     {
+        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) &&
+            Guid.TryParse(userIdHeader, out var headerUserId))
+            return headerUserId;
+
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(claim, out var userId) ? userId : null;
+        if (Guid.TryParse(claim, out var userId))
+            return userId;
+
+        var subClaim = User.FindFirstValue("sub");
+        return Guid.TryParse(subClaim, out var subUserId) ? subUserId : null;
     }
 
     private bool IsTeamLeadOrAbove()

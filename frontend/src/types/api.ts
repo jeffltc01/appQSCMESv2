@@ -528,12 +528,14 @@ export interface UpdateAnnotationTypeRequest {
 export interface CreatePlantPrinterRequest {
   plantId: string;
   printerName: string;
+  documentPath: string;
   enabled: boolean;
   printLocation: string;
 }
 
 export interface UpdatePlantPrinterRequest {
   printerName: string;
+  documentPath: string;
   enabled: boolean;
   printLocation: string;
 }
@@ -1041,4 +1043,90 @@ export interface AddNcrAttachmentRequest {
   contentType: string;
   storagePath: string;
   uploadedByUserId: string;
+}
+
+// ---- Heijunka Scheduling ----
+export interface ErpDemandRawIngestRequest {
+  erpSalesOrderId: string;
+  erpSalesOrderLineId: string;
+  erpSkuCode: string;
+  siteCode: string;
+  erpLoadNumberRaw: string;
+  dispatchDateLocal: string;
+  requiredQty: number;
+  orderStatus: string;
+  sourceExtractedAtUtc: string;
+  erpLastChangedAtUtc?: string;
+  sourceBatchId?: string;
+}
+
+export interface IngestErpDemandRequest {
+  rows: ErpDemandRawIngestRequest[];
+}
+
+export interface IngestErpDemandResult {
+  rawRowsInserted: number;
+  snapshotsCreated: number;
+  unmappedExceptionsCreated: number;
+}
+
+export interface UpsertErpSkuMappingRequest {
+  erpSkuCode: string;
+  mesPlanningGroupId: string;
+  siteCode?: string;
+  effectiveFromUtc: string;
+  effectiveToUtc?: string;
+  isActive: boolean;
+  requiresReview: boolean;
+}
+
+export interface GenerateHeijunkaDraftRequest {
+  siteCode: string;
+  productionLineId: string;
+  weekStartDateLocal: string;
+  freezeHours: number;
+  planningResourceId: string;
+}
+
+export interface FreezeOverrideRequest {
+  scheduleId: string;
+  scheduleLineId: string;
+  newPlannedDateLocal: string;
+  newPlannedQty?: number;
+  changeReasonCode: string;
+}
+
+export interface ResequenceScheduleLineRequest {
+  scheduleId: string;
+  scheduleLineId: string;
+  newSequenceIndex: number;
+  changeReasonCode: string;
+}
+
+export interface MoveScheduleLineRequest {
+  scheduleId: string;
+  scheduleLineId: string;
+  newPlannedDateLocal: string;
+  newSequenceIndex?: number;
+  changeReasonCode: string;
+}
+
+export interface ResolveUnmappedDemandExceptionRequest {
+  exceptionId: string;
+  action: 'Resolve' | 'Defer';
+  resolutionNotes: string;
+}
+
+export interface FinalScanExecutionRequest {
+  siteCode: string;
+  productionLineId: string;
+  executionResourceId?: string;
+  productId?: string;
+  mesPlanningGroupId?: string;
+  executionDateLocal: string;
+  actualQty: number;
+  scheduleLineId?: string;
+  executionState: 'Completed' | 'Short' | 'Missed' | 'Moved';
+  shortfallReasonCode?: string;
+  idempotencyKey: string;
 }
