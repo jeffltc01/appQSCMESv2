@@ -18,18 +18,50 @@ function parseEnvironment(value: string): RuntimeEnvironment | null {
   return null;
 }
 
-export function resolveRuntimeEnvironment(rawAppEnv?: string, rawMode?: string): RuntimeEnvironment {
+function parseEnvironmentFromUrl(rawUrl?: string): RuntimeEnvironment | null {
+  const value = rawUrl?.trim();
+  if (!value) return null;
+
+  try {
+    const normalized = value.includes('://') ? value : `https://${value}`;
+    const host = new URL(normalized).hostname;
+    return parseEnvironment(normalizeValue(host));
+  } catch {
+    return parseEnvironment(normalizeValue(value));
+  }
+}
+
+export function resolveRuntimeEnvironment(
+  rawAppEnv?: string,
+  rawMode?: string,
+  rawApiUrl?: string,
+  rawHostName?: string,
+): RuntimeEnvironment {
   const appEnv = parseEnvironment(normalizeValue(rawAppEnv));
   if (appEnv) return appEnv;
 
+  const apiEnv = parseEnvironmentFromUrl(rawApiUrl);
+  if (apiEnv) return apiEnv;
+
+  const hostEnv = parseEnvironmentFromUrl(rawHostName);
+  if (hostEnv) return hostEnv;
+
+  // Production build mode is used for all hosted environments; do not
+  // infer PROD from mode alone or non-prod watermarks will disappear.
   const modeEnv = parseEnvironment(normalizeValue(rawMode));
-  if (modeEnv) return modeEnv;
+  if (modeEnv && modeEnv !== 'prod') return modeEnv;
 
   return 'dev';
 }
 
 export function getRuntimeEnvironment(): RuntimeEnvironment {
-  return resolveRuntimeEnvironment(import.meta.env.VITE_APP_ENV, import.meta.env.MODE);
+  const hostName = typeof window !== 'undefined' ? window.location.hostname : undefined;
+  return resolveRuntimeEnvironment(
+    import.meta.env.VITE_APP_ENV,
+    import.meta.env.MODE,
+    import.meta.env.VITE_API_URL,
+    hostName,
+  );
 }
 
 export function getEnvironmentWatermarkLabel(env: RuntimeEnvironment): 'DEV' | 'TEST' | null {
