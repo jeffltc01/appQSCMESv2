@@ -6,6 +6,19 @@ import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { WorkflowDefinitionsScreen } from './WorkflowDefinitionsScreen.tsx';
 import { workflowApi } from '../../api/endpoints.ts';
 
+vi.mock('@fluentui/react-components', async () => {
+  const actual = await vi.importActual<typeof import('@fluentui/react-components')>('@fluentui/react-components');
+  return {
+    ...actual,
+    Dialog: ({ open, children }: { open?: boolean; children: React.ReactNode }) => (open ? <div>{children}</div> : null),
+    DialogSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogActions: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  };
+});
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
