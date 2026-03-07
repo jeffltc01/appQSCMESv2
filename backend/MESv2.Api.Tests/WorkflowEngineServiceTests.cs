@@ -344,4 +344,97 @@ public class WorkflowEngineServiceTests
 
         Assert.Equal(["S1", "S2"], stepCodes);
     }
+
+    [Fact]
+    public async Task UpsertNotificationRule_PersistsTemplateContent()
+    {
+        using var db = TestHelpers.CreateInMemoryContext();
+        var svc = new WorkflowEngineService(db);
+
+        var created = await svc.UpsertNotificationRuleAsync(new NotificationRuleDto
+        {
+            WorkflowType = "HoldTag",
+            TriggerEvent = "Created",
+            TargetStepCodes = [],
+            RecipientMode = "Roles",
+            RecipientConfigJson = "[\"3\"]",
+            TemplateKey = "HoldTag.Created",
+            TemplateTitle = "Hold Tag Created",
+            TemplateBody = "Hold Tag {{holdTagNumber}} created at {{siteCode}}.",
+            ClearPolicy = "OnEntityComplete",
+            IsActive = true,
+        });
+
+        var saved = await svc.GetNotificationRulesAsync("HoldTag");
+        Assert.Contains(saved, x =>
+            x.Id == created.Id &&
+            x.TemplateTitle == "Hold Tag Created" &&
+            x.TemplateBody.Contains("{{holdTagNumber}}", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task UpsertNotificationRule_StepEntered_RequiresAndPersistsTargetStepCodes()
+    {
+        using var db = TestHelpers.CreateInMemoryContext();
+        var svc = new WorkflowEngineService(db);
+
+        await svc.UpsertDefinitionAsync(new UpsertWorkflowDefinitionDto
+        {
+            WorkflowType = "ScopedFlow",
+            IsActive = true,
+            StartStepCode = "Start",
+            Steps =
+            [
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "Start",
+                    StepName = "Start",
+                    Sequence = 1,
+                    ApprovalMode = "None",
+                    ApprovalAssignments = [],
+                    AllowReject = false,
+                    OnApproveNextStepCode = "Review"
+                },
+                new WorkflowStepDefinitionDto
+                {
+                    StepCode = "Review",
+                    StepName = "Review",
+                    Sequence = 2,
+                    ApprovalMode = "AnyOne",
+                    ApprovalAssignments = [$"user:{TestHelpers.TestUserId}"],
+                    AllowReject = true
+                }
+            ]
+        }, TestHelpers.TestUserId);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.UpsertNotificationRuleAsync(new NotificationRuleDto
+        {
+            WorkflowType = "ScopedFlow",
+            TriggerEvent = "StepEntered",
+            TargetStepCodes = [],
+            RecipientMode = "Roles",
+            RecipientConfigJson = "[\"3\"]",
+            TemplateKey = "ScopedFlow.StepEntered",
+            TemplateTitle = "Step Entered",
+            TemplateBody = "Workflow moved to a scoped step.",
+            ClearPolicy = "None",
+            IsActive = true,
+        }));
+
+        var created = await svc.UpsertNotificationRuleAsync(new NotificationRuleDto
+        {
+            WorkflowType = "ScopedFlow",
+            TriggerEvent = "StepEntered",
+            TargetStepCodes = ["Review"],
+            RecipientMode = "Roles",
+            RecipientConfigJson = "[\"3\"]",
+            TemplateKey = "ScopedFlow.StepEntered",
+            TemplateTitle = "Step Entered",
+            TemplateBody = "Workflow moved to review.",
+            ClearPolicy = "None",
+            IsActive = true,
+        });
+
+        Assert.Equal(["Review"], created.TargetStepCodes);
+    }
 }

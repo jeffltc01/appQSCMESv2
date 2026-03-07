@@ -12,6 +12,12 @@ namespace MESv2.Api.Services;
 public class WorkflowEngineService : IWorkflowEngineService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly HashSet<string> StepScopedNotificationEvents = new(StringComparer.Ordinal)
+    {
+        "StepEntered",
+        "SubmittedForApproval",
+        "Rejected",
+    };
     private readonly MesDbContext _db;
 
     public WorkflowEngineService(MesDbContext db)
@@ -108,9 +114,12 @@ public class WorkflowEngineService : IWorkflowEngineService
                 Id = x.Id,
                 WorkflowType = x.WorkflowType,
                 TriggerEvent = x.TriggerEvent,
+                TargetStepCodes = DeserializeList<string>(x.TargetStepCodesJson),
                 RecipientMode = x.RecipientMode,
                 RecipientConfigJson = x.RecipientConfigJson,
                 TemplateKey = x.TemplateKey,
+                TemplateTitle = x.TemplateTitle,
+                TemplateBody = x.TemplateBody,
                 ClearPolicy = x.ClearPolicy,
                 IsActive = x.IsActive
             }).ToListAsync(ct);
@@ -118,6 +127,19 @@ public class WorkflowEngineService : IWorkflowEngineService
 
     public async Task<NotificationRuleDto> UpsertNotificationRuleAsync(NotificationRuleDto dto, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(dto.WorkflowType))
+            throw new InvalidOperationException("WorkflowType is required for notification rule.");
+        if (string.IsNullOrWhiteSpace(dto.TriggerEvent))
+            throw new InvalidOperationException("TriggerEvent is required for notification rule.");
+        if (string.IsNullOrWhiteSpace(dto.RecipientMode))
+            throw new InvalidOperationException("RecipientMode is required for notification rule.");
+        if (string.IsNullOrWhiteSpace(dto.TemplateKey))
+            throw new InvalidOperationException("TemplateKey is required for notification rule.");
+        var normalizedTriggerEvent = dto.TriggerEvent.Trim();
+        var requestedTargetStepCodes = dto.TargetStepCodes ?? new List<string>();
+        if (StepScopedNotificationEvents.Contains(normalizedTriggerEvent) && requestedTargetStepCodes.Count == 0)
+            throw new InvalidOperationException($"TargetStepCodes is required when TriggerEvent is {normalizedTriggerEvent}.");
+
         NotificationRule entity;
         if (dto.Id == Guid.Empty)
         {
@@ -130,16 +152,45 @@ public class WorkflowEngineService : IWorkflowEngineService
                 ?? throw new InvalidOperationException("Notification rule not found.");
         }
 
-        entity.WorkflowType = dto.WorkflowType;
-        entity.TriggerEvent = dto.TriggerEvent;
-        entity.RecipientMode = dto.RecipientMode;
-        entity.RecipientConfigJson = dto.RecipientConfigJson;
-        entity.TemplateKey = dto.TemplateKey;
-        entity.ClearPolicy = dto.ClearPolicy;
+        var normalizedTargetStepCodes = requestedTargetStepCodes
+            .Select(code => code.Trim())
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (normalizedTargetStepCodes.Count > 0)
+        {
+            var latestDefinition = await _db.WorkflowDefinitions
+                .Include(definition => definition.Steps)
+                .Where(definition => definition.WorkflowType == dto.WorkflowType.Trim())
+                .OrderByDescending(definition => definition.Version)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new InvalidOperationException("Cannot validate TargetStepCodes because no workflow definition was found.");
+
+            var knownStepCodes = latestDefinition.Steps
+                .Select(step => step.StepCode)
+                .ToHashSet(StringComparer.Ordinal);
+            var unknownCodes = normalizedTargetStepCodes
+                .Where(code => !knownStepCodes.Contains(code))
+                .ToList();
+            if (unknownCodes.Count > 0)
+                throw new InvalidOperationException($"Unknown TargetStepCodes: {string.Join(", ", unknownCodes)}");
+        }
+
+        entity.WorkflowType = dto.WorkflowType.Trim();
+        entity.TriggerEvent = normalizedTriggerEvent;
+        entity.TargetStepCodesJson = JsonSerializer.Serialize(normalizedTargetStepCodes, JsonOptions);
+        entity.RecipientMode = dto.RecipientMode.Trim();
+        entity.RecipientConfigJson = string.IsNullOrWhiteSpace(dto.RecipientConfigJson) ? "[]" : dto.RecipientConfigJson;
+        entity.TemplateKey = dto.TemplateKey.Trim();
+        entity.TemplateTitle = dto.TemplateTitle?.Trim() ?? string.Empty;
+        entity.TemplateBody = dto.TemplateBody?.Trim() ?? string.Empty;
+        entity.ClearPolicy = string.IsNullOrWhiteSpace(dto.ClearPolicy) ? "None" : dto.ClearPolicy.Trim();
         entity.IsActive = dto.IsActive;
         await _db.SaveChangesAsync(ct);
 
         dto.Id = entity.Id;
+        dto.TargetStepCodes = normalizedTargetStepCodes;
         return dto;
     }
 

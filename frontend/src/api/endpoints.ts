@@ -94,6 +94,7 @@ import type {
   GetChecklistReviewSummaryRequest,
   GetChecklistQuestionResponsesRequest,
   UpsertWorkflowDefinitionRequest,
+  NotificationRuleRequest,
   StartWorkflowRequest,
   AdvanceStepRequest,
   ApproveRejectRequest,
@@ -905,8 +906,11 @@ export const workflowApi = {
     api.post<{ isExecutable: boolean; errors: string[] }>('/workflows/definitions/validate', req),
   getNotificationRules: (workflowType?: string) =>
     api.get<NotificationRule[]>(`/workflows/notification-rules${workflowType ? `?workflowType=${encodeURIComponent(workflowType)}` : ''}`),
-  upsertNotificationRule: (req: NotificationRule) =>
-    api.post<NotificationRule>('/workflows/notification-rules', req),
+  upsertNotificationRule: (req: NotificationRuleRequest) =>
+    api.post<NotificationRule>('/workflows/notification-rules', {
+      ...req,
+      id: req.id ?? '00000000-0000-0000-0000-000000000000',
+    }),
   start: (req: StartWorkflowRequest) =>
     api.post<WorkflowInstance>('/workflows/start', req),
   advance: (req: AdvanceStepRequest) =>

@@ -1352,9 +1352,12 @@ export interface NotificationRule {
   id: string;
   workflowType: string;
   triggerEvent: string;
+  targetStepCodes: string[];
   recipientMode: string;
   recipientConfigJson: string;
   templateKey: string;
+  templateTitle: string;
+  templateBody: string;
   clearPolicy: string;
   isActive: boolean;
 }

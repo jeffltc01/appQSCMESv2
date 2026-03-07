@@ -164,6 +164,26 @@
   flex-wrap: wrap;
 }
 
+.panelDivider {
+  border-top: 1px solid #dfe2ed;
+  margin: 6px 0;
+}
+
+.resolverEditor {
+  display: grid;
+  gap: 8px;
+}
+
+.helperList {
+  display: grid;
+  gap: 4px;
+}
+
+.helperItem {
+  font-size: 12px;
+  color: #495057;
+}
+
 .canvasNode {
   width: 210px;
   border: 1px solid #dfe2ed;
@@ -181,6 +201,33 @@
 .canvasNodeTerminal {
   border-left: 4px solid #dc3545;
   background: #fff1f3;
+}
+
+.canvasNodeStart {
+  border-left: 4px solid #28a745;
+  background: #eefbf1;
+}
+
+.canvasDecisionStart {
+  border-color: #28a745;
+  background: #eefbf1;
+}
+
+.canvasNotificationNode {
+  width: 220px;
+  border: 1px solid #17a2b8;
+  border-left: 4px solid #17a2b8;
+  border-radius: 10px;
+  background: #eefbfe;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
+  padding: 10px;
+}
+
+.nodeHandleNotification {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
+  background: #17a2b8;
 }
 
 .canvasNodeHeader {

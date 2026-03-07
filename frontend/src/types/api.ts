@@ -937,6 +937,20 @@ export interface CompleteWorkItemRequest {
   idempotencyKey?: string;
 }
 
+export interface NotificationRuleRequest {
+  id?: string;
+  workflowType: string;
+  triggerEvent: string;
+  targetStepCodes: string[];
+  recipientMode: 'Users' | 'Roles' | 'Resolvers';
+  recipientConfigJson: string;
+  templateKey: string;
+  templateTitle: string;
+  templateBody: string;
+  clearPolicy: 'None' | 'OnEntityComplete' | 'OnStepExit' | 'Manual';
+  isActive: boolean;
+}
+
 export interface CreateHoldTagRequest {
   siteCode: string;
   productionLineId?: string;

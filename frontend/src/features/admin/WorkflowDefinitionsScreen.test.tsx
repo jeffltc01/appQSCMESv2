@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { WorkflowDefinitionsScreen } from './WorkflowDefinitionsScreen.tsx';
-import { workflowApi } from '../../api/endpoints.ts';
+import { adminUserApi, workflowApi } from '../../api/endpoints.ts';
 
 vi.mock('@fluentui/react-components', async () => {
   const actual = await vi.importActual<typeof import('@fluentui/react-components')>('@fluentui/react-components');
@@ -36,8 +36,14 @@ vi.mock('../../auth/AuthContext.tsx', () => ({
 vi.mock('../../api/endpoints.ts', () => ({
   workflowApi: {
     getDefinitions: vi.fn(),
+    getNotificationRules: vi.fn(),
     upsertDefinition: vi.fn(),
+    upsertNotificationRule: vi.fn(),
     validateDefinition: vi.fn(),
+  },
+  adminUserApi: {
+    getAll: vi.fn(),
+    getRoles: vi.fn(),
   },
   nlqApi: {
     ask: vi.fn(),
@@ -149,7 +155,58 @@ describe('WorkflowDefinitionsScreen', () => {
     vi.mocked(workflowApi.getDefinitions).mockImplementation(async (type?: string) => (
       type === 'Ncr' ? [seededNcrDefinition] : [seededDefinition]
     ));
+    vi.mocked(workflowApi.getNotificationRules).mockResolvedValue([
+      {
+        id: '93000000-0000-0000-0000-000000000001',
+        workflowType: 'HoldTag',
+        triggerEvent: 'Created',
+        targetStepCodes: [],
+        recipientMode: 'Roles',
+        recipientConfigJson: '["3","5"]',
+        templateKey: 'HoldTag.Created',
+        templateTitle: 'New Hold Tag Created',
+        templateBody: 'Hold Tag {{holdTagNumber}} requires review.',
+        clearPolicy: 'OnEntityComplete',
+        isActive: true,
+      },
+    ]);
     vi.mocked(workflowApi.upsertDefinition).mockResolvedValue(seededDefinition);
+    vi.mocked(workflowApi.upsertNotificationRule).mockResolvedValue({
+      id: '93000000-0000-0000-0000-000000000001',
+      workflowType: 'HoldTag',
+      triggerEvent: 'Created',
+      targetStepCodes: [],
+      recipientMode: 'Roles',
+      recipientConfigJson: '["3","5"]',
+      templateKey: 'HoldTag.Created',
+      templateTitle: 'New Hold Tag Created',
+      templateBody: 'Hold Tag {{holdTagNumber}} requires review.',
+      clearPolicy: 'OnEntityComplete',
+      isActive: true,
+    });
+    vi.mocked(adminUserApi.getAll).mockResolvedValue([
+      {
+        id: '77777777-7777-7777-7777-777777777702',
+        employeeNumber: 'EMP101',
+        firstName: 'Quinn',
+        lastName: 'Quality',
+        displayName: 'Quinn Quality',
+        roleTier: 3,
+        roleName: 'Quality Manager',
+        defaultSiteId: '11111111-1111-1111-1111-111111111111',
+        defaultSiteName: 'Plant 1',
+        isCertifiedWelder: false,
+        requirePinForLogin: false,
+        hasPin: false,
+        userType: 0,
+        isActive: true,
+      },
+    ]);
+    vi.mocked(adminUserApi.getRoles).mockResolvedValue([
+      { tier: 2, name: 'Quality Director' },
+      { tier: 3, name: 'Quality Manager' },
+      { tier: 5, name: 'Team Lead' },
+    ]);
     vi.mocked(workflowApi.validateDefinition).mockResolvedValue({ isExecutable: true, errors: [] });
   });
 
